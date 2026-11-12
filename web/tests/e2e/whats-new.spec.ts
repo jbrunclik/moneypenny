@@ -34,6 +34,12 @@ for (const viewport of [
       if (viewport.name === 'desktop') {
         await page.locator('#new-chat-btn').click();
         await expect(page.locator('.input-area')).toBeVisible();
+        // ...at its full height: sized while still hidden it measured 0 and
+        // stayed a sliver that scrolls its own placeholder (Nov 2026)
+        const fits = await page
+          .locator('#message-input')
+          .evaluate((el: HTMLTextAreaElement) => el.scrollHeight <= el.clientHeight);
+        expect(fits).toBe(true);
       }
     });
   });

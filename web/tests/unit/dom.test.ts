@@ -185,6 +185,18 @@ describe('autoResizeTextarea', () => {
 
     document.body.removeChild(textarea);
   });
+
+  it('leaves a hidden textarea at its rows instead of a 0px sliver', () => {
+    // Hidden (display: none) it measures 0; a stale height of 0 stayed
+    // when the input area was shown again
+    const textarea = document.createElement('textarea');
+    textarea.style.height = '80px';
+    Object.defineProperty(textarea, 'scrollHeight', { value: 0 });
+
+    autoResizeTextarea(textarea);
+
+    expect(textarea.style.height).toBe('');
+  });
 });
 
 describe('scrollToBottom', () => {

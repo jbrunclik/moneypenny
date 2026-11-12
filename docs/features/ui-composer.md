@@ -21,6 +21,14 @@ The input area has a toolbar row above the textarea with controls:
 - **Attach**: File upload (see [File Handling](file-handling.md))
 - **Anonymous**: Anonymous mode toggle (see [Anonymous Mode](memory-and-context.md#anonymous-mode))
 
+**Auto-height:** `autoResizeTextarea` (`utils/dom.ts`) sizes the textarea to
+its content (`max-height` 200px in `input.css`). It runs on drafts restored at
+a conversation switch or new chat, which can happen while the input area is
+still hidden (the What's new chat, the programs/agents lists): hidden, the
+textarea measures 0, so it then gets no inline height and falls back to its
+`rows="1"`. Writing that 0 left a sliver that scrolled its own placeholder
+until the user typed (Nov 2026; `whats-new.spec.ts` checks it).
+
 ## Message Sending Behavior
 
 The Enter key behavior differs between desktop and mobile viewports:

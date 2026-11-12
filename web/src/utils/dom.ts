@@ -137,11 +137,15 @@ export function addEventListenerWithCleanup<K extends keyof HTMLElementEventMap>
 }
 
 /**
- * Auto-resize textarea to fit content
+ * Auto-resize textarea to fit content. A hidden textarea (its input area
+ * hidden by What's new or the programs/agents lists) measures 0: it gets no
+ * inline height, falling back to its rows, instead of a 0px sliver that
+ * stays when it is shown again (Nov 2026).
  */
 export function autoResizeTextarea(textarea: HTMLTextAreaElement): void {
   textarea.style.height = 'auto';
-  textarea.style.height = `${textarea.scrollHeight}px`;
+  const height = textarea.scrollHeight;
+  textarea.style.height = height > 0 ? `${height}px` : '';
 }
 
 // Track the current smooth scroll animation frame ID for cancellation
