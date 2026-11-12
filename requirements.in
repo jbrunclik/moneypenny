@@ -11,7 +11,7 @@ pillow>=12.3.0
 python-magic>=0.4.27
 gunicorn>=26.2.0
 python-dotenv>=1.2.3
-google-genai>=2.34.0,<3  # 3.0 (Nov 2026) is a major release of the LLM SDK: evaluate it on its own
+google-genai>=3.0.0,<4  # 3.0 (Nov 2026) is a major release of the LLM SDK: evaluate it on its own
 google-api-core>=2.43.2
 langgraph>=1.2.19
 langchain-google-genai>=4.4.1
@@ -36,7 +36,7 @@ langdetect>=1.0.9
 garminconnect>=0.3.19
 
 # Schedule parsing
-croniter>=6.2.4
+croniter>=7.0.0
 
 # Web Push notifications (VAPID)
 pywebpush>=2.5.0
