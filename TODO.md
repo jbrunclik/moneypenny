@@ -55,6 +55,8 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Chat & UI
 
+- [ ] **Hide the model picker when only one model is offered** (Nov 12 2026) - since Carbon became admin-only, non-admins get a single entry (Fast) from `/api/models`, yet the composer still shows the picker button and a one-option dropdown (`ModelSelector.ts`; the job editor's model field in `JobEditor.ts` likewise). Hide both when `models.length <= 1`; test desktop + mobile and check the composer's vertical rhythm without the button; visual baselines run as a non-admin, so they change.
+
 - [ ] **Turn-lifecycle follow-ups** (Oct 11 2026 single-device audit; fixed items shipped, these need a decision or a device):
   - **Two quick steering messages** - the kv slot holds one interjection per conversation, so a second one sent before a tool round reads the first overwrites it (both bubbles are saved; the turn reads only the second).
   - **Stop before the server acks the turn** leaves a turn generating server-side (`requestServerStop` needs the assistant id, which arrives with the first event) while the client shows "Not sent" + Retry (a 409, then the unwanted reply); the next plain send is steered into it. Window: Stop after the request body landed but before the first event (usually <0.5s; a Stop during an upload just cancels it). Fix: stop by client message id - a kv flag the turn checks at start and the stop poller honours.
