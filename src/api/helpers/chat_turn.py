@@ -61,6 +61,7 @@ from src.services.background_thumbnails import (
 from src.services.planner.dashboard import build_planner_dashboard
 from src.utils.files import UploadedFile, validate_files
 from src.utils.logging import get_logger, log_payload_snippet
+from src.utils.model_access import model_for
 
 logger = get_logger(__name__)
 
@@ -447,9 +448,25 @@ class TurnContext:
         }
 
 
+def _turn_model(user: User, conv: Conversation) -> str:
+    """The model this turn runs on. An admin-only model the account may not use
+    (a chat from before the gate) moves the chat to the default for good, so
+    the picker shows what answered."""
+    model = model_for(user.email, conv.model)
+    if model != conv.model:
+        db.update_conversation(conv.id, user.id, model=model)
+        logger.info(
+            "Chat moved off an admin-only model",
+            extra={"user_id": user.id, "conversation_id": conv.id, "from": conv.model, "to": model},
+        )
+        conv.model = model
+    return model
+
+
 def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnContext:
     """Load program/agent context and compact history for this turn."""
     conv = turn.conv
+    model = _turn_model(user, conv)
     ctx = TurnContext(
         request_id=request_id,
         conv_id=conv.id,
@@ -457,7 +474,7 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
         message_text=turn.message_text,
         user_name=user.name,
         custom_instructions=user.custom_instructions,
-        model=conv.model,
+        model=model,
         conversation_title=conv.title,
         files=turn.files,
         history=turn.history,

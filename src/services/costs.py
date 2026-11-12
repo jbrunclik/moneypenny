@@ -40,7 +40,7 @@ def get_model_pricing(model_name: str, at: datetime | None = None) -> dict[str, 
         MODEL_PRICING_CHANGES entry in force at ``at`` applied
     """
     if model_name not in Config.MODEL_PRICING:
-        model_name = "gemini-3.8-flash"
+        model_name = "gemini-4-hydrogen"
     when = at or utc_now()
     pricing = dict(Config.MODEL_PRICING[model_name])
     for effective, rates in Config.MODEL_PRICING_CHANGES.get(model_name, []):

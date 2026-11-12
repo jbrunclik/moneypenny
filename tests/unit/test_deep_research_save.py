@@ -35,7 +35,7 @@ def _usage(followup: bool = True) -> dict[str, Any]:
     return {
         "input_tokens": 900,
         "output_tokens": 300,
-        "answer_model": "gemini-3.1-pro-preview",
+        "answer_model": "gemini-4-carbon",
         "research_run": run,
         "research_sources": [{"title": "A", "url": "https://a.cz"}],
     }
@@ -51,7 +51,7 @@ def test_report_stores_run_sources_and_prices_at_the_writer(
         _usage(),
         test_conversation.id,
         test_conversation.user_id,
-        "gemini-3.8-flash",
+        "gemini-4-hydrogen",
         "Start deep research",
         "req",
         True,
@@ -69,7 +69,7 @@ def test_report_stores_run_sources_and_prices_at_the_writer(
         2,
     )
     assert msg.sources == [{"title": "A", "url": "https://a.cz"}]
-    assert save.call_args.args[3] == "gemini-3.1-pro-preview"
+    assert save.call_args.args[3] == "gemini-4-carbon"
 
 
 def _record(caplog: pytest.LogCaptureFixture, message: str) -> logging.LogRecord:

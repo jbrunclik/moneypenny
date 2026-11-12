@@ -46,7 +46,7 @@ function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
         amount: money(i === 29 ? 12.5 : 2),
       })),
       by_feature: [{ name: 'chat', amount: money(60) }, { name: 'agents', amount: money(20) }],
-      by_model: [{ name: 'gemini-3.8-flash', amount: money(80) }],
+      by_model: [{ name: 'gemini-4-hydrogen', amount: money(80) }],
     },
     agents: {
       runs_7d: 14,

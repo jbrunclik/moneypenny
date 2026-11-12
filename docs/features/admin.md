@@ -9,6 +9,16 @@ banner for anyone whose spend passes a daily threshold (rule S12 in
 - **Admins** (`ADMIN_EMAILS`, comma-separated; empty = nobody) get an **Admin**
   entry in the user menu. `/auth/me` and the sign-in response carry
   `is_admin`; the API checks it again (`require_admin`, 403 otherwise).
+- **Admin-only models** (`Config.ADMIN_ONLY_MODELS`, Nov 12 2026: Gemini 4
+  Carbon, the "Advanced" model) are offered to admins only, for cost: Carbon
+  bills $4/$20 per 1M tokens from Dec 1 2026, Hydrogen $1.50/$7.50. For
+  everyone else `/api/models` leaves them out, creating or changing a chat or
+  job with one is a 400, `edit_standing_chat` refuses it, and a chat or job
+  that still stores one runs on `DEFAULT_MODEL`. The chat is then moved to
+  that model (a "Chat moved off an admin-only model" log line), so the picker
+  shows what answered ([src/utils/model_access.py](../../src/utils/model_access.py)).
+  Config-named background models (deep-research writer, memory defrag, eval
+  judge) and the outage fallback to the other tier are not account-bound.
 - **Everyone** whose spend today passes `SPEND_WARNING_DAILY_USD` (default 10)
   sees: "Unusually high usage today ({amount}). If this is unexpected, let the
   admin know." Dismissed, it stays away for that calendar day (localStorage).

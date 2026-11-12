@@ -359,7 +359,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List available models. */
+        /** List the models this account may pick (admin-only ones for admins). */
         get: {
             parameters: {
                 query?: never;

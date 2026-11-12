@@ -15,7 +15,7 @@ def _spend(db: Database, user: User, usd: float) -> None:
         message_id=message.id,
         conversation_id=conversation.id,
         user_id=user.id,
-        model="gemini-3.8-flash",
+        model="gemini-4-hydrogen",
         input_tokens=10,
         output_tokens=10,
         cost_usd=usd,

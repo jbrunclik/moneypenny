@@ -15,12 +15,20 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, To
 from src.agent import freshness, grounding_check
 from src.agent.cancellation import STOP_REASON_USER, TurnCancelled, is_cancelled
 from src.agent.content import final_response_text
-from src.agent.context_cache import CacheProfile, get_cached_content_name
+from src.agent.context_cache import (
+    CacheProfile,
+    get_cached_content_name,
+    supports_explicit_cache,
+)
 from src.agent.freshness import FreshnessDecision, freshness_tool_event
 from src.agent.graph import get_graph_config
 from src.agent.graph_cache import get_compiled_graph
 from src.agent.message_content import build_message_content, history_to_messages
-from src.agent.prompts import get_dynamic_prompt_parts, get_system_prompt
+from src.agent.prompts import (
+    get_dynamic_prompt_parts,
+    get_static_prompt_for_profile,
+    get_system_prompt,
+)
 from src.agent.standing import StandingContext
 from src.agent.stream_events import StreamEventProcessor
 from src.agent.tools import get_tools_for_request
@@ -139,14 +147,21 @@ class ChatAgent:
             and any(t.name == "research" for t in active_tools)
         )
 
-        # Determine cache profile and get cached content name
+        # Determine cache profile and get cached content name. Implicit-only
+        # models (Gemini 4) get no explicit cache but the same split layout:
+        # the profile's static prompt leads as the SystemMessage, so Gemini's
+        # implicit cache reuses the stable prefix (static prompt + tools).
         self._cached_content_name: str | None = None
+        self._static_prefix_profile: CacheProfile | None = None
         if enable_context_cache and system_prompt_override is None:
             cache_profile = self._get_cache_profile()
             if cache_profile and with_tools and active_tools:
-                self._cached_content_name = get_cached_content_name(
-                    cache_profile, model_name, active_tools
-                )
+                if supports_explicit_cache(model_name):
+                    self._cached_content_name = get_cached_content_name(
+                        cache_profile, model_name, active_tools
+                    )
+                else:
+                    self._static_prefix_profile = cache_profile
 
         logger.debug(
             "Creating ChatAgent",
@@ -159,6 +174,7 @@ class ChatAgent:
                 "is_autonomous": is_autonomous,
                 "tool_names": [t.name for t in active_tools],
                 "cached": self._cached_content_name is not None,
+                "static_prefix": self._static_prefix_profile is not None,
             },
         )
 
@@ -251,14 +267,22 @@ class ChatAgent:
         # defer it to the TAIL (just before the current user message) instead of
         # the head: a volatile message at position 0 would change the request
         # prefix every turn and prevent Gemini's implicit caching from reusing
-        # the (stable) conversation history that follows. In uncached mode the
-        # SystemMessage carries everything and stays at position 0.
+        # the (stable) conversation history that follows. Implicit-only models
+        # use the same split with the static prompt as the SystemMessage. In
+        # uncached mode the SystemMessage carries everything at position 0.
         dynamic_context_msg: HumanMessage | None = None
+        static_prefix_profile = getattr(self, "_static_prefix_profile", None)
         if self.system_prompt_override is not None:
             # Custom prompt (delegate subagents): used verbatim, no dynamic
             # context assembly
             messages.append(SystemMessage(content=self.system_prompt_override))
-        elif self._cached_content_name:
+        elif self._cached_content_name or static_prefix_profile:
+            if static_prefix_profile:
+                messages.append(
+                    SystemMessage(
+                        content=get_static_prompt_for_profile(static_prefix_profile.value)
+                    )
+                )
             dynamic = get_dynamic_prompt_parts(
                 force_tools=force_tools,
                 user_name=user_name,

@@ -17,7 +17,7 @@ Can you analyze this data?
 
 Note: The dedicated marker keeps the model from echoing history context in its replies (the old response-side `<!-- METADATA: -->` block is gone - metadata now comes from tool calls, see [Source Chips](../features/thinking-and-sources.md#source-chips)).
 
-Only **stable, message-derived** fields are embedded inline. A recomputed relative time ("3 hours ago") is deliberately omitted because it would change every historical message's serialized bytes on each turn, defeating Gemini's implicit prefix caching of the history. The model derives elapsed time from the absolute `timestamp` plus the current time provided in the dynamic context block. For the same reason, in cached mode the per-request dynamic context (`[CONTEXT]`) is appended at the **tail** (just before the current user message) rather than the head, so the stable history forms a reusable prefix.
+Only **stable, message-derived** fields are embedded inline. A recomputed relative time ("3 hours ago") is deliberately omitted because it would change every historical message's serialized bytes on each turn, defeating Gemini's implicit prefix caching of the history. The model derives elapsed time from the absolute `timestamp` plus the current time provided in the dynamic context block. For the same reason, in cached mode (and on implicit-only Gemini 4 models, which keep the same split layout) the per-request dynamic context (`[CONTEXT]`) is appended at the **tail** (just before the current user message) rather than the head, so the stable history forms a reusable prefix.
 
 ### Enrichment Fields
 

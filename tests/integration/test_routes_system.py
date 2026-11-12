@@ -1,6 +1,11 @@
 """Integration tests for the system routes (health, readiness, version, models, upload config)."""
 
+from unittest.mock import patch
+
 from flask.testing import FlaskClient
+
+from src.config import Config
+from src.db.models import User
 
 
 class TestSystemRoutes:
@@ -28,6 +33,27 @@ class TestSystemRoutes:
         data = response.get_json()
         assert len(data["models"]) > 0
         assert data["default"]
+
+    def test_models_leave_out_admin_only_models_for_the_family(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        with patch.object(Config, "ADMIN_EMAILS", ["someone-else@example.com"]):
+            ids = [
+                m["id"]
+                for m in client.get("/api/models", headers=auth_headers).get_json()["models"]
+            ]
+        assert "gemini-4-carbon" not in ids
+        assert Config.DEFAULT_MODEL in ids
+
+    def test_models_list_admin_only_models_for_admins(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_user: User
+    ) -> None:
+        with patch.object(Config, "ADMIN_EMAILS", [test_user.email]):
+            ids = [
+                m["id"]
+                for m in client.get("/api/models", headers=auth_headers).get_json()["models"]
+            ]
+        assert "gemini-4-carbon" in ids
 
     def test_upload_config(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         response = client.get("/api/config/upload", headers=auth_headers)

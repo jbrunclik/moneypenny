@@ -32,13 +32,13 @@ def test_subagent_usage_is_priced_at_its_model() -> None:
     usage = {
         "deep_research_usage": [
             {
-                "model": "gemini-3.8-flash",
+                "model": "gemini-4-hydrogen",
                 "input_tokens": 1_000_000,
                 "output_tokens": 0,
                 "cached_input_tokens": 0,
             },
             {
-                "model": "gemini-3.8-flash",
+                "model": "gemini-4-hydrogen",
                 "input_tokens": 1_000_000,
                 "output_tokens": 0,
                 "cached_input_tokens": 0,
@@ -47,7 +47,7 @@ def test_subagent_usage_is_priced_at_its_model() -> None:
     }
     from src.services.costs import calculate_token_cost
 
-    one = calculate_token_cost("gemini-3.8-flash", 1_000_000, 0)
+    one = calculate_token_cost("gemini-4-hydrogen", 1_000_000, 0)
     assert calculate_deep_research_cost(usage) == 2 * one
     assert calculate_deep_research_cost({}) == 0.0
 

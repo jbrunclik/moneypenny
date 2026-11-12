@@ -372,7 +372,7 @@ def test_conversation(test_database: Database, test_user: User) -> Conversation:
     return test_database.create_conversation(
         user_id=test_user.id,
         title="Test Conversation",
-        model="gemini-3.8-flash",
+        model="gemini-4-hydrogen",
     )
 
 

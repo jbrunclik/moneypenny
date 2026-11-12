@@ -652,7 +652,7 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     // Create a NEW conversation directly via API (simulating another device)
     // This bypasses the UI entirely, as if another device created it
     const createResponse = await request.post('/api/conversations', {
-      data: { model: 'gemini-3.8-flash' },
+      data: { model: 'gemini-4-hydrogen' },
     });
     expect(createResponse.status()).toBe(201);
     const newConv = await createResponse.json();
@@ -697,7 +697,7 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
 
     // Create a conversation with multiple messages via API
     const createResponse = await request.post('/api/conversations', {
-      data: { model: 'gemini-3.8-flash' },
+      data: { model: 'gemini-4-hydrogen' },
     });
     const newConv = await createResponse.json();
 
@@ -731,7 +731,7 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
 
     // Create conversation via API
     const createResponse = await request.post('/api/conversations', {
-      data: { model: 'gemini-3.8-flash' },
+      data: { model: 'gemini-4-hydrogen' },
     });
     const newConv = await createResponse.json();
 

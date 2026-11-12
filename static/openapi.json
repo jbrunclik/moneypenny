@@ -310,7 +310,7 @@
         "tags": [
           "System"
         ],
-        "summary": "List available models."
+        "summary": "List the models this account may pick (admin-only ones for admins)."
       }
     },
     "/api/health": {

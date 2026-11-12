@@ -114,11 +114,19 @@ Long conversations (especially program conversations and multi-round tool turns)
 re-send a large stable prefix on every LLM call. A few durable facts govern how
 caching affects tracked cost:
 
-- **Explicit context caching is what saves money.** The explicit cache
-  ([src/agent/context_cache.py](../../src/agent/context_cache.py)) registers the
-  stable prefix (system prompt + tool declarations) with Gemini so it is billed at
-  the discounted `cached_input` rate. Implicit Gemini caching was observed **not**
-  to hit for this workload, so it cannot be relied on.
+- **Gemini 4 caches implicitly only.** Its API rejects `caches.create` (400), so
+  `supports_explicit_cache` in [src/agent/context_cache.py](../../src/agent/context_cache.py)
+  skips the explicit cache for `gemini-4-*` models. Chats keep the same split
+  layout instead - the profile's static prompt as the leading SystemMessage, tools
+  bound, the per-turn `[CONTEXT]` just before the user message, mid-turn guidance
+  as a HumanMessage (`guidance_as_human` in `graph.py`) - so the prefix stays
+  stable and Gemini caches it implicitly at the `cached_input` rate. A Nov 12 2026
+  probe: two requests sharing a 32k-token prefix and differing at the end hit
+  30k cached tokens on all three Gemini 4 models.
+- **On Gemini 3, explicit context caching is what saved money.** The explicit
+  cache registers the stable prefix (system prompt + tool declarations) with
+  Gemini so it is billed at the discounted `cached_input` rate. Implicit caching
+  never hit on Gemini 3 (Nov 7 2026 probe: 0 of 7 requests differing at the end).
 - **Cache lifetime is sliding, not long.** Caches live `CONTEXT_CACHE_TTL_SECONDS`
   (1 h). A cache used within `CONTEXT_CACHE_EXTEND_AHEAD_SECONDS` (10 min) before
   its 5-min renewal buffer gets its TTL extended in the background
@@ -187,18 +195,18 @@ COST_CURRENCY=CZK  # Display currency (default: CZK)
 ```python
 # src/config.py
 MODEL_PRICING = {
-    "gemini-3.8-flash": {
-        "input": 0.75,         # Per million tokens
+    "gemini-4-hydrogen": {
+        "input": 1.50,         # Per million tokens
         "cached_input": 0.075,
-        "output": 3.75,        # Per million tokens (thinking included)
+        "output": 7.50,        # Per million tokens (thinking included)
     },
     # ... other models
 }
 
 # Dated changes, in date order: from that instant, get_model_pricing() applies them
 MODEL_PRICING_CHANGES = {
-    "gemini-3.8-flash": [
-        (datetime(2027, 1, 1, tzinfo=UTC), {"input": 1.50, "cached_input": 0.15, "output": 7.50}),
+    "gemini-4-carbon": [
+        (datetime(2026, 12, 1, tzinfo=UTC), {"input": 4.00, "cached_input": 0.20, "output": 20.00}),
     ],
 }
 

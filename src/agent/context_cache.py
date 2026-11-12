@@ -15,6 +15,10 @@ standing instructions and data ride in the dynamic part.
 Dynamic content (date/time, user context, memories) is NOT cached and is
 passed as a HumanMessage with [CONTEXT] markers.
 
+Gemini 4 models support implicit caching only (supports_explicit_cache): no
+cache is created for them, and ChatAgent keeps the same split layout so the
+static prompt + tools form a stable prefix that Gemini caches implicitly.
+
 Fallback: On any cache operation failure, returns None and the caller
 falls back to the uncached path (SystemMessage + bind_tools).
 """
@@ -35,6 +39,7 @@ from langchain_google_genai._function_utils import (
 
 from src.agent.prompts import get_static_prompt_for_profile
 from src.config import Config
+from src.constants import IMPLICIT_CACHE_ONLY_MODEL_PREFIXES
 from src.db.models import db
 from src.utils.logging import get_logger
 
@@ -383,6 +388,11 @@ class ContextCacheManager:
 _manager = ContextCacheManager()
 
 
+def supports_explicit_cache(model_name: str) -> bool:
+    """Whether the model accepts an explicit context cache (Gemini 4 does not)."""
+    return not model_name.startswith(IMPLICIT_CACHE_ONLY_MODEL_PREFIXES)
+
+
 def get_cached_content_name(
     profile: CacheProfile,
     model_name: str,
@@ -392,6 +402,7 @@ def get_cached_content_name(
 
     Returns None if:
     - Feature is disabled (CONTEXT_CACHE_ENABLED=false)
+    - The model supports implicit caching only (supports_explicit_cache)
     - Cache creation fails (falls back to uncached path)
 
     Args:
@@ -402,7 +413,7 @@ def get_cached_content_name(
     Returns:
         Cache name string or None
     """
-    if not Config.CONTEXT_CACHE_ENABLED:
+    if not Config.CONTEXT_CACHE_ENABLED or not supports_explicit_cache(model_name):
         return None
 
     return _manager.get_or_create(profile, model_name, tools)

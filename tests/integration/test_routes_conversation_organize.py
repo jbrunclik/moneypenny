@@ -155,7 +155,7 @@ class TestListArchivedConversations:
 class TestPinnedConversations:
     def _create(self, test_database, test_user, title):
         return test_database.create_conversation(
-            user_id=test_user.id, title=title, model="gemini-3.8-flash"
+            user_id=test_user.id, title=title, model="gemini-4-hydrogen"
         )
 
     def test_pin_and_unpin(self, client, auth_headers, test_conversation) -> None:

@@ -18,7 +18,7 @@ def _message_with_image(
     test_database: Database, user: User, thumbnail_status: str = "ready"
 ) -> str:
     """Create a conversation + user message carrying one PNG attachment."""
-    conv = test_database.create_conversation(user.id, "Files test", "gemini-3.8-flash")
+    conv = test_database.create_conversation(user.id, "Files test", "gemini-4-hydrogen")
     message = test_database.add_message(
         conv.id,
         MessageRole.USER,
@@ -185,7 +185,7 @@ class TestGetMessageThumbnail:
         test_user: User,
         test_database: Database,
     ) -> None:
-        conv = test_database.create_conversation(test_user.id, "Docs", "gemini-3.8-flash")
+        conv = test_database.create_conversation(test_user.id, "Docs", "gemini-4-hydrogen")
         message = test_database.add_message(
             conv.id,
             MessageRole.USER,
@@ -326,7 +326,7 @@ def _message_with_video(test_database: Database, user: User, days_old: int = 0) 
     mp4_b64 = base64.b64encode(
         (Path(__file__).parent.parent / "fixtures" / "tiny.mp4").read_bytes()
     ).decode()
-    conv = test_database.create_conversation(user.id, "Video test", "gemini-3.8-flash")
+    conv = test_database.create_conversation(user.id, "Video test", "gemini-4-hydrogen")
     message = test_database.add_message(
         conv.id,
         MessageRole.USER,
@@ -381,7 +381,7 @@ class TestExpiredMediaGone:
         test_database: Database,
         test_user: User,
     ) -> None:
-        conv = test_database.create_conversation(test_user.id, "Docs", "gemini-3.8-flash")
+        conv = test_database.create_conversation(test_user.id, "Docs", "gemini-4-hydrogen")
         message = test_database.add_message(
             conv.id,
             MessageRole.USER,
@@ -405,7 +405,7 @@ class TestExpiredMediaGone:
         test_database: Database,
         test_user: User,
     ) -> None:
-        conv = test_database.create_conversation(test_user.id, "Docs2", "gemini-3.8-flash")
+        conv = test_database.create_conversation(test_user.id, "Docs2", "gemini-4-hydrogen")
         message = test_database.add_message(
             conv.id,
             MessageRole.USER,

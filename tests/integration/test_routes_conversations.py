@@ -2,6 +2,7 @@
 
 import json
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 from urllib.parse import quote
 
 import pytest
@@ -87,14 +88,24 @@ class TestCreateConversation:
         response = client.post(
             "/api/conversations",
             headers=auth_headers,
-            json={"model": "gemini-3.8-flash"},
+            json={"model": "gemini-4-hydrogen"},
         )
 
         assert response.status_code == 201
         data = json.loads(response.data)
         assert "id" in data
-        assert data["model"] == "gemini-3.8-flash"
+        assert data["model"] == "gemini-4-hydrogen"
         assert "title" in data
+
+    def test_create_refuses_an_admin_only_model_for_the_family(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        with patch.object(Config, "ADMIN_EMAILS", ["someone-else@example.com"]):
+            response = client.post(
+                "/api/conversations", headers=auth_headers, json={"model": "gemini-4-carbon"}
+            )
+
+        assert response.status_code == 400
 
     def test_creates_with_default_model(
         self, client: FlaskClient, auth_headers: dict[str, str]
@@ -333,15 +344,31 @@ class TestUpdateConversation:
         test_conversation: Conversation,
     ) -> None:
         """Should update conversation model."""
-        response = client.patch(
-            f"/api/conversations/{test_conversation.id}",
-            headers=auth_headers,
-            json={"model": "gemini-3.1-pro-preview"},
-        )
+        with patch.object(Config, "ADMIN_EMAILS", ["test@example.com"]):
+            response = client.patch(
+                f"/api/conversations/{test_conversation.id}",
+                headers=auth_headers,
+                json={"model": "gemini-4-carbon"},
+            )
 
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data["status"] == "updated"
+
+    def test_refuses_an_admin_only_model_for_the_family(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        with patch.object(Config, "ADMIN_EMAILS", ["someone-else@example.com"]):
+            response = client.patch(
+                f"/api/conversations/{test_conversation.id}",
+                headers=auth_headers,
+                json={"model": "gemini-4-carbon"},
+            )
+
+        assert response.status_code == 400
 
     def test_rejects_invalid_model(
         self,

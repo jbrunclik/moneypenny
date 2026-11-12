@@ -25,6 +25,7 @@ from langgraph.graph import END, StateGraph
 from src.agent.chat_model import create_chat_model, fallback_model_factory
 from src.agent.chat_node import chat_node
 from src.agent.content import extract_text_content, strip_echoed_msg_context
+from src.agent.context_cache import supports_explicit_cache
 from src.agent.graph_state import AgentState
 from src.agent.round_cap import tool_round_cap
 from src.agent.tool_node import create_tool_node
@@ -69,6 +70,14 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
         return "tools"
 
     return "end"
+
+
+def guidance_as_human(model_name: str, cached_content: str | None) -> bool:
+    """Whether mid-turn guidance goes as a wrapped HumanMessage. A
+    mid-conversation SystemMessage is dropped under an explicit cache and, on
+    implicit-only models, merged into the leading systemInstruction - which
+    changes the request prefix and loses the implicit cache hit."""
+    return cached_content is not None or not supports_explicit_cache(model_name)
 
 
 def _add_chat_node(
@@ -157,8 +166,8 @@ def create_chat_graph(
         thinking_level: Overrides the model's configured thinking_level
     """
     active_tools = tools if tools is not None else get_available_tools()
-    # Capture whether cache is active for nodes that inject guidance messages
-    use_cache = cached_content is not None
+    # How nodes that inject guidance messages send them
+    use_cache = guidance_as_human(model_name, cached_content)
 
     graph: StateGraph[AgentState] = StateGraph(AgentState)
     _add_chat_node(

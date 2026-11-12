@@ -233,6 +233,40 @@ class TestBuildMessagesConversationTitle:
         assert "🐍 Python List Sorting" in combined
 
 
+class TestBuildMessagesImplicitCacheLayout:
+    """Implicit-only models (Gemini 4) keep the explicit cache's split layout:
+    the static prompt leads as the SystemMessage and the per-turn [CONTEXT]
+    sits just before the user message, so the request prefix stays stable."""
+
+    @staticmethod
+    def _agent():
+        from src.agent.context_cache import CacheProfile
+
+        agent = TestBuildMessagesConversationTitle._agent(cached=False)
+        agent._static_prefix_profile = CacheProfile.STANDARD
+        return agent
+
+    def test_static_prompt_leads_and_context_sits_at_the_tail(self) -> None:
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        from src.agent.prompts import get_static_prompt_for_profile
+
+        history = [
+            {"role": "user", "content": "earlier", "metadata": {}},
+            {"role": "assistant", "content": "reply", "metadata": {}},
+        ]
+        messages = self._agent()._build_messages(
+            "hi", history=history, conversation_title="🐍 Python List Sorting"
+        )
+
+        assert isinstance(messages[0], SystemMessage)
+        assert messages[0].content == get_static_prompt_for_profile("standard")
+        assert isinstance(messages[-2], HumanMessage)
+        assert str(messages[-2].content).startswith("[CONTEXT]")
+        assert "🐍 Python List Sorting" in str(messages[-2].content)
+        assert messages[-1].content == "hi"
+
+
 class TestMsgContextToolDigest:
     """tool_digest must reach the model via the REAL formatter (the mirror
     helper above would pass even if production dropped the field)."""

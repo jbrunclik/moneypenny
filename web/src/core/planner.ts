@@ -75,7 +75,7 @@ function plannerPlaceholderConversation(): Conversation {
   return {
     id: 'planner-loading',
     title: 'Planner',
-    model: 'gemini-3.8-flash',
+    model: 'gemini-4-hydrogen',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     messages: [],

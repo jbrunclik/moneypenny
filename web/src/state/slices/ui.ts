@@ -235,7 +235,7 @@ function conversationFlagActions(set: UiSet, get: UiGet) {
 export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
   ...initialUiSessionData(),
   models: [],
-  defaultModel: 'gemini-3.8-flash',
+  defaultModel: 'gemini-4-hydrogen',
   isSidebarOpen: false,
   streamingEnabled: true,
   uploadConfig: DEFAULT_UPLOAD_CONFIG,

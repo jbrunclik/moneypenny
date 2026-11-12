@@ -396,7 +396,7 @@ class TestRequestSizeLimit:
         response = client.post(
             "/api/conversations",
             headers=auth_headers,
-            json={"model": "gemini-3.8-flash"},
+            json={"model": "gemini-4-hydrogen"},
         )
 
         # Should succeed (201 for create)

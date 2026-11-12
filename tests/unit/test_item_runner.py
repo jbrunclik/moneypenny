@@ -403,9 +403,23 @@ def test_standing_job_cost_rows_carry_job_id(
 def test_standing_job_runs_the_chat_model_of_its_choice(
     db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
 ) -> None:
-    run_model_item(_job(test_user, test_conversation, model="gemini-3.1-pro-preview"), test_user)
+    from src.config import Config
 
-    assert fake_llm.instances[0].init_kwargs["model_name"] == "gemini-3.1-pro-preview"
+    with patch.object(Config, "ADMIN_EMAILS", [test_user.email]):
+        run_model_item(_job(test_user, test_conversation, model="gemini-4-carbon"), test_user)
+
+    assert fake_llm.instances[0].init_kwargs["model_name"] == "gemini-4-carbon"
+
+
+def test_a_family_job_on_an_admin_only_model_runs_on_the_default(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    from src.config import Config
+
+    with patch.object(Config, "ADMIN_EMAILS", ["someone-else@example.com"]):
+        run_model_item(_job(test_user, test_conversation, model="gemini-4-carbon"), test_user)
+
+    assert fake_llm.instances[0].init_kwargs["model_name"] == Config.DEFAULT_MODEL
 
 
 def test_standing_job_approval_request_is_recorded_and_pushed(

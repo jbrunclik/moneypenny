@@ -57,6 +57,20 @@ class TestDatedPricing:
     def test_unknown_model_falls_back_to_flash_at_that_date(self) -> None:
         assert get_model_pricing("unknown-model-xyz", at=_JAN_1_2027)["output"] == 7.50
 
+    def test_carbon_keeps_introductory_rates_through_nov_30(self) -> None:
+        pricing = get_model_pricing(
+            "gemini-4-carbon", at=datetime(2026, 11, 30, 23, 59, tzinfo=UTC)
+        )
+        assert (pricing["input"], pricing["cached_input"], pricing["output"]) == (2.00, 0.10, 10.00)
+
+    def test_carbon_doubles_on_dec_1_2026(self) -> None:
+        pricing = get_model_pricing("gemini-4-carbon", at=datetime(2026, 12, 1, tzinfo=UTC))
+        assert (pricing["input"], pricing["cached_input"], pricing["output"]) == (4.00, 0.20, 20.00)
+
+    def test_hydrogen_has_no_dated_change(self) -> None:
+        pricing = get_model_pricing("gemini-4-hydrogen", at=_JAN_1_2027)
+        assert (pricing["input"], pricing["cached_input"], pricing["output"]) == (1.50, 0.075, 7.50)
+
     def test_the_schedule_does_not_mutate_the_base_table(self) -> None:
         get_model_pricing("gemini-3.8-flash", at=_JAN_1_2027)
         assert get_model_pricing("gemini-3.8-flash", at=_BEFORE_SWITCH)["output"] == 3.75
@@ -84,10 +98,10 @@ class TestGetModelPricing:
         assert pricing["output"] == 12.00
         assert pricing["image_output"] == 120.00
 
-    def test_unknown_model_falls_back_to_flash(self) -> None:
-        """Unknown models should fall back to flash pricing."""
+    def test_unknown_model_falls_back_to_the_fast_model(self) -> None:
+        """Unknown models should fall back to the Fast model's pricing."""
         pricing = get_model_pricing("unknown-model-xyz")
-        flash_pricing = get_model_pricing("gemini-3.8-flash")
+        flash_pricing = get_model_pricing("gemini-4-hydrogen")
         assert pricing == flash_pricing
 
 

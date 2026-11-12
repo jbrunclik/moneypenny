@@ -30,6 +30,7 @@ from src.config import Config
 from src.db.models import db
 from src.enums import MessageRole
 from src.utils.logging import get_logger
+from src.utils.model_access import model_allowed
 
 if TYPE_CHECKING:
     from src.agent.run_context import JobContext
@@ -58,8 +59,8 @@ def _changes(**fields: object) -> Change:
     return cast("Change", {name: value for name, value in fields.items() if value is not None})
 
 
-def _invalid(changes: Change) -> str | None:
-    """Why the change cannot be made, if it cannot."""
+def _invalid(changes: Change, user_id: str) -> str | None:
+    """Why the change cannot be made for this user, if it cannot."""
     from src.agent.tools import grantable_tool_names  # noqa: PLC0415 - cycle: tools imports this module
 
     if not changes:
@@ -70,6 +71,8 @@ def _invalid(changes: Change) -> str | None:
     model = changes.get("model")
     if model is not None and model not in Config.MODELS:
         return f"Unknown model '{model}'. Available: {', '.join(Config.MODELS)}."
+    if model is not None and not _model_allowed_for(user_id, model):
+        return f"The model '{model}' is not available on this account."
     budget = changes.get("budget_usd")
     if budget is not None and budget < 0:
         return "The daily budget cannot be negative."
@@ -81,6 +84,11 @@ def _invalid(changes: Change) -> str | None:
     if unknown:
         return f"Unknown tools: {', '.join(sorted(unknown))}."
     return None
+
+
+def _model_allowed_for(user_id: str, model: str) -> bool:
+    user = db.get_user_by_id(user_id)
+    return user is not None and model_allowed(user.email, model)
 
 
 def unknown_grants(grants: list[str]) -> set[str]:
@@ -136,11 +144,11 @@ def _describe(chat: StandingChat, changes: Change) -> str:
     return "\n".join(lines)
 
 
-def validated_change(raw: Mapping[str, object]) -> Change | str:
+def validated_change(raw: Mapping[str, object], user_id: str) -> Change | str:
     """An approved change re-checked before it applies: only known fields,
     valid values (a stale or forged approval changes nothing); or why not."""
     change = cast("Change", {k: v for k, v in raw.items() if k in Change.__annotations__})
-    if problem := _invalid(change):
+    if problem := _invalid(change, user_id):
         return problem
     return change
 
@@ -183,7 +191,9 @@ def _request_approval(run: JobContext, chat: StandingChat, changes: Change) -> s
 def apply_edit_agent(proposal: Proposal, option: ProposalOption) -> str:
     """Apply exactly the approved change (re-checked: stale values change nothing)."""
     payload = option["payload"]
-    changes = validated_change(cast("Mapping[str, object]", payload.get("changes") or {}))
+    changes = validated_change(
+        cast("Mapping[str, object]", payload.get("changes") or {}), proposal.user_id
+    )
     if isinstance(changes, str):
         raise ProposalFailedError(changes)
     chat = apply_standing_changes(str(payload.get("job_id")), proposal.user_id, changes)
@@ -218,7 +228,7 @@ def _in_chat(conversation_id: str, user_id: str, changes: Change) -> str:
     )
     if chat is None:
         return tool_error("This chat has no agent whose settings could change.", retriable=False)
-    if problem := _invalid(changes):
+    if problem := _invalid(changes, user_id):
         return tool_error(problem)
     proposal = file_proposal(
         PROPOSAL_KIND,
@@ -274,7 +284,7 @@ def edit_standing_chat(
     )
     run = get_job_context()
     if run is not None:  # unattended: only ever a request for approval
-        if problem := _invalid(changes):
+        if problem := _invalid(changes, run.user.id):
             return tool_error(problem)
         chat = db.get_standing_chat(run.item.id, run.user.id)
         if chat is None:

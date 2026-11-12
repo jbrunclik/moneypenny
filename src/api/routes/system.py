@@ -20,6 +20,7 @@ from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, check_database_connectivity, check_database_writable
 from src.utils.logging import get_logger
+from src.utils.model_access import models_for
 
 logger = get_logger(__name__)
 
@@ -35,17 +36,15 @@ api = APIBlueprint("system", __name__, url_prefix="/api", tag="System")
 @api.output(ModelsListResponse)
 @require_auth
 def list_models(user: User) -> dict[str, Any]:
-    """List available models."""
-    # user parameter required by @require_auth but not used in this endpoint
-    _ = user
+    """List the models this account may pick (admin-only ones for admins)."""
     return {
         "models": [
             {
                 "id": model_id,
-                "name": model_info["name"],
-                "short_name": model_info["short_name"],
+                "name": Config.MODELS[model_id]["name"],
+                "short_name": Config.MODELS[model_id]["short_name"],
             }
-            for model_id, model_info in Config.MODELS.items()
+            for model_id in models_for(user.email)
         ],
         "default": Config.DEFAULT_MODEL,
     }

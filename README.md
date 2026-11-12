@@ -39,7 +39,7 @@ for a few people who trust it with their data.
 ## Features
 
 **Chat and research**
-- Two Gemini models per conversation: **Gemini 3.8 Flash** ("Fast", the default) and **Gemini 3.1 Pro** ("Advanced")
+- Two Gemini models per conversation: **Gemini 4 Hydrogen** ("Fast", the default) and **Gemini 4 Carbon** ("Advanced")
 - Streaming with a live thinking trace; stop, regenerate, continue, edit and resend; **steer a reply while it is still being written**
 - **Deep research**: for questions that need several options compared, it offers a plan you can edit; parallel sub-agents research it and a Pro model writes a report whose claims are checked against the pages behind them
 - **Current facts**: looks things up before answering when the question is about now, with quota-aware web search across several providers and a free fallback

@@ -20,7 +20,7 @@ def _cost(db: Database, user: User, usd: float, at: datetime, **kwargs: Any) -> 
         message_id=message.id,
         conversation_id=conversation.id,
         user_id=user.id,
-        model=kwargs.pop("model", "gemini-3.8-flash"),
+        model=kwargs.pop("model", "gemini-4-hydrogen"),
         input_tokens=10,
         output_tokens=10,
         cost_usd=usd,
@@ -102,7 +102,7 @@ class TestSpend:
         assert features["chat"] == pytest.approx(1.0)
         assert features["planner"] == pytest.approx(2.0)
         models = test_database.admin_spend_by_model(MONTH)
-        assert models == {"gemini-3.8-flash": pytest.approx(1.0), "gemini-pro": pytest.approx(2.0)}
+        assert models == {"gemini-4-hydrogen": pytest.approx(1.0), "gemini-pro": pytest.approx(2.0)}
 
     def test_spend_from_deleted_conversations_still_counts(
         self, test_database: Database, test_user: User

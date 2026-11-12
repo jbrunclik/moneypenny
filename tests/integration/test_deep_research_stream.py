@@ -33,7 +33,7 @@ def _fake_pipeline(
         "usage_info": {
             "input_tokens": 10,
             "output_tokens": 5,
-            "answer_model": "gemini-3.1-pro-preview",
+            "answer_model": "gemini-4-carbon",
             "research_run": _RUN,
             "research_sources": [{"title": "A", "url": "https://a.cz"}],
         },

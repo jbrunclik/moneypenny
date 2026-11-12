@@ -32,6 +32,10 @@ BYTES_PER_MB = 1024 * BYTES_PER_KB
 # Token Constants
 # =============================================================================
 
+# Gemini models whose API rejects explicit context caching (caches.create
+# returns 400); they cache implicitly on a stable request prefix instead
+IMPLICIT_CACHE_ONLY_MODEL_PREFIXES = ("gemini-4-",)
+
 # =============================================================================
 # Skills (src/agent/skills/<name>/SKILL.md)
 # =============================================================================

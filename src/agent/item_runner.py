@@ -57,6 +57,7 @@ from src.enums import MessageRole
 from src.services.costs import calculate_and_save_message_cost
 from src.services.push import send_push_to_user
 from src.utils.logging import get_logger
+from src.utils.model_access import model_for
 from src.utils.threat_patterns import find_injection
 
 if TYPE_CHECKING:
@@ -151,7 +152,7 @@ def _run_setup(item: ScheduledItem, user: User) -> _RunSetup:
     return _RunSetup(
         name=name,
         goals=_standing_goals(item, standing),
-        model=item.model or Config.DEFAULT_MODEL,
+        model=model_for(user.email, item.model),
         timezone=item.timezone or Config.APP_TIMEZONE,
         fresh_context=item.fresh_context if item.standing else True,
     )

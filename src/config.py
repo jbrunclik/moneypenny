@@ -25,16 +25,20 @@ class Config:
     # Optional per-model key "thinking_level" (e.g. "low"/"high") sets Gemini 3+
     # native reasoning depth; omit it to use the API default (create_chat_model).
     MODELS: ClassVar[dict[str, dict[str, str]]] = {
-        "gemini-3.8-flash": {
-            "name": "Gemini 3.8 Flash",
+        "gemini-4-hydrogen": {
+            "name": "Gemini 4 Hydrogen",
             "short_name": "Fast",
         },
-        "gemini-3.1-pro-preview": {
-            "name": "Gemini 3.1 Pro",
+        "gemini-4-carbon": {
+            "name": "Gemini 4 Carbon",
             "short_name": "Advanced",
         },
     }
-    DEFAULT_MODEL = "gemini-3.8-flash"
+    DEFAULT_MODEL = "gemini-4-hydrogen"
+    # Models only ADMIN_EMAILS accounts may pick for chats and jobs; everyone
+    # else runs them on DEFAULT_MODEL (src/utils/model_access.py). Carbon costs
+    # $4/$20 per 1M tokens from Dec 1 2026, against Hydrogen's $1.50/$7.50.
+    ADMIN_ONLY_MODELS: frozenset[str] = frozenset({"gemini-4-carbon"})
 
     # Image generation model
     IMAGE_GENERATION_MODEL = "gemini-3-pro-image"
@@ -179,19 +183,33 @@ class Config:
         os.getenv("COST_HISTORY_MAX_MONTHS", "120")
     )  # Max 10 years of history (120 months)
 
-    # Gemini pricing (per million tokens) - as of September 2026
+    # Gemini pricing (per million tokens) - as of November 2026
     # These should be updated when Google changes pricing
     # cached_input = rate for tokens served from the context cache
     # (usage_metadata.input_token_details.cache_read). Cache storage cost is
     # not attributed per message - caches are shared across workers with
     # short TTLs, so it is negligible.
     MODEL_PRICING: ClassVar[dict[str, dict[str, float]]] = {
-        "gemini-3.8-flash": {
-            # Introductory pricing through Dec 31, 2026; the Jan 1, 2027
-            # rates are in MODEL_PRICING_CHANGES
-            "input": 0.75,  # $0.75 per million input tokens
+        "gemini-4-hydrogen": {
+            # No dated change announced; cached_input is the implicit-cache
+            # rate (Gemini 4 has no explicit caching)
+            "input": 1.50,  # $1.50 per million input tokens
             "cached_input": 0.075,
-            "output": 3.75,  # $3.75 per million output tokens
+            "output": 7.50,  # $7.50 per million output tokens
+        },
+        "gemini-4-carbon": {
+            # Introductory pricing through Nov 30, 2026; the Dec 1, 2026
+            # rates are in MODEL_PRICING_CHANGES
+            "input": 2.00,  # $2.00 per million input tokens
+            "cached_input": 0.10,
+            "output": 10.00,  # $10.00 per million output tokens
+        },
+        "gemini-3.8-flash": {
+            # Introductory pricing through Dec 31, 2026 (historical); the
+            # Jan 1, 2027 rates are in MODEL_PRICING_CHANGES
+            "input": 0.75,  # $0.75 per million input tokens (historical)
+            "cached_input": 0.075,
+            "output": 3.75,  # $3.75 per million output tokens (historical)
         },
         # Grounding check model (GROUNDING_CHECK_MODEL) - priced only, never
         # user-selectable, so not in MODELS
@@ -222,9 +240,9 @@ class Config:
             "output": 3.00,  # $3.00 per million output tokens (historical)
         },
         "gemini-3.1-pro-preview": {
-            "input": 2.00,  # $2.00 per million input tokens
+            "input": 2.00,  # $2.00 per million input tokens (historical)
             "cached_input": 0.50,
-            "output": 12.00,  # $12.00 per million output tokens
+            "output": 12.00,  # $12.00 per million output tokens (historical)
         },
         "gemini-3-pro-preview": {
             "input": 1.25,  # $1.25 per million input tokens (historical)
@@ -244,6 +262,13 @@ class Config:
     # first change), in date order. Rates are per million tokens, as in
     # MODEL_PRICING.
     MODEL_PRICING_CHANGES: ClassVar[dict[str, list[tuple[datetime, dict[str, float]]]]] = {
+        "gemini-4-carbon": [
+            # aistudio.google.com pricing: the introductory rates double
+            (
+                datetime(2026, 12, 1, tzinfo=UTC),
+                {"input": 4.00, "cached_input": 0.20, "output": 20.00},
+            ),
+        ],
         "gemini-3.8-flash": [
             # ai.google.dev pricing: the introductory rates double (context
             # cache storage too, $0.50 -> $1.00 per 1M tokens per hour)
@@ -375,7 +400,7 @@ class Config:
     )  # Default to 12 months
 
     # Title generation settings
-    TITLE_GENERATION_MODEL = "gemini-3.8-flash"
+    TITLE_GENERATION_MODEL = "gemini-4-hydrogen"
     TITLE_GENERATION_TEMPERATURE = 0.7
     TITLE_MAX_LENGTH = 62  # Extra 2 chars for emoji + space prefix
     TITLE_TRUNCATE_LENGTH = 59  # Leaves room for "..."
@@ -383,7 +408,7 @@ class Config:
     TITLE_FALLBACK_LENGTH = 50  # Length for fallback title from user message
 
     # AI assist settings (cron parsing, prompt enhancement)
-    AI_ASSIST_MODEL = "gemini-3.8-flash"
+    AI_ASSIST_MODEL = "gemini-4-hydrogen"
 
     # LLM settings
     GEMINI_DEFAULT_TEMPERATURE = 0.7
@@ -522,9 +547,7 @@ class Config:
     # Deep research (src/agent/deep_research/): the agent offers a run with an
     # editable plan; parallel subagents share a board, Pro writes the report.
     DEEP_RESEARCH_ENABLED: bool = os.getenv("DEEP_RESEARCH_ENABLED", "true").lower() == "true"
-    DEEP_RESEARCH_WRITER_MODEL: str = (
-        os.getenv("DEEP_RESEARCH_WRITER_MODEL") or "gemini-3.1-pro-preview"
-    )
+    DEEP_RESEARCH_WRITER_MODEL: str = os.getenv("DEEP_RESEARCH_WRITER_MODEL") or "gemini-4-carbon"
     DEEP_RESEARCH_SUBAGENT_MODEL: str = os.getenv("DEEP_RESEARCH_SUBAGENT_MODEL") or DEFAULT_MODEL
     DEEP_RESEARCH_PARALLELISM: int = int(os.getenv("DEEP_RESEARCH_PARALLELISM", "4"))
     DEEP_RESEARCH_MAX_SUB_QUESTIONS: int = int(os.getenv("DEEP_RESEARCH_MAX_SUB_QUESTIONS", "8"))
@@ -580,7 +603,7 @@ class Config:
 
     # Judge model for the eval harness (evals/run.py, `make eval`). Pro by
     # default: judging quality matters more than judge cost (a few calls/run).
-    EVAL_JUDGE_MODEL: str = os.getenv("EVAL_JUDGE_MODEL") or "gemini-3.1-pro-preview"
+    EVAL_JUDGE_MODEL: str = os.getenv("EVAL_JUDGE_MODEL") or "gemini-4-carbon"
     # Wall-clock budget per eval case. Evals drive ChatAgent directly, so the
     # route layer's CHAT_TIMEOUT_SECONDS does not apply and nothing else bounds a
     # stalled model call. Generous: the slowest legitimate cases (delegate /
@@ -825,7 +848,7 @@ class Config:
     SETUP_DECLINED_MAX: int = int(os.getenv("SETUP_DECLINED_MAX", "50"))
     # The Quick actions sheet's Review: one structured call over the setup and
     # the program chat's latest messages (each cut), at most this many suggestions
-    PROGRAM_REVIEW_MODEL: str = os.getenv("PROGRAM_REVIEW_MODEL") or "gemini-3.8-flash"
+    PROGRAM_REVIEW_MODEL: str = os.getenv("PROGRAM_REVIEW_MODEL") or "gemini-4-hydrogen"
     PROGRAM_REVIEW_MESSAGES: int = int(os.getenv("PROGRAM_REVIEW_MESSAGES", "40"))
     PROGRAM_REVIEW_MESSAGE_CHARS: int = int(os.getenv("PROGRAM_REVIEW_MESSAGE_CHARS", "600"))
     PROGRAM_REVIEW_MAX_SUGGESTIONS: int = int(os.getenv("PROGRAM_REVIEW_MAX_SUGGESTIONS", "8"))
@@ -838,7 +861,7 @@ class Config:
     # Settings' instructions Review: one structured call over the instructions,
     # the memory bank and the user's latest messages in ordinary chats (each with
     # an excerpt of the reply it answered), at most this many suggestions
-    INSTRUCTIONS_REVIEW_MODEL: str = os.getenv("INSTRUCTIONS_REVIEW_MODEL") or "gemini-3.8-flash"
+    INSTRUCTIONS_REVIEW_MODEL: str = os.getenv("INSTRUCTIONS_REVIEW_MODEL") or "gemini-4-hydrogen"
     INSTRUCTIONS_REVIEW_MESSAGES: int = int(os.getenv("INSTRUCTIONS_REVIEW_MESSAGES", "60"))
     INSTRUCTIONS_REVIEW_MESSAGE_CHARS: int = int(
         os.getenv("INSTRUCTIONS_REVIEW_MESSAGE_CHARS", "600")
@@ -932,7 +955,7 @@ class Config:
         os.getenv("MEMORY_DEFRAG_THRESHOLD", "30")
     )  # Only defrag users with >= this many memories
     MEMORY_DEFRAG_MODEL: str = os.getenv(
-        "MEMORY_DEFRAG_MODEL", "gemini-3.1-pro-preview"
+        "MEMORY_DEFRAG_MODEL", "gemini-4-carbon"
     )  # Use advanced model for quality consolidation
     # Deletes are soft: rows stay for this long so a bad defrag run or an
     # unwanted LLM delete can be recovered before the nightly purge.

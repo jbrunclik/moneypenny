@@ -33,7 +33,7 @@ def _agent(gate: bool = True) -> ChatAgent:
     agent.graph = MagicMock()
     agent.light_graph = MagicMock()
     agent.freshness_gate = gate
-    agent.model_name = "gemini-3.8-flash"
+    agent.model_name = "gemini-4-hydrogen"
     agent._build_messages = MagicMock(return_value=list(_BUILT))  # type: ignore[method-assign]
     return agent
 

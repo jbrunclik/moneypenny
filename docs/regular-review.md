@@ -83,6 +83,11 @@ The review itself changes nothing in production and edits nothing but
   "Spend"); any day past `SPEND_WARNING_DAILY_USD`; the share of spend in
   deleted chats.
 - Model mix: a cheaper model doing well enough is a saving to propose.
+- Implicit cache hit rate (from Nov 2026, Gemini 4 has no explicit cache):
+  `SUM(cached_input_tokens) / SUM(input_tokens)` in `message_costs` per model.
+  Chats send the static prompt + tools as a stable prefix
+  (`_static_prefix_profile` in `agent.py`), so a falling ratio means something
+  volatile moved into that prefix.
 - Response time: median and 95th percentile (admin page "Responses"); a
   slower p95 usually means a tool or the model provider, so name which.
 - Backup sizes: the nightly `Backup compressed` journal lines (`plain_size_bytes`,

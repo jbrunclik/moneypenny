@@ -32,6 +32,7 @@ from src.api.schemas.jobs import (
     UpdateJobRequest,
 )
 from src.api.validation import validate_request
+from src.auth.admin import check_model_allowed
 from src.auth.jwt_auth import require_auth
 from src.db.models import StandingChat, User, db
 from src.utils.clock import to_api, utc_now
@@ -101,6 +102,8 @@ def create_job(user: User, data: CreateJobRequest) -> dict[str, Any]:
         _check_replaceable(user, data.replaces_item_id)
     if db.get_standing_chat_by_name(user.id, data.name):
         raise_validation_error(f"An agent named '{data.name}' already exists")
+    if data.model is not None:
+        check_model_allowed(user, data.model)
     chat = db.create_standing_chat(
         user.id,
         data.name,
@@ -149,6 +152,8 @@ def update_job(user: User, data: UpdateJobRequest, job_id: str) -> dict[str, Any
     complete list, write levels included)."""
     current = _editable(user, job_id)
     _check_schedule(data.schedule, data.timezone)
+    if data.model is not None:
+        check_model_allowed(user, data.model)
     sent = data.model_dump(exclude_unset=True)
     name = sent.get("name")
     if name and name != current.name and db.get_standing_chat_by_name(user.id, name):

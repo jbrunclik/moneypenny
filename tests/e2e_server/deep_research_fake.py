@@ -85,7 +85,7 @@ def mock_run_deep_research(
             ],
             "summary": {"checked": True, "source_count": 2},
         },
-        "answer_model": "gemini-3.1-pro-preview",
+        "answer_model": "gemini-4-carbon",
     }
     yield {
         "type": "final",

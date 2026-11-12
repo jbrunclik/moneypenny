@@ -404,7 +404,7 @@ class TestDeepResearchCases:
         usage = {
             "input_tokens": 1000,
             "output_tokens": 1000,
-            "answer_model": "gemini-3.1-pro-preview",
+            "answer_model": "gemini-4-carbon",
         }
         with_research = {
             **usage,

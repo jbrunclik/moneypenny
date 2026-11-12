@@ -20,6 +20,7 @@ from src.agent.context_cache import (
     ContextCacheManager,
     cache_content_hash,
     get_cached_content_name,
+    supports_explicit_cache,
 )
 from src.agent.tools.artifacts import update_artifact
 from src.agent.tools.browser import browser
@@ -948,6 +949,28 @@ class TestGetCachedContentName:
         mock_manager.get_or_create.assert_called_once_with(
             CacheProfile.STANDARD, "gemini-3-flash-preview", []
         )
+
+    @patch("src.agent.context_cache._manager")
+    @patch("src.agent.context_cache.Config")
+    def test_implicit_only_models_skip_the_cache_api(
+        self, mock_config: MagicMock, mock_manager: MagicMock
+    ) -> None:
+        """Gemini 4 rejects caches.create with a 400: never call it for them."""
+        mock_config.CONTEXT_CACHE_ENABLED = True
+
+        result = get_cached_content_name(CacheProfile.STANDARD, "gemini-4-hydrogen", [])
+
+        assert result is None
+        mock_manager.get_or_create.assert_not_called()
+
+
+class TestSupportsExplicitCache:
+    def test_gemini_3_supports_it(self) -> None:
+        assert supports_explicit_cache("gemini-3.8-flash")
+
+    def test_gemini_4_is_implicit_only(self) -> None:
+        assert not supports_explicit_cache("gemini-4-hydrogen")
+        assert not supports_explicit_cache("gemini-4-carbon")
 
 
 # ============ CacheEntry Tests ============

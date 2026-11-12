@@ -31,8 +31,8 @@ const OVERVIEW = {
       { name: 'language', amount: money(9.8) },
     ],
     by_model: [
-      { name: 'gemini-3.8-flash', amount: money(140.3) },
-      { name: 'gemini-3.1-pro-preview', amount: money(42.2) },
+      { name: 'gemini-4-hydrogen', amount: money(140.3) },
+      { name: 'gemini-4-carbon', amount: money(42.2) },
     ],
   },
   agents: {

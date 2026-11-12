@@ -153,7 +153,7 @@ class TestBatchModelFallback:
             mock_agent.chat_batch.return_value = (
                 "Answer",
                 [],
-                {"input_tokens": 5, "output_tokens": 2, "model_fallback": "gemini-3.1-pro-preview"},
+                {"input_tokens": 5, "output_tokens": 2, "model_fallback": "gemini-4-carbon"},
                 [],
             )
             mock_agent_class.return_value = mock_agent
@@ -164,4 +164,4 @@ class TestBatchModelFallback:
                 json={"message": "Hi"},
             )
 
-        assert response.get_json()["model_fallback"] == "gemini-3.1-pro-preview"
+        assert response.get_json()["model_fallback"] == "gemini-4-carbon"

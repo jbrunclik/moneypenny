@@ -46,6 +46,40 @@ class TestChatBatch:
         assert data["role"] == "assistant"
         assert "Hello" in data["content"]
 
+    def test_a_family_chat_on_an_admin_only_model_moves_to_the_default(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        """An Advanced chat from before the gate: the turn runs on Fast and the
+        chat stays there, so the picker shows what answered."""
+        conv = test_database.create_conversation(test_user.id, "Old", model="gemini-4-carbon")
+        with (
+            patch.object(Config, "ADMIN_EMAILS", ["someone-else@example.com"]),
+            patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class,
+        ):
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = (
+                "Hi!",
+                [],
+                {"input_tokens": 1, "output_tokens": 1},
+                [],
+            )
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{conv.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Hello!"},
+            )
+
+        assert response.status_code == 200
+        assert mock_agent_class.call_args.kwargs["model_name"] == Config.DEFAULT_MODEL
+        stored = test_database.get_conversation(conv.id, test_user.id)
+        assert stored is not None and stored.model == Config.DEFAULT_MODEL
+
     def test_response_carries_the_conversation_message_count(
         self,
         client: FlaskClient,
@@ -1551,7 +1585,7 @@ class TestClientMessageId:
         """An ID already used in a different conversation is a validation error."""
         client_id = "3c4d5e6f-7a8b-4c3d-8e4f-5a6b7c8d9e0f"
         other_conv = test_database.create_conversation(
-            user_id=test_user.id, title="Other", model="gemini-3.8-flash"
+            user_id=test_user.id, title="Other", model="gemini-4-hydrogen"
         )
         test_database.add_message(other_conv.id, "user", "Hi", message_id=client_id)
 

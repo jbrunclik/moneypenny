@@ -34,7 +34,7 @@ could not finish"; never after Stop. See [Push Notifications](push-notifications
 | Config (`src/config.py`) | Default | Purpose |
 |---|---|---|
 | `DEEP_RESEARCH_ENABLED` | `true` | Binds `propose_deep_research`; when off, starting an existing offer is refused (400 "Deep research is turned off"), though its card still shows |
-| `DEEP_RESEARCH_WRITER_MODEL` | `gemini-3.1-pro-preview` | Report writer |
+| `DEEP_RESEARCH_WRITER_MODEL` | `gemini-4-carbon` | Report writer |
 | `DEEP_RESEARCH_SUBAGENT_MODEL` | `DEFAULT_MODEL` | Subagents and follow-up extraction |
 | `DEEP_RESEARCH_PARALLELISM` | `4` | Subagents at once per run; also the estimate's wave size |
 | `DEEP_RESEARCH_MAX_SUB_QUESTIONS` | `8` | Plan size limit |

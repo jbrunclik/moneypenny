@@ -116,6 +116,15 @@ def test_unknown_grants_and_bad_cron_are_refused(agent: Agent) -> None:
     assert "cron" in _call(schedule="every tuesday").lower()
 
 
+def test_an_admin_only_model_is_refused_for_the_family(agent: Agent) -> None:
+    from unittest.mock import patch
+
+    from src.config import Config
+
+    with patch.object(Config, "ADMIN_EMAILS", ["someone-else@example.com"]):
+        assert "not available" in _call(model="gemini-4-carbon").lower()
+
+
 def test_briefing_edit_freezes_a_copy(
     test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:

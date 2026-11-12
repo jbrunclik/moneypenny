@@ -31,6 +31,7 @@ from src.api.schemas.conversations import (
 )
 from src.api.utils import serialize_messages_for_response
 from src.api.validation import validate_query, validate_request
+from src.auth.admin import check_model_allowed
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
@@ -126,6 +127,7 @@ def create_conversation(user: User, data: CreateConversationRequest) -> tuple[di
     """Create a new conversation."""
     model = data.model or Config.DEFAULT_MODEL
     log_payload_snippet(logger, {"model": model})
+    check_model_allowed(user, model)
 
     logger.debug("Creating conversation", extra={"user_id": user.id, "model": model})
     conv = db.create_conversation(user.id, model=model)
@@ -249,6 +251,8 @@ def update_conversation(
     title = data.title
     model = data.model
     log_payload_snippet(logger, {"title": title, "model": model})
+    if model is not None:
+        check_model_allowed(user, model)
 
     logger.debug(
         "Updating conversation",

@@ -235,7 +235,7 @@ def test_standing_fields_round_trip(
             kind="recurring",
             schedule="15 7 * * *",
             grants=["garmin_connect", "todoist"],
-            model="gemini-3.8-flash",
+            model="gemini-4-hydrogen",
             budget_usd=0.5,
             fresh_context=False,
             timezone="Europe/Prague",

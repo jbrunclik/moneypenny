@@ -83,6 +83,20 @@ class TestCreateAgent:
         data = json.loads(response.data)
         assert "error" in data
 
+    def test_refuses_an_admin_only_model_for_the_family(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        from src.config import Config
+
+        with patch.object(Config, "ADMIN_EMAILS", ["someone-else@example.com"]):
+            response = client.post(
+                "/api/jobs",
+                headers=auth_headers,
+                json={"name": "Deep Thinker", "model": "gemini-4-carbon"},
+            )
+
+        assert response.status_code == 400
+
     def test_rejects_invalid_timezone(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
@@ -210,6 +224,23 @@ class TestUpdateAgent:
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data["name"] == "Updated StandingChat Name"
+
+    def test_update_refuses_an_admin_only_model_for_the_family(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_agent: StandingChat,
+    ) -> None:
+        from src.config import Config
+
+        with patch.object(Config, "ADMIN_EMAILS", ["someone-else@example.com"]):
+            response = client.patch(
+                f"/api/jobs/{test_agent.id}",
+                headers=auth_headers,
+                json={"model": "gemini-4-carbon"},
+            )
+
+        assert response.status_code == 400
 
     def test_updates_multiple_fields(
         self,

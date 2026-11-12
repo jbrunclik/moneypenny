@@ -22,9 +22,11 @@ def _run_tools(board: ResearchBoard) -> list[Any]:
 
 def test_unmemoized_graphs_are_built_from_this_runs_tools() -> None:
     clear_graph_cache()
-    first = get_compiled_graph("gemini-3.8-flash", tools=_run_tools(ResearchBoard()), memoize=False)
+    first = get_compiled_graph(
+        "gemini-4-hydrogen", tools=_run_tools(ResearchBoard()), memoize=False
+    )
     second = get_compiled_graph(
-        "gemini-3.8-flash", tools=_run_tools(ResearchBoard()), memoize=False
+        "gemini-4-hydrogen", tools=_run_tools(ResearchBoard()), memoize=False
     )
     assert first is not second
 
@@ -32,8 +34,8 @@ def test_unmemoized_graphs_are_built_from_this_runs_tools() -> None:
 def test_memoized_graphs_are_still_shared_for_module_tools() -> None:
     clear_graph_cache()
     tools = [research, web_search, fetch_url]
-    assert get_compiled_graph("gemini-3.8-flash", tools=tools) is get_compiled_graph(
-        "gemini-3.8-flash", tools=tools
+    assert get_compiled_graph("gemini-4-hydrogen", tools=tools) is get_compiled_graph(
+        "gemini-4-hydrogen", tools=tools
     )
 
 

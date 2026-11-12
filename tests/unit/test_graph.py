@@ -13,6 +13,7 @@ from src.agent.graph import (
     compile_graph,
     create_chat_graph,
     get_graph_config,
+    guidance_as_human,
     should_continue,
 )
 from src.agent.graph_state import AgentState
@@ -268,6 +269,21 @@ class TestInterjectionInjection:
         guidance = result["messages"][0]
         assert isinstance(guidance, HumanMessage)
         assert guidance.content.startswith("[SYSTEM GUIDANCE]")
+
+
+class TestGuidanceAsHuman:
+    """Mid-turn guidance is a HumanMessage wherever a SystemMessage would break
+    the cached prefix: under an explicit cache, and on implicit-only models
+    (Gemini 4), where it would be merged into the leading systemInstruction."""
+
+    def test_explicit_cache(self) -> None:
+        assert guidance_as_human("gemini-3.8-flash", "cachedContents/x")
+
+    def test_uncached_gemini_3(self) -> None:
+        assert not guidance_as_human("gemini-3.8-flash", None)
+
+    def test_implicit_only_model(self) -> None:
+        assert guidance_as_human("gemini-4-hydrogen", None)
 
 
 class TestCheckToolResults:
@@ -579,7 +595,7 @@ class TestThinkingLevel:
     def test_omits_thinking_level_by_default(self, mock_llm_class: MagicMock) -> None:
         from src.agent.chat_model import create_chat_model
 
-        create_chat_model("gemini-3.8-flash", with_tools=False)
+        create_chat_model("gemini-4-hydrogen", with_tools=False)
 
         call_kwargs = mock_llm_class.call_args[1]
         assert "thinking_level" not in call_kwargs

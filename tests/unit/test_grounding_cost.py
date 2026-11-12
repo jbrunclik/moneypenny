@@ -36,7 +36,7 @@ def test_message_cost_includes_grounding() -> None:
             "msg",
             "conv",
             "user",
-            "gemini-3.8-flash",
+            "gemini-4-hydrogen",
             {"input_tokens": 0, "output_tokens": 0, "grounding_usage": _USAGE},
             [],
             10,
