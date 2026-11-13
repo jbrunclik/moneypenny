@@ -191,13 +191,20 @@ class ChatAgent:
             "memoize": memoize_graph,
         }
         self.graph = get_compiled_graph(model_name, **graph_args)
-        # Turns the gate judges easy run lighter (src/agent/freshness.py) - in
-        # ordinary chats only: a standing chat's easy-looking session start or
-        # quiz grading still needs full thinking (the lookups stay)
+        # The gate picks each turn's thinking (src/agent/freshness.py): low
+        # turns run lighter - in ordinary chats only: a standing chat's
+        # easy-looking session start or quiz grading still needs the model's
+        # own thinking (the lookups stay) - and high ones deeper
         light_level = Config.FRESHNESS_GATE_LIGHT_THINKING_LEVEL
         self.light_graph = (
             get_compiled_graph(model_name, thinking_level=light_level, **graph_args)
             if self.freshness_gate and light_level and standing is None
+            else None
+        )
+        deep_level = Config.FRESHNESS_GATE_DEEP_THINKING_LEVEL
+        self.deep_graph = (
+            get_compiled_graph(model_name, thinking_level=deep_level, **graph_args)
+            if self.freshness_gate and deep_level
             else None
         )
 
@@ -208,12 +215,14 @@ class ChatAgent:
         return freshness.decide_freshness(messages)
 
     def _turn_graph(self, decision: FreshnessDecision | None) -> Any:
-        """The light-thinking graph when the gate judged the turn easy, else
-        the full one."""
-        light = getattr(self, "light_graph", None)
-        if decision and not decision.think_hard and light is not None:
-            return light
-        return self.graph
+        """The graph for the gate's thinking level: light for low, deep for
+        high, the model's own for medium, no decision or a missing graph."""
+        thinking = decision.thinking if decision else None
+        chosen = {
+            "low": getattr(self, "light_graph", None),
+            "high": getattr(self, "deep_graph", None),
+        }.get(thinking or "")
+        return chosen if chosen is not None else self.graph
 
     @staticmethod
     def _prefetch(decision: FreshnessDecision, messages: list[BaseMessage]) -> list[BaseMessage]:
@@ -422,6 +431,8 @@ class ChatAgent:
         usage_info = batch_usage_info(result_messages, turn_duration_ms)
         if decision and decision.usage:
             usage_info["freshness_usage"] = decision.usage
+        if decision and decision.thinking:
+            usage_info["thinking"] = decision.thinking
         grounding_check.apply_grounding(response_text, result_messages, usage_info, None, history)
 
         return response_text, tool_results, usage_info, result_messages
@@ -501,6 +512,8 @@ class ChatAgent:
             if event.get("type") == "final":
                 if decision and decision.usage:
                     event["usage_info"]["freshness_usage"] = decision.usage
+                if decision and decision.thinking:
+                    event["usage_info"]["thinking"] = decision.thinking
                 args = (event["content"], event["result_messages"])
                 stop = event.get("stop_reason")
                 # The verifier runs between the last token and done (~1 s)

@@ -72,3 +72,9 @@ class TestStandingChatToolWiring:
         to light thinking - the freshness lookups stay, the light graph goes."""
         agent, _ = self._agent(monkeypatch)
         assert agent.light_graph is None
+
+    def test_standing_chats_can_still_think_deep(self, monkeypatch) -> None:
+        """A hard turn in a standing chat (a training block plan) still gets
+        high thinking; only the light level is kept from them."""
+        agent, _ = self._agent(monkeypatch)
+        assert agent.deep_graph is not None

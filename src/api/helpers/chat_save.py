@@ -388,6 +388,9 @@ def save_message_to_db(
                 "message_id": assistant_msg.id,
                 "response_length": len(content),
                 "client_connected": client_connected,
+                # The freshness gate's level (low/medium/high; absent = the
+                # model's own): joins the turn's message_costs row for review
+                "thinking": usage.get("thinking"),
             },
         )
 

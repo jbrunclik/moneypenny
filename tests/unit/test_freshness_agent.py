@@ -32,24 +32,25 @@ def _agent(gate: bool = True) -> ChatAgent:
     agent = ChatAgent.__new__(ChatAgent)
     agent.graph = MagicMock()
     agent.light_graph = MagicMock()
+    agent.deep_graph = MagicMock()
     agent.freshness_gate = gate
     agent.model_name = "gemini-4-hydrogen"
     agent._build_messages = MagicMock(return_value=list(_BUILT))  # type: ignore[method-assign]
     return agent
 
 
-def _decision(lookup: bool, think_hard: bool = True) -> freshness.FreshnessDecision:
+def _decision(lookup: bool, thinking: str | None = None) -> freshness.FreshnessDecision:
     return freshness.FreshnessDecision(
         lookup=lookup,
         queries=["Apple září 2026"] if lookup else [],
         usage=_USAGE,
-        think_hard=think_hard,
+        thinking=thinking,
     )
 
 
-def _patched(lookup: bool, think_hard: bool = True) -> Any:
+def _patched(lookup: bool, thinking: str | None = None) -> Any:
     return (
-        patch.object(freshness, "decide_freshness", return_value=_decision(lookup, think_hard)),
+        patch.object(freshness, "decide_freshness", return_value=_decision(lookup, thinking)),
         patch.object(freshness, "prefetch_messages", return_value=list(_PREFETCHED)),
         patch("src.agent.agent.grounding_check.should_check", return_value=False),
         patch("src.agent.agent.grounding_check.apply_grounding"),
@@ -115,48 +116,73 @@ class TestBatch:
 
 
 class TestThinkingLevel:
-    """An easy turn runs the light-thinking graph; a hard one, or a failed
-    gate (think_hard defaults to True), keeps the model's full thinking."""
+    """low runs the light graph, high the deep one; medium, or a failed gate
+    (thinking None), runs the model's own default (medium on Hydrogen)."""
 
-    def _stream(self, agent: ChatAgent, think_hard: bool) -> None:
-        for graph in (agent.graph, agent.light_graph):
+    def _stream(self, agent: ChatAgent, thinking: str | None) -> None:
+        for graph in (agent.graph, agent.light_graph, agent.deep_graph):
             if graph is None:
                 continue
             graph.stream.return_value = iter(
                 [("messages", (AIMessageChunk(content="Ahoj"), {"langgraph_node": "chat"}))]
             )
-        decide, prefetch, should, apply = _patched(lookup=False, think_hard=think_hard)
+        decide, prefetch, should, apply = _patched(lookup=False, thinking=thinking)
         with decide, prefetch, should, apply:
             list(agent.stream_chat_events(text="Díky"))
 
-    def test_an_easy_stream_turn_runs_light(self) -> None:
-        agent = _agent()
-        self._stream(agent, think_hard=False)
-        agent.light_graph.stream.assert_called_once()  # type: ignore[union-attr]
-        agent.graph.stream.assert_not_called()
+    def _ran(self, agent: ChatAgent) -> list[str]:
+        graphs = {"default": agent.graph, "light": agent.light_graph, "deep": agent.deep_graph}
+        return [name for name, graph in graphs.items() if graph is not None and graph.stream.called]
 
-    def test_a_hard_stream_turn_keeps_full_thinking(self) -> None:
+    def test_a_low_turn_runs_light(self) -> None:
         agent = _agent()
-        self._stream(agent, think_hard=True)
-        agent.graph.stream.assert_called_once()
-        agent.light_graph.stream.assert_not_called()  # type: ignore[union-attr]
+        self._stream(agent, thinking="low")
+        assert self._ran(agent) == ["light"]
 
-    def test_no_light_graph_keeps_full_thinking(self) -> None:
+    def test_a_medium_turn_runs_the_model_default(self) -> None:
+        agent = _agent()
+        self._stream(agent, thinking="medium")
+        assert self._ran(agent) == ["default"]
+
+    def test_a_high_turn_runs_deep(self) -> None:
+        agent = _agent()
+        self._stream(agent, thinking="high")
+        assert self._ran(agent) == ["deep"]
+
+    def test_a_failed_gate_runs_the_model_default(self) -> None:
+        agent = _agent()
+        self._stream(agent, thinking=None)
+        assert self._ran(agent) == ["default"]
+
+    def test_missing_graphs_fall_back_to_the_default(self) -> None:
         agent = _agent()
         agent.light_graph = None
-        self._stream(agent, think_hard=False)
-        agent.graph.stream.assert_called_once()
+        agent.deep_graph = None
+        self._stream(agent, thinking="low")
+        assert self._ran(agent) == ["default"]
 
     def test_an_easy_batch_turn_runs_light(self) -> None:
         agent = _agent()
         agent.light_graph.invoke.return_value = {  # type: ignore[union-attr]
             "messages": [*_BUILT, AIMessage(content="Ahoj")]
         }
-        decide, prefetch, should, apply = _patched(lookup=False, think_hard=False)
+        decide, prefetch, should, apply = _patched(lookup=False, thinking="low")
         with decide, prefetch, should, apply:
             text, _tools, _usage, _messages = agent.chat_batch(text="Díky")
         assert text == "Ahoj"
         agent.graph.invoke.assert_not_called()
+
+
+def test_the_turn_usage_carries_the_thinking_level() -> None:
+    """For the regular review: the saved-turn log line joins it to the cost row."""
+    agent = _agent()
+    agent.light_graph.invoke.return_value = {  # type: ignore[union-attr]
+        "messages": [*_BUILT, AIMessage(content="Ahoj")]
+    }
+    decide, prefetch, should, apply = _patched(lookup=False, thinking="low")
+    with decide, prefetch, should, apply:
+        _text, _tools, usage, _messages = agent.chat_batch(text="Díky")
+    assert usage["thinking"] == "low"
 
 
 def test_the_gate_call_is_part_of_the_message_cost() -> None:

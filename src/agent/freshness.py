@@ -10,12 +10,15 @@ a small model decides first whether the answer needs fresh facts; when it does,
 chat model starts - the answer begins from current pages, which the grounding
 check then judges like any other turn's sources.
 
-The same call says whether the turn needs the chat model's full thinking:
-easy turns run at FRESHNESS_GATE_LIGHT_THINKING_LEVEL (Oct 2026: low thinking
-halved plain turns but skipped skills and delegation on hard ones).
+The same call picks the turn's thinking level: low turns run at
+FRESHNESS_GATE_LIGHT_THINKING_LEVEL, high ones at
+FRESHNESS_GATE_DEEP_THINKING_LEVEL, medium ones at the model's own default
+(Oct 2026: low thinking halved plain turns but skipped skills and delegation
+on hard ones; Nov 2026: Gemini 4 Hydrogen's default high tripled thinking
+output, so its default is medium and high is kept for the hardest turns).
 
-Fails open: any error or timeout means no lookup and full thinking, never a
-failed turn.
+Fails open: any error or timeout means no lookup and the model's default
+thinking, never a failed turn.
 """
 
 import contextvars
@@ -26,7 +29,7 @@ from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel, Field
@@ -49,6 +52,8 @@ _GATE_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="freshness-gat
 _USER_MAX_CHARS = 1500
 _PREVIOUS_MAX_CHARS = 1200
 
+ThinkingChoice = Literal["low", "medium", "high"]
+
 
 class GateVerdict(BaseModel):
     """The gate model's structured answer."""
@@ -59,8 +64,8 @@ class GateVerdict(BaseModel):
     disputed: bool = Field(
         default=False, description="True when the user disputes or corrects a stated fact"
     )
-    think_hard: bool = Field(
-        default=True, description="True when a good answer needs careful reasoning or planning"
+    thinking: ThinkingChoice = Field(
+        default="medium", description="How much reasoning a good answer needs: low, medium or high"
     )
 
 
@@ -74,9 +79,9 @@ class FreshnessDecision:
     usage: dict[str, Any] | None = None
     # The user disputed a fact: the lookup's result says how to decide
     disputed: bool = False
-    # Full thinking for the turn; False runs it at the light level. True unless
-    # the gate answered, so a failed gate never makes a turn think less
-    think_hard: bool = True
+    # The gate's thinking level for the turn; None (no answer: failed, timed
+    # out, off) runs the model's own default
+    thinking: ThinkingChoice | None = None
 
 
 def _today() -> date:
@@ -180,7 +185,7 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
     # most disputed turns ran none, so the dispute note never reached the model)
     lookup = bool(verdict and (verdict.lookup or disputed) and queries)
     reason = verdict.reason if verdict else ""
-    think_hard = verdict.think_hard if verdict else True
+    thinking = verdict.thinking if verdict else None
     logger.info(
         "Freshness gate",
         extra={
@@ -188,7 +193,7 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
             "queries": queries,
             "reason": reason,
             "disputed": disputed,
-            "think_hard": think_hard,
+            "thinking": thinking,
         },
     )
     return FreshnessDecision(
@@ -197,7 +202,7 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
         reason=reason,
         usage=usage,
         disputed=disputed and lookup,
-        think_hard=think_hard,
+        thinking=thinking,
     )
 
 

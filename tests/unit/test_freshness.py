@@ -136,7 +136,8 @@ class TestDecide:
 class TestThinking:
     """Oct 2026: low thinking halved plain turns (12.9 -> 5.6 s) but skipped
     skills and delegation on hard ones, so the gate - already one call before
-    every turn - says which turns need full thinking."""
+    every turn - picks the turn's thinking level. Nov 2026, Gemini 4 Hydrogen:
+    low / medium / high, where medium is the model's own default."""
 
     def _decide(self, verdict: freshness.GateVerdict) -> freshness.FreshnessDecision:
         with patch.object(
@@ -144,40 +145,38 @@ class TestThinking:
         ):
             return freshness.decide_freshness(_TURN)
 
-    def test_an_easy_turn_runs_light(self) -> None:
-        assert (
-            self._decide(freshness.GateVerdict(lookup=False, think_hard=False)).think_hard is False
-        )
+    @pytest.mark.parametrize("level", ["low", "medium", "high"])
+    def test_the_gate_picks_the_level(self, level: str) -> None:
+        assert self._decide(freshness.GateVerdict(lookup=False, thinking=level)).thinking == level
 
-    def test_a_hard_turn_keeps_full_thinking(self) -> None:
-        assert self._decide(freshness.GateVerdict(lookup=False, think_hard=True)).think_hard is True
-
-    def test_an_error_keeps_full_thinking(self) -> None:
+    def test_an_error_leaves_the_model_default(self) -> None:
         model = _verdict_model(None, raises=TimeoutError("slow"))
         with patch.object(gemini_clients, "ChatGoogleGenerativeAI", return_value=model):
-            assert freshness.decide_freshness(_TURN).think_hard is True
+            assert freshness.decide_freshness(_TURN).thinking is None
 
-    def test_an_unparsed_answer_keeps_full_thinking(self) -> None:
+    def test_an_unparsed_answer_leaves_the_model_default(self) -> None:
         with patch.object(
             gemini_clients, "ChatGoogleGenerativeAI", return_value=_verdict_model(None)
         ):
-            assert freshness.decide_freshness(_TURN).think_hard is True
+            assert freshness.decide_freshness(_TURN).thinking is None
 
-    def test_a_timeout_keeps_full_thinking(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_a_timeout_leaves_the_model_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import time
 
         monkeypatch.setattr(Config, "FRESHNESS_GATE_TIMEOUT_SECONDS", 0.1)
 
         def slow(*_args: Any) -> Any:
             time.sleep(1)  # a gate call slower than its cap; nothing to poll
-            return freshness.GateVerdict(lookup=False, think_hard=False), None
+            return freshness.GateVerdict(lookup=False, thinking="low"), None
 
         with patch.object(freshness, "_ask_gate", side_effect=slow):
-            assert freshness.decide_freshness(_TURN).think_hard is True
+            assert freshness.decide_freshness(_TURN).thinking is None
 
-    def test_a_disabled_gate_keeps_full_thinking(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_a_disabled_gate_leaves_the_model_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(Config, "FRESHNESS_GATE_ENABLED", False)
-        assert freshness.decide_freshness(_TURN).think_hard is True
+        assert freshness.decide_freshness(_TURN).thinking is None
 
 
 class TestPrefetch:

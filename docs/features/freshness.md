@@ -89,16 +89,30 @@ Its call is priced at its own model (`usage_info["freshness_usage"]`,
 
 ## Thinking level per turn
 
-The gate's call also answers `think_hard`: does a good answer need careful
-reasoning or a plan (product or place recommendations, trip or training plans,
-multi-source research, several-part tasks, maths/data/code/files, real
-trade-offs, a disputed fact)? Easy turns - chit-chat, quick facts, short
-follow-ups, rewriting or translating, a single simple action on the user's
-data - run on a second compiled graph at `FRESHNESS_GATE_LIGHT_THINKING_LEVEL`
-(`ChatAgent.light_graph`, `_turn_graph()`); hard turns keep the model's own
-thinking. `think_hard` defaults to true, so a gate that errors, times out or
-answers unparsed never makes a turn think less, and places the gate does not
-run keep full thinking. The log line carries `think_hard`.
+The gate's call also picks the turn's `thinking`: `high` when a good answer
+needs careful reasoning or a plan (product or place recommendations, trip or
+training plans, multi-source research, maths/data/code/files, real trade-offs,
+a disputed fact), `medium` for other several-part tasks (a short plan or
+how-to, a lookup to put together, a follow-up that changes a plan, a
+multi-step action on the user's data), `low` for the rest - chit-chat, quick
+facts, short follow-ups, rewriting or translating, a single simple action.
+`low` turns run on `ChatAgent.light_graph` at
+`FRESHNESS_GATE_LIGHT_THINKING_LEVEL`, `high` ones on `ChatAgent.deep_graph`
+at `FRESHNESS_GATE_DEEP_THINKING_LEVEL`, and `medium` ones on the model's own
+(`"thinking_level": "medium"` on Hydrogen's `MODELS` entry; `_turn_graph()`).
+A gate that errors, times out or answers unparsed leaves `thinking` unset,
+which runs the model's own level, as do the places the gate does not run (agent
+runs, the planner). Standing chats never go light but can go deep. The gate's log line
+carries `thinking`, and so does "Chat turn completed and saved" (from the
+turn's `usage_info`), which has the `message_id` to join the cost row.
+
+Why three levels (Nov 12 2026): on Gemini 4 Hydrogen, whose API default is
+`high`, the first 13 turns cost ~3x 3.8 Flash's per turn, with 3-6x the output
+(thinking included) on tool turns - and the 24% of turns the two-way gate
+judged hard are the expensive ones. A probe on three prompts (easy / a dinner
+plan / a family trip plan): `low` 28 / 619 / 1515 thinking tokens, `medium`
+72 / 1251 / 2713, `high` 70 / 1414 / 3235 - `low` is the big step, `medium`
+saves 10-20% against `high`.
 
 Why (Oct 25 2026): plain Flash turns went from ~7 s to ~12 s overnight on Oct
 5-6 with no deploy - the time per output token (thinking included) doubled,
@@ -156,7 +170,8 @@ older than 12 months stay out of scope (the Oct 3 noise lesson).
 | `FRESHNESS_GATE_MODEL` | `gemini-3.5-flash-lite` | The gate's model (priced only) |
 | `FRESHNESS_GATE_TIMEOUT_SECONDS` | `3` | Wall-clock cap; past it the turn goes on without the gate |
 | `FRESHNESS_GATE_MAX_QUERIES` | `3` | Queries the prefetched research runs |
-| `FRESHNESS_GATE_LIGHT_THINKING_LEVEL` | `low` | Thinking level for turns the gate judges easy; empty = every turn at the model's own |
+| `FRESHNESS_GATE_LIGHT_THINKING_LEVEL` | `low` | Thinking level for turns the gate judges low; empty = those at the model's own |
+| `FRESHNESS_GATE_DEEP_THINKING_LEVEL` | `high` | Thinking level for turns the gate judges high; empty = those at the model's own |
 | `WEB_SEARCH_RECENT_DAYS` | `365` | No dated result newer than this: the `_recency` note |
 
 ## Testing

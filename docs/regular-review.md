@@ -105,6 +105,13 @@ The review itself changes nothing in production and edits nothing but
   stopped reply that still ends in "I stopped before finishing" means the retry
   came back empty too - look at which job or chat it was.
 
+- Thinking levels (from Nov 13 2026): the "Chat turn completed and saved"
+  journal lines' `thinking` (low / medium / high; absent = the model's own, a
+  failed gate or no gate) - the split per day, and cost and `duration_ms` per
+  level by joining `message_id` to `message_costs`. A level that takes most
+  turns, or `high` turns no slower or dearer than `medium` ones, is a prompt
+  to retune the gate prompt.
+
 ## 4. Answer quality
 
 - Grounding verdict mix: the `Grounding check` journal lines

@@ -28,6 +28,9 @@ class Config:
         "gemini-4-hydrogen": {
             "name": "Gemini 4 Hydrogen",
             "short_name": "Fast",
+            # The API default is high (Nov 2026: tripled thinking output against
+            # 3.8 Flash); the freshness gate raises a chat's hardest turns to it
+            "thinking_level": "medium",
         },
         "gemini-4-carbon": {
             "name": "Gemini 4 Carbon",
@@ -517,10 +520,14 @@ class Config:
     # It runs before every regular turn: past this the turn goes ahead without it
     FRESHNESS_GATE_TIMEOUT_SECONDS: float = float(os.getenv("FRESHNESS_GATE_TIMEOUT_SECONDS", "3"))
     FRESHNESS_GATE_MAX_QUERIES: int = int(os.getenv("FRESHNESS_GATE_MAX_QUERIES", "3"))
-    # Thinking level for turns the gate judges easy (hard turns, and any gate
-    # failure, keep the model's own); empty runs every turn at the model's own
+    # Thinking levels for the turns the gate judges low and high (medium turns,
+    # and any gate failure, run at the model's own - "thinking_level" on its
+    # MODELS entry); empty runs those turns at the model's own too
     FRESHNESS_GATE_LIGHT_THINKING_LEVEL: str = os.getenv(
         "FRESHNESS_GATE_LIGHT_THINKING_LEVEL", "low"
+    )
+    FRESHNESS_GATE_DEEP_THINKING_LEVEL: str = os.getenv(
+        "FRESHNESS_GATE_DEEP_THINKING_LEVEL", "high"
     )
     GROUNDING_CHECK_MAX_SOURCE_CHARS: int = int(
         os.getenv("GROUNDING_CHECK_MAX_SOURCE_CHARS", "60000")

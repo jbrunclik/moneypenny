@@ -595,10 +595,20 @@ class TestThinkingLevel:
     def test_omits_thinking_level_by_default(self, mock_llm_class: MagicMock) -> None:
         from src.agent.chat_model import create_chat_model
 
-        create_chat_model("gemini-4-hydrogen", with_tools=False)
+        create_chat_model("gemini-4-carbon", with_tools=False)
 
         call_kwargs = mock_llm_class.call_args[1]
         assert "thinking_level" not in call_kwargs
+
+    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
+    def test_hydrogen_thinks_at_medium_by_default(self, mock_llm_class: MagicMock) -> None:
+        """Its API default is high (Nov 2026: ~3x 3.8 Flash's cost per turn);
+        the freshness gate raises the hardest chat turns to high."""
+        from src.agent.chat_model import create_chat_model
+
+        create_chat_model("gemini-4-hydrogen", with_tools=False)
+
+        assert mock_llm_class.call_args[1]["thinking_level"] == "medium"
 
     @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
     def test_an_explicit_level_overrides_the_model_default(self, mock_llm_class: MagicMock) -> None:
