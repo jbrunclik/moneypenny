@@ -218,6 +218,21 @@ And prose for: a short answer or quick fact, text the user will copy or edit
 Calendar. The old line "NEVER for plain answers, lists, tables" was dropped:
 it forbade exactly the checklists and comparison tables the audit missed.
 
+### Usage (Nov 13 2026)
+
+The description change did not raise use on 3.8 Flash: 12 artifacts in all,
+9 in the two weeks before it (Oct 12-26, ~580 user turns: six recipes, three
+design mockups), 3 in the 2.5 weeks after (Oct 27-Nov 12, ~1,400 user turns:
+a shopping checklist, a test assignment, a chemistry study guide). The
+checklist never saved a tick. In the same weeks 67 chat replies were long
+structured prose (over 2,500 characters with 5+ `###` headings); by their
+conversations' titles the missed fits were study guides for school (biology,
+music history, a class presentation), recipes (despite "always a card"),
+choices between options and step-by-step guides. No artifact was found where
+prose was right. Low thinking (from Oct 25) was the suspect, but a probe on
+Gemini 4 Hydrogen made an artifact for a recipe and a study guide at low,
+medium and high alike, so the re-measure waits for a week on Hydrogen.
+
 The lever is the tool description only: the system prompt is measured to be
 ignored, and a hint on research results would not reach these turns (the
 checklist and explainer evals answered with zero tool rounds before the
