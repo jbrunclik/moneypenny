@@ -9,8 +9,10 @@ blueprint.
 from typing import Any
 
 from apiflask import APIBlueprint
+from flask import Response
 
 from src.api.errors import raise_not_found_error, raise_validation_error
+from src.api.helpers.conversation_export import content_disposition, conversation_markdown
 from src.api.helpers.conversation_facts import facts_eligible
 from src.api.helpers.sync import cursor_sync, sync_summary
 from src.api.helpers.turn_steering import has_lost_reply, running_turn_id
@@ -321,6 +323,39 @@ def get_conversation_facts(user: User, conv_id: str) -> tuple[dict[str, object],
         "max_count": Config.CONVERSATION_FACTS_MAX_COUNT,
         "enabled": enabled,
     }, 200
+
+
+@api.route("/conversations/<conv_id>/export", methods=["GET"])
+@api.doc(
+    summary="Download the conversation as Markdown",
+    description=(
+        "The whole conversation as a text/markdown attachment: title, who wrote what "
+        "and when, content as written, attachments, sources and artifacts by name."
+    ),
+    responses={
+        200: "The conversation as a text/markdown attachment",
+        401: "Not signed in",
+        404: "No such conversation",
+    },
+)
+@rate_limit_conversations
+@require_auth
+def export_conversation(user: User, conv_id: str) -> Response:
+    """The conversation as a .md file named after its title."""
+    conv = db.get_conversation(conv_id, user.id)
+    if not conv:
+        raise_not_found_error("Conversation")
+    now = utc_now()
+    messages = db.get_messages(conv_id)
+    logger.info(
+        "Conversation exported",
+        extra={"user_id": user.id, "conversation_id": conv_id, "message_count": len(messages)},
+    )
+    return Response(
+        conversation_markdown(conv.title, messages, exported_at=now),
+        mimetype="text/markdown",
+        headers={"Content-Disposition": content_disposition(conv.title, now)},
+    )
 
 
 @api.route("/conversations/<conv_id>", methods=["DELETE"])

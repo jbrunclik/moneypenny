@@ -13,7 +13,7 @@ import { getElementById } from '../utils/dom';
 import { resetSwipeStates } from '../gestures/swipe';
 import { showActionSheet } from '../components/ActionSheet';
 import { useStore } from '../state/store';
-import { ARCHIVE_ICON, DELETE_ICON, EDIT_ICON, PIN_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
+import { ARCHIVE_ICON, DELETE_ICON, DOWNLOAD_ICON, EDIT_ICON, PIN_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
 
 import { createConversation, selectConversation } from './conversation';
 import { deleteConversation, renameConversation, togglePinConversation } from './conversation-actions';
@@ -25,7 +25,7 @@ import { navigateToAgents } from './agents';
 import { navigateToSports } from './sports';
 import { navigateToLanguage } from './language';
 import { navigateToStorage } from './kv-store';
-import { openFileInNewTab, downloadFile, copyMessageContent, copyInlineContent } from './file-actions';
+import { openFileInNewTab, downloadFile, copyMessageContent, copyInlineContent, exportConversation } from './file-actions';
 import { handleQuizOptionClick, handleQuizContinue, handleQuizInputChange } from '../components/QuizBlock';
 
 const log = createLogger('events');
@@ -59,6 +59,7 @@ function openConversationActionSheet(convId: string, archived: boolean): void {
           onSelect: () => void togglePinConversation(convId),
         },
         { label: 'Rename', icon: EDIT_ICON, onSelect: () => renameConversation(convId) },
+        { label: 'Export as Markdown', icon: DOWNLOAD_ICON, onSelect: () => void exportConversation(convId) },
         { label: 'Archive', icon: ARCHIVE_ICON, onSelect: () => archiveConversation(convId) },
         {
           label: 'Delete',

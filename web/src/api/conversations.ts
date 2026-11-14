@@ -14,7 +14,8 @@ import {
   type MessagesPagination,
   type SyncResponse,
 } from '../types/api';
-import { request, requestWithRetry } from './http';
+import { ApiError, fetchWithConnectTimeout, getToken, request, requestWithRetry } from './http';
+import { API_DEFAULT_TIMEOUT_MS } from '../config';
 
 type ConversationListItem = ConversationsResponse['conversations'][number];
 
@@ -38,6 +39,19 @@ function toConversation(conv: ConversationListItem, withUnread = false): Convers
 }
 
 // Conversation endpoints
+/** The file name from a Content-Disposition header (its UTF-8 `filename*` first). */
+export function exportFileName(header: string | null): string {
+  const utf8 = header?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (utf8) {
+    try {
+      return decodeURIComponent(utf8);
+    } catch {
+      // A malformed escape: fall back to the plain name
+    }
+  }
+  return header?.match(/filename="([^"]+)"/i)?.[1] ?? 'conversation.md';
+}
+
 export const conversations = {
   /**
    * List conversations with pagination.
@@ -272,6 +286,18 @@ export const conversations = {
   },
 
   /** Ask the running turn (named by its assistant message id) to stop server-side. */
+  /** The conversation as a Markdown file, with the name the server gives it. */
+  async exportMarkdown(id: string): Promise<{ blob: Blob; fileName: string }> {
+    const token = getToken();
+    const response = await fetchWithConnectTimeout(
+      `/api/conversations/${id}/export`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      API_DEFAULT_TIMEOUT_MS
+    );
+    if (!response.ok) throw new ApiError('Failed to export the conversation', response.status);
+    return { blob: await response.blob(), fileName: exportFileName(response.headers.get('Content-Disposition')) };
+  },
+
   /** Stop a turn named by its reply id, or - before the stream's first
    * event - by the id of the message it answers. */
   async stop(id: string, turn: { messageId: string } | { clientMessageId: string }): Promise<void> {

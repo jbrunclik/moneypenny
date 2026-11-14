@@ -71,7 +71,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - Visual coverage: login with the real Google button (Google's script never loads in tests; the fallback state is covered)
 
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.
-- [ ] **Export conversation as Markdown** (Aug 2026 UX batch) - per-conversation action (action sheet / chat header) downloading the full history as .md: titles, roles, timestamps, code blocks preserved; attachments referenced by filename.
 - [ ] **Conversation sharing** - public links for sharing conversations.
 - [ ] **Keyboard shortcuts** for common actions.
 - [ ] **Voice conversation mode** - speech-to-text in, text-to-speech out.

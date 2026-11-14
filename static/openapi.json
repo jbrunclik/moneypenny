@@ -5025,6 +5025,55 @@
         "summary": "Get or create the program conversation."
       }
     },
+    "/api/conversations/{conv_id}/export": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "No such conversation"
+          },
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "The conversation as a text/markdown attachment"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not signed in"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Download the conversation as Markdown",
+        "description": "The whole conversation as a text/markdown attachment: title, who wrote what and when, content as written, attachments, sources and artifacts by name."
+      }
+    },
     "/api/language/programs/{program_id}": {
       "delete": {
         "parameters": [

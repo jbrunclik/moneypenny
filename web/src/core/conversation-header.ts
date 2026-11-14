@@ -1,15 +1,16 @@
 /**
  * Chat header for regular (non-agent) conversations: inline rename plus
- * the pin / archive / delete actions.
+ * the pin / export / archive / delete actions.
  */
 
 import { useStore } from '../state/store';
 import type { Conversation } from '../types/api';
 import { renderChatHeader } from '../components/ChatHeader';
-import { ARCHIVE_ICON, DELETE_ICON, PIN_ICON, UNPIN_ICON, setIcon } from '../utils/icons';
+import { ARCHIVE_ICON, DELETE_ICON, DOWNLOAD_ICON, PIN_ICON, UNPIN_ICON, setIcon } from '../utils/icons';
 import { isTempConversation } from '../utils/conversation-id';
 import { deleteConversation, renameConversationTo, togglePinConversation } from './conversation-actions';
 import { archiveConversation } from './archive';
+import { exportConversation } from './file-actions';
 
 /**
  * Build the icon action buttons for the regular conversation header.
@@ -31,6 +32,13 @@ function buildChatHeaderActions(convId: string): HTMLElement[] {
     });
   });
 
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'btn-icon chat-header-action';
+  exportBtn.setAttribute('aria-label', 'Export as Markdown');
+  exportBtn.title = 'Export as Markdown';
+  setIcon(exportBtn, DOWNLOAD_ICON);
+  exportBtn.addEventListener('click', () => void exportConversation(convId));
+
   const archiveBtn = document.createElement('button');
   archiveBtn.className = 'btn-icon chat-header-action';
   archiveBtn.setAttribute('aria-label', 'Archive conversation');
@@ -45,7 +53,7 @@ function buildChatHeaderActions(convId: string): HTMLElement[] {
   setIcon(deleteBtn, DELETE_ICON);
   deleteBtn.addEventListener('click', () => void deleteConversation(convId));
 
-  return [pinBtn, archiveBtn, deleteBtn];
+  return [pinBtn, exportBtn, archiveBtn, deleteBtn];
 }
 
 /**

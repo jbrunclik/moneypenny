@@ -5,6 +5,7 @@
 
 import { createLogger } from '../utils/logger';
 import { artifactCopyText } from '../components/messages/artifacts';
+import { conversations } from '../api/conversations';
 import { files } from '../api/files';
 import { showToast, toast } from '../components/Toast';
 import { CHECK_ICON, setIcon } from '../utils/icons';
@@ -89,27 +90,40 @@ export async function openFileInNewTab(
  */
 export async function downloadFile(messageId: string, fileIndex: number, fileName: string): Promise<void> {
   try {
-    const blob = await files.fetchFile(messageId, fileIndex);
-    const file = new File([blob], fileName, { type: blob.type });
-    // The installed iPhone app has no download manager: <a download> on a
-    // blob URL does nothing there. The share sheet has "Save to Files".
-    if (prefersShareSheet(file)) {
-      await shareFile(file);
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    URL.revokeObjectURL(url);
+    await saveBlob(await files.fetchFile(messageId, fileIndex), fileName);
   } catch (error) {
     log.error('Failed to download file', { error, messageId, fileIndex, fileName });
     toast.error('Failed to download file.');
+  }
+}
+
+/** Hand the user a file: the share sheet where a download goes nowhere, else a download. */
+async function saveBlob(blob: Blob, fileName: string): Promise<void> {
+  const file = new File([blob], fileName, { type: blob.type });
+  // The installed iPhone app has no download manager: <a download> on a
+  // blob URL does nothing there. The share sheet has "Save to Files".
+  if (prefersShareSheet(file)) {
+    await shareFile(file);
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/** Download the conversation as a Markdown file named after its title. */
+export async function exportConversation(convId: string): Promise<void> {
+  try {
+    const { blob, fileName } = await conversations.exportMarkdown(convId);
+    await saveBlob(blob, fileName);
+  } catch (error) {
+    log.error('Failed to export conversation', { error, conversationId: convId });
+    toast.error('Failed to export the conversation.');
   }
 }
 

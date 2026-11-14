@@ -24,6 +24,26 @@ The sidebar displays a list of conversations with hover actions for rename and d
   conversation to the trash? You can restore it for 14 days.", and a "Moved to trash." toast offers **Undo**
 - Cost data is intentionally preserved after deletion for accurate reporting
 
+### Export as Markdown
+
+Nov 14 2026. `GET /api/conversations/<id>/export` returns the whole
+conversation as a `text/markdown` attachment
+([conversation_export.py](../../src/api/helpers/conversation_export.py)): the
+title, an "Exported from Moneypenny" line, then one block per message - **You**
+or **Moneypenny**, the local time, the content as written (it is already
+Markdown, so code blocks and tables survive), and attachments, artifacts and
+sources by name. An empty reply placeholder is left out. The file is named
+after the title: `filename*` in UTF-8 keeps a Czech title, `filename` is an
+ASCII slug fallback. The client (`exportConversation` in
+[file-actions.ts](../../web/src/core/file-actions.ts)) saves it with the same
+`saveBlob` as attachments - the share sheet in the installed iPhone app, a
+download elsewhere. Entry points: the export icon in the desktop chat header
+(between Pin and Archive) and "Export as Markdown" in the mobile conversation
+action sheet. A brand-new chat shows its header actions only once reopened
+(existing behaviour). Each export logs `Conversation exported` with the
+message count. Tests: `test_conversation_export.py`,
+`test_routes_conversation_export.py`, `conversation-export.spec.ts`.
+
 ### Bulk delete
 
 Clearing out many chats at once, without a confirm per chat (they stay restorable in the

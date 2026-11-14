@@ -16,6 +16,7 @@ const m = vi.hoisted(() => ({
   renameConversationTo: vi.fn(() => Promise.resolve()),
   togglePinConversation: vi.fn<(id: string) => Promise<void>>(() => Promise.resolve()),
   archiveConversation: vi.fn(() => Promise.resolve()),
+  exportConversation: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('@/components/ChatHeader', () => ({ renderChatHeader: m.renderChatHeader }));
@@ -25,6 +26,7 @@ vi.mock('@/core/conversation-actions', () => ({
   togglePinConversation: m.togglePinConversation,
 }));
 vi.mock('@/core/archive', () => ({ archiveConversation: m.archiveConversation }));
+vi.mock('@/core/file-actions', () => ({ exportConversation: m.exportConversation }));
 
 import { useStore } from '@/state/store';
 import { renderChatHeaderForConversation } from '@/core/conversation-header';
@@ -56,11 +58,12 @@ describe('renderChatHeaderForConversation', () => {
     expect(m.renderChatHeader).toHaveBeenCalledWith({ title: 'New chat' });
   });
 
-  it('gives a saved conversation pin, archive and delete actions', () => {
+  it('gives a saved conversation pin, export, archive and delete actions', () => {
     renderChatHeaderForConversation(conv());
     expect(lastOptions().title).toBe('Chat');
     expect(lastOptions().actions?.map((b) => b.getAttribute('aria-label'))).toEqual([
       'Pin conversation',
+      'Export as Markdown',
       'Archive conversation',
       'Delete conversation',
     ]);
@@ -80,12 +83,14 @@ describe('renderChatHeaderForConversation', () => {
     expect(m.renameConversationTo).toHaveBeenCalledWith('c1', 'Better title');
   });
 
-  it('archives and deletes the conversation from its buttons', () => {
+  it('archives, deletes and exports the conversation from its buttons', () => {
     renderChatHeaderForConversation(conv());
     action('Archive conversation').click();
     action('Delete conversation').click();
+    action('Export as Markdown').click();
     expect(m.archiveConversation).toHaveBeenCalledWith('c1');
     expect(m.deleteConversation).toHaveBeenCalledWith('c1');
+    expect(m.exportConversation).toHaveBeenCalledWith('c1');
   });
 
   it('re-renders with Unpin after pinning the open conversation', async () => {
