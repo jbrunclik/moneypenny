@@ -294,6 +294,25 @@ class TestApproval:
         assert len(cards) == 2
         assert any("09:00" in str(card.details["When"]) for card in cards)
 
+    def test_a_turn_files_at_most_the_card_cap(
+        self, ctx: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A bare yes approves every card on the reply, so a message (or a
+        page steering the model) cannot pile up more than the cap."""
+        from src.agent.tool_results import set_current_request_id
+
+        monkeypatch.setattr(Config, "SCHEDULE_MAX_CARDS_PER_TURN", 2)
+        set_current_request_id("turn-1")
+        try:
+            _reminder()
+            _reminder(time="09:00")
+            third = _reminder(time="10:00")
+        finally:
+            set_current_request_id(None)
+
+        assert len(_pending()) == 2
+        assert "at most 2" in third
+
     def test_approving_a_past_reminder_fails_cleanly(
         self, ctx: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
     ) -> None:

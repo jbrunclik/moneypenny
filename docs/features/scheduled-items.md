@@ -65,7 +65,7 @@ message, each belonging to the chat that set it
   the Command Center lists them with the standing jobs.
   API: `GET /api/conversations/<id>/schedules`, `DELETE /api/schedules/<id>`,
   `POST /api/schedules/<id>/pause|resume`.
-- **Limits:** at most `SCHEDULE_MAX_ACTIVE_PER_USER` (20) items per user, paused included
+- **Limits:** at most `SCHEDULE_MAX_CARDS_PER_TURN` (10) cards per message (a typed yes approves every card on the reply, so a message - or a page steering the model - cannot pile up more; Nov 14 2026), and at most `SCHEDULE_MAX_ACTIVE_PER_USER` (20) items per user, paused included
   (the cap gates creating; restoring trashed or archived chats can bring a user above it -
   their items come back as they were rather than being dropped);
   a reminder's preview warns when none of the user's devices has notifications on.

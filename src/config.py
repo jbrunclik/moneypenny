@@ -739,6 +739,9 @@ class Config:
     # once its runs today cost this much (changeable in the editor)
     STANDING_CREATE_BUDGET_USD: float = float(os.getenv("STANDING_CREATE_BUDGET_USD", "0.5"))
     SCHEDULE_MAX_ACTIVE_PER_USER: int = int(os.getenv("SCHEDULE_MAX_ACTIVE_PER_USER", "20"))
+    # Cards one message may file (a typed yes approves them all, so a message -
+    # or a page steering the model - cannot pile up more; prod max was 7, Nov 2026)
+    SCHEDULE_MAX_CARDS_PER_TURN: int = int(os.getenv("SCHEDULE_MAX_CARDS_PER_TURN", "10"))
     # A watcher with no end date stops after this many days
     SCHEDULE_WATCH_EXPIRY_DAYS: int = int(os.getenv("SCHEDULE_WATCH_EXPIRY_DAYS", "30"))
     # A reminder or check-in more than this late (scheduler down, chat restored

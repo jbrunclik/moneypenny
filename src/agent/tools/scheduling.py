@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo
 from langchain_core.tools import tool
 
 from src.agent.proposals import ProposalFailedError, card_shown, file_proposal, register_kind
+from src.agent.tool_results import get_current_request_id
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.config import Config
@@ -242,6 +243,13 @@ def _create(user_id: str, conversation_id: str | None, args: Mapping[str, object
     if isinstance(spec, str):
         return spec
     spec["kind"], spec["text"] = kind, text  # type: ignore[typeddict-item]  # kind checked by _build
+    request_id = get_current_request_id()
+    cap = Config.SCHEDULE_MAX_CARDS_PER_TURN
+    if request_id and db.count_turn_proposals(request_id, PROPOSAL_KIND) >= cap:
+        return tool_error(
+            f"One message can set at most {cap} items - say which ones are waiting "
+            "for the user's OK, and offer the rest after they answer."
+        )
     label = _KIND_LABELS[kind]
     proposal = file_proposal(
         PROPOSAL_KIND,

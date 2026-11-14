@@ -238,6 +238,17 @@ class ProposalsMixin:
             (to_db(utc_now()), request_id, kind, keep_id),
         )
 
+    def count_turn_proposals(self, request_id: str, kind: str) -> int:
+        """How many pending proposals of a kind this turn has filed."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                """SELECT COUNT(*) AS n FROM proposals
+                   WHERE request_id = ? AND kind = ? AND state = 'pending'""",
+                (request_id, kind),
+            ).fetchone()
+        return int(row["n"])
+
     def turn_proposal(self, request_id: str, kind: str) -> Proposal | None:
         """This turn's pending proposal of a kind (a chat change collects calls)."""
         found = self._select(
