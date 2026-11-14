@@ -276,9 +276,11 @@ class TestApproval:
 
         assert [i.text for i in database.list_items(user.id)] == ["Call the plumber"]
 
-    def test_a_new_preview_in_the_same_turn_replaces_the_card(
+    def test_several_reminders_in_one_turn_each_keep_their_card(
         self, ctx: tuple[Database, User]
     ) -> None:
+        """Two reminders asked for in one message are two items: on Nov 9-10 2026 five turns
+        filed 2-7 cards each and the newest replaced the rest (19 lost)."""
         from src.agent.tool_results import set_current_request_id
 
         set_current_request_id("turn-1")
@@ -288,8 +290,9 @@ class TestApproval:
         finally:
             set_current_request_id(None)
 
-        [card] = _pending()
-        assert "09:00" in str(card.details["When"])
+        cards = _pending()
+        assert len(cards) == 2
+        assert any("09:00" in str(card.details["When"]) for card in cards)
 
     def test_approving_a_past_reminder_fails_cleanly(
         self, ctx: tuple[Database, User], monkeypatch: pytest.MonkeyPatch

@@ -224,7 +224,7 @@ def apply_schedule(proposal: Proposal, option: ProposalOption) -> str:
     return f"{label} set - {pending['when']}, {pending['ends']}."
 
 
-register_kind(PROPOSAL_KIND, apply_schedule)
+register_kind(PROPOSAL_KIND, apply_schedule, several_per_turn=True)
 
 
 def _create(user_id: str, conversation_id: str | None, args: Mapping[str, object]) -> str:

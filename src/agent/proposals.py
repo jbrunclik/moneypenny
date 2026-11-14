@@ -71,6 +71,10 @@ _KIND_OUTCOMES: dict[str, dict[str, str]] = {}
 # Kinds a typed answer reaches only on the stream, and only a turn starts
 # (deep research runs as that turn) - never the approve endpoint
 _STREAM_ONLY: set[str] = set()
+# Kinds whose cards are separate items, so a turn may file several (reminders:
+# "remind me at 8, 12 and 18"); every other kind's newer card replaces the
+# turn's older one
+_SEVERAL_PER_TURN: set[str] = set()
 STREAM_STARTED = _STREAM_ONLY
 
 
@@ -93,6 +97,7 @@ def register_kind(
     outcomes: Mapping[str, str] | None = None,
     exclusive: bool = False,
     by_number: bool = True,
+    several_per_turn: bool = False,
 ) -> None:
     """Register how a kind's chosen option is applied (returns the result
     line), what a decline does besides recording it (a paused run ends),
@@ -112,6 +117,8 @@ def register_kind(
         _EXCLUSIVE.add(kind)
     if not by_number:
         _LABELS_ONLY.add(kind)
+    if several_per_turn:
+        _SEVERAL_PER_TURN.add(kind)
     if decline is not None:
         _DECLINES[kind] = decline
 
@@ -174,7 +181,7 @@ def file_proposal(
             resolved_at=None,
         )
     )
-    if proposal.request_id:
+    if proposal.request_id and kind not in _SEVERAL_PER_TURN:
         db.supersede_proposals(proposal.request_id, kind, proposal.id)
     logger.info("Proposal filed", extra={"kind": kind, "options": len(options)})
     return proposal

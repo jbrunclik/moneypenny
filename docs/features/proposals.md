@@ -113,7 +113,12 @@ permanent delete) deletes its proposals and their payloads.
 - `file_proposal(kind, summary, details, options)` - from a tool; reads the
   conversation, user and request from the contextvars. A newer proposal of
   the same kind from the same turn supersedes the older (one preview per kind,
-  as before). The tool returns `card_shown(proposal)`: the card's content, and
+  as before) - except kinds registered `several_per_turn`, whose cards are
+  separate items: `schedule_item` (Nov 14 2026 - "remind me at 8, 12 and 18"
+  is three reminders; from Nov 9 to Nov 10 five turns filed 2-7 cards each and
+  the newest replaced the rest, so 19 reminders never reached the user). A
+  model that re-files a corrected item then leaves two cards, and the user
+  approves the right one. The tool returns `card_shown(proposal)`: the card's content, and
   "say in one sentence what you proposed".
 - `register_kind(kind, apply)` - each tool module registers its apply
   function; `apply` returns the result line or raises `ProposalFailedError`

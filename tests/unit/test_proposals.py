@@ -154,6 +154,23 @@ def test_a_second_proposal_of_a_request_supersedes(
     assert older is not None and older.state == "superseded"
 
 
+def test_a_kind_filed_several_times_per_turn_keeps_every_card(db: Database, conv: str) -> None:
+    """Reminders asked for in one message are separate items: the Nov 9-10
+    2026 turns that filed 2-7 cards kept only the last one."""
+    register_kind("several_kind", _apply, several_per_turn=True)
+    first = _file(kind="several_kind")
+    second = _file(kind="several_kind")
+
+    assert {p.id for p in db.pending_proposals(conv)} == {first.id, second.id}
+
+
+def test_schedule_items_are_filed_several_per_turn() -> None:
+    from src.agent import proposals
+    from src.agent.tools import scheduling
+
+    assert scheduling.PROPOSAL_KIND in proposals._SEVERAL_PER_TURN
+
+
 def test_answer_typed_resolves_all_on_the_latest_reply(db: Database, conv: str) -> None:
     register_kind("other_kind", _apply)
     _file()
