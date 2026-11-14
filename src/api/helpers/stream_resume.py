@@ -14,6 +14,7 @@ import time
 from collections.abc import Generator
 from typing import Any
 
+from src.api.helpers.turn_owner import sweep_turn_owners, turn_owner_gone
 from src.api.utils import (
     add_artifacts,
     add_grounding,
@@ -27,6 +28,8 @@ from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+# How often a silent resume asks whether the turn's worker still exists
+_OWNER_CHECK_INTERVAL_SECONDS = 3.0
 
 
 JOURNALED_EVENT_TYPES = {
@@ -70,6 +73,7 @@ class StreamJournal:
             db.journal_cleanup(Config.STREAM_JOURNAL_TTL_SECONDS)
         except Exception:
             logger.warning("Stream journal cleanup failed", exc_info=True)
+        sweep_turn_owners(Config.STREAM_JOURNAL_TTL_SECONDS)
 
     def record(self, event: dict[str, Any]) -> None:
         """Assign a seq to the event, buffer it, flush opportunistically."""
@@ -153,17 +157,18 @@ def _replay(
 
 
 def _resume_failure(
-    msg: Any, save_grace_deadline: float | None, stall_deadline: float
+    msg: Any, save_grace_deadline: float | None, stall_deadline: float, owner_gone: bool
 ) -> str | None:
     """Why the resume must give up now, or None to keep tailing.
 
-    save_grace_deadline is set once the producer's stream_end was seen.
+    save_grace_deadline is set once the producer's stream_end was seen;
+    owner_gone means the turn's worker process no longer exists.
     """
     if save_grace_deadline is not None:
         if msg is None or time.monotonic() > save_grace_deadline:
             # Placeholder deleted (failed turn) or the save never landed
             return "The response could not be recovered."
-    elif time.monotonic() > stall_deadline:
+    elif owner_gone or time.monotonic() > stall_deadline:
         return "The stream made no progress and appears to be dead."
     return None
 
@@ -191,6 +196,7 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
     # this bound a resume of a dead turn would hold a worker thread and send
     # keepalives until CHAT_TIMEOUT_SECONDS.
     stall_deadline = time.monotonic() + Config.STREAM_RESUME_STALL_SECONDS
+    next_owner_check = time.monotonic()
 
     while time.monotonic() < deadline:
         events = db.journal_get_events(message_id, after_seq)
@@ -208,7 +214,13 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
 
         if stream_ended and save_grace_deadline is None:
             save_grace_deadline = time.monotonic() + Config.STREAM_RESUME_SAVE_GRACE_SECONDS
-        failure = _resume_failure(msg, save_grace_deadline, stall_deadline)
+        # The turn's worker process gone = dead now, not after the stall window
+        # (checked every few seconds of silence, not on every 0.4 s poll)
+        owner_gone = False
+        if not events and time.monotonic() >= next_owner_check:
+            next_owner_check = time.monotonic() + _OWNER_CHECK_INTERVAL_SECONDS
+            owner_gone = turn_owner_gone(message_id)
+        failure = _resume_failure(msg, save_grace_deadline, stall_deadline, owner_gone)
         if failure:
             error_data = {
                 "type": "error",

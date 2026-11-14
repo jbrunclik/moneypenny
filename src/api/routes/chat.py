@@ -16,6 +16,7 @@ from flask import Response
 from src.agent.cancellation import request_finish_now, request_stop
 from src.agent.interjection import clear_interjection, pop_interjection
 from src.api.errors import (
+    raise_conflict_error,
     raise_llm_error,
     raise_not_found_error,
     raise_server_error,
@@ -49,7 +50,7 @@ from src.api.schemas.chat import (
     StopChatRequest,
 )
 from src.api.schemas.common import StatusResponse
-from src.api.utils import build_chat_response
+from src.api.utils import build_chat_response, streaming_message_id
 from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
@@ -365,6 +366,15 @@ def chat_interject(user: User, data: InterjectRequest, conv_id: str) -> dict[str
         if existing.conversation_id != conv_id:
             raise_not_found_error("Conversation")
         return {"status": "interjected"}
+    # The turn's reply is there but its turn is dead (worker gone, journal
+    # stalled): steered, the text would never be answered - the client sends
+    # it as a new message instead (Nov 14 2026). No reply yet is a turn
+    # still starting, steered as before.
+    if streaming_message_id(conv_id) is not None and running_turn_id(conv_id) is None:
+        raise_conflict_error(
+            "The reply in progress stopped - send your message again.",
+            {"reason": "turn_not_running"},
+        )
     steer_running_turn(user.id, conv_id, text, data.client_message_id)
     return {"status": "interjected"}
 

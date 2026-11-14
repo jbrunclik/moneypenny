@@ -277,6 +277,27 @@ class TestResumeStallBound:
         assert events[-1]["type"] == "error"
         assert events[-1]["code"] == "RESUME_FAILED"
 
+    def test_a_turn_whose_worker_died_ends_resume_without_the_stall_wait(
+        self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A worker gone (Nov 14 2026: SIGABRT mid-turn) is proof enough - the
+        stall window (180 s) would keep the client following a dead turn."""
+        import time
+
+        from src.api.helpers import stream_resume
+
+        monkeypatch.setattr(stream_resume, "turn_owner_gone", lambda _message_id: True)
+        conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
+        msg = test_database.add_message(conv.id, MessageRole.ASSISTANT, "")
+        test_database.journal_append_events(
+            msg.id, [(1, json.dumps({"type": "token", "text": "partial", "seq": 1}))]
+        )
+
+        started = time.monotonic()
+        events = _drain_sse(stream_resume.stream_resume_events(msg.id, after_seq=0))
+        assert events[-1]["code"] == "RESUME_FAILED"
+        assert time.monotonic() - started < 5
+
     def test_a_save_that_never_lands_ends_after_the_grace(
         self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -88,6 +88,21 @@ beforeEach(() => {
 });
 
 describe('interjectIntoActiveTurn', () => {
+  it('says the reply stopped, and keeps the text, when its turn is dead', async () => {
+    const { ApiError } = await import('@/api/http');
+    api.interject.mockRejectedValueOnce(
+      new ApiError('The reply in progress stopped', 409, {
+        code: 'CONFLICT',
+        details: { reason: 'turn_not_running' },
+      })
+    );
+    await interjectIntoActiveTurn(CONV, 'use metric units');
+
+    expect(toastMock.info).toHaveBeenCalledWith(expect.stringContaining('stopped'));
+    expect(toastMock.error).not.toHaveBeenCalled();
+    expect(clearMessageInput).not.toHaveBeenCalled();
+  });
+
   it('sends the text with the same id the user bubble gets', async () => {
     await interjectIntoActiveTurn(CONV, 'use metric units');
 

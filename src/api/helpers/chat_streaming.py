@@ -19,6 +19,7 @@ from src.api.helpers.lost_actions import record_lost_actions
 from src.api.helpers.stream_consumer import handle_generator_error, relay_events
 from src.api.helpers.stream_finalize import finalize_stream
 from src.api.helpers.stream_producer import cleanup_and_save, stream_events
+from src.api.helpers.turn_owner import record_turn_owner
 from src.api.utils import proposal_to_response
 from src.db.models import db
 from src.enums import MessageRole
@@ -239,6 +240,7 @@ def _yield_user_message_saved(context: StreamContext) -> Generator[str]:
             message_id=context.expected_assistant_msg_id,
         )
         context.placeholder_saved = True
+        record_turn_owner(context.expected_assistant_msg_id)
     except Exception:  # the final save falls back to INSERT-at-end
         logger.warning(
             "Failed to save placeholder message, falling back to INSERT-at-end",

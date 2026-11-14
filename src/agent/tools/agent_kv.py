@@ -40,6 +40,7 @@ RESERVED_NAMESPACES = frozenset(
         "search-usage",
         "gemini_files",
         "instructions_tuning",
+        "turn_owner",
     }
 )
 _MAX_KEY_LENGTH = 256

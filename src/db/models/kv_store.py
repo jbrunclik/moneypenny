@@ -7,6 +7,7 @@ Used by autonomous agents and features that need persistent storage.
 from __future__ import annotations
 
 import sqlite3
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.timestamps import to_db
@@ -103,6 +104,18 @@ class KVStoreMixin:
             ).fetchone()
             conn.commit()
             return int(row["value"])
+
+    def kv_delete_older_than(self, user_id: str, namespace: str, max_age_seconds: int) -> int:
+        """Delete a namespace's keys not updated for max_age_seconds; how many."""
+        cutoff = to_db(utc_now() - timedelta(seconds=max_age_seconds))
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "DELETE FROM kv_store WHERE user_id = ? AND namespace = ? AND updated_at < ?",
+                (user_id, namespace, cutoff),
+            )
+            conn.commit()
+            return cursor.rowcount
 
     def kv_delete(self, user_id: str, namespace: str, key: str) -> bool:
         """Delete a key.

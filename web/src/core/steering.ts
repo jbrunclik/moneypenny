@@ -6,6 +6,7 @@
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { conversations } from '../api/conversations';
+import { ApiError } from '../api/http';
 import { toast } from '../components/Toast';
 import { addMessageToUI, getStreamingMessageElement } from '../components/messages';
 import { clearMessageInput } from '../components/MessageInput';
@@ -27,6 +28,14 @@ export async function interjectIntoActiveTurn(convId: string, messageText: strin
   try {
     await conversations.interject(convId, messageText, steeringId);
   } catch (error) {
+    // The reply's turn died (its worker crashed): steering it would never be
+    // answered. The text stays in the composer, and the turn shows as ended
+    // within seconds (the resume fails fast), so the next send is a new turn
+    if (error instanceof ApiError && error.details?.reason === 'turn_not_running') {
+      log.warn('Interjection refused: the turn is not running', { conversationId: convId });
+      toast.info('The reply stopped - send your message again in a moment.');
+      return;
+    }
     log.error('Failed to send interjection', { error, conversationId: convId });
     toast.error('Failed to steer the response. Please wait for it to finish.');
     return;

@@ -113,6 +113,33 @@ class TestChatInterject:
         ]
         assert [m.id for m in steering] == [client_id]
 
+    def test_steering_a_turn_whose_worker_died_is_refused(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        """The client then sends it as a new message - steered into the dead
+        turn, nobody would ever answer it (Nov 14 2026)."""
+        test_database.add_message(test_conversation.id, "user", "Compare the plans")
+        reply_id = test_database.add_message(test_conversation.id, "assistant", "").id
+        test_database.journal_append_events(reply_id, [(1, json.dumps({"type": "token"}))])
+        _record_dead_owner(test_database, reply_id)
+
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/interject",
+            json={"message": "Only the 2025 ones"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 409
+        assert response.get_json()["error"]["details"]["reason"] == "turn_not_running"
+        assert [m.content for m in test_database.get_messages(test_conversation.id)] == [
+            "Compare the plans",
+            "",
+        ]
+
     def test_rejects_a_non_uuid_client_id(
         self, client: FlaskClient, auth_headers: dict[str, str], test_conversation: Conversation
     ) -> None:
@@ -180,6 +207,18 @@ class TestChatInterject:
             )
 
         assert pop_interjection(test_user.id, test_conversation.id) is None
+
+
+def _record_dead_owner(db: Database, message_id: str) -> None:
+    """Record a turn's owner as a worker process that has exited."""
+    import subprocess
+    import sys
+
+    from src.api.helpers.turn_owner import NAMESPACE, SYSTEM_KV_USER_ID
+
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait()
+    db.kv_set(SYSTEM_KV_USER_ID, NAMESPACE, message_id, str(child.pid))
 
 
 def _sse_events(body: bytes) -> list[dict[str, Any]]:
@@ -286,6 +325,23 @@ class TestSendDuringAnotherDevicesTurn:
     ) -> None:
         reply_id = self._running_turn(test_database, test_conversation.id)
         test_database.set_message_created_at(reply_id, datetime.now(UTC) - timedelta(seconds=400))
+
+        _, new_turn = self._stream(client, auth_headers, test_conversation.id)
+
+        new_turn.assert_called_once()
+
+    def test_a_turn_whose_worker_died_starts_a_new_one(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        """Its journal moved seconds ago, but its worker is gone (Nov 14 2026:
+        a SIGABRT mid-turn) - the stall rule would wait 180 s."""
+        reply_id = self._running_turn(test_database, test_conversation.id)
+        test_database.journal_append_events(reply_id, [(1, json.dumps({"type": "token"}))])
+        _record_dead_owner(test_database, reply_id)
 
         _, new_turn = self._stream(client, auth_headers, test_conversation.id)
 

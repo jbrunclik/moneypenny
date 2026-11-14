@@ -16,6 +16,7 @@ from datetime import timedelta
 
 from src.agent.interjection import save_interjection
 from src.api.helpers.lost_actions import record_lost_actions
+from src.api.helpers.turn_owner import record_turn_owner, turn_owner_gone
 from src.api.schemas.chat import ChatRequest
 from src.api.utils import is_empty_placeholder, streaming_message_id
 from src.config import Config
@@ -39,7 +40,7 @@ def running_turn_id(conv_id: str) -> str | None:
     or the journal is off - the placeholder itself is that recent.
     """
     placeholder_id = streaming_message_id(conv_id)
-    if placeholder_id is None:
+    if placeholder_id is None or turn_owner_gone(placeholder_id):
         return None
     stall = Config.STREAM_RESUME_STALL_SECONDS
     last = db.journal_last_event(placeholder_id)
@@ -65,12 +66,14 @@ def mark_turn_in_flight(conv_id: str) -> str | None:
     runs untracked and its reply is inserted at the end, as before.
     """
     try:
-        return db.add_message(conv_id, MessageRole.ASSISTANT, "").id
+        placeholder_id = db.add_message(conv_id, MessageRole.ASSISTANT, "").id
     except Exception:
         logger.warning(
             "Failed to save batch placeholder", extra={"conversation_id": conv_id}, exc_info=True
         )
         return None
+    record_turn_owner(placeholder_id)
+    return placeholder_id
 
 
 def discard_unused_placeholder(message_id: str | None) -> None:
@@ -90,10 +93,13 @@ def discard_unused_placeholder(message_id: str | None) -> None:
 def _is_dead_placeholder(message: Message) -> bool:
     """An empty reply no turn will fill: its worker died mid-turn.
 
-    Proof is its age past the longest a turn runs, or a journal that stalled
-    without an end marker (the resume endpoint's rule). A reply with no
+    Proof is its worker process gone (turn_owner), its age past the longest a
+    turn runs, or a journal that stalled without an end marker (the resume
+    endpoint's rule). A reply with no
     journal - a batch turn's - may still be running past the stall window.
     """
+    if turn_owner_gone(message.id):
+        return True
     longest = max(Config.CHAT_TIMEOUT_SECONDS, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS) + 60
     if utc_now() - message.created_at > timedelta(seconds=longest):
         return True
