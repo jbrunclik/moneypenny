@@ -30,8 +30,9 @@ def retrieve_file(
       the turn they were uploaded)
 
     Retention: uploaded attachments are temporary — videos are kept 7 days,
-    images and other files 30 days. Expired files return an error explaining
-    the cleanup.
+    images and other files 30 days. Files marked `"expired": true` in the
+    history metadata are gone and CANNOT be retrieved - tell the user instead
+    of calling this tool.
 
     The message_id and file_index can be found in the conversation history metadata.
     Each user message with files includes a "files" array with "id" in format "message_id:file_index".

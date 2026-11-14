@@ -53,7 +53,10 @@ def create_file(filename: str, content: str, mime_type: str | None = None) -> st
     ``.zwo`` workout file, a ``.csv`` table, an ``.ics`` calendar invite, a ``.gpx``
     route, an ``.svg`` image, or any other text-based format. Write the complete
     file contents yourself and pass them as ``content``; the file is attached to
-    your response for the user to download.
+    your response for the user to download - always tell them what you attached
+    and how to use it (e.g. how to import a .zwo into Rouvy or Zwift).
+    This is the RIGHT tool for structured-workout (ZWO) files: author the XML
+    directly, no sandbox needed.
 
     This does NOT run any code - author the file contents directly. For binary
     output or files that require computation, use ``execute_code`` instead (when

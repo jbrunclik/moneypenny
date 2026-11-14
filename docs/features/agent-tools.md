@@ -183,6 +183,13 @@ a skill saves tokens only when the tool or task is rare. For a tool used in
 saving, so their descriptions were compressed in place instead; a rare tool's
 manual (`browser` -> `browser-tactics`) is the case for a skill.
 
+**Removing prompt text can drop a behaviour no test names** (Nov 14 2026):
+cutting the prompt's create_file bullets ("tell the user what you attached")
+silently dropped the import note on ZWO files - `sports_zwo_generate` went
+2/2 -> 0/2 and back to 2/2 once the hint moved into the `create_file`
+description. When a trim moves guidance, A/B the cases that exercise it
+against the previous commit (a worktree) before trusting one run.
+
 - **Index**: `skills_index_prompt()` (one line per description) is appended
   right after `TOOLS_SYSTEM_PROMPT_BASE` in both prompt paths
   (`get_static_prompt_for_profile()` and `get_system_prompt()` in
@@ -197,7 +204,10 @@ manual (`browser` -> `browser-tactics`) is the case for a skill.
   `weekly-planning` (recipes moved out of the always-on prompt; one-line
   `load_skill(...)` pointers remain there and in the `execute_code`/`browser`
   docstrings), plus `trip-itinerary` and `product-research` (new, from a
-  conversation sweep).
+  conversation sweep), and `artifact-design` and `image-generation` (Nov 14
+  2026: the artifact design manual and the image prompting/editing manual, out
+  of the `create_artifact` declaration and the always-on prompt; their tools'
+  descriptions point at them).
 
 **Adding a skill:**
 

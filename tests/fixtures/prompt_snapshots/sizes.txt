@@ -1,16 +1,16 @@
 # Characters sent on every turn. Regenerate: make prompt-snapshots
 
 static prompt
-  standard       31638
-  anonymous      19040
-  planning       34786
-  standing       31638
+  standard       25407
+  anonymous      13050
+  planning       28555
+  standing       25407
 
-tool declarations (41 tools, 54349 chars)
+tool declarations (41 tools, 55023 chars)
   ask_choice                     768
   browser                       2388
   create_artifact               1635
-  create_file                   1351
+  create_file                   1560
   create_standing_chat          1565
   delegate_task                  878
   delete_place                   325
@@ -19,7 +19,7 @@ tool declarations (41 tools, 54349 chars)
   fetch_url                      992
   garmin_connect                2302
   garmin_workout                1365
-  generate_image                2721
+  generate_image                2900
   get_route                      579
   google_calendar               2002
   kv_store                      1556
@@ -35,7 +35,7 @@ tool declarations (41 tools, 54349 chars)
   refresh_planner_dashboard     1019
   request_approval               932
   research                      1574
-  retrieve_file                 1587
+  retrieve_file                 1670
   rouvy_workout                 1035
   save_place                     650
   schedule                      2817
@@ -46,5 +46,5 @@ tool declarations (41 tools, 54349 chars)
   todoist                       3530
   trigger_agent                  602
   update_artifact               1266
-  web_search                    1350
+  web_search                    1553
   whatsapp                      2080

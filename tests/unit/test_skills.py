@@ -10,6 +10,7 @@ from src.constants import SKILL_MAX_BODY_CHARS, SKILL_MAX_DESCRIPTION_CHARS
 EXPECTED = {
     "artifact-design",
     "browser-tactics",
+    "image-generation",
     "office-documents",
     "pdf-documents",
     "product-research",

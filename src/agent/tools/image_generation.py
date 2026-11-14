@@ -51,6 +51,9 @@ def generate_image(
     history_image_file_index. The IDs can be found in the conversation history metadata
     (each user message with files includes a "files" array with "id" in format "message_id:file_index").
 
+    Before the first generate_image call of a turn, call load_skill('image-generation'):
+    how to write the prompt, what the image model cannot do, and keeping a person's likeness.
+
     Args:
         prompt: A detailed description of the image to generate or the edit to make.
                 Be specific about style, colors, composition, lighting, and any text.

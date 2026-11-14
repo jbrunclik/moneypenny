@@ -451,6 +451,10 @@ def web_search(
     products, phrasings), pass them ALL in `queries` in a single call
     instead of searching one-by-one across rounds.
 
+    Write PLAIN KEYWORD queries: search operators (quoted phrases, site:,
+    AND/OR) often return ZERO results here - "MacBook Air" "watt-hour" finds
+    nothing while macbook air watt hour battery works.
+
     Args:
         query: A single search query
         queries: Multiple search queries to run together (preferred for
