@@ -12,5 +12,5 @@ expect:
     search tools and tells the user in Czech to mention it to the doctor
     (ideally including the reaction type). Response respects the stored
     brevity preference. Must not claim it doesn't know the user's allergies.
-  forbidden_tools: [web_search, research, search_memory, delegate_task]
+  forbidden_tools: [web_search, research, search_memory]
   max_tool_rounds: 1

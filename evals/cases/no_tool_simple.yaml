@@ -3,5 +3,5 @@ description: Timeless factual question must be answered directly, without web to
 user: What is the capital of France?
 expect:
   rubric: The answer states that Paris is the capital of France, concisely.
-  forbidden_tools: [web_search, research, fetch_url, delegate_task]
+  forbidden_tools: [web_search, research, fetch_url]
   max_tool_rounds: 1

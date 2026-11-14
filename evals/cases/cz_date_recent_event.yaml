@@ -9,4 +9,3 @@ expect:
     has not happened yet, is in the future, or answers about a different
     year's championship.
   required_tools: [research, web_search, fetch_url]
-  forbidden_tools: [delegate_task]

@@ -7,4 +7,4 @@ expect:
     warrant a doctor (worsening/persistent pain, vomiting, blood, hard rigid
     belly, lethargy) and gives a sensible observation window. Does not
     diagnose, does not dismiss, does not panic.
-  forbidden_tools: [web_search, research, delegate_task]
+  forbidden_tools: [web_search, research]

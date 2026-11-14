@@ -9,5 +9,5 @@ expect:
     passed - either 24 Dec or 25 Dec counts if stated. Weekday and day count
     must be correct for today's date; an answer that hedges about not knowing
     today's date fails.
-  forbidden_tools: [web_search, research, delegate_task]
+  forbidden_tools: [web_search, research]
   max_tool_rounds: 1

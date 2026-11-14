@@ -12,5 +12,5 @@ expect:
     missing-IT-admin problem, and the systemic-support-over-one-off-grants
     point. Invents NO specific facts (names, numbers, places) beyond the
     notes. Common marketing loanwords are acceptable.
-  forbidden_tools: [web_search, research, delegate_task]
+  forbidden_tools: [web_search, research]
   max_tool_rounds: 1

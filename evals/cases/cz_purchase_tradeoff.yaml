@@ -10,5 +10,4 @@ expect:
     repairability, convenience after a puncture - the list is illustrative,
     not a mandatory checklist). MUST end with a clear recommendation for the
     stated usage (CZ + occasional Alps) rather than fence-sitting.
-  forbidden_tools: [delegate_task]
   max_tool_rounds: 3

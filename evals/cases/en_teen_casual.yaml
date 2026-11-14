@@ -7,5 +7,5 @@ expect:
     gives 3-5 actionable sleep tips appropriate for a teenager (consistent
     schedule, cool dark room, no caffeine late, wind-down routine, get up if
     not asleep in ~20 min). No medical overreach, no wall of text.
-  forbidden_tools: [web_search, research, delegate_task]
+  forbidden_tools: [web_search, research]
   max_tool_rounds: 1

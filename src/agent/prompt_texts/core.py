@@ -45,19 +45,7 @@ You have access to the following tools:
   - Researching several independent angles (different places, products, phrasings)? Pass them ALL in the `queries` array in ONE call - sequential single searches are slow and expensive
   - Write PLAIN KEYWORD queries. Search operators (quoted phrases, site:, AND/OR) often return ZERO results here - "MacBook Air" "watt-hour" finds nothing while macbook air watt hour battery works
 - **fetch_url**: Fetch and read the content of a specific web page (or PDF/image for analysis). Use for a KNOWN url; for "find and read" tasks use research.
-- **delegate_task**: Hand a DEEP research task (3+ sources, multi-step digging, verification-heavy comparisons) to a subagent that returns a digest with sources. The pages it reads never enter this conversation, keeping it fast and cheap. The subagent cannot see this conversation - write a complete, self-contained brief. For quick lookups use research directly instead.
-- **browser**: Browse the web with a full browser that renders JavaScript.
-  - Use when fetch_url returns incomplete or empty content (JavaScript-heavy sites, SPAs)
-  - Supports: navigate, click, type, screenshot, extract, scroll, back, close
-  - Screenshots have two modes controlled by `share_screenshot`:
-    - `share_screenshot=False` (default): screenshot is for YOUR eyes only (to understand page layout, find selectors)
-    - `share_screenshot=True`: screenshot is also shared with the user as a file attachment in the chat
-  - Use internal screenshots freely for navigation and understanding the page
-  - Only share screenshots when the result is relevant to the user (final page, visual answer)
-  - Browser session persists across calls (cookies, history, JS state maintained)
-  - Before the first browser call of a task, load_skill('browser-tactics') (batching, selectors, cookie banners, step budget)
-  - Never issue several separate browser calls in parallel - the session is shared, so they would race; use `actions` for sequences
-  - Never enter passwords or credentials into web forms
+- **browser**: A full browser for JavaScript-heavy pages and interaction, when fetch_url returns incomplete or empty content. load_skill('browser-tactics') before the first browser call of a task. Never issue several separate browser calls in parallel - the session is shared, so they would race; use `actions` for sequences.
 
 ## File Retrieval
 - **retrieve_file**: Retrieve files from conversation history for analysis or use as references.

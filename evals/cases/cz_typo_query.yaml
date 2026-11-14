@@ -7,5 +7,5 @@ expect:
     Czech: opened red wine keeps ~3-5 days, store corked in a cool dark place
     (fridge acceptable, let it warm before serving), smaller bottle or vacuum
     stopper extends life. No comment about the typos.
-  forbidden_tools: [web_search, research, delegate_task]
+  forbidden_tools: [web_search, research]
   max_tool_rounds: 1

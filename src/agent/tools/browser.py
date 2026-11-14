@@ -164,49 +164,15 @@ def browser(
 ) -> str | list[dict[str, Any]]:
     """Browse the web with a full browser that renders JavaScript.
 
-    Use this tool when you need to interact with web pages that require JavaScript rendering,
-    or when fetch_url returns incomplete/empty content. The browser session persists across
-    calls within the same conversation (cookies, history, JS state are maintained).
+    Use when a page needs JavaScript or interaction, or fetch_url returned
+    incomplete/empty content. The session persists within the conversation.
+    Pass EITHER `action` (one) OR `actions` (a batch). Never enter passwords or
+    credentials into web forms. Before the first browser call of a task, call
+    load_skill('browser-tactics') - batching, selectors, screenshots, budget.
 
-    Pass EITHER `action` (one action) OR `actions` (a batch). Never enter passwords or
-    credentials into web forms.
-
-    Before the first browser call of a task, call load_skill('browser-tactics').
-
-    Actions:
-    - navigate: Go to a URL. Requires `url`. Returns page title and URL.
-    - click: Click an element. Requires `selector` (CSS selector).
-    - type: Type text into a form field. Requires `selector` and `text`.
-    - screenshot: Take a screenshot. By default, only you (the LLM) can see it.
-      Set `share_screenshot=True` to also share it with the user as a file attachment.
-    - extract: Extract all text content from the current page (rendered HTML to markdown).
-    - scroll: Scroll down the page. Optional `selector` to scroll to a specific element.
-    - back: Go back in browser history.
-    - close: Close the browser session and free resources.
-
-    ## Batches (`actions`)
-
-    When you already know the steps - a known URL, then fill a field, then click submit -
-    send them as one `actions` list instead of one call per step, e.g.
-    `actions=[{"action": "navigate", "url": "..."}, {"action": "type", "selector": "#q",
-    "text": "..."}, {"action": "click", "selector": "button[type=submit]"}]`.
-    Steps run in order and stop at the first failure (the result says which step failed).
-    Batchable: navigate, click, type, scroll, back, extract. On an unfamiliar page, look
-    first (a single navigate returns its `elements`), then batch.
-
-    ## Page state
-
-    navigate/click/type/scroll/back return `elements`: the visible buttons, links and
-    inputs with ready-to-use selectors. Prefer those selectors over guessing.
-
-    ## Screenshots
-
-    - `screenshot=True` on any action or batch: takes a screenshot (after the last step)
-      for YOU to see the page (internal).
-    - `share_screenshot=True`: also shares the screenshot with the user as a visible attachment.
-
-    Use internal screenshots freely for navigation (finding elements, understanding layout).
-    Only share screenshots when the result is relevant to the user (final page, visual answer).
+    Actions: navigate (`url`), click (`selector`), type (`selector`, `text`),
+    screenshot, extract (page text as markdown), scroll (optional `selector`),
+    back, close.
 
     Args:
         action: The browser action to perform (omit when passing `actions`)
@@ -218,9 +184,6 @@ def browser(
         wait_for: CSS selector to wait for after the action completes
         timeout_ms: Custom timeout in milliseconds for this action
         actions: A batch of steps to run in order in this one call (instead of `action`)
-
-    Returns:
-        JSON for non-screenshot results. Multimodal content (with image) for screenshots.
     """
     steps = [BrowserStep.model_validate(s) for s in actions] if actions is not None else None
     check_autonomous_permission("browser", _permission_args(action, url, steps))

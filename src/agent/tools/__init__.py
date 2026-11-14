@@ -94,6 +94,11 @@ _ANONYMOUS_EXCLUDED_TOOLS = _INTEGRATION_TOOLS | {
     "read_conversation",
 }
 
+# Tools for unattended job runs only (granted like any other): no interactive
+# chat used them in 30 days (Nov 2026), and every bound tool's declaration is
+# re-sent on each model call (~600 tokens for these two)
+_JOB_RUN_ONLY_TOOLS = {"delegate_task", "whatsapp"}
+
 
 def get_available_tools() -> list[Any]:
     """Get the list of available tools, including execute_code if Docker is available.
@@ -253,11 +258,8 @@ def get_tools_for_request(
     # Computed per request (not a frozen import-time constant) so availability
     # changes - Playwright installed, an integration configured - apply without
     # a process restart.
-    available = get_available_tools()
-    if anonymous_mode:
-        tools = [t for t in available if t.name not in _ANONYMOUS_EXCLUDED_TOOLS]
-    else:
-        tools = available
+    withheld = _JOB_RUN_ONLY_TOOLS | (_ANONYMOUS_EXCLUDED_TOOLS if anonymous_mode else set())
+    tools = [t for t in get_available_tools() if t.name not in withheld]
 
     if not is_planning:
         tools = [*tools, *_ordinary_chat_tools(anonymous_mode)]

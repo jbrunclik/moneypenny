@@ -39,12 +39,12 @@ all-tools jobs (`["*"]`) or when granted explicitly.
 | `garmin_connect` | Read-only Garmin health/activity data | Requires user integration |
 | `garmin_workout` | Read/write Garmin saved workouts (edit sets/reps/weight/rest, swap/add/remove exercises) | Requires user integration |
 | `rouvy_workout` | CRUD over the user's Rouvy cycling workouts (upload ZWO, list, get, delete; update = delete+create) | Requires browser + user Rouvy connect |
-| `whatsapp` | WhatsApp notifications | Requires app config + user phone |
+| `whatsapp` | WhatsApp notifications | Job runs only (`_JOB_RUN_ONLY_TOOLS`, never bound in a chat); requires app config + user phone |
 | `manage_memory` | Write to the user's long-term memory | **Must be granted** |
 | `search_memory` | Search stored memories (keyword + semantic) | Requires grant |
 | `search_conversations` | Search the user's past conversations | Requires grant |
 | `read_conversation` | Read one past conversation | Requires grant |
-| `delegate_task` | Context-isolated research subagent (spends tokens) | **Must be granted** |
+| `delegate_task` | Context-isolated research subagent (spends tokens) | Job runs only, **must be granted** (`_JOB_RUN_ONLY_TOOLS`: no chat used it in 30 days, Nov 2026, and every bound declaration is re-sent on each model call) |
 | `create_artifact`, `update_artifact`, `read_artifact` | Sandboxed HTML/JS [artifact](artifacts.md) under the reply; versions by find/replace edits | Regular chats (incl. anonymous), behind `ARTIFACTS_ENABLED`; not programs; never for agents (`_NON_PERMISSIONED_TOOLS`) |
 | `propose_deep_research` | Offer a [deep research](deep-research.md) run with an editable plan (side-effect free; the offer is read off the call when the reply is saved) | Ordinary chats only, behind `DEEP_RESEARCH_ENABLED`; never for agents, programs, the planner or subagents |
 | `ask_choice` | Ask a clarifying question with 2-4 options on a card ([proposals](proposals.md#questions-step-5-nov-9-2026)); a tap sends the option's label as the user's reply | Ordinary chats; never for agents, programs or the planner |

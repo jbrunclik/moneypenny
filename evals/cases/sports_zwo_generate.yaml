@@ -12,5 +12,5 @@ expect:
     delivered - create_file is the dedicated attachment tool). Structure must be plausible: warmup, sweet-spot steady blocks
     (~0.88-0.94 FTP), recoveries, cooldown, ~60 min total, cadence cues.
     Brief Czech note on importing into the trainer app.
-  forbidden_tools: [web_search, research, delegate_task]
+  forbidden_tools: [web_search, research]
   max_tool_rounds: 3

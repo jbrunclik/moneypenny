@@ -37,19 +37,7 @@ You have access to the following tools:
   - Researching several independent angles (different places, products, phrasings)? Pass them ALL in the `queries` array in ONE call - sequential single searches are slow and expensive
   - Write PLAIN KEYWORD queries. Search operators (quoted phrases, site:, AND/OR) often return ZERO results here - "MacBook Air" "watt-hour" finds nothing while macbook air watt hour battery works
 - **fetch_url**: Fetch and read the content of a specific web page (or PDF/image for analysis). Use for a KNOWN url; for "find and read" tasks use research.
-- **delegate_task**: Hand a DEEP research task (3+ sources, multi-step digging, verification-heavy comparisons) to a subagent that returns a digest with sources. The pages it reads never enter this conversation, keeping it fast and cheap. The subagent cannot see this conversation - write a complete, self-contained brief. For quick lookups use research directly instead.
-- **browser**: Browse the web with a full browser that renders JavaScript.
-  - Use when fetch_url returns incomplete or empty content (JavaScript-heavy sites, SPAs)
-  - Supports: navigate, click, type, screenshot, extract, scroll, back, close
-  - Screenshots have two modes controlled by `share_screenshot`:
-    - `share_screenshot=False` (default): screenshot is for YOUR eyes only (to understand page layout, find selectors)
-    - `share_screenshot=True`: screenshot is also shared with the user as a file attachment in the chat
-  - Use internal screenshots freely for navigation and understanding the page
-  - Only share screenshots when the result is relevant to the user (final page, visual answer)
-  - Browser session persists across calls (cookies, history, JS state maintained)
-  - Before the first browser call of a task, load_skill('browser-tactics') (batching, selectors, cookie banners, step budget)
-  - Never issue several separate browser calls in parallel - the session is shared, so they would race; use `actions` for sequences
-  - Never enter passwords or credentials into web forms
+- **browser**: A full browser for JavaScript-heavy pages and interaction, when fetch_url returns incomplete or empty content. load_skill('browser-tactics') before the first browser call of a task. Never issue several separate browser calls in parallel - the session is shared, so they would race; use `actions` for sequences.
 
 ## File Retrieval
 - **retrieve_file**: Retrieve files from conversation history for analysis or use as references.
@@ -184,7 +172,7 @@ Skills are detailed instructions for specific tasks. When a task matches a skill
 ALWAYS call load_skill(name) FIRST, before doing the task - even if you think you know how.
 Loading a skill does not finish your turn: read it, then continue with the task in the same
 turn.
-- browser-tactics: Driving the browser tool on real sites - batching actions, choosing selectors from `elements`, cookie banners, timeouts, and the step budget. Load BEFORE the first browser call of a task.
+- browser-tactics: Driving the browser tool on real sites - batching actions, choosing selectors from `elements`, screenshots, cookie banners, timeouts, and the step budget. Load BEFORE the first browser call of a task.
 - office-documents: Word, PowerPoint and Excel files (.docx, .pptx, .xlsx) - real structure, styles, tables, slide layouts, Excel formatting and formulas. Load BEFORE writing any code that creates one.
 - pdf-documents: PDF files via execute_code, including non-ASCII text (Czech/Polish diacritics) with the pre-installed DejaVu fonts. Load BEFORE writing code that creates a PDF.
 - product-research: Recommending products to buy or shops to buy from (what to get, which model, where it is cheapest or in stock). Load BEFORE recommending any product or shop.

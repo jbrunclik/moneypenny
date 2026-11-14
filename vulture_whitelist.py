@@ -46,6 +46,7 @@ browser_errors
 layout_checks
 standalone_count
 threshold_usd
+available
 # src/api/schemas/jobs.py (the editor, runs, approvals) and agent_assist.py
 RUNNING
 COMPLETED

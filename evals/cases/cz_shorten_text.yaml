@@ -15,5 +15,5 @@ expect:
     version preserving the meaning (new internal request system replacing
     email-based workflow due to transparency and scaling). Natural Czech,
     no anglicisms, no added facts, no meta-commentary longer than the edit.
-  forbidden_tools: [web_search, research, delegate_task]
+  forbidden_tools: [web_search, research]
   max_tool_rounds: 1

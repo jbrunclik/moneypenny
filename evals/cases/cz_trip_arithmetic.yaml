@@ -12,5 +12,5 @@ expect:
     reserve. Accepts a clearly-stated alternative reading of the ambiguous
     phrasing, but the chosen reading must be applied consistently and the
     math must be correct. Recommends a sensible safety margin.
-  forbidden_tools: [web_search, research, delegate_task]
+  forbidden_tools: [web_search, research]
   max_tool_rounds: 2

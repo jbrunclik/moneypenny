@@ -9,6 +9,7 @@ from src.agent.tools import (
     get_all_tool_names,
     get_available_tools,
     get_tools_for_request,
+    tools_for_grants,
 )
 from src.config import Config
 
@@ -42,6 +43,10 @@ def _names(**kwargs: Any) -> set[str]:
     return {t.name for t in get_tools_for_request(**kwargs)}
 
 
+# Bound only in unattended job runs (by grant), never in an interactive chat
+_JOB_RUN_ONLY = {"delegate_task", "whatsapp"}
+
+
 # Bound in every interactive chat but the planner on top of get_available_tools()
 _ORDINARY_CHAT_ONLY = {
     "propose_deep_research",
@@ -59,7 +64,9 @@ class TestGetToolsForRequest:
         """Should return all tools when anonymous_mode is False."""
         tools = get_tools_for_request(anonymous_mode=False)
         # Ordinary chats also get the deep-research offer and scheduling (never agents/programs)
-        assert [t for t in tools if t.name not in _ORDINARY_CHAT_ONLY] == get_available_tools()
+        assert [t for t in tools if t.name not in _ORDINARY_CHAT_ONLY] == [
+            t for t in get_available_tools() if t.name not in _JOB_RUN_ONLY
+        ]
         # Core tools should always be present
         tool_names = {t.name for t in tools}
         assert "web_search" in tool_names
@@ -99,7 +106,9 @@ class TestGetToolsForRequest:
     def test_default_parameter_is_false(self) -> None:
         """Should default to anonymous_mode=False."""
         tools = get_tools_for_request()
-        assert [t for t in tools if t.name not in _ORDINARY_CHAT_ONLY] == get_available_tools()
+        assert [t for t in tools if t.name not in _ORDINARY_CHAT_ONLY] == [
+            t for t in get_available_tools() if t.name not in _JOB_RUN_ONLY
+        ]
 
     @pytest.mark.usefixtures("every_tool_available")
     def test_standing_chat_gets_the_full_chat_tools(self) -> None:
@@ -120,8 +129,23 @@ class TestGetToolsForRequest:
     def test_regular_chat_keeps_all_tools(self) -> None:
         """Subsetting applies only to program conversations."""
         tool_names = {t.name for t in get_tools_for_request()}
-        available = {t.name for t in get_available_tools()}
+        available = {t.name for t in get_available_tools()} - _JOB_RUN_ONLY
         assert tool_names == available | _ORDINARY_CHAT_ONLY
+
+    @pytest.mark.usefixtures("every_tool_available")
+    def test_job_run_tools_stay_out_of_every_interactive_chat(self) -> None:
+        """delegate_task and whatsapp are for unattended agent runs: no chat
+        used them in 30 days (Nov 2026) and they cost ~600 tokens per call."""
+        for kwargs in ({}, {"anonymous_mode": True}, {"is_planning": True}, {"standing": True}):
+            assert not _names(**kwargs) & _JOB_RUN_ONLY, kwargs
+
+    def test_job_runs_can_still_be_granted_delegate_task_and_whatsapp(self) -> None:
+        with (
+            patch("src.agent.tools.is_whatsapp_available", return_value=True),
+            patch("src.agent.tools._is_whatsapp_available_for_user", return_value=True),
+        ):
+            names = {t.name for t in tools_for_grants(["delegate_task", "whatsapp"], "u1")}
+        assert names >= _JOB_RUN_ONLY
 
     def test_instruction_cards_only_in_ordinary_non_anonymous_chats(self) -> None:
         """Instructions are learned from ordinary chats (instructions self-tuning)."""

@@ -13,4 +13,3 @@ expect:
     region (Litoměřice, Libochovice, Radobýl, České středohoří), or if there
     are more than 2 of them in total.
   required_tools: [research, web_search, fetch_url]
-  forbidden_tools: [delegate_task]
