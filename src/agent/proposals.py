@@ -78,6 +78,10 @@ _SEVERAL_PER_TURN: set[str] = set()
 STREAM_STARTED = _STREAM_ONLY
 
 
+class ProposalCapError(Exception):
+    """The turn already filed as many proposals of this kind as it may."""
+
+
 class ProposalFailedError(Exception):
     """Applying an option could not be done; the message says why (shown on the card)."""
 
@@ -148,10 +152,17 @@ def _ensure_kinds() -> None:
 
 
 def file_proposal(
-    kind: str, summary: str, details: Mapping[str, object], options: list[ProposalOption]
+    kind: str,
+    summary: str,
+    details: Mapping[str, object],
+    options: list[ProposalOption],
+    *,
+    max_per_turn: int | None = None,
 ) -> Proposal:
     """File a proposal for this turn's reply; a newer one of the same kind
-    from the same turn replaces the older (one preview per kind, as before)."""
+    from the same turn replaces the older (one preview per kind, as before),
+    except for several_per_turn kinds - those keep every card, at most
+    `max_per_turn` of them (ProposalCapError past it)."""
     if kind not in _KINDS:
         raise KeyError(f"unknown proposal kind {kind!r}")
     if not 1 <= len(options) <= MAX_OPTIONS:
@@ -161,30 +172,39 @@ def file_proposal(
     conversation_id, user_id = get_conversation_context()
     if not (conversation_id and user_id):
         raise ValueError("a proposal needs a conversation")
-    proposal = db.create_proposal(
-        Proposal(
-            id=str(uuid.uuid4()),
-            user_id=user_id,
-            conversation_id=conversation_id,
-            message_id=None,
-            request_id=get_current_request_id() or "",
-            kind=kind,
-            summary=summary,
-            details=dict(details),
-            options=options,
-            state="pending",
-            chosen=None,
-            result=None,
-            resolved_by=None,
-            reported=False,
-            created_at=utc_now(),
-            resolved_at=None,
-        )
+    proposal = Proposal(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        conversation_id=conversation_id,
+        message_id=None,
+        request_id=get_current_request_id() or "",
+        kind=kind,
+        summary=summary,
+        details=dict(details),
+        options=options,
+        state="pending",
+        chosen=None,
+        result=None,
+        resolved_by=None,
+        reported=False,
+        created_at=utc_now(),
+        resolved_at=None,
     )
-    if proposal.request_id and kind not in _SEVERAL_PER_TURN:
-        db.supersede_proposals(proposal.request_id, kind, proposal.id)
+    _store(proposal, max_per_turn)
     logger.info("Proposal filed", extra={"kind": kind, "options": len(options)})
     return proposal
+
+
+def _store(proposal: Proposal, max_per_turn: int | None) -> None:
+    """Insert it: capped for several_per_turn kinds, else replacing the turn's older card."""
+    several = proposal.kind in _SEVERAL_PER_TURN
+    if several and max_per_turn is not None and proposal.request_id:
+        if not db.create_proposal_capped(proposal, max_per_turn):
+            raise ProposalCapError(f"at most {max_per_turn} per message")
+        return
+    db.create_proposal(proposal)
+    if proposal.request_id and not several:
+        db.supersede_proposals(proposal.request_id, proposal.kind, proposal.id)
 
 
 def normalize_answer(text: str) -> str:

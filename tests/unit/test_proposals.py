@@ -164,6 +164,38 @@ def test_a_kind_filed_several_times_per_turn_keeps_every_card(db: Database, conv
     assert {p.id for p in db.pending_proposals(conv)} == {first.id, second.id}
 
 
+def test_the_per_turn_cap_holds_against_parallel_filing(db: Database, conv: str) -> None:
+    """Parallel tool calls (a turn files its cards at once) must not all pass a
+    check-then-insert: the cap is enforced by the insert itself."""
+    import contextvars
+
+    from src.agent.proposals import ProposalCapError
+
+    register_kind("capped_kind", _apply, several_per_turn=True)
+    refused: list[int] = []
+
+    def file_one(i: int) -> None:
+        try:
+            file_proposal(
+                "capped_kind", f"Reminder {i}", {"When": str(i)}, [_option()], max_per_turn=3
+            )
+        except ProposalCapError:
+            refused.append(i)
+
+    # Each thread runs in a copy of this test's context (database, chat, turn)
+    threads = [
+        threading.Thread(target=contextvars.copy_context().run, args=(file_one, i))
+        for i in range(8)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len([p for p in db.pending_proposals(conv) if p.kind == "capped_kind"]) == 3
+    assert len(refused) == 5
+
+
 def test_schedule_items_are_filed_several_per_turn() -> None:
     from src.agent import proposals
     from src.agent.tools import scheduling

@@ -50,6 +50,31 @@ def _row_to_proposal(row: sqlite3.Row) -> Proposal:
     )
 
 
+_INSERT_COLUMNS = """id, user_id, conversation_id, message_id, request_id, kind, summary,
+    details, options, state, created_at, origin, job_id, execution_id, expires_at"""
+_INSERT_MARKS = ", ".join("?" * 15)
+
+
+def _insert_params(proposal: Proposal) -> tuple[object, ...]:
+    return (
+        proposal.id,
+        proposal.user_id,
+        proposal.conversation_id,
+        proposal.message_id,
+        proposal.request_id,
+        proposal.kind,
+        proposal.summary,
+        json.dumps(proposal.details, ensure_ascii=False),
+        json.dumps(proposal.options, ensure_ascii=False),
+        proposal.state,
+        to_db(proposal.created_at),
+        proposal.origin,
+        proposal.job_id,
+        proposal.execution_id,
+        to_db_or_none(proposal.expires_at),
+    )
+
+
 class ProposalsMixin:
     """Mixin providing proposal storage."""
 
@@ -78,29 +103,21 @@ class ProposalsMixin:
     def create_proposal(self, proposal: Proposal) -> Proposal:
         """Store a new (pending) proposal."""
         self._write(
-            """INSERT INTO proposals (id, user_id, conversation_id, message_id, request_id,
-                   kind, summary, details, options, state, created_at, origin, job_id,
-                   execution_id, expires_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                proposal.id,
-                proposal.user_id,
-                proposal.conversation_id,
-                proposal.message_id,
-                proposal.request_id,
-                proposal.kind,
-                proposal.summary,
-                json.dumps(proposal.details, ensure_ascii=False),
-                json.dumps(proposal.options, ensure_ascii=False),
-                proposal.state,
-                to_db(proposal.created_at),
-                proposal.origin,
-                proposal.job_id,
-                proposal.execution_id,
-                to_db_or_none(proposal.expires_at),
-            ),
+            f"INSERT INTO proposals ({_INSERT_COLUMNS}) VALUES ({_INSERT_MARKS})",
+            _insert_params(proposal),
         )
         return proposal
+
+    def create_proposal_capped(self, proposal: Proposal, cap: int) -> bool:
+        """Store it only while its turn has fewer than `cap` pending proposals
+        of its kind - one statement, so parallel tool calls cannot all pass."""
+        inserted = self._write(
+            f"""INSERT INTO proposals ({_INSERT_COLUMNS}) SELECT {_INSERT_MARKS}
+                WHERE (SELECT COUNT(*) FROM proposals
+                       WHERE request_id = ? AND kind = ? AND state = 'pending') < ?""",
+            (*_insert_params(proposal), proposal.request_id, proposal.kind, cap),
+        )
+        return inserted == 1
 
     def get_proposal(self, proposal_id: str, user_id: str) -> Proposal | None:
         """The user's proposal, or None (unknown, or another user's)."""
@@ -237,17 +254,6 @@ class ProposalsMixin:
                WHERE request_id = ? AND kind = ? AND id != ? AND state = 'pending'""",
             (to_db(utc_now()), request_id, kind, keep_id),
         )
-
-    def count_turn_proposals(self, request_id: str, kind: str) -> int:
-        """How many pending proposals of a kind this turn has filed."""
-        with self._pool.get_connection() as conn:
-            row = self._execute_with_timing(
-                conn,
-                """SELECT COUNT(*) AS n FROM proposals
-                   WHERE request_id = ? AND kind = ? AND state = 'pending'""",
-                (request_id, kind),
-            ).fetchone()
-        return int(row["n"])
 
     def turn_proposal(self, request_id: str, kind: str) -> Proposal | None:
         """This turn's pending proposal of a kind (a chat change collects calls)."""
