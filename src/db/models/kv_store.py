@@ -105,6 +105,35 @@ class KVStoreMixin:
             conn.commit()
             return int(row["value"])
 
+    def kv_append(self, user_id: str, namespace: str, key: str, value: str, separator: str) -> None:
+        """Append to a key's value (creating it), in one statement - two
+        concurrent appends both land."""
+        with self._pool.get_connection() as conn:
+            now = to_db(utc_now())
+            self._execute_with_timing(
+                conn,
+                """
+                INSERT INTO kv_store (user_id, namespace, key, value, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, namespace, key)
+                DO UPDATE SET value = value || ? || excluded.value, updated_at = excluded.updated_at
+                """,
+                (user_id, namespace, key, value, now, now, separator),
+            )
+            conn.commit()
+
+    def kv_pop(self, user_id: str, namespace: str, key: str) -> str | None:
+        """Delete a key and return its value, in one statement - nothing
+        written between a read and a delete can be lost."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                "DELETE FROM kv_store WHERE user_id = ? AND namespace = ? AND key = ? RETURNING value",
+                (user_id, namespace, key),
+            ).fetchone()
+            conn.commit()
+        return str(row["value"]) if row else None
+
     def kv_delete_older_than(self, user_id: str, namespace: str, max_age_seconds: int) -> int:
         """Delete a namespace's keys not updated for max_age_seconds; how many."""
         cutoff = to_db(utc_now() - timedelta(seconds=max_age_seconds))

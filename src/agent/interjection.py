@@ -10,7 +10,8 @@ kv_store is the carrier because the interject POST may land on a different
 gunicorn worker than the one running the stream - the DB is the only
 bridge (module-level state does not cross workers). Keyed by conversation
 id: the frontend's double-send guard allows exactly one active request per
-conversation, so the key is unambiguous. Entries are popped on consumption,
+conversation, so the key is unambiguous; steering sent before a round reads
+it accumulates there (appended, popped in one statement). Entries are popped on consumption,
 cleared when a turn starts (a missed one cannot bleed into the next turn)
 and when it ends (the stream producer's / batch route's finally): steering
 that arrived after the last tool round used to sit in the store until the
@@ -23,11 +24,17 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 KV_NAMESPACE = "interject"
+# Between steering messages that arrived before one tool round read them
+_SEPARATOR = "\n\n"
 
 
 def save_interjection(user_id: str, conv_id: str, text: str) -> None:
-    """Store steering text for the conversation's in-flight turn."""
-    db.kv_set(user_id, KV_NAMESPACE, conv_id, text)
+    """Add steering text for the conversation's in-flight turn.
+
+    Appended, not replaced: two quick messages before the next tool round
+    used to keep only the second, and the turn never read the first.
+    """
+    db.kv_append(user_id, KV_NAMESPACE, conv_id, text, _SEPARATOR)
     logger.info(
         "Interjection saved",
         extra={"user_id": user_id, "conversation_id": conv_id, "length": len(text)},
@@ -41,11 +48,7 @@ def pop_interjection(user_id: str, conv_id: str) -> str | None:
     break the running turn.
     """
     try:
-        text = db.kv_get(user_id, KV_NAMESPACE, conv_id)
-        if text:
-            db.kv_delete(user_id, KV_NAMESPACE, conv_id)
-            return text
-        return None
+        return db.kv_pop(user_id, KV_NAMESPACE, conv_id) or None
     except Exception:
         logger.warning("Interjection pop failed", exc_info=True)
         return None
