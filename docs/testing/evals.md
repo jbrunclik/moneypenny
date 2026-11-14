@@ -13,8 +13,19 @@ Run `make eval` **before and after** changing:
 - the default model or thinking settings
 
 Compare pass rates and per-case reasoning. The harness is **informational** —
-it hits the live Gemini API (a few cents per run) and is deliberately NOT part
-of CI or `make test`.
+it hits the live Gemini API and is deliberately NOT part of CI or `make test`.
+A full run on Gemini 4 Hydrogen costs ~$8 and takes ~23 minutes (107 cases,
+Nov 14 2026), so for a targeted change run only the affected cases with
+`--only`, and A/B a suspicious failure against the previous commit in a
+worktree before trusting one run.
+
+**A new tool can make a case stale.** When a tool lands that is the better
+answer to a case's request, the case fails "correctly": `cz_todoist_add_task`
+asked "remind me tomorrow about the plumber" and required `todoist` (written
+Sep 29 2026, when Todoist was the only way to remember anything); from Nov 7
+the `schedule` reminder was the right call, and production users approved
+those cards. Reword the request to test what the case is for (Nov 14: a task
+capture) instead of steering the agent back to the old tool.
 
 ## How it works
 

@@ -12,7 +12,9 @@ integrations:
       - { id: s2, project_id: p2, name: Domácnost }
     tasks:
       - { id: t1, content: "Koupit mléko", project_id: p2, section_id: s1 }
-user: "připomeň mi zítra ten instalatér kvůli kapajícímu kohoutku v koupelně"
+# A task to capture, not "remind me" - since Nov 7 2026 a reminder request is
+# rightly a schedule reminder (push), so the case would test the wrong routing
+user: "hoď mi do úkolů na zítra ten instalatér kvůli kapajícímu kohoutku v koupelně"
 expect:
   rubric: >
     Creates exactly one Todoist task (see integration changes) that is
