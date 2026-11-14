@@ -411,12 +411,6 @@ class TestSandboxLibraryListsMatchImage:
     def _listed(line: str) -> set[str]:
         return {name.strip() for name in line.split(":", 1)[1].split(",") if name.strip()}
 
-    def test_prompt_lists_every_installed_package(self) -> None:
-        from src.agent.prompt_texts.core import TOOLS_SYSTEM_PROMPT_BASE
-
-        line = next(ln for ln in TOOLS_SYSTEM_PROMPT_BASE.splitlines() if "Pre-installed:" in ln)
-        assert self._listed(line) == self._image_packages()
-
     def test_docstring_lists_every_installed_package(self) -> None:
         doc = execute_code.description
         section = doc.split("## Pre-installed Libraries", 1)[1].strip().splitlines()[0]

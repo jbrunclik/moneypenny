@@ -8,6 +8,7 @@ from src.agent import skills
 from src.constants import SKILL_MAX_BODY_CHARS, SKILL_MAX_DESCRIPTION_CHARS
 
 EXPECTED = {
+    "artifact-design",
     "browser-tactics",
     "office-documents",
     "pdf-documents",

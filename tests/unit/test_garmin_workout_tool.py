@@ -427,6 +427,32 @@ class TestToolDispatch:
         assert result["workout"]["name"] == "Man Cave - Monday"
         assert len(result["workout"]["blocks"]) == 2
 
+    def test_get_carries_the_edit_guide(self):
+        """The edit-ops manual rides on the get result (which always precedes
+        an update) instead of the declaration re-sent on every model call."""
+        side_effect, _ = _mock_client_calls(_fixture())
+        with (
+            patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin_workout.safe_api_call", side_effect=side_effect),
+        ):
+            result = json.loads(
+                garmin_workout.invoke({"action": "get", "workout_id": "1647614440"})
+            )
+        guide = result["how_to_edit"]
+        for op in ('"op": "swap"', '"op": "remove"', '"op": "add_exercise"', '"op": "add_block"'):
+            assert op in guide
+        assert "KILOGRAMS" in guide
+
+    def test_invalid_edits_error_carries_the_edit_guide(self):
+        with patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()):
+            result = json.loads(
+                garmin_workout.invoke(
+                    {"action": "update", "workout_id": "1647614440", "edits": "not json"}
+                )
+            )
+        assert "invalid edits" in result["error"]
+        assert '"op": "swap"' in result["how_to_edit"]
+
     def test_update_persists_and_returns_refreshed(self):
         side_effect, _store = _mock_client_calls(_fixture())
         with (

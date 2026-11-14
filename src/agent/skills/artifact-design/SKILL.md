@@ -1,0 +1,21 @@
+---
+name: artifact-design
+description: Writing a create_artifact or update_artifact page - sandbox rules, the app's design system (layout and component classes, colour tokens, fluid sizing) and the mp bridge (send, state, theme). Load BEFORE writing the html.
+---
+# Artifact design
+
+It runs sandboxed: no network, no external URLs (images only inline SVG or data: URIs), no localStorage. Write a fragment (no <html>/<head> needed). The app's design system is already loaded:
+- Bare elements are styled: h1-h3, p, a, button (add class "secondary"), input, select, input[type=range], table, ul/ol, code/pre.
+- Layout: .mp-stack (vertical gap), .mp-row (horizontal, wraps), .mp-grid (auto columns), .mp-divider.
+- Components: .mp-card, .mp-hero (title block), .mp-stat (<div class="mp-stat"><span>Label</span><strong>42</strong></div>), .mp-chip, .mp-checklist (ul of <li><label><input type=checkbox> text</label></li>), .mp-steps (ol), .mp-tabs (radio+label pairs, then one .mp-tab-panel div per tab in the same order), .mp-muted, .mp-accent.
+- Colours only via var(--mp-text|--mp-muted|--mp-accent|--mp-surface|--mp-border|--mp-success|--mp-warning|--mp-error) or currentColor - never hex. It must look right in light and dark.
+- Sizing: fluid only (%, fr, minmax, flex). No fixed widths or heights, no vh/vw units (the frame grows to fit its content, so 100vh keeps growing). SVG: viewBox plus width="100%". It must work from 320px phone width to desktop.
+
+Bridge (global mp):
+- mp.send(text): send text as the user's next message (only from a click handler).
+- await mp.state.get() / mp.state.set(obj): save small JSON (ticked items, scores); it survives reloads and other devices.
+- mp.theme ('light'|'dark') and window 'mp:theme' event.
+
+Example: <div class="mp-card mp-stack"><h2>Tip</h2><input id="b" type="number" placeholder="Bill"><div class="mp-stat"><span>Tip 10%</span><strong id="t">0</strong></div></div><script>b.oninput=()=>t.textContent=(b.value*0.1).toFixed(2)</script>
+
+Write the title in the user's language; html is the complete fragment.

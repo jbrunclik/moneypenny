@@ -2,6 +2,8 @@
 
 from src.agent import skills
 from src.agent.permissions import ALWAYS_SAFE_TOOLS
+from src.agent.tools.artifacts import create_artifact
+from src.agent.tools.code_execution import execute_code
 from src.agent.tools.skills import load_skill
 
 
@@ -47,13 +49,21 @@ def test_recipes_moved_out_of_the_prompt() -> None:
         "pdf-documents": "DejaVuSans-Bold.ttf",
         "browser-tactics": "consent-accept",
         "weekly-planning": "## Weekly Strategic Planning",
+        "artifact-design": "mp.state.get()",
     }
-    always_on = TOOLS_SYSTEM_PROMPT_BASE + TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
+    always_on = (
+        TOOLS_SYSTEM_PROMPT_BASE
+        + TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
+        + execute_code.description
+        + create_artifact.description
+    )
     for name, marker in moved.items():
         assert marker not in always_on, f"{name} recipe still always-on"
         assert marker in skills.get_skill(name).body  # type: ignore[union-attr]
-    assert "load_skill('office-documents')" in TOOLS_SYSTEM_PROMPT_BASE
-    assert "load_skill('pdf-documents')" in TOOLS_SYSTEM_PROMPT_BASE
+    # The pointers ride on the declarations of the tools that need them
+    assert "load_skill('office-documents')" in execute_code.description
+    assert "load_skill('artifact-design')" in create_artifact.description
+    assert "load_skill('pdf-documents')" in execute_code.description
 
 
 def test_loaded_skill_is_never_aged_mid_turn() -> None:

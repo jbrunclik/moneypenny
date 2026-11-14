@@ -1,7 +1,7 @@
 /**
  * The artifact design system (src/artifact/design-system.css) stays tied to
  * the app's tokens and to what the agent is told it contains
- * (src/agent/prompt_texts/artifacts.py).
+ * (src/agent/prompt_texts/artifacts.py and the artifact-design skill).
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
@@ -10,7 +10,9 @@ import { resolve } from 'path';
 const root = resolve(__dirname, '../../..');
 const css = readFileSync(resolve(root, 'web/src/artifact/design-system.css'), 'utf8');
 const appTokens = readFileSync(resolve(root, 'web/src/styles/variables.css'), 'utf8');
-const guide = readFileSync(resolve(root, 'src/agent/prompt_texts/artifacts.py'), 'utf8');
+const guide = ['src/agent/prompt_texts/artifacts.py', 'src/agent/skills/artifact-design/SKILL.md']
+  .map((path) => readFileSync(resolve(root, path), 'utf8'))
+  .join('\n');
 
 const defined = new Set([...appTokens.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]));
 

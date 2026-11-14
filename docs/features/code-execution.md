@@ -69,13 +69,13 @@ The sandbox container runs with **networking disabled** and the memory/CPU
 limits above. Available Python libraries are baked into the Docker image
 ([docker/code-sandbox/Dockerfile](../../docker/code-sandbox/Dockerfile)) -
 runtime installation is not possible without network. To add a library, add it
-to the Dockerfile's `pip install` list **and** to both package lists the model
-sees - the "Pre-installed" line of the Code Execution section in
-[prompt_texts/core.py](../../src/agent/prompt_texts/core.py) and the
-"Pre-installed Libraries" section of the `execute_code` docstring - then rebuild
-with `make sandbox-image`. `TestSandboxLibraryListsMatchImage` in
+to the Dockerfile's `pip install` list **and** to the package list the model
+sees - the "Pre-installed Libraries" section of the `execute_code` docstring,
+the tool's only usage guide since Nov 14 2026 (the prompt's duplicate Code
+Execution sections were removed) - then rebuild with `make sandbox-image`.
+`TestSandboxLibraryListsMatchImage` in
 [test_code_execution.py](../../tests/unit/test_code_execution.py) fails when
-either list drifts from the Dockerfile (the model skips a library it was not
+the list drifts from the Dockerfile (the model skips a library it was not
 told about, or wastes a round on an import that fails).
 
 ## Stop

@@ -1,24 +1,24 @@
 # Characters sent on every turn. Regenerate: make prompt-snapshots
 
 static prompt
-  standard       33518
-  anonymous      20920
-  planning       36666
-  standing       33518
+  standard       31638
+  anonymous      19040
+  planning       34786
+  standing       31638
 
-tool declarations (41 tools, 60102 chars)
+tool declarations (41 tools, 54349 chars)
   ask_choice                     768
   browser                       2388
-  create_artifact               3219
+  create_artifact               1635
   create_file                   1351
   create_standing_chat          1565
   delegate_task                  878
   delete_place                   325
   edit_standing_chat            1438
-  execute_code                  3788
+  execute_code                  2028
   fetch_url                      992
   garmin_connect                2302
-  garmin_workout                3774
+  garmin_workout                1365
   generate_image                2721
   get_route                      579
   google_calendar               2002

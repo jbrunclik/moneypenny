@@ -445,90 +445,33 @@ def _copy_attachments(
 
 @tool
 def execute_code(code: str, files: list[str] | None = None) -> str:
-    """Execute Python code in a secure, isolated sandbox environment.
-
-    Use this tool for tasks that require computation, data processing, or generating files.
-    The sandbox has NO network access and NO access to local files outside the sandbox.
-
-    ## Capabilities
-    - Mathematical calculations (numpy, scipy, sympy)
-    - Data analysis and manipulation (pandas, numpy)
-    - Creating charts and plots (matplotlib) - returned as base64 images
-    - Generating PDF documents (reportlab, fpdf2)
-    - Generating Word, PowerPoint and Excel files (python-docx, python-pptx, openpyxl)
-      (for Word/PowerPoint/Excel or PDF output, call load_skill('office-documents') /
-      load_skill('pdf-documents') first)
-    - Image processing (pillow)
-    - Text parsing and processing
-    - JSON/CSV data transformation
+    """Run Python in an isolated sandbox: calculations, data processing, charts, and files
+    (PDF, Word, PowerPoint, Excel, images). Write ONE complete script that does the whole
+    task - the environment below is fixed, so never spend calls probing it.
 
     ## Pre-installed Libraries
     numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz, pypdf, pdfplumber
 
-    ## Reading PDFs
-    - Start with `from sandbox_helpers import pdf_overview; pdf_overview(path)`: what
-      each page holds, and which pages have no text (scanned - render and look at them);
-      20 pages per call, `first_page=21` for the next
-    - pdfplumber: `page.extract_text()`, `page.extract_words()` (with coordinates),
-      drawn lines/rectangles in `page.lines` / `page.rects` (measure plans from them),
-      `page.find_tables()`, `page.to_image(resolution=150).save(...)` to render a page
-
-    ## Limitations
-    - NO network access (cannot fetch URLs, APIs, or download anything)
-    - NO access to user's local files (cannot read/write files outside sandbox)
-    - 30 second execution timeout
-    - 512MB memory limit
-
-    ## Persistence Across Calls
-    - Files saved to /work/ persist across execute_code calls within this
-      conversation (e.g. save a dataset once, analyze it in later calls)
-    - Variables do NOT persist - each call is a fresh Python process
-    - /output/ is cleared at the start of every call
-
-    ## Files From the Conversation
-    - The user's uploads are NOT in the sandbox until you list them in `files`:
-      give their ids from the history metadata ("message_id:file_index"); they
-      are copied to /work/attachments/ before your code runs, and the result's
-      `attachments` gives each path. This is the only way to measure, parse or
-      convert an uploaded file (a PDF plan, a spreadsheet, a photo).
-
-    ## Best Practices
-    - Print results you want to show the user
-    - For plots: use plt.savefig() or plt.show() - plots are captured automatically
-    - For generated files (PDFs, images): save to /output/ directory and they will be
-      returned as base64-encoded data in the response
-
-    ## Example: Generate a PDF
-    ```python
-    from reportlab.lib.pagesizes import letter
-    from reportlab.pdfgen import canvas
-
-    c = canvas.Canvas("/output/report.pdf", pagesize=letter)
-    c.drawString(100, 750, "Hello World!")
-    c.save()
-    print("PDF generated successfully")
-    ```
-
-    ## Example: Generate a plot
-    ```python
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    x = np.linspace(0, 10, 100)
-    plt.plot(x, np.sin(x))
-    plt.title("Sine Wave")
-    plt.savefig("/output/plot.png")
-    print("Plot saved")
-    ```
+    - Limits: NO network, no access to the user's local files, 30 s timeout, 512 MB memory.
+    - Output: print what the user should see; save files (and plots via plt.savefig) to
+      /output/ - they are attached to your reply (tell the user what you attached).
+      /output/ is cleared every call; files in /work/ persist within the conversation,
+      variables do not (each call is a fresh process).
+    - Uploads are NOT in the sandbox until you list their ids ("message_id:file_index"
+      from the history metadata) in `files`: they are copied to /work/attachments/ and
+      the result's `attachments` gives each path - the only way to measure, parse or
+      convert an uploaded file.
+    - Reading a PDF: start with `from sandbox_helpers import pdf_overview;
+      pdf_overview(path)` (what each page holds, which pages are scanned; 20 pages per
+      call, `first_page=21` next), then pdfplumber (`extract_text`, `extract_words`,
+      `page.lines`/`page.rects` to measure plans, `find_tables`, `to_image` to render).
+    - Writing PDF / Word / PowerPoint / Excel: load_skill('pdf-documents') /
+      load_skill('office-documents') first.
 
     Args:
         code: Python code to execute. Should be complete, runnable code.
         files: Optional ids of conversation files ("message_id:file_index")
             to copy into /work/attachments/ first (at most 5 per call).
-
-    Returns:
-        JSON with stdout, stderr, exit_code, and any generated files.
-        Files saved to /output/ are returned as base64-encoded data.
     """
     # Check permission for autonomous agents (always requires approval)
     check_autonomous_permission("execute_code", {"code": code})

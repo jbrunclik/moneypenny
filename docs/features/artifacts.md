@@ -180,13 +180,18 @@ own.
   container width `.mp-row` and `.mp-grid` stack and card padding and headings
   step down. Layout follows the frame's width, not the screen.
 
-The agent learns all this from `CREATE_ARTIFACT_DESCRIPTION`
+The agent learns when to build one from `CREATE_ARTIFACT_DESCRIPTION`
 ([prompt_texts/artifacts.py](../../src/agent/prompt_texts/artifacts.py)), the
-tool's description (so it costs nothing where the tool is not bound): when to
-build one (see [When the agent builds one](#when-the-agent-builds-one)),
-the class list, colours only via tokens or `currentColor`, fluid sizing only,
-SVG with `viewBox` and `width="100%"`, the `mp` API and an example. **The class
-and token list in the guide must match the CSS**:
+tool's description (see [When the agent builds one](#when-the-agent-builds-one)),
+and how to write one from the `artifact-design` skill
+([SKILL.md](../../src/agent/skills/artifact-design/SKILL.md)), which the
+description tells it to load before writing the html: the class list, colours
+only via tokens or `currentColor`, fluid sizing only, SVG with `viewBox` and
+`width="100%"`, the `mp` API and an example. The manual moved into the skill on
+Nov 14 2026: only ~15 chat turns a month make an artifact, and the declaration
+is re-sent on every model call (the extra load round costs those few turns
+little; the artifact evals passed unchanged). **The class and token list in the
+description and the skill must match the CSS**:
 [artifact-design-system.test.ts](../../web/tests/unit/artifact-design-system.test.ts)
 fails on a class or token the guide names that the CSS lacks, on an `--mp-*`
 token that is not an app token, and on a hex colour.

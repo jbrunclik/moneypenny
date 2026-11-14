@@ -47,6 +47,16 @@ logger = get_logger(__name__)
 
 _MAX_SEARCH_RESULTS = 15
 
+# The edit-ops manual: on the get result (which always precedes an update) and
+# on an invalid-edits error, not in the declaration re-sent on every model call
+EDIT_GUIDE = """edits = a JSON-encoded array string of ops, applied in order against the step_ids of THIS get (they change on every save - get again before the next update). Each op has an "op" (default "set"):
+- set numbers on a step: {"step_id": 12, "reps": 6, "weight_kg": 26}; rest: {"step_id": 13, "rest_s": 120}; sets: {"step_id": 10, "sets": 5} (a block_id)
+- {"op": "swap", "step_id": 12, "exercise": "Goblet Squat"} (may also set reps/weight_kg)
+- {"op": "remove", "step_id": 12} (an exercise also drops its rest; a block_id removes the whole block)
+- {"op": "add_exercise", "block_id": 10, "exercise": "Bulgarian Split Squat", "reps": 10, "weight_kg": 12, "rest_s": 75}
+- {"op": "add_block", "exercise": "Plank", "sets": 3, "reps": 12, "weight_kg": 0, "rest_s": 60}
+Weights are in KILOGRAMS (0 or omit for bodyweight). reps only work on steps whose end_condition is "reps" (carries and lap-button moves: weight only). Swap/add an exercise Garmin knows (search_exercises; unknown names are rejected with a warning). Garmin has no RPE field: keep RPE in the sports kv_store and turn it into a concrete weight/rep target. Base changes on evidence (last session's sets via garmin_connect get_activity_details, in kg too, plus kv_store progress) and tell the user what changed from "applied"."""
+
 
 def _search_exercises(query: str | None) -> str:
     """Fuzzy-search the bundled Garmin exercise catalog; return capped matches."""
@@ -90,7 +100,7 @@ def _update_workout(garmin: Any, workout_id: str | None, edits: str | None) -> s
     try:
         parsed = parse_edits(edits)
     except (ValueError, json.JSONDecodeError) as e:
-        return tool_error(f"invalid edits: {e}")
+        return tool_error(f"invalid edits: {e}", how_to_edit=EDIT_GUIDE)
     if not parsed:
         return tool_error("edits must contain at least one edit")
 
@@ -118,61 +128,24 @@ def garmin_workout(
 ) -> str:
     """Read and edit the user's saved Garmin strength workouts.
 
-    Use this to keep the targets shown ON THE WATCH accurate before a session —
-    adjust weight/reps/rest/sets, swap a movement, or add/remove exercises and
-    set-blocks. Writes go straight to the user's Garmin account (in place; the
-    workout keeps its id and schedule).
+    Keeps the targets shown ON THE WATCH accurate before a session: weight, reps,
+    rest, sets, swapping a movement, adding/removing exercises and set-blocks.
+    Writes go straight to the user's Garmin account, in place (same id and schedule).
 
     Actions:
-    - "list": List all saved workouts as {workout_id, name, sport}. Use to find a
-      workout by name (e.g. "Man Cave - Monday").
-    - "get": Return one workout in a compact editable view. Required: workout_id.
-      Shape: {name, blocks: [{block_id, sets, steps: [...]}]}. Each step has a
-      "step_id" — the KEY you edit by. Exercise steps show "exercise",
-      "end_condition", "reps", "weight_kg"; rest steps show "rest_s".
-      ALWAYS "get" immediately before an "update": step_ids are reassigned on
-      every save, so ids from an earlier read (or a prior update) are stale.
-    - "search_exercises": Look up valid Garmin exercises by name (Garmin knows
-      ~1500). Required: query (e.g. "split squat"). Returns [{name, category,
-      exercise}]. Use the returned "exercise" (or "name") when swapping/adding.
-    - "update": Apply edits, then return {applied: [...], warnings, workout:
-      <refreshed view>}. Required: workout_id, edits. Use "applied" to tell the
-      user exactly what changed.
-
-    Edit ops (edits = a JSON-encoded array string; each op has an "op", default "set"):
-    - Edit numbers (existing step): {"step_id": 12, "reps": 6, "weight_kg": 26}
-      rest: {"step_id": 13, "rest_s": 120}; sets: {"step_id": 10, "sets": 5} (block id)
-    - Swap movement: {"op": "swap", "step_id": 12, "exercise": "Goblet Squat"}
-      (optionally also set reps/weight_kg in the same op)
-    - Remove: {"op": "remove", "step_id": 12}  (an exercise also drops its rest;
-      a block id removes the whole block)
-    - Add exercise to a block: {"op": "add_exercise", "block_id": 10,
-      "exercise": "Bulgarian Split Squat", "reps": 10, "weight_kg": 12, "rest_s": 75}
-    - Add a new set-block: {"op": "add_block", "exercise": "Plank", "sets": 3,
-      "reps": 12, "weight_kg": 0, "rest_s": 60}
-    Ops in one update apply in order against the ids from your latest "get".
-
-    IMPORTANT constraints:
-    - Weights are in KILOGRAMS (0 or omit weight_kg for bodyweight moves).
-    - For swap/add, prefer an exercise Garmin knows — verify with
-      "search_exercises" if unsure; an unknown name is rejected with a warning.
-    - "reps" only works when a step's end_condition is "reps". For carries/
-      lap-button moves reps is device-driven — you can only change weight.
-    - Garmin has no RPE field. RPE can't be pushed to the watch; track it in the
-      sports kv_store and translate it into a concrete weight/rep target here.
-    - Base changes on evidence (last session's logged sets via garmin_connect
-      get_activity_details, plus kv_store progress), and tell the user what
-      changed. get_activity_details reports weight in kg too, so numbers line up.
+    - list: saved workouts as {workout_id, name, sport}, to find one by name.
+    - get (workout_id): the workout as {name, blocks: [{block_id, sets, steps}]}, each
+      step keyed by step_id, plus how to write edits. ALWAYS get right before an
+      update: step_ids are reassigned on every save.
+    - search_exercises (query): valid Garmin exercise names for swap/add.
+    - update (workout_id, edits): apply edits; returns what was applied and the
+      refreshed workout. Weights are in kilograms.
 
     Args:
         action: "list", "get", "search_exercises", or "update".
-        workout_id: Target workout id (required for get/update).
-        edits: A JSON string encoding an array of edit ops (required for update),
-            e.g. '[{"step_id": 12, "reps": 6, "weight_kg": 26}]'.
-        query: Search term (required for search_exercises).
-
-    Returns:
-        JSON string with the result (or an "error"/"warnings" field).
+        workout_id: Target workout id (get/update).
+        edits: JSON array string of edit ops, as the get result describes (update).
+        query: Search term (search_exercises).
     """
     logger.info("garmin_workout called", extra={"action": action, "workout_id": workout_id})
     # An unattended run: its grants decide (a change without the write level
@@ -194,7 +167,9 @@ def garmin_workout(
             if not workout_id:
                 return tool_error("workout_id is required for get")
             raw = safe_api_call(garmin, "get_workout_by_id", workout_id)
-            return json.dumps({"action": "get", "workout": slim_workout(raw)})
+            return json.dumps(
+                {"action": "get", "workout": slim_workout(raw), "how_to_edit": EDIT_GUIDE}
+            )
 
         if action == "update":
             return _update_workout(garmin, workout_id, edits)

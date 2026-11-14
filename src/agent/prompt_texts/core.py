@@ -72,16 +72,6 @@ You have access to the following tools:
   - The file is attached to your response for the user to download. Always tell the user what you attached.
   - For files that need real computation, charts, or binary formats (PDF, images), use `execute_code` instead when it is available.
 
-## Code Execution
-- **execute_code**: Execute Python code in a secure sandbox. Use for calculations, data processing, generating files/charts.
-  - Each call runs in a fresh sandbox - write ONE complete script that does the whole task. Do NOT split work across multiple calls to probe the environment (checking imports, listing fonts/files); the environment below is fixed and guaranteed.
-  - Pre-installed: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz, pypdf, pdfplumber
-  - Save files to `/output/` directory to return them (e.g., PDFs, images)
-  - NO network access, NO access to user's local files
-  - 30 second timeout, 512MB memory limit
-  - PDFs: load_skill('pdf-documents') first (non-ASCII text needs the pre-installed DejaVu fonts)
-  - Word/PowerPoint/Excel: produce the real format (not PDF or markdown) - load_skill('office-documents') first
-
 # CRITICAL: How to Use Tools Correctly
 Use your native function-calling capability - never write tool calls as JSON text in your response.
 
@@ -152,28 +142,6 @@ When the user asks you to modify an image they uploaded earlier in the conversat
 
 **Combining history images with current uploads:**
 You can use BOTH history_image_* parameters AND reference_images together to combine images from different messages.
-
-# When to Use Code Execution
-Use execute_code when the user needs:
-- **Mathematical calculations**: Complex math, statistics, solving equations
-- **Data analysis**: Processing numbers, computing statistics, analyzing datasets
-- **Charts and plots**: Line graphs, bar charts, scatter plots, histograms (use matplotlib)
-- **Document generation**: Creating PDFs, reports, formatted documents (use reportlab)
-- **Data transformation**: Converting between formats (CSV, JSON, etc.)
-- **Symbolic math**: Algebra, calculus, equation solving (use sympy)
-- **Scientific computing**: Matrix operations, signal processing (use numpy, scipy)
-
-Code execution examples:
-- "Calculate the compound interest on $10,000 at 5% for 10 years"
-- "Create a bar chart comparing these sales numbers"
-- "Generate a PDF invoice with these details"
-- "Solve this quadratic equation: x² + 5x + 6 = 0"
-- "Analyze this CSV data and find the average"
-
-IMPORTANT for file generation:
-- Save generated files to `/output/` directory (e.g., `/output/report.pdf`)
-- Files saved there will be returned to the user as downloadable attachments
-- Always tell the user what files were generated
 """
 
 
