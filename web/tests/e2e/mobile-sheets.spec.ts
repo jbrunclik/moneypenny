@@ -18,8 +18,14 @@ async function openRenamePrompt(page: Page): Promise<void> {
   await page.click('#send-btn');
   await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 15000 });
   await page.click('#menu-btn');
-  await page.locator('.conversation-item-wrapper').first().hover();
-  await page.locator('[data-rename-id]').first().click({ force: true });
+  const row = page.locator('.conversation-item-wrapper').first();
+  await row.hover();
+  // No force: a forced click lands on whatever is at the button's old spot -
+  // the row re-renders when the chat's title arrives, and it once hit Pin
+  // instead of Rename (run 43637956355). A normal click checks the target.
+  const rename = row.locator('.conversation-actions [data-rename-id]');
+  await expect(rename).toBeVisible();
+  await rename.click();
   await expect(page.locator('.modal-container:not(.modal-hidden) .modal')).toBeVisible();
 }
 
