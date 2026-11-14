@@ -105,9 +105,11 @@ class KVStoreMixin:
             conn.commit()
             return int(row["value"])
 
-    def kv_append(self, user_id: str, namespace: str, key: str, value: str, separator: str) -> None:
-        """Append to a key's value (creating it), in one statement - two
-        concurrent appends both land."""
+    def kv_append(
+        self, user_id: str, namespace: str, key: str, value: str, separator: str, max_chars: int
+    ) -> None:
+        """Append to a key's value (creating it), keeping its newest
+        `max_chars`, in one statement - two concurrent appends both land."""
         with self._pool.get_connection() as conn:
             now = to_db(utc_now())
             self._execute_with_timing(
@@ -116,9 +118,10 @@ class KVStoreMixin:
                 INSERT INTO kv_store (user_id, namespace, key, value, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, namespace, key)
-                DO UPDATE SET value = value || ? || excluded.value, updated_at = excluded.updated_at
+                DO UPDATE SET value = substr(value || ? || excluded.value, -?),
+                              updated_at = excluded.updated_at
                 """,
-                (user_id, namespace, key, value, now, now, separator),
+                (user_id, namespace, key, value[-max_chars:], now, now, separator, max_chars),
             )
             conn.commit()
 

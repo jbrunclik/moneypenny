@@ -26,6 +26,9 @@ logger = get_logger(__name__)
 KV_NAMESPACE = "interject"
 # Between steering messages that arrived before one tool round read them
 _SEPARATOR = "\n\n"
+# The newest this much of the steering waiting for a round is kept - a burst
+# of sends cannot grow the stored value or the injected guidance unbounded
+INTERJECTION_MAX_CHARS = 8000
 
 
 def save_interjection(user_id: str, conv_id: str, text: str) -> None:
@@ -34,7 +37,7 @@ def save_interjection(user_id: str, conv_id: str, text: str) -> None:
     Appended, not replaced: two quick messages before the next tool round
     used to keep only the second, and the turn never read the first.
     """
-    db.kv_append(user_id, KV_NAMESPACE, conv_id, text, _SEPARATOR)
+    db.kv_append(user_id, KV_NAMESPACE, conv_id, text, _SEPARATOR, INTERJECTION_MAX_CHARS)
     logger.info(
         "Interjection saved",
         extra={"user_id": user_id, "conversation_id": conv_id, "length": len(text)},

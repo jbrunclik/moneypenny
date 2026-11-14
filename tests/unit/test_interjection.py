@@ -48,3 +48,17 @@ def test_steering_saved_while_a_pop_runs_is_never_lost(db: Database, test_user: 
         popped.extend(rest.split("\n\n"))
 
     assert sorted(popped) == sorted(saved)
+
+
+def test_a_burst_keeps_only_the_newest_steering(
+    db: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.agent import interjection
+
+    monkeypatch.setattr(interjection, "INTERJECTION_MAX_CHARS", 20)
+    for i in range(10):
+        save_interjection(test_user.id, "conv-1", f"message {i}")
+
+    kept = pop_interjection(test_user.id, "conv-1")
+    assert kept is not None and len(kept) <= 20
+    assert kept.endswith("message 9")
