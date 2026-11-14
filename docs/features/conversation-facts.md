@@ -122,3 +122,11 @@ memory, where nothing tied them to this conversation.
   and the table: share of chats with facts, facts per chat, whether they read
   as settled facts or chatter, search rounds on long chats, plain-turn
   latency. Turn it off and remove it if the lists are noise.
+- **Measured Nov 14 2026 - kept.** Facts in 10 of 188 chats active since
+  Nov 1 (5%), 33 facts, 1-7 per chat, ~110 chars each; 40 turns recorded
+  some (11 of them alongside other tools). The keys read as settled facts
+  from long working chats (an installation's placement and fees, a bike
+  build's parts and status, a letter's agreed variants, a story world's
+  rules) - no chatter. Recording is extract-only (no extra round); the
+  standing cost is the tool declaration, ~290 tokens per call. Search rounds
+  on long chats were not compared: ten chats are anecdote.
