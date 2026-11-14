@@ -14,6 +14,7 @@ import uuid
 from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
+from src.agent.cancellation import adopt_pending_stop
 from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.lost_actions import record_lost_actions
 from src.api.helpers.stream_consumer import handle_generator_error, relay_events
@@ -241,6 +242,10 @@ def _yield_user_message_saved(context: StreamContext) -> Generator[str]:
         )
         context.placeholder_saved = True
         record_turn_owner(context.expected_assistant_msg_id)
+        # A Stop pressed before this event reached the client named the message
+        adopt_pending_stop(
+            context.user_id, context.conv_id, context.user_msg.id, context.expected_assistant_msg_id
+        )
     except Exception:  # the final save falls back to INSERT-at-end
         logger.warning(
             "Failed to save placeholder message, falling back to INSERT-at-end",

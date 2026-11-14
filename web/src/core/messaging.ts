@@ -7,7 +7,7 @@
  */
 
 import { useStore } from '../state/store';
-import { SEND_AUTO_RETRY_DELAY_MS } from '../config';
+import { SEND_AUTO_RETRY_DELAY_MS, STEER_ACK_WAIT_MS } from '../config';
 import { createLogger } from '../utils/logger';
 import { conversations } from '../api/conversations';
 import { ApiError } from '../api/http';
@@ -51,7 +51,7 @@ import { resetForceTools } from './toolbar';
 import { claimAutoRetry, confirmDelivery, markSendFailed } from './send-delivery';
 import { sendStreamingMessage } from './stream-send';
 import { sendBatchMessage } from './batch-send';
-import { interjectIntoActiveTurn } from './steering';
+import { interjectIntoActiveTurn, whenTurnAcked } from './steering';
 import { waitForReplyTo } from './reply-wait';
 
 const log = createLogger('messaging');
@@ -416,6 +416,14 @@ async function sendMessageGuarded(releaseComposer: () => void): Promise<void> {
     if (files.length > 0) {
       toast.info('Please wait for the current response before sending attachments.');
       return;
+    }
+    // A stream not yet acknowledged by the server (still connecting or
+    // uploading): steering now could land before the message it follows
+    if (activeRequest.type === 'stream' && !activeRequest.assistantMessageId) {
+      if ((await whenTurnAcked(conv.id, STEER_ACK_WAIT_MS)) === 'ended') {
+        await sendNewMessage(conv, messageText, files, forceTools, releaseComposer);
+        return;
+      }
     }
     // (held until it returns: the interject clears the composer only then)
     await interjectIntoActiveTurn(conv.id, messageText);

@@ -28,14 +28,28 @@ class ClientLocation(RequestModel):
     timestamp_ms: int | None = Field(default=None, ge=0)
 
 
+_UUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+
+
 class StopChatRequest(RequestModel):
     """Schema for POST /api/conversations/<conv_id>/chat/stop.
 
     Names the turn to stop by its assistant message id (from the stream's
-    user_message_saved event), so a Stop never hits a different turn.
+    user_message_saved event), so a Stop never hits a different turn - or,
+    before that event arrived, by the client's id of the message the turn
+    answers.
     """
 
-    message_id: str = Field(..., min_length=1, max_length=64)
+    message_id: str | None = Field(default=None, min_length=1, max_length=64)
+    client_message_id: str | None = Field(
+        default=None, pattern=_UUID, description="The sent message's id, before the turn's ack"
+    )
+
+    @model_validator(mode="after")
+    def one_turn_named(self) -> StopChatRequest:
+        if (self.message_id is None) == (self.client_message_id is None):
+            raise ValueError("give message_id or client_message_id (exactly one)")
+        return self
 
 
 class InterjectRequest(RequestModel):

@@ -31,6 +31,7 @@ logger = get_logger(__name__)
 RESERVED_NAMESPACES = frozenset(
     {
         "cancel",
+        "cancel_pending",
         "deep_research_finish",
         "conv_compaction",
         "interject",

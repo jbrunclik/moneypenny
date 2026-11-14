@@ -488,6 +488,31 @@ test.describe('Chat - Mid-run Steering', () => {
     expect(await order()).toEqual(['user', 'user', 'assistant']);
     await expect(page.locator('.message.assistant.message--latest-assistant')).toHaveCount(1);
   });
+
+  test('a message sent before the first one landed is saved after it', async ({ page, request }) => {
+    // The first send is held in the browser (still connecting): the second one
+    // waits for the server to acknowledge the turn, then steers it. Before, it
+    // went to /chat/interject at once and was saved FIRST (Oct 2026 audit)
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/chat/stream', async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    await page.fill('#message-input', 'First question');
+    await page.click('#send-btn');
+    await expect(page.locator('#send-btn')).toHaveClass(/btn-stop/, { timeout: 5000 });
+    await page.fill('#message-input', 'And a follow-up');
+    await page.click('#send-btn');
+    release();
+
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 20000 });
+    await page.reload();
+    const users = page.locator('.message.user .message-content');
+    await expect(users).toHaveText(['First question', 'And a follow-up'], { timeout: 10000 });
+  });
 });
 
 test.describe('Chat - Unanswered Steering', () => {
@@ -610,6 +635,33 @@ test.describe('Chat - Stop Streaming', () => {
     const reloaded = page.locator('.message.assistant');
     await expect(reloaded.locator('.message-stopped-early')).toContainText('Stopped.');
     await expect(reloaded.locator('.message-content')).toHaveText(partial);
+  });
+
+  test('Stop before the server acked the turn stops it server-side', async ({ page }) => {
+    // Hold the send in the browser so the Stop reaches the server first: the
+    // turn then adopts it when it starts. Before, the client aborted and showed
+    // "Not sent" while the server kept generating (Oct 2026 audit)
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/chat/stream', async (route) => {
+      await held;
+      await route.continue();
+    });
+    await page.fill('#message-input', 'Tell me a very long story please');
+    await page.click('#send-btn');
+    await expect(page.locator('#send-btn')).toHaveClass(/btn-stop/, { timeout: 5000 });
+
+    const stopped = page.waitForResponse((r) => r.url().includes('/chat/stop'));
+    await clickStop(page);
+    expect((await stopped).status()).toBe(200);
+    release();
+
+    const assistant = page.locator('.message.assistant');
+    await expect(assistant.locator('.message-stopped-early')).toContainText('Stopped.', {
+      timeout: 15000,
+    });
+    await expect(page.locator('.message.user.message--send-failed')).toHaveCount(0);
+    await expect(page.locator('#send-btn')).toHaveClass(/btn-send/);
   });
 
   test('Stop shows a disabled Stopping state until the turn ends', async ({ page }) => {

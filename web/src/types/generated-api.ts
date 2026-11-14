@@ -13951,11 +13951,22 @@ export interface components {
          * @description Schema for POST /api/conversations/<conv_id>/chat/stop.
          *
          *     Names the turn to stop by its assistant message id (from the stream's
-         *     user_message_saved event), so a Stop never hits a different turn.
+         *     user_message_saved event), so a Stop never hits a different turn - or,
+         *     before that event arrived, by the client's id of the message the turn
+         *     answers.
          */
         StopChatRequest: {
-            /** Message Id */
-            message_id: string;
+            /**
+             * Message Id
+             * @default null
+             */
+            message_id?: string | null;
+            /**
+             * Client Message Id
+             * @description The sent message's id, before the turn's ack
+             * @default null
+             */
+            client_message_id?: string | null;
         };
         /**
          * InstructionsChangeResponse

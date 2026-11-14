@@ -18752,18 +18752,37 @@
         "type": "object"
       },
       "StopChatRequest": {
-        "description": "Schema for POST /api/conversations/<conv_id>/chat/stop.\n\nNames the turn to stop by its assistant message id (from the stream's\nuser_message_saved event), so a Stop never hits a different turn.",
+        "description": "Schema for POST /api/conversations/<conv_id>/chat/stop.\n\nNames the turn to stop by its assistant message id (from the stream's\nuser_message_saved event), so a Stop never hits a different turn - or,\nbefore that event arrived, by the client's id of the message the turn\nanswers.",
         "properties": {
           "message_id": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Message Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message Id"
+          },
+          "client_message_id": {
+            "anyOf": [
+              {
+                "pattern": "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The sent message's id, before the turn's ack",
+            "title": "Client Message Id"
           }
         },
-        "required": [
-          "message_id"
-        ],
         "title": "StopChatRequest",
         "type": "object"
       },

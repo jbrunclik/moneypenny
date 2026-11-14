@@ -13,7 +13,11 @@ from typing import NoReturn
 from apiflask import APIBlueprint
 from flask import Response
 
-from src.agent.cancellation import request_finish_now, request_stop
+from src.agent.cancellation import (
+    request_finish_now,
+    request_stop,
+    request_stop_by_client_id,
+)
 from src.agent.interjection import clear_interjection, pop_interjection
 from src.api.errors import (
     raise_conflict_error,
@@ -400,12 +404,30 @@ def chat_stop(user: User, data: StopChatRequest, conv_id: str) -> dict[str, str]
     conv = db.get_conversation(conv_id, user.id)
     if not conv:
         raise_not_found_error("Conversation")
-    request_stop(user.id, conv_id, data.message_id)
+    if data.message_id is not None:
+        request_stop(user.id, conv_id, data.message_id)
+    else:
+        _stop_by_client_id(user.id, conv_id, str(data.client_message_id))
     logger.info(
         "Stop requested",
-        extra={"user_id": user.id, "conversation_id": conv_id, "message_id": data.message_id},
+        extra={
+            "user_id": user.id,
+            "conversation_id": conv_id,
+            "message_id": data.message_id,
+            "by_client_id": data.message_id is None,
+        },
     )
     return {"status": "stopping"}
+
+
+def _stop_by_client_id(user_id: str, conv_id: str, client_message_id: str) -> None:
+    """Stop the turn answering the client's message: running already (its
+    first event had not reached the client), or adopted when it starts."""
+    request_stop_by_client_id(user_id, conv_id, client_message_id)
+    sent = db.get_message_by_id(client_message_id)
+    running = running_turn_id(conv_id) if sent and sent.conversation_id == conv_id else None
+    if running is not None:
+        request_stop(user_id, conv_id, running)
 
 
 @api.route("/conversations/<conv_id>/chat/finish-now", methods=["POST"])

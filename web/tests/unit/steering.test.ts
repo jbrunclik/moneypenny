@@ -34,7 +34,7 @@ vi.mock('@/components/MessageInput', () => ({ clearMessageInput }));
 vi.mock('@/utils/programmatic-scroll', () => ({ programmaticScrollToBottom }));
 vi.mock('@/sync/SyncManager', () => ({ getSyncManager: () => ({ incrementLocalMessageCount }) }));
 
-import { answerUnreadSteering, interjectIntoActiveTurn } from '@/core/steering';
+import { answerUnreadSteering, interjectIntoActiveTurn, whenTurnAcked } from '@/core/steering';
 import { useStore } from '@/state/store';
 import type { Conversation, Message } from '@/types/api';
 
@@ -240,5 +240,42 @@ describe('answerUnreadSteering', () => {
     expect(storeOrder()).toEqual(['u1', 'steer', 'a1']);
     expect(domOrder()).toEqual(['u1', 'steer', 'a1']);
     expect(answered).toEqual([]);
+  });
+});
+
+
+describe('whenTurnAcked', () => {
+  // A second message sent before the first send landed went to /chat/interject
+  // and could be saved before the first one (Oct 2026 audit): steering waits
+  // for the server to acknowledge the turn first
+  const request = (assistantMessageId?: string) => ({
+    conversationId: CONV,
+    type: 'stream' as const,
+    ...(assistantMessageId !== undefined && { assistantMessageId }),
+  });
+
+  it('resolves at once for a turn the server already acknowledged', async () => {
+    useStore.getState().setActiveRequest(CONV, request('reply-1'));
+    await expect(whenTurnAcked(CONV, 1000)).resolves.toBe('acked');
+  });
+
+  it('waits for the acknowledgement', async () => {
+    useStore.getState().setActiveRequest(CONV, request());
+    const outcome = whenTurnAcked(CONV, 1000);
+    useStore.getState().setActiveRequestAssistantId(CONV, 'reply-1');
+    await expect(outcome).resolves.toBe('acked');
+  });
+
+  it('reports a send that ended without one', async () => {
+    useStore.getState().setActiveRequest(CONV, request());
+    const outcome = whenTurnAcked(CONV, 1000);
+    useStore.getState().removeActiveRequest(CONV);
+    await expect(outcome).resolves.toBe('ended');
+  });
+
+  it('gives up after the timeout', async () => {
+    useStore.getState().setActiveRequest(CONV, request());
+    await expect(whenTurnAcked(CONV, 10)).resolves.toBe('timeout');
+    useStore.getState().removeActiveRequest(CONV);
   });
 });

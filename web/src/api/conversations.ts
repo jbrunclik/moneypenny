@@ -272,10 +272,14 @@ export const conversations = {
   },
 
   /** Ask the running turn (named by its assistant message id) to stop server-side. */
-  async stop(id: string, messageId: string): Promise<void> {
+  /** Stop a turn named by its reply id, or - before the stream's first
+   * event - by the id of the message it answers. */
+  async stop(id: string, turn: { messageId: string } | { clientMessageId: string }): Promise<void> {
+    const body =
+      'messageId' in turn ? { message_id: turn.messageId } : { client_message_id: turn.clientMessageId };
     await request<{ status: string }>(`/api/conversations/${id}/chat/stop`, {
       method: 'POST',
-      body: JSON.stringify({ message_id: messageId }),
+      body: JSON.stringify(body),
     });
   },
 

@@ -35,6 +35,9 @@ export interface StreamingState {
   uploadProgressHidden: boolean;
   /** Pre-generated assistant message ID from server, used for stream recovery */
   expectedAssistantMessageId: string | null;
+  /** The sent message's id (a new send, not a re-run): a Stop before the
+   * server's first event names the turn by it */
+  clientMessageId?: string;
   /** Highest journal seq rendered so far (resume offset for resumable streams) */
   lastSeq: number;
   /** Set before aborting the reader to resume proactively (foreground/pageshow) */
@@ -113,9 +116,17 @@ export function registerStreamRequest(
  */
 export function requestServerStop(convId: string, state: StreamingState): boolean {
   if (state.stopRequested) return true;
-  if (!state.expectedAssistantMessageId) return false;
+  // Before the server's first event only the sent message names the turn:
+  // the server stops the turn already running, or the turn adopts the Stop
+  // when it starts (before, it kept generating while this showed "Not sent")
+  const turn = state.expectedAssistantMessageId
+    ? { messageId: state.expectedAssistantMessageId }
+    : state.clientMessageId
+      ? { clientMessageId: state.clientMessageId }
+      : null;
+  if (!turn) return false;
   state.stopRequested = true;
-  conversations.stop(convId, state.expectedAssistantMessageId).catch((error: unknown) => {
+  conversations.stop(convId, turn).catch((error: unknown) => {
     log.warn('Server stop request failed - aborting reader', { conversationId: convId, error });
     state.activeAbortController?.abort();
   });

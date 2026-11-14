@@ -76,6 +76,38 @@ export async function interjectIntoActiveTurn(convId: string, messageText: strin
 }
 
 /**
+ * Wait until the server acknowledged the conversation's stream turn (its
+ * reply id arrived). A second message sent while the first send was still
+ * connecting went to /chat/interject and could be saved before the first
+ * (Oct 2026 audit): steering waits for the turn to exist. 'ended' - the send
+ * finished or failed without one - means the message needs a turn of its own.
+ */
+export function whenTurnAcked(
+  convId: string,
+  timeoutMs: number
+): Promise<'acked' | 'ended' | 'timeout'> {
+  const outcome = (): 'acked' | 'ended' | null => {
+    const request = useStore.getState().getActiveRequest(convId);
+    if (!request) return 'ended';
+    return request.assistantMessageId ? 'acked' : null;
+  };
+  const now = outcome();
+  if (now) return Promise.resolve(now);
+  return new Promise((resolve) => {
+    const finish = (result: 'acked' | 'ended' | 'timeout'): void => {
+      clearTimeout(timer);
+      unsubscribe();
+      resolve(result);
+    };
+    const timer = setTimeout(() => finish('timeout'), timeoutMs);
+    const unsubscribe = useStore.subscribe(() => {
+      const result = outcome();
+      if (result) finish(result);
+    });
+  });
+}
+
+/**
  * Steering the turn never read (sent while its answer was writing - it is
  * read only between tool rounds): the server moved it after the reply.
  * Mirror that and start a reply to it - a regenerate answers the last user

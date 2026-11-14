@@ -111,3 +111,16 @@ def test_poller_survives_a_failing_check() -> None:
     thread.start()
     thread.join(timeout=2)
     assert token.cancelled is True
+
+
+def test_a_pending_stop_expires(monkeypatch: pytest.MonkeyPatch, test_database: object) -> None:
+    """A Stop for a send that never reached the server must not stop its retry
+    minutes later."""
+    from src.db.models import Database, use_database
+
+    assert isinstance(test_database, Database)
+    with use_database(test_database):
+        user = test_database.get_or_create_user("u@example.com", "U")
+        cancellation.request_stop_by_client_id(user.id, "conv-1", "client-1")
+        monkeypatch.setattr(cancellation, "PENDING_STOP_TTL_SECONDS", -1)
+        assert not cancellation.adopt_pending_stop(user.id, "conv-1", "client-1", "reply-1")

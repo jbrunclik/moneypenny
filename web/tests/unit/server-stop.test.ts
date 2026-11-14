@@ -23,11 +23,12 @@ import {
   requestServerStop,
 } from '@/core/stream-session';
 
-function liveState(messageId: string | null) {
+function liveState(messageId: string | null, clientMessageId?: string) {
   const controller = new AbortController();
   const state = createStreamingState(document.createElement('div'), {
     expectedAssistantMessageId: messageId,
     activeAbortController: controller,
+    ...(clientMessageId !== undefined && { clientMessageId }),
   });
   return { state, controller };
 }
@@ -44,11 +45,20 @@ describe('server-side stop', () => {
   it('asks the server to stop THIS turn and keeps reading', () => {
     const { state, controller } = liveState('msg-1');
     expect(requestServerStop('c1', state)).toBe(true);
-    expect(stop).toHaveBeenCalledWith('c1', 'msg-1');
+    expect(stop).toHaveBeenCalledWith('c1', { messageId: 'msg-1' });
     expect(controller.signal.aborted).toBe(false);
   });
 
-  it('cannot stop server-side before the server acked the turn', () => {
+  it('before the server acked the turn, stops it by the sent message', () => {
+    // The turn kept generating while the client showed "Not sent" (Oct 2026
+    // audit): the server now adopts the Stop when the turn starts
+    const { state, controller } = liveState(null, 'client-1');
+    expect(requestServerStop('c1', state)).toBe(true);
+    expect(stop).toHaveBeenCalledWith('c1', { clientMessageId: 'client-1' });
+    expect(controller.signal.aborted).toBe(false);
+  });
+
+  it('cannot stop server-side before the ack without a sent message (a re-run)', () => {
     const { state } = liveState(null);
     expect(requestServerStop('c1', state)).toBe(false);
     expect(stop).not.toHaveBeenCalled();

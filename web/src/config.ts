@@ -76,6 +76,10 @@ export const INSTRUCTIONS_REVIEW_PHASES: readonly { afterSeconds: number; text: 
 export const API_STREAM_READ_TIMEOUT_MS = 1 * MS_PER_MINUTE;
 
 /** After a server-side Stop, how long to wait for the done event before aborting the reader */
+/** How long a steering send waits for the server to acknowledge the turn it
+ * steers (a send still connecting or uploading) before steering anyway */
+export const STEER_ACK_WAIT_MS = 10_000;
+
 export const STOP_DONE_GRACE_MS = 5 * MS_PER_SECOND;
 
 /** Timeout for the initial chat POST to respond (before any stream event arrives) */

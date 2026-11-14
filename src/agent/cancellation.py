@@ -9,7 +9,9 @@ get_current_request_id); a poller thread flips the token when the flag
 appears. Checkpoints only read the token - no DB access on the hot path.
 """
 
+import json
 import threading
+import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -164,6 +166,40 @@ def clear_stop_request(user_id: str, conv_id: str, message_id: str) -> None:
             db.kv_delete(user_id, KV_NAMESPACE, conv_id)
     except Exception:
         logger.debug("Stop flag clear failed", exc_info=True)
+
+
+# A Stop pressed before the turn's first event names the sent message, not
+# the reply: the turn adopts it when it saves its reply placeholder. Expires,
+# so a Stop for a send that never reached the server cannot stop its retry.
+PENDING_KV_NAMESPACE = "cancel_pending"
+PENDING_STOP_TTL_SECONDS = 60
+
+
+def request_stop_by_client_id(user_id: str, conv_id: str, client_message_id: str) -> None:
+    """Stop the turn answering `client_message_id` once it starts."""
+    value = json.dumps({"client_message_id": client_message_id, "at": time.time()})
+    db.kv_set(user_id, PENDING_KV_NAMESPACE, conv_id, value)
+
+
+def adopt_pending_stop(user_id: str, conv_id: str, user_message_id: str, message_id: str) -> bool:
+    """At turn start: a fresh pending Stop for this turn's message becomes
+    the turn's Stop (whether one did)."""
+    try:
+        raw = db.kv_get(user_id, PENDING_KV_NAMESPACE, conv_id)
+        pending = json.loads(raw) if raw else None
+    except Exception:
+        logger.debug("Pending stop read failed", exc_info=True)
+        return False
+    if not isinstance(pending, dict) or pending.get("client_message_id") != user_message_id:
+        return False
+    db.kv_delete(user_id, PENDING_KV_NAMESPACE, conv_id)
+    if time.time() - float(pending.get("at", 0)) > PENDING_STOP_TTL_SECONDS:
+        return False
+    request_stop(user_id, conv_id, message_id)
+    logger.info(
+        "Pending stop adopted", extra={"conversation_id": conv_id, "message_id": message_id}
+    )
+    return True
 
 
 # Deep research "Finish now": same turn-scoped kv flag as Stop, its own namespace
