@@ -339,6 +339,33 @@ class TestKnownFacts:
         assert "Restaurant X" not in known  # web results are the SOURCES, not known
         assert "expired" not in known
 
+    def test_the_turns_context_is_known(self) -> None:
+        """Memories and a program's saved data reach the answer through the
+        turn's [CONTEXT] message, not a tool: an athlete's own LTHR and FTP
+        were flagged "not found" (Nov 14 2026 sample, 2 of 25)."""
+        messages = [
+            HumanMessage(
+                content="[CONTEXT]\n# User Context\nMemories:\n- LTHR = 168 bpm, FTP = 185 W\n[/CONTEXT]"
+            ),
+            HumanMessage(content="jaké mám zóny?"),
+            _tool("web_search", "Training zones explained"),
+        ]
+
+        known = grounding_check.known_facts(messages)
+
+        assert "LTHR = 168 bpm" in known
+        assert "[CONTEXT]" not in known
+        assert "The user wrote: jaké mám zóny?" in known
+        assert "Training zones explained" not in known
+
+    def test_only_this_turns_context_is_known(self) -> None:
+        old = HumanMessage(content="[CONTEXT]\nMemories:\n- old fact\n[/CONTEXT]")
+        new = HumanMessage(content="[CONTEXT]\nMemories:\n- new fact\n[/CONTEXT]")
+        known = grounding_check.known_facts(
+            [old, HumanMessage(content="a"), new, HumanMessage(content="b")]
+        )
+        assert "new fact" in known and "old fact" not in known
+
     def test_check_grounding_passes_known_facts(self, fake_verifier: MagicMock) -> None:
         check_grounding(_ANSWER, [HumanMessage(content="kde koupit brompton"), *_WEB_TURN])
 

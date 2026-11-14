@@ -57,6 +57,12 @@ def _now() -> datetime:
 # check_tool_results (tool_round_check.py) sends its round nudges, retries and
 # interjections as HumanMessages in cached mode, wrapped in this marker
 _GUIDANCE_MARKER = "[SYSTEM GUIDANCE]"
+# The turn's dynamic context (memories, a program's saved data, conversation
+# facts) rides in a HumanMessage between these markers (agent._build_messages)
+_CONTEXT_OPEN, _CONTEXT_CLOSE = "[CONTEXT]", "[/CONTEXT]"
+# Facts the answer may state from it - an athlete's own LTHR and FTP were
+# flagged "not found" (Nov 14 2026 sample); capped like the tool results
+_KNOWN_CONTEXT_MAX_CHARS = 6000
 # A delegated subagent's answer is checked as unnumbered evidence (source_pages)
 _NOT_KNOWN_TOOLS = WEB_TOOL_NAMES | {"delegate_task"}
 
@@ -66,7 +72,28 @@ def _is_user_message(msg: BaseMessage) -> bool:
     (KNOWN quoted a round nudge as the user's message and lost their images)."""
     if not isinstance(msg, HumanMessage):
         return False
-    return not extract_text_content(msg.content).lstrip().startswith(_GUIDANCE_MARKER)
+    text = extract_text_content(msg.content).lstrip()
+    return not text.startswith((_GUIDANCE_MARKER, _CONTEXT_OPEN))
+
+
+def _turn_context(result_messages: list[BaseMessage]) -> str:
+    """This turn's [CONTEXT] text: the one between the user's message and the
+    turn before it, markers stripped, capped."""
+    seen_user = False
+    for msg in reversed(result_messages):
+        if not isinstance(msg, HumanMessage):
+            continue
+        text = extract_text_content(msg.content).strip()
+        if text.startswith(_CONTEXT_OPEN):
+            if not seen_user:
+                continue
+            body = text.removeprefix(_CONTEXT_OPEN).removesuffix(_CONTEXT_CLOSE).strip()
+            return body[:_KNOWN_CONTEXT_MAX_CHARS]
+        if _is_user_message(msg):
+            if seen_user:
+                return ""  # an earlier turn: this one had no context
+            seen_user = True
+    return ""
 
 
 def _turn_tool_facts(result_messages: list[BaseMessage]) -> str:
@@ -167,6 +194,9 @@ def known_facts(result_messages: list[BaseMessage]) -> str:
     tool_facts = _turn_tool_facts(result_messages)
     if tool_facts:
         lines.append(f"Other tools returned this turn:\n{tool_facts}")
+    context = _turn_context(result_messages)
+    if context:
+        lines.append(f"What the assistant knows about the user (memories, saved data):\n{context}")
     return "\n".join(lines)
 
 
