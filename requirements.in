@@ -9,7 +9,7 @@ limits>=5.8.0
 pydantic>=2.14.2
 pillow>=12.3.0
 python-magic>=0.4.27
-gunicorn>=26.2.0
+gunicorn>=27.0.0
 python-dotenv>=1.2.3
 google-genai>=3.3.0  # 3.x since Nov 2026 (langchain-google-genai 4.5 requires >=3.2)
 google-api-core>=2.43.2
@@ -24,7 +24,7 @@ beautifulsoup4>=4.15.0
 html2text>=2025.4.15
 trafilatura>=2.3.1
 ddgs>=9.16.0
-playwright>=1.63.0
+playwright>=1.65.0
 
 # Code execution sandbox
 llm-sandbox[docker]>=0.3.45
@@ -36,7 +36,7 @@ langdetect>=1.0.9
 garminconnect>=0.3.19
 
 # Schedule parsing
-croniter>=6.2.4
+croniter>=7.0.0
 
 # Web Push notifications (VAPID)
 pywebpush>=2.5.0

@@ -6,7 +6,7 @@
 ruff>=0.17.3  # 0.16 formats code blocks inside Markdown (skills) - keep local and CI alike
 mypy>=2.4.1
 types-croniter>=6.2.4.20261006
-types-PyYAML>=6.0.12.20261030
+types-PyYAML>=6.0.12.20261111
 
 pytest>=9.2.0
 pytest-cov>=4.0
@@ -15,7 +15,7 @@ pytest-xdist>=3.8.0
 openapi-core>=0.23.1
 
 # Architecture contracts (B1)
-import-linter>=2.3
+import-linter>=2.16
 
 # Dead code and dependency hygiene (C2)
 vulture>=2.16
