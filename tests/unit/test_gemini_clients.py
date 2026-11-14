@@ -12,6 +12,7 @@ from typing import Any
 from unittest.mock import patch
 
 import httpx
+import httpx2
 import pytest
 from google import genai
 
@@ -46,9 +47,15 @@ def _clients_built() -> Iterator[list[None]]:
     def answer(_transport: httpx.HTTPTransport, request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=_REPLY, request=request)
 
+    def answer2(_transport: httpx2.HTTPTransport, request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=_REPLY, request=request)
+
+    # google-genai 3.x sends through httpx2 (pydantic's httpx fork) when it is
+    # installed, which it pulls in; plain httpx stays for other callers
     with (
         patch.object(genai.Client, "__init__", counting_init),
         patch.object(httpx.HTTPTransport, "handle_request", answer),
+        patch.object(httpx2.HTTPTransport, "handle_request", answer2),
         patch.object(Config, "GEMINI_API_KEY", "test-key"),
     ):
         yield built

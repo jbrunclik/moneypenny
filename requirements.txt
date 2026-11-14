@@ -103,7 +103,7 @@ google-auth==2.62.0
     # via
     #   google-api-core
     #   google-genai
-google-genai==2.34.0
+google-genai==3.3.0
     # via
     #   -r requirements.in
     #   langchain-google-genai
@@ -130,11 +130,12 @@ httpcore2==2.16.0 ; sys_platform != 'emscripten'
 httpx==0.28.1
     # via
     #   -r requirements.in
-    #   google-genai
     #   langchain-core
     #   langgraph-sdk
 httpx2==2.16.0
-    # via langsmith
+    # via
+    #   google-genai
+    #   langsmith
 httpx2-jsfetch==1.0 ; sys_platform == 'emscripten'
     # via httpx2
 idna==3.20
@@ -157,7 +158,7 @@ jsonpointer==3.4
     # via jsonpatch
 justext==3.0.2
     # via trafilatura
-langchain-core==1.7.6
+langchain-core==1.8.0
     # via
     #   -r requirements.in
     #   langchain-google-genai
@@ -165,7 +166,7 @@ langchain-core==1.7.6
     #   langgraph-checkpoint
     #   langgraph-prebuilt
     #   langgraph-sdk
-langchain-google-genai==4.4.3
+langchain-google-genai==4.5.0
     # via -r requirements.in
 langchain-protocol==0.0.20
     # via

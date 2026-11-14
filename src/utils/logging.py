@@ -125,6 +125,10 @@ def setup_logging() -> None:
     # Set levels for noisy third-party loggers
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+    # google-genai 3.x sends Gemini requests through httpx2 (pydantic's fork):
+    # one INFO line per model call otherwise
+    logging.getLogger("httpx2").setLevel(logging.WARNING)
+    logging.getLogger("httpcore2").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("langchain").setLevel(logging.WARNING)
     logging.getLogger("langgraph").setLevel(logging.WARNING)
