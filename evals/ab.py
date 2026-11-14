@@ -137,7 +137,16 @@ def _worktree(ref: str) -> Path:
     return path
 
 
-def _run_side(tree: Path, only: str, workers: int | None) -> list[dict[str, Any]]:
+def _python_for(tree: Path, override: str | None) -> str:
+    """The interpreter for a side: given, else the tree's own .venv, else this one
+    (a dependency upgrade lives in its own venv - both sides must not share one)."""
+    if override:
+        return override
+    own = tree / ".venv" / "bin" / "python"
+    return str(own) if own.exists() else sys.executable
+
+
+def _run_side(tree: Path, python: str, only: str, workers: int | None) -> list[dict[str, Any]]:
     """One eval run in `tree`; its results (empty when the run died).
 
     The run's results file is the one it adds to the tree's evals/results -
@@ -145,7 +154,7 @@ def _run_side(tree: Path, only: str, workers: int | None) -> list[dict[str, Any]
     """
     results_dir = tree / "evals" / "results"
     before = set(results_dir.glob("*.json")) if results_dir.exists() else set()
-    command = [sys.executable, "evals/run.py", "--only", only]
+    command = [python, "evals/run.py", "--only", only]
     if workers:
         command += ["--workers", str(workers)]
     env = {**os.environ, "PYTHONPATH": str(tree)}
@@ -167,6 +176,12 @@ def main() -> int:
     parser.add_argument("--runs", type=int, default=2, help="runs per side (default 2)")
     parser.add_argument("--workers", type=int, help="parallel cases per run")
     parser.add_argument("--keep", action="store_true", help="keep the worktrees afterwards")
+    parser.add_argument(
+        "--base-python", help="interpreter for the base (default: its .venv, else this one)"
+    )
+    parser.add_argument(
+        "--head-python", help="interpreter for the head (default: its .venv, else this one)"
+    )
     args = parser.parse_args()
 
     base_tree = _worktree(args.base)
@@ -179,8 +194,9 @@ def main() -> int:
         # Alternate sides so provider drift over the night hits both
         for name in ("base", "head") if run % 2 == 0 else ("head", "base"):
             tree, results = sides[name]
-            print(f"\n=== {name} run {run + 1}/{args.runs} ({tree.name})", flush=True)
-            results.append(_run_side(tree, args.only, args.workers))
+            python = _python_for(tree, args.base_python if name == "base" else args.head_python)
+            print(f"\n=== {name} run {run + 1}/{args.runs} ({tree.name}, {python})", flush=True)
+            results.append(_run_side(tree, python, args.only, args.workers))
 
     report = format_report(
         aggregate(sides["base"][1]),

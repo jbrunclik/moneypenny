@@ -70,3 +70,17 @@ def test_report_marks_infrastructure_runs() -> None:
         if row.lstrip().startswith("a ")
     )
     assert "1 infra" in line
+
+
+def test_each_side_runs_its_own_interpreter(tmp_path: object) -> None:
+    """A dependency upgrade lives in its own venv: comparing it on the base's
+    interpreter would test the old SDK twice."""
+    from pathlib import Path
+
+    from evals.ab import _python_for
+
+    tree = Path(str(tmp_path))
+    assert _python_for(tree, "/opt/py") == "/opt/py"
+    (tree / ".venv" / "bin").mkdir(parents=True)
+    (tree / ".venv" / "bin" / "python").write_text("")
+    assert _python_for(tree, None) == str(tree / ".venv" / "bin" / "python")
