@@ -13,7 +13,7 @@ It runs sandboxed: no network, no external URLs (images only inline SVG or data:
 
 Bridge (global mp):
 - mp.send(text): send text as the user's next message (only from a click handler).
-- await mp.state.get() / mp.state.set(obj): save small JSON (ticked items, scores); it survives reloads and other devices.
+- await mp.state.get() / mp.state.set(obj): save small JSON (scores, inputs, progress); it survives reloads and other devices. Ticks in .mp-checklist save themselves - no code needed, and mp.state never touches them.
 - mp.theme ('light'|'dark') and window 'mp:theme' event.
 
 Example: <div class="mp-card mp-stack"><h2>Tip</h2><input id="b" type="number" placeholder="Bill"><div class="mp-stat"><span>Tip 10%</span><strong id="t">0</strong></div></div><script>b.oninput=()=>t.textContent=(b.value*0.1).toFixed(2)</script>

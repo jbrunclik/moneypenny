@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from src.agent.tools import artifacts as artifact_tools
 from src.agent.tools.artifacts import (
     EditError,
     apply_edits,
@@ -47,6 +48,22 @@ def test_create_rejects_past_the_per_conversation_cap(
     monkeypatch.setattr(Config, "ARTIFACT_MAX_PER_CONVERSATION", 1)
     _call(create_artifact, title="A", html="a")
     assert _call(create_artifact, title="B", html="b")["success"] is False
+
+
+def test_read_reports_a_checklist_with_its_saved_ticks(ctx: Any) -> None:
+    html = (
+        '<ul class="mp-checklist"><li><label><input type="checkbox"> Milk</label></li>'
+        '<li><label><input type="checkbox"> Bread</label></li></ul>'
+    )
+    art = _call(create_artifact, title="Shopping", html=html)["artifact"]
+    artifact_tools.db.set_artifact_state(art["id"], {"app": None, "checklist": {"Milk": True}})
+    out = _call(read_artifact, artifact_id=art["id"])
+    assert out["checklist"] == {"done": ["Milk"], "open": ["Bread"]}
+
+
+def test_read_of_a_page_without_a_checklist_has_no_checklist(ctx: Any) -> None:
+    art = _call(create_artifact, title="Tips", html="<p>hi</p>")["artifact"]
+    assert "checklist" not in _call(read_artifact, artifact_id=art["id"])
 
 
 def test_create_without_a_conversation_fails() -> None:
@@ -163,7 +180,7 @@ def test_description_names_checklists_and_explainers_and_the_prose_cases() -> No
     the agent missed, and the when-not cases keep short answers, text to copy
     and Todoist/Calendar items in prose (artifact_* evals measure the effect)."""
     text = create_artifact.description.lower()
-    for use in ("checklist", "packing", "explainer", "dose", "comparison", "mp.state"):
+    for use in ("checklist", "packing", "explainer", "dose", "comparison", "save themselves"):
         assert use in text, use
     for prose in ("short answer", "copy", "todoist", "calendar"):
         assert prose in text, prose

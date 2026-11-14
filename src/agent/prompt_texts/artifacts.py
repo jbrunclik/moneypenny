@@ -9,7 +9,7 @@ must match web/src/artifact/design-system.css
 """
 
 CREATE_ARTIFACT_DESCRIPTION = """Show the user a small interactive or visual page (HTML/CSS/JS) inline below your reply. Reach for it in these cases:
-- Checklists the user works through: packing lists, shopping or preparation lists, steps for a move or a trip. Use .mp-checklist and save the ticks with mp.state, so they survive reloads and other devices.
+- Checklists the user works through: packing lists, shopping or preparation lists, steps for a move or a trip. Use .mp-checklist: its ticks save themselves (reloads, other devices), and read_artifact tells you which items are done.
 - Explainers: a structured guide when the answer has several parts to follow or compare - what each option does, doses or amounts, timing or a schedule, interactions, pros and cons, how something works. A card per item, a comparison table, .mp-tabs, .mp-stat for the key numbers.
 - Recipes (always a card: ingredient checklist + numbered steps), calculators, converters, trackers, charts, timelines, small games.
 

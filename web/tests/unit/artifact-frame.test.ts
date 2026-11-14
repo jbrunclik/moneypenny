@@ -6,7 +6,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ToFrame } from '../../src/artifact/protocol';
 
-const client = vi.hoisted(() => ({ applyTheme: vi.fn(), applyInit: vi.fn() }));
+const client = vi.hoisted(() => ({ applyTheme: vi.fn(), applyInit: vi.fn(), restoreChecklist: vi.fn() }));
 const loader = vi.hoisted(() => ({ loadArtifact: vi.fn(() => Promise.resolve()) }));
 vi.mock('../../src/artifact/bridge-client', () => ({ installBridgeClient: () => client }));
 vi.mock('../../src/artifact/loader', () => loader);
@@ -47,6 +47,8 @@ describe('artifact frame entry', () => {
     expect(client.applyInit).toHaveBeenCalledExactlyOnceWith({ n: 1 }, 'dark');
     expect(loader.loadArtifact).toHaveBeenCalledExactlyOnceWith(document, '<p>hi</p>');
     await vi.waitFor(() => expect(posted).toContainEqual({ type: 'mp:rendered' }));
+    // Saved checklist ticks go back on once the HTML is in
+    expect(client.restoreChecklist).toHaveBeenCalledOnce();
   });
 
   it('follows theme changes', () => {

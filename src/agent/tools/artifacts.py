@@ -14,6 +14,7 @@ from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 from src.agent.prompt_texts.artifacts import CREATE_ARTIFACT_DESCRIPTION
+from src.agent.tools.artifact_checklist import checklist_status
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.config import Config
@@ -176,7 +177,9 @@ def update_artifact(
 
 @tool
 def read_artifact(artifact_id: str) -> str:
-    """Read an artifact's current HTML (before editing one from an earlier turn).
+    """Read an artifact's current HTML and, for a checklist, which items the user
+    ticked as done and which are still open - use it for "what's left on my
+    list?" and before editing an artifact from an earlier turn.
 
     Args:
         artifact_id: The artifact's id from the conversation history.
@@ -185,5 +188,18 @@ def read_artifact(artifact_id: str) -> str:
     if art is None:
         return _fail("Unknown artifact id.")
     current = db.get_artifact_version(art.id, art.latest_version)
+    html = current.html if current else ""
     ref = {"id": art.id, "version": art.latest_version, "title": art.title}
-    return json.dumps({"success": True, "artifact": ref, "html": current.html if current else ""})
+    result: dict[str, object] = {"success": True, "artifact": ref, "html": html}
+    checklist = checklist_status(html, art.state)
+    if checklist is not None:
+        result["checklist"] = checklist
+    logger.info(
+        "Artifact read",
+        extra={
+            "artifact_id": art.id,
+            "checklist_items": len(checklist["done"]) + len(checklist["open"]) if checklist else 0,
+            "checklist_done": len(checklist["done"]) if checklist else 0,
+        },
+    )
+    return json.dumps(result)

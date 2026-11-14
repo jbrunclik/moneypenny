@@ -1,0 +1,33 @@
+id: artifact_checklist_left
+description: >
+  "What's left on my list?" reads the checklist artifact's saved ticks
+  (read_artifact) instead of guessing from the history
+artifacts:
+  - title: Nákup na víkend
+    html: >-
+      <div class="mp-card mp-stack"><h2>Nákup na víkend</h2>
+      <ul class="mp-checklist">
+      <li><label><input type="checkbox"> Mléko</label></li>
+      <li><label><input type="checkbox"> Chleba</label></li>
+      <li><label><input type="checkbox"> Vejce</label></li>
+      <li><label><input type="checkbox"> Rajčata</label></li>
+      <li><label><input type="checkbox"> Káva</label></li>
+      </ul></div>
+    state:
+      app: null
+      checklist: { "Mléko": true, "Vejce": true, "Káva": true }
+history:
+  - role: user
+    content: Udělej mi nákupní seznam na víkend - mléko, chleba, vejce, rajčata a kávu.
+  - role: assistant
+    content: Tady je tvůj nákupní seznam na víkend, odškrtávej, co máš.
+    metadata:
+      artifacts: "{artifact_0} v1 'Nákup na víkend'"
+user: Co mi ještě zbývá koupit?
+expect:
+  rubric: >
+    Replies in Czech that what is left is bread (chleba) and tomatoes
+    (rajčata) - exactly those two, not milk, eggs or coffee, which are ticked.
+  required_tools: [read_artifact]
+  forbidden_tools: [create_artifact, update_artifact]
+  max_tool_rounds: 2

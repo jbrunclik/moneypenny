@@ -17,6 +17,8 @@ export interface MpApi {
 
 export interface BridgeClient {
   applyInit(state: unknown, theme: ArtifactTheme): void;
+  /** Tick the checklist items saved as done (once the artifact's HTML is in) */
+  restoreChecklist(): void;
   applyTheme(theme: ArtifactTheme): void;
   /** Remove listeners and `mp` (tests) */
   uninstall(): void;
@@ -28,6 +30,40 @@ const ERROR_MAX_CHARS = 300;
 /** Where navigator.userActivation is missing: a gesture this recent counts */
 const GESTURE_WINDOW_MS = 1000;
 const GESTURE_EVENTS = ['pointerdown', 'keydown', 'click'] as const;
+
+/**
+ * The stored state is an envelope: `app` is the artifact's own state (all its
+ * code ever sees) and `checklist` the ticks this bridge saves for every
+ * .mp-checklist item, keyed by label - so neither can overwrite the other.
+ */
+interface Envelope {
+  app: unknown;
+  checklist: Record<string, true>;
+}
+
+const CHECKLIST_BOX = '.mp-checklist input[type="checkbox"]';
+
+function toEnvelope(stored: unknown): Envelope {
+  if (stored && typeof stored === 'object' && ('app' in stored || 'checklist' in stored)) {
+    const { app = null, checklist } = stored as Partial<Envelope>;
+    return { app, checklist: checklist && typeof checklist === 'object' ? { ...checklist } : {} };
+  }
+  return { app: stored ?? null, checklist: {} };
+}
+
+/**
+ * Every checklist box with its key: the label text, whitespace collapsed, and
+ * " #n" on the n-th repeat (src/agent/tools/artifact_checklist.py keys alike).
+ */
+export function checklistKeys(root: ParentNode): Array<{ input: HTMLInputElement; key: string }> {
+  const seen = new Map<string, number>();
+  return [...root.querySelectorAll<HTMLInputElement>(CHECKLIST_BOX)].map((input) => {
+    const label = (input.closest('label')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    const n = (seen.get(label) ?? 0) + 1;
+    seen.set(label, n);
+    return { input, key: n === 1 ? label : `${label} #${n}` };
+  });
+}
 
 function hasActivation(lastGestureAt: number): boolean {
   const activation = (navigator as Navigator & { userActivation?: { isActive: boolean } })
@@ -51,7 +87,7 @@ function linkHref(event: Event): string | null {
 }
 
 export function installBridgeClient(win: Window, post: Post): BridgeClient {
-  let state: unknown = null;
+  let envelope: Envelope = { app: null, checklist: {} };
   let initialized = false;
   let lastGestureAt = 0;
   const waiting: Array<(value: unknown) => void> = [];
@@ -62,10 +98,11 @@ export function installBridgeClient(win: Window, post: Post): BridgeClient {
       if (hasActivation(lastGestureAt)) post({ type: 'mp:send', text: String(text) });
     },
     state: {
-      get: () => (initialized ? Promise.resolve(state) : new Promise((r) => waiting.push(r))),
+      get: () =>
+        initialized ? Promise.resolve(envelope.app) : new Promise((r) => waiting.push(r)),
       set(next: unknown) {
-        state = next;
-        post({ type: 'mp:state', state: next });
+        envelope = { ...envelope, app: next };
+        post({ type: 'mp:state', state: envelope });
       },
     },
     theme: 'dark',
@@ -79,6 +116,14 @@ export function installBridgeClient(win: Window, post: Post): BridgeClient {
   const stopLinks = interceptLinks(doc, post);
   const stopErrors = forwardErrors(win, post);
   const stopHeight = observeHeight(win, post);
+  const onTick = (event: Event): void => {
+    if (!(event.target instanceof Element) || !event.target.matches(CHECKLIST_BOX)) return;
+    const checklist: Record<string, true> = {};
+    for (const { input, key } of checklistKeys(doc)) if (input.checked) checklist[key] = true;
+    envelope = { ...envelope, checklist };
+    post({ type: 'mp:state', state: envelope });
+  };
+  doc.addEventListener('change', onTick, true);
 
   const applyTheme = (theme: ArtifactTheme): void => {
     doc.documentElement.dataset.theme = theme;
@@ -88,10 +133,15 @@ export function installBridgeClient(win: Window, post: Post): BridgeClient {
 
   return {
     applyInit(initState, theme) {
-      state = initState;
+      envelope = toEnvelope(initState);
       initialized = true;
-      waiting.splice(0).forEach((resolve) => resolve(state));
+      waiting.splice(0).forEach((resolve) => resolve(envelope.app));
       applyTheme(theme);
+    },
+    restoreChecklist() {
+      for (const { input, key } of checklistKeys(doc)) {
+        if (envelope.checklist[key]) input.checked = true;
+      }
     },
     applyTheme,
     uninstall() {
@@ -99,6 +149,7 @@ export function installBridgeClient(win: Window, post: Post): BridgeClient {
       stopLinks();
       stopErrors();
       stopHeight();
+      doc.removeEventListener('change', onTick, true);
       delete (win as Window & { mp?: MpApi }).mp;
     },
   };

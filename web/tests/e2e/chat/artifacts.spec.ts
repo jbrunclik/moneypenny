@@ -186,6 +186,22 @@ test.describe('Artifacts', () => {
     await expect(frameOf(page).locator('.mp-checklist input').nth(0)).not.toBeChecked();
   });
 
+  test('a plain checklist keeps its ticks with no script of its own', async ({ page, request }) => {
+    const html =
+      '<ul class="mp-checklist">' +
+      ['Milk', 'Eggs', 'Eggs'].map((l) => `<li><label><input type="checkbox"> ${l}</label></li>`).join('') +
+      '</ul>';
+    await artifactTurn(page, request, { title: 'Shopping', html }, 'Shopping list please');
+    await frameSettled(page);
+    await frameOf(page).locator('.mp-checklist input').nth(2).check({ timeout: 15000 });
+    await page.waitForResponse((r) => r.url().includes('/state') && r.request().method() === 'PUT');
+    await page.reload();
+    const boxes = frameOf(page).locator('.mp-checklist input');
+    // The second "Eggs" only: repeated labels are told apart
+    await expect(boxes.nth(2)).toBeChecked({ timeout: 15000 });
+    await expect(boxes.nth(1)).not.toBeChecked();
+  });
+
   test('a revision shows "newer below" on the first version', async ({ page, request }) => {
     await artifactTurn(page, request, { title: 'Tips', html: '<p class="v">one</p>' }, 'Tip calculator');
     await expect(frameOf(page, 0).locator('.v')).toHaveText('one', { timeout: 15000 });

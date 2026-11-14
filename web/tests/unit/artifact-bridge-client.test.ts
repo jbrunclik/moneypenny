@@ -3,7 +3,7 @@
  * an artifact calls, and what it posts to the chat.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { installBridgeClient, type MpApi } from '../../src/artifact/bridge-client';
+import { checklistKeys, installBridgeClient, type MpApi } from '../../src/artifact/bridge-client';
 import type { FromFrame } from '../../src/artifact/protocol';
 
 let posted: FromFrame[];
@@ -59,8 +59,68 @@ describe('mp.state', () => {
     expect(await pending).toEqual({ checked: [1] });
 
     mp.state.set({ checked: [1, 2] });
-    expect(posted).toContainEqual({ type: 'mp:state', state: { checked: [1, 2] } });
+    expect(posted).toContainEqual({
+      type: 'mp:state',
+      state: { app: { checked: [1, 2] }, checklist: {} },
+    });
     expect(await mp.state.get()).toEqual({ checked: [1, 2] });
+  });
+
+  it("hands artifact code only its own state", async () => {
+    client.applyInit({ app: { n: 1 }, checklist: { Milk: true } }, 'dark');
+    expect(await mp.state.get()).toEqual({ n: 1 });
+  });
+});
+
+describe('checklist ticks', () => {
+  const item = (label: string) => `<li><label><input type="checkbox"> ${label}</label></li>`;
+  const list = (...labels: string[]) =>
+    (document.body.innerHTML = `<ul class="mp-checklist">${labels.map(item).join('')}</ul>`);
+  const boxes = () => [...document.querySelectorAll<HTMLInputElement>('input[type=checkbox]')];
+  const tick = (box: HTMLInputElement, checked = true) => {
+    box.checked = checked;
+    box.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const lastState = () => posted.filter((m) => m.type === 'mp:state').at(-1);
+
+  it('saves a tick as the whole envelope', () => {
+    client.applyInit(null, 'dark');
+    list('Milk');
+    tick(boxes()[0]!);
+    expect(lastState()).toEqual({ type: 'mp:state', state: { app: null, checklist: { Milk: true } } });
+    tick(boxes()[0]!, false);
+    expect(lastState()).toEqual({ type: 'mp:state', state: { app: null, checklist: {} } });
+  });
+
+  it('keeps ticks when artifact code sets its state', () => {
+    client.applyInit(null, 'dark');
+    list('Milk');
+    tick(boxes()[0]!);
+    mp.state.set({ score: 3 });
+    expect(lastState()).toEqual({
+      type: 'mp:state',
+      state: { app: { score: 3 }, checklist: { Milk: true } },
+    });
+  });
+
+  it('restores ticks after render, telling repeated labels apart', () => {
+    client.applyInit({ checklist: { 'Eggs #2': true } }, 'dark');
+    list('Milk', 'Eggs', 'Eggs');
+    client.restoreChecklist();
+    expect(boxes().map((b) => b.checked)).toEqual([false, false, true]);
+  });
+
+  it('keys nested label markup by its text', () => {
+    document.body.innerHTML =
+      '<ul class="mp-checklist"><li><label><input type="checkbox"> <b>Milk</b>  2 l</label></li></ul>';
+    expect(checklistKeys(document).map((k) => k.key)).toEqual(['Milk 2 l']);
+  });
+
+  it('ignores checkboxes outside a checklist', () => {
+    client.applyInit(null, 'dark');
+    document.body.innerHTML = '<label><input type="checkbox"> Dark mode</label>';
+    tick(boxes()[0]!);
+    expect(lastState()).toBeUndefined();
   });
 });
 

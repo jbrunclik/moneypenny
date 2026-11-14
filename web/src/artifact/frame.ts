@@ -36,7 +36,10 @@ window.addEventListener('message', (event: MessageEvent) => {
   if (initialized) return;
   initialized = true;
   client.applyInit(message.state, message.theme);
-  void loadArtifact(document, message.html).then(() => post({ type: 'mp:rendered' }));
+  void loadArtifact(document, message.html).then(() => {
+    client.restoreChecklist();
+    post({ type: 'mp:rendered' });
+  });
 });
 
 post({ type: 'mp:ready' });

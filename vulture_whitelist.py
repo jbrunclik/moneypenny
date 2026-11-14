@@ -174,6 +174,9 @@ _.ignore_links  # html2text.HTML2Text options (src/agent/tools/web.py)
 _.ignore_images
 _.ignore_emphasis
 _.body_width
+_.handle_starttag  # html.parser.HTMLParser callbacks (src/agent/tools/artifact_checklist.py)
+_.handle_endtag
+_.handle_data
 # src/agent/tools/browser_worker.py: dispatched as getattr(self, f"_do_{name}")
 _._do_navigate
 _._do_click

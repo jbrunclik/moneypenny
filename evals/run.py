@@ -112,7 +112,8 @@ class EvalCase:
     memories: list[dict[str, str]] = field(default_factory=list)
     # Artifacts seeded in the case's conversation: [{title, html}]; their ids
     # replace {artifact_0}, {artifact_1}... in the history (revision cases)
-    artifacts: list[dict[str, str]] = field(default_factory=list)
+    # {title, html, state?}: state is the saved envelope ({app, checklist})
+    artifacts: list[dict[str, object]] = field(default_factory=list)
     # A past conversation seeded for episodic-recall cases:
     # {title: str, messages: [{role, content}]}
     seed_conversation: dict[str, Any] = field(default_factory=dict)
@@ -224,6 +225,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 ],
                 artifacts=[
                     {"title": str(a["title"]), "html": str(a["html"])}
+                    | ({"state": a["state"]} if a.get("state") is not None else {})
                     for a in (data.get("artifacts") or [])
                 ],
                 seed_conversation=dict(data.get("seed_conversation") or {}),
@@ -654,10 +656,12 @@ def _seed_case(
     _seed_proposals(case, user, db, conversation_id)
 
     # Seed artifacts for revision cases (they go with the eval conversation)
-    artifact_ids = [
-        db.create_artifact(conversation_id, user.id, a["title"], a["html"])[0].id
-        for a in case.artifacts
-    ]
+    artifact_ids = []
+    for a in case.artifacts:
+        artifact = db.create_artifact(conversation_id, user.id, str(a["title"]), str(a["html"]))[0]
+        if a.get("state") is not None:
+            db.set_artifact_state(artifact.id, a["state"])
+        artifact_ids.append(artifact.id)
     history = with_artifact_ids(case.history, artifact_ids) or None
     summarizer_usage = {"input": 0.0, "output": 0.0}
     if history and any(turn.get("files") for turn in history) and not case.compact_history:

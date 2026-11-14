@@ -128,8 +128,13 @@ The review itself changes nothing in production and edits nothing but
   declined / expired / superseded) and `resolved_by` (button vs typed) from
   `proposals`, and the "Deep research started" lines' edits - do people start
   what is offered, and does the next-message expiry close offers they wanted?
+- Artifact checklists: artifacts whose `state` has a non-empty `checklist`
+  against all checklist artifacts, and the "Artifact read" lines with
+  `checklist_items > 0` - do people tick items, and does the agent read them
+  when asked what is left?
 - When a change to the agent is pending or quality looks worse: `make eval`
-  (costs money - report the cost; the full suite is about $1.40).
+  (costs money - report the cost; the full suite is about $8 on Hydrogen, so
+  run the affected cases with `--only` first).
 
 ## 5. Code health (monthly)
 

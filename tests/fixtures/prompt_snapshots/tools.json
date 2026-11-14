@@ -101,7 +101,7 @@
     }
   },
   {
-    "description": "Show the user a small interactive or visual page (HTML/CSS/JS) inline below your reply. Reach for it in these cases:\n- Checklists the user works through: packing lists, shopping or preparation lists, steps for a move or a trip. Use .mp-checklist and save the ticks with mp.state, so they survive reloads and other devices.\n- Explainers: a structured guide when the answer has several parts to follow or compare - what each option does, doses or amounts, timing or a schedule, interactions, pros and cons, how something works. A card per item, a comparison table, .mp-tabs, .mp-stat for the key numbers.\n- Recipes (always a card: ingredient checklist + numbered steps), calculators, converters, trackers, charts, timelines, small games.\n\nAnswer in prose instead for a short answer or a quick fact (a few sentences), for text the user will copy or edit (an email, a message, a translation, code), and for items going into Todoist or Calendar (use those tools). With an artifact, the reply itself is one or two sentences. To change an existing artifact use update_artifact (call read_artifact first if it was made in an earlier turn).\n\nBefore writing the html, call load_skill('artifact-design'): the sandbox rules, the app's design system classes and colour tokens, and the mp bridge.\n\ntitle: short name in the user's language. html: the complete page.",
+    "description": "Show the user a small interactive or visual page (HTML/CSS/JS) inline below your reply. Reach for it in these cases:\n- Checklists the user works through: packing lists, shopping or preparation lists, steps for a move or a trip. Use .mp-checklist: its ticks save themselves (reloads, other devices), and read_artifact tells you which items are done.\n- Explainers: a structured guide when the answer has several parts to follow or compare - what each option does, doses or amounts, timing or a schedule, interactions, pros and cons, how something works. A card per item, a comparison table, .mp-tabs, .mp-stat for the key numbers.\n- Recipes (always a card: ingredient checklist + numbered steps), calculators, converters, trackers, charts, timelines, small games.\n\nAnswer in prose instead for a short answer or a quick fact (a few sentences), for text the user will copy or edit (an email, a message, a translation, code), and for items going into Todoist or Calendar (use those tools). With an artifact, the reply itself is one or two sentences. To change an existing artifact use update_artifact (call read_artifact first if it was made in an earlier turn).\n\nBefore writing the html, call load_skill('artifact-design'): the sandbox rules, the app's design system classes and colour tokens, and the mp bridge.\n\ntitle: short name in the user's language. html: the complete page.",
     "name": "create_artifact",
     "parameters": {
       "properties": {
@@ -674,7 +674,7 @@
     }
   },
   {
-    "description": "Read an artifact's current HTML (before editing one from an earlier turn).\n\nArgs:\n    artifact_id: The artifact's id from the conversation history.",
+    "description": "Read an artifact's current HTML and, for a checklist, which items the user\nticked as done and which are still open - use it for \"what's left on my\nlist?\" and before editing an artifact from an earlier turn.\n\nArgs:\n    artifact_id: The artifact's id from the conversation history.",
     "name": "read_artifact",
     "parameters": {
       "properties": {

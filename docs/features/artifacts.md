@@ -130,10 +130,23 @@ The global `mp` inside the frame ([bridge-client.ts](../../web/src/artifact/brid
   own check in `mp.send` is only a convenience: artifact code shares the
   frame's realm and can post `mp:send` itself, so the host decides.
 - `mp.state.get()` (a promise, resolved after init) / `mp.state.set(obj)`: JSON
-  per artifact, shared by all its versions (an edit keeps ticked items). The host
-  debounces writes (`ARTIFACT_STATE_SAVE_DEBOUNCE_MS`) and PUTs
-  `/api/artifacts/<id>/state` (limit `ARTIFACT_STATE_MAX_BYTES`, 413 above it).
-  A failed save is logged; the next change retries.
+  per artifact, shared by all its versions. The host debounces writes
+  (`ARTIFACT_STATE_SAVE_DEBOUNCE_MS`) and PUTs `/api/artifacts/<id>/state`
+  (limit `ARTIFACT_STATE_MAX_BYTES`, 413 above it). A failed save is logged;
+  the next change retries.
+- **Checklist ticks save themselves** (Nov 14 2026,
+  [design](../superpowers/specs/2026-11-14-artifact-checklist-ticks-design.md)):
+  the stored state is an envelope `{"app": ..., "checklist": {key: true}}`.
+  Artifact code only ever sees `app` through `mp.state`; the bridge keeps
+  `checklist` itself - a capture-phase `change` listener on `.mp-checklist`
+  checkboxes saves the ticks, and `restoreChecklist()` puts them back once the
+  HTML is in. The key is the item's label text, whitespace collapsed, with
+  ` #n` on the n-th repeat, so an edit that rewords one item keeps the others'
+  ticks. `read_artifact` reads the same keys from the HTML
+  ([artifact_checklist.py](../../src/agent/tools/artifact_checklist.py)) and
+  returns `checklist: {done, open}`, which answers "what's left on my list?".
+  Before this, 7 of the 12 production artifacts were checklists, only one
+  called `mp.state.set`, and none had ever saved a tick.
 - `mp.theme` (`'light' | 'dark'`) and a window `mp:theme` event; the frame sets
   `data-theme` on its `<html>`. The host's `observeTheme()` watches the app
   root's `data-theme` with a `MutationObserver` and pushes `mp:theme`.
@@ -210,7 +223,7 @@ The description (`CREATE_ARTIFACT_DESCRIPTION`) now names the prime uses
 first:
 
 - **Checklists** the user works through (packing, shopping, preparation,
-  move or trip steps): `.mp-checklist` with ticks saved via `mp.state`.
+  move or trip steps): `.mp-checklist`, whose ticks save themselves.
 - **Explainers**: a structured guide when the answer has several parts to
   follow or compare - what each option does, doses, timing or schedule,
   interactions, pros and cons, how it works (cards, a comparison table,
