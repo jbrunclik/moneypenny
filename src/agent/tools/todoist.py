@@ -180,89 +180,47 @@ def todoist(
 ) -> str:
     """Manage the user's Todoist tasks, projects, and sections.
 
-    IMPORTANT: This tool only works if the user has connected their Todoist account
-    in settings. A "Todoist disconnected" / "Todoist not connected" result says
-    which case applies - follow its message (warn the user and point them to
-    Settings); never act as if you cannot use Todoist at all.
+    Needs the user's Todoist connected in Settings. A "Todoist disconnected" /
+    "Todoist not connected" result says which case applies - follow its message
+    (warn the user, point them to Settings); never act as if you cannot use Todoist.
 
-    Actions available:
-    - "list_tasks": List tasks. Use filter_string for Todoist filter syntax (e.g., "today",
-      "overdue", "p1", "tomorrow", "#Work", "@urgent"). Without filter, returns all active tasks.
-      Tasks include section_id and section_name for context, and assignee_id if assigned.
-    - "list_projects": List all projects.
-    - "get_project": Get a specific project by project_id.
-    - "add_project": Create a new project. Requires 'project_name'. Optional: color, view_style ("list" or
-      "board"), parent_project_id, is_favorite.
-    - "update_project": Update an existing project. Requires 'project_id' and at least one field to update
-      (project_name, color, view_style, parent_project_id, is_favorite).
-    - "delete_project": Delete a project permanently. Requires 'project_id'.
-    - "archive_project" / "unarchive_project": Archive or unarchive a project. Requires 'project_id'.
-    - "list_sections": List sections for a project. Requires 'project_id'.
-    - "get_section": Get a section by section_id.
-    - "add_section": Create a new section in a project. Requires 'project_id' and 'section_name'.
-    - "update_section": Rename an existing section. Requires 'section_id' and new 'section_name'.
-    - "delete_section": Delete a section. Requires 'section_id'.
-    - "list_collaborators": List all collaborators for a shared project. Requires 'project_id'.
-      Returns collaborator IDs that can be used with assignee_id when creating/updating tasks.
-    - "get_task": Get a specific task by task_id.
-    - "add_task": Create a new task. Requires 'content' (task title).
-      Optional: description, project_id, section_id, due_string (natural language like "tomorrow at 3pm"),
-      due_date (YYYY-MM-DD), priority (1-4, where 4 is highest), labels (list of label names),
-      assignee_id (ID of collaborator to assign task to).
-    - "update_task": Update an existing task. Requires 'task_id'.
-      Optional: content, description, due_string, due_date, priority, labels, assignee_id.
-      Use assignee_id="" (empty string) to unassign a task.
-    - "move_task": Move a task to a different section, project, or make it a subtask. Requires 'task_id' and exactly
-      ONE of: section_id (move to section within same project), project_id (move to different project), or parent_id
-      (make it a subtask of another task).
-    - "complete_task": Mark a task as completed. Requires 'task_id'.
-    - "reopen_task": Reopen a completed task. Requires 'task_id'.
-    - "delete_task": Delete a task permanently. Requires 'task_id'.
+    Actions (required args in parentheses):
+    - Tasks: list_tasks (optional filter_string; none = all active tasks), get_task,
+      complete_task, reopen_task, delete_task (task_id); add_task (content; optional
+      description, project_id, section_id, due_string/due_date, priority, labels,
+      assignee_id); update_task (task_id + fields to change; assignee_id="" unassigns);
+      move_task (task_id + exactly ONE of section_id, project_id, parent_id).
+    - Projects: list_projects; get_project, delete_project, archive_project,
+      unarchive_project (project_id); add_project (project_name; optional color,
+      view_style, parent_project_id, is_favorite); update_project (project_id + fields).
+    - Sections: list_sections, add_section (project_id; add also section_name);
+      get_section, delete_section (section_id); update_section (section_id, section_name).
+    - list_collaborators (project_id): IDs for assignee_id.
 
-    Todoist filter syntax examples:
-    - "today" - Tasks due today
-    - "overdue" - Overdue tasks
-    - "tomorrow" - Tasks due tomorrow
-    - "7 days" or "next 7 days" - Tasks due in the next 7 days
-    - "no date" - Tasks without a due date
-    - "p1" - Priority 1 (highest) tasks
-    - "#ProjectName" - Tasks in a specific project
-    - "@LabelName" - Tasks with a specific label
-    - "assigned to: me" - Tasks assigned to the user
-    - Combine with & (and) or | (or): "today & p1", "overdue | today"
-
-    Priority levels:
-    - 1 = Normal (lowest)
-    - 2 = Medium
-    - 3 = High
-    - 4 = Urgent (highest, shown in red)
+    filter_string: Todoist filter syntax - "today", "overdue", "tomorrow", "7 days",
+    "no date", "p1", "#Project", "@label", "assigned to: me"; combine with & and |.
+    Priority: 4 = urgent (highest) ... 1 = normal; the filter "p1" means priority 4.
 
     Args:
-        action: The action to perform (task/project/section lifecycle actions listed above)
-        task_id: Task ID for task operations
-        content: Task title/content for add_task or update_task
-        description: Task description for add_task or update_task
-        project_id: Project context for listing sections, adding sections, task placement, or listing collaborators.
-            For move_task: destination project ID (only one of section_id/project_id/parent_id should be provided).
-        section_id: Section ID for section operations or task placement.
-            For move_task: destination section ID (only one of section_id/project_id/parent_id should be provided).
-        due_string: Natural language due date (e.g., "tomorrow at 3pm", "next Monday")
-        due_date: Due date in YYYY-MM-DD format
-        priority: Priority level 1-4 (4 is highest)
-        labels: List of label names to apply
-        assignee_id: Collaborator ID to assign task to (use list_collaborators to get IDs). Use empty string to unassign.
-        parent_id: For move_task: parent task ID to make the task a subtask
-            (only one of section_id/project_id/parent_id should be provided).
-        filter_string: Todoist filter syntax for list_tasks
-        project_name: Name used when creating or renaming a project
-        parent_project_id: Optional parent project when creating/moving a project under another
-        is_favorite: Whether the project should appear in favorites
-        view_style: Project view style ("list" or "board")
-        color: Project color name supported by Todoist
-        section_name: Name for section create/update actions
-
-    Returns:
-        JSON string with the result
+        action: One of the actions above
+        task_id: Task ID
+        content: Task title
+        description: Task description
+        project_id: Project ID (task placement, sections, collaborators; move_task destination)
+        section_id: Section ID (task placement; move_task destination)
+        due_string: Natural language due date, e.g. "tomorrow at 3pm"
+        due_date: Due date as YYYY-MM-DD
+        priority: 1-4, 4 is highest
+        labels: Label names
+        assignee_id: Collaborator ID (from list_collaborators); "" unassigns
+        parent_id: move_task: parent task ID to make the task a subtask
+        filter_string: Filter for list_tasks
+        project_name: Project name (create/rename)
+        parent_project_id: Parent project (create/move a project under another)
+        is_favorite: Show the project in favorites
+        view_style: "list" or "board"
+        color: Todoist color name
+        section_name: Section name (create/rename)
     """
     logger.info("todoist called", extra={"action": action, "task_id": task_id})
 

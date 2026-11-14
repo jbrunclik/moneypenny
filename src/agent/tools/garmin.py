@@ -229,82 +229,36 @@ def garmin_connect(
     activity_type: str | None = None,
     course_id: str | None = None,
 ) -> str:
-    """Access health, fitness, and training data from the user's Garmin Connect account.
+    """Read health, fitness, and training data from the user's Garmin Connect account (read-only).
 
-    IMPORTANT: This tool only works if the user has connected their Garmin account
-    in settings. A "Garmin disconnected" / "Garmin not connected" result says
-    which case applies - follow its message (warn the user and point them to
-    Settings); never act as if you cannot use Garmin at all.
+    Needs the user's Garmin connected in Settings. A "Garmin disconnected" /
+    "Garmin not connected" result says which case applies - follow its message
+    (warn the user, point them to Settings); never act as if you cannot use Garmin.
 
-    This is a READ-ONLY tool — no data is modified on Garmin.
-
-    Actions available:
-    - "get_readiness_snapshot": PREFERRED for any "how am I / how recovered am I /
-      what should I train today" question. Returns training readiness, sleep,
-      HRV, daily stats (Body Battery, resting HR), training status AND recent
-      activities together in ONE call. Use this instead of calling get_training_
-      readiness + get_sleep_data + get_hrv_data + get_stats + get_activities
-      separately - it is one round instead of five. Optional: date_str, limit
-      (recent activities to include, default 5). Sections that a device does
-      not report come back as {"error": ...}; the rest of the snapshot is still
-      valid.
-    - "get_morning_summary": the same data cut to the morning numbers - Body
-      Battery at wake, resting HR, sleep duration/score/stages, HRV, training
-      readiness and status, the last 3 activities - about 1k characters
-      instead of tens of thousands. For a quick daily check-in (the Daily
-      Briefing); use get_readiness_snapshot when you need every field.
-      Optional: date_str.
-    - "get_stats": Daily summary (steps, distance, calories, floors, active minutes)
-      plus recovery metrics: Body Battery (use `bodyBatteryAtWakeTime` for the
-      stable morning value, not `bodyBatteryMostRecentValue`) and resting heart
-      rate (`restingHeartRate`, `lastSevenDaysAvgRestingHeartRate`).
-      Optional: date_str (YYYY-MM-DD, defaults to today).
-    - "get_heart_rates": Resting HR, HR zones, min/max for a day.
-      Optional: date_str (YYYY-MM-DD, defaults to today).
-    - "get_sleep_data": Sleep quality, stages (deep/light/REM/awake), duration.
-      Optional: date_str (YYYY-MM-DD, defaults to last night).
-    - "get_stress_data": Stress levels throughout the day.
-      Optional: date_str (YYYY-MM-DD, defaults to today).
-    - "get_hrv_data": Heart rate variability data.
-      Optional: date_str (YYYY-MM-DD, defaults to today).
-    - "get_spo2_data": Blood oxygen (SpO2) readings.
-      Optional: date_str (YYYY-MM-DD, defaults to today).
-    - "get_body_composition": Weight, body fat %, BMI, muscle mass.
-      Optional: date_str (YYYY-MM-DD, defaults to today).
-    - "get_activities": List recent activities.
-      Optional: limit (default 10), activity_type (e.g., "running", "cycling").
-    - "get_activity_details": Detailed data for one activity, including
-      breakdowns beyond the summary: `exercise_sets` (strength: per-set type,
-      exercise, reps, weight_kg, duration - e.g. 28/23/16 reps across three sets),
-      `hr_zones` (minutes spent in each heart-rate zone), and `laps` (per-lap
-      distance/HR/power/cadence/speed for interval sessions).
-      Required: activity_id.
-    - "get_training_readiness": Training readiness score and contributing factors.
-      Optional: date_str (YYYY-MM-DD, defaults to today).
-    - "get_training_status": Training status and load metrics.
-      Optional: date_str (YYYY-MM-DD, defaults to today).
-    - "get_steps": Step count and daily goal.
-      Optional: date_str (YYYY-MM-DD, defaults to today).
-    - "get_courses": List the user's saved courses/routes (custom cycling &
-      running routes) with length and total climb: {course_id, name,
-      activity_type, distance_km, elevation_gain_m, elevation_loss_m}.
-      Optional: activity_type to filter (substring match, e.g. "cycling").
-    - "get_course_details": Full profile for one course. Required: course_id.
-      Returns distance, exact elevation gain/loss, min/max elevation, an altitude
-      `profile` (~32 distance/elevation samples), and derived `climbs` (each with
-      start_km, length_km, gain_m, avg_grade_pct, max_grade_pct). Climbs are
-      approximated from the profile; the totals are Garmin's exact values.
+    Actions (date_str is YYYY-MM-DD, default today; sleep defaults to last night):
+    - get_readiness_snapshot: PREFERRED for "how am I / how recovered / what should I
+      train today" - readiness, sleep, HRV, daily stats, training status AND recent
+      activities in ONE call (instead of five). Optional date_str, limit (activities,
+      default 5). A section the device does not report is {"error": ...}; the rest is valid.
+    - get_morning_summary: the same cut to the morning numbers (~1k chars) for a quick
+      daily check-in. Optional date_str.
+    - Single metrics (optional date_str): get_stats (steps, calories, active minutes,
+      Body Battery - use `bodyBatteryAtWakeTime` for the morning value - and resting HR),
+      get_heart_rates, get_sleep_data, get_stress_data, get_hrv_data, get_spo2_data,
+      get_body_composition, get_training_readiness, get_training_status, get_steps.
+    - get_activities: recent activities. Optional limit (default 10), activity_type.
+    - get_activity_details (activity_id): one activity with strength sets (reps,
+      weight), minutes per HR zone, and laps.
+    - get_courses: saved routes with distance and climb. Optional activity_type.
+    - get_course_details (course_id): elevation profile and derived climbs.
 
     Args:
-        action: The action to perform
-        date_str: Date in YYYY-MM-DD format (defaults to today for most actions)
+        action: One of the actions above
+        date_str: Date as YYYY-MM-DD
         activity_id: Activity ID for get_activity_details
-        limit: Number of activities to return for get_activities (default 10)
-        activity_type: Filter by activity type for get_activities / get_courses
+        limit: Number of activities
+        activity_type: Filter for get_activities / get_courses, e.g. "running", "cycling"
         course_id: Course ID for get_course_details
-
-    Returns:
-        JSON string with the result
     """
     logger.info("garmin_connect called", extra={"action": action})
 

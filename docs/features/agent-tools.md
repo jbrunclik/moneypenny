@@ -176,6 +176,13 @@ and validates every file at import (limits `SKILL_MAX_DESCRIPTION_CHARS` and
 skill fails CI, not a chat turn. Design:
 [skills spec](../superpowers/specs/2026-09-30-skills-design.md).
 
+**When a skill pays off** (Nov 2026): a load is one extra model round that
+re-sends the whole prefix (~21k tokens) plus the history, so moving text into
+a skill saves tokens only when the tool or task is rare. For a tool used in
+~150 turns a month (`todoist`, `garmin_connect`) the extra rounds ate the whole
+saving, so their descriptions were compressed in place instead; a rare tool's
+manual (`browser` -> `browser-tactics`) is the case for a skill.
+
 - **Index**: `skills_index_prompt()` (one line per description) is appended
   right after `TOOLS_SYSTEM_PROMPT_BASE` in both prompt paths
   (`get_static_prompt_for_profile()` and `get_system_prompt()` in

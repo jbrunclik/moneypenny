@@ -6,7 +6,7 @@ static prompt
   planning       36666
   standing       33518
 
-tool declarations (41 tools, 65467 chars)
+tool declarations (41 tools, 60102 chars)
   ask_choice                     768
   browser                       2388
   create_artifact               3219
@@ -17,7 +17,7 @@ tool declarations (41 tools, 65467 chars)
   edit_standing_chat            1438
   execute_code                  3788
   fetch_url                      992
-  garmin_connect                4915
+  garmin_connect                2302
   garmin_workout                3774
   generate_image                2721
   get_route                      579
@@ -43,7 +43,7 @@ tool declarations (41 tools, 65467 chars)
   search_memory                  586
   search_places                  762
   set_conversation_title         663
-  todoist                       6282
+  todoist                       3530
   trigger_agent                  602
   update_artifact               1266
   web_search                    1350
