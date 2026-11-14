@@ -18,6 +18,7 @@ all state their date in markup.
 
 import trafilatura
 
+from src.agent.tools.trafilatura_lock import TRAFILATURA_LOCK
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -26,7 +27,8 @@ logger = get_logger(__name__)
 def page_date_line(html: str) -> str:
     """'Published: YYYY-MM-DD' for an article that states its date, else ""."""
     try:
-        metadata = trafilatura.extract_metadata(html, extensive=False)
+        with TRAFILATURA_LOCK:
+            metadata = trafilatura.extract_metadata(html, extensive=False)
     except Exception:
         logger.debug("Page metadata extraction failed", exc_info=True)
         return ""
