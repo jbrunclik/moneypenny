@@ -45,6 +45,12 @@ AGENT_INSTRUCTIONS_MAX_CHARS = 10_000
 SKILL_MAX_DESCRIPTION_CHARS = 300  # index entry - always in the prompt
 SKILL_MAX_BODY_CHARS = 12_000  # ~3k tokens per load
 
+# trafilatura parses one page at a time (src/agent/tools/trafilatura_lock.py):
+# a page above this size, or a wait for the lock past this long, takes the
+# plain html2text path instead of stalling every turn's parsing in the worker
+TRAFILATURA_MAX_HTML_CHARS = 1_500_000
+TRAFILATURA_LOCK_WAIT_SECONDS = 10.0
+
 # The Gemini API rejects a request deadline below this (400 INVALID_ARGUMENT,
 # "Minimum allowed deadline is 10s")
 GEMINI_MIN_REQUEST_DEADLINE_SECONDS = 10

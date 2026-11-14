@@ -41,3 +41,32 @@ def test_extraction_and_metadata_never_run_concurrently() -> None:
         calls = [extract_main_content, page_date_line] * 8
         list(pool.map(lambda f: f("<html><body><p>x</p></body></html>"), calls))
     assert peak[0] == 1
+
+
+def test_a_held_lock_falls_back_instead_of_blocking(monkeypatch: Any) -> None:
+    """One slow page must not stall every turn's parsing in the worker."""
+    from src.agent.tools import trafilatura_lock
+
+    monkeypatch.setattr(trafilatura_lock, "TRAFILATURA_LOCK_WAIT_SECONDS", 0.05)
+    with patch("trafilatura.extract") as extract:
+        trafilatura_lock.TRAFILATURA_LOCK.acquire()
+        try:
+            started = time.monotonic()
+            assert extract_main_content("<html><body><p>x</p></body></html>") == ""
+            assert page_date_line("<html></html>") == ""
+            assert time.monotonic() - started < 1
+        finally:
+            trafilatura_lock.TRAFILATURA_LOCK.release()
+    extract.assert_not_called()
+
+
+def test_oversized_html_skips_trafilatura(monkeypatch: Any) -> None:
+    from src.agent.tools import trafilatura_lock
+
+    monkeypatch.setattr(trafilatura_lock, "TRAFILATURA_MAX_HTML_CHARS", 100)
+    with patch("trafilatura.extract") as extract, patch("trafilatura.extract_metadata") as meta:
+        big = "<html><body>" + "<p>x</p>" * 50 + "</body></html>"
+        assert extract_main_content(big) == ""
+        assert page_date_line(big) == ""
+    extract.assert_not_called()
+    meta.assert_not_called()

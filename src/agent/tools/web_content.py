@@ -12,7 +12,7 @@ import trafilatura
 from src.agent.tools.html_soup import parsed_html
 from src.agent.tools.page_date import page_date_line
 from src.agent.tools.product_data import product_data_line
-from src.agent.tools.trafilatura_lock import TRAFILATURA_LOCK
+from src.agent.tools.trafilatura_lock import run_trafilatura
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -52,13 +52,16 @@ def extract_main_content(html: str) -> str:
     the caller falls back) or on any extraction error.
     """
     try:
-        with TRAFILATURA_LOCK:
-            extracted = trafilatura.extract(
+        extracted = run_trafilatura(
+            lambda: trafilatura.extract(
                 html,
                 output_format="markdown",
                 include_links=False,
                 favor_precision=True,
-            )
+            ),
+            html,
+            None,
+        )
         return extracted or ""
     except Exception:
         logger.debug("trafilatura extraction failed, falling back", exc_info=True)
