@@ -70,3 +70,16 @@ def test_oversized_html_skips_trafilatura(monkeypatch: Any) -> None:
         assert page_date_line(big) == ""
     extract.assert_not_called()
     meta.assert_not_called()
+
+
+def test_every_parse_pass_sees_at_most_the_cap(monkeypatch: Any) -> None:
+    """The fallback and the markup lines parse the page too: a huge page is
+    cut before any of them runs, not just before trafilatura."""
+    from src.agent.tools import web_content
+
+    monkeypatch.setattr(web_content, "TRAFILATURA_MAX_HTML_CHARS", 100)
+    seen: list[int] = []
+    for name in ("extract_main_content", "html_to_markdown", "page_date_line", "product_data_line"):
+        monkeypatch.setattr(web_content, name, lambda html, _n=name: seen.append(len(html)) or "")
+    web_content.extract_text_from_html("<p>x</p>" * 1000)
+    assert seen and max(seen) <= 100

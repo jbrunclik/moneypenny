@@ -46,8 +46,9 @@ SKILL_MAX_DESCRIPTION_CHARS = 300  # index entry - always in the prompt
 SKILL_MAX_BODY_CHARS = 12_000  # ~3k tokens per load
 
 # trafilatura parses one page at a time (src/agent/tools/trafilatura_lock.py):
-# a page above this size, or a wait for the lock past this long, takes the
-# plain html2text path instead of stalling every turn's parsing in the worker
+# a wait for the lock past this long takes the plain html2text path instead of
+# stalling every turn's parsing in the worker; every parse pass sees at most
+# this much of a page (web_content.extract_text_from_html cuts it first)
 TRAFILATURA_MAX_HTML_CHARS = 1_500_000
 TRAFILATURA_LOCK_WAIT_SECONDS = 10.0
 

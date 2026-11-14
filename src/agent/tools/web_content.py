@@ -14,6 +14,7 @@ from src.agent.tools.page_date import page_date_line
 from src.agent.tools.product_data import product_data_line
 from src.agent.tools.trafilatura_lock import run_trafilatura
 from src.config import Config
+from src.constants import TRAFILATURA_MAX_HTML_CHARS
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -92,6 +93,10 @@ def extract_text_from_html(html: str, max_length: int | None = None) -> str:
     SPAs have no recognizable article, so we fall back to the broad html2text
     pass when it returns too little.
     """
+    # Every pass below parses the page (trafilatura, html2text, the date and
+    # price markup): a huge page is cut once, here, so none of them can tie the
+    # worker up with it - the text is cut to far less anyway
+    html = html[:TRAFILATURA_MAX_HTML_CHARS]
     text = extract_main_content(html)
     if len(text) < _MIN_MAIN_CONTENT_CHARS:
         text = html_to_markdown(html)
