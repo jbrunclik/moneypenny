@@ -204,7 +204,19 @@ from earlier runs were measured with every nudge off.
 make eval                                  # all cases, EVAL_WORKERS (4) in parallel
 .venv/bin/python evals/run.py --only code_exec   # one case
 .venv/bin/python evals/run.py --only 'skill_*,code_exec' --workers 2   # ids/globs, comma-separated or repeated
+make eval-ab BASE=main~1 ONLY='sports_*,cz_local_lookup' RUNS=2   # A/B: BASE vs the working tree
 ```
+
+**A/B across two commits** ([evals/ab.py](../../evals/ab.py), Nov 14 2026): runs
+the selected cases `RUNS` times on each side - the base in a temporary
+worktree under `.claude/worktrees/eval-ab-<sha>`, the head the working tree
+(uncommitted changes included) or `--head <ref>` - alternating sides so
+provider drift hits both, then prints per case passes over judged runs, mean
+judge score and tool rounds, marking a case whose pass rate moved by half or
+whose score moved by a point (`<<`). Timeouts and crashes count as `infra`,
+outside the pass rate (a search outage says nothing about the change). Use
+it before trusting one run: on Nov 14 a ZWO case went 0/2 vs 2/2 on the
+previous commit - a real regression a single run could not tell from noise.
 
 Cases run on a pool of worker **processes** ([pool.py](../../evals/pool.py)),
 not threads: `fake_integrations` patches module attributes process-wide, and

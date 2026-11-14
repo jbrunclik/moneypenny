@@ -62,6 +62,8 @@ max-complexity = 10
 "tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251", "PLC0415", "DTZ"]
 "scripts/**" = ["S101", "S603", "S607", "T20", "PLC0415"]
 "evals/**" = ["T20", "PLC0415"]
+# The A/B harness drives git worktrees and the eval runner, like the scripts do
+"evals/ab.py" = ["T20", "PLC0415", "S603", "S607"]
 # The E2E server's entry point keeps the hyphenated name every caller launches
 "tests/e2e-server.py" = ["N999"]
 # SQL built from the module-constant conversation-type CASE expression, not user input

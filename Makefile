@@ -180,6 +180,9 @@ test:
 eval: ## Run agent eval harness (golden cases, hits live Gemini API)
 	$(PYTHON) evals/run.py
 
+eval-ab: ## Compare cases on BASE vs the working tree: make eval-ab BASE=main~1 ONLY='a,b' [RUNS=2]
+	PYTHONPATH=. $(PYTHON) evals/ab.py $(BASE) --only '$(ONLY)' --runs $(or $(RUNS),2)
+
 prompt-snapshots: ## Regenerate the static prompt + tool declaration snapshots after an intended change
 	UPDATE_PROMPT_SNAPSHOTS=1 $(PYTHON) -m pytest tests/unit/test_prompt_snapshots.py -q -n0 -p no:randomly
 
