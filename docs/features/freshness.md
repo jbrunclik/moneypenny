@@ -133,6 +133,30 @@ hard ones 14.2 s. `load_skill` ran on 1.7% of turns before and 1.9% after.
 `delegate_task` ran on none in either week, so there was no delegation to
 miss.
 
+### Re-measured Nov 14 2026
+
+From the "Freshness gate" journal lines (Oct 18 - Nov 14, 2,589 decisions)
+and `message_costs.tools_used` (the prefetched `research` round counts there,
+so "the model searched itself" = web turns minus gate lookups):
+
+| | Oct 18-31 | Nov 1-12 | Nov 13-14 |
+|---|---|---|---|
+| Chat turns | 1,527 | 916 | 146 |
+| Gate lookups | 15% | 10% | 5% |
+| The model searched itself | 11% | 9% | 14% |
+| Disputed turns (of them without a lookup) | 130 (106) | 10 (2) | 0 |
+| Timeouts | 0 | 1 | 0 |
+
+- **Disputed facts are now checked**: 106 of 130 disputed turns ran no lookup
+  before the Nov 1 fix, 2 of 10 after (a disputed verdict with no queries).
+  Narrowing `disputed` to facts about the world made it ten times rarer.
+- **Attachments do not trigger lookups**: 14 lookups on 257 turns with an
+  image since Nov 1 (5%, matched to the gate line by time).
+- **Open: fewer gate lookups since the thinking choice joined the gate**
+  (Nov 13). Web use stays near 18% of turns, but the chat model now runs the
+  search itself more often - an extra round, without the gate's dated
+  queries. Two days are too few to act on; re-measured ~Nov 21 (TODO.md).
+
 ## Dated search results
 
 Providers' publish dates ride on each `web_search` result as `published`
