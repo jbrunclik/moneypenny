@@ -56,7 +56,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Chat & UI
 
-- [ ] **Hide the model picker when only one model is offered** (Nov 12 2026) - since Carbon became admin-only, non-admins get a single entry (Fast) from `/api/models`, yet the composer still shows the picker button and a one-option dropdown (`ModelSelector.ts`; the job editor's model field in `JobEditor.ts` likewise). Hide both when `models.length <= 1`; test desktop + mobile and check the composer's vertical rhythm without the button; visual baselines run as a non-admin, so they change.
 
 - [ ] **Turn-lifecycle follow-ups** (Oct 11 2026 single-device audit; fixed items shipped, these need a decision or a device):
   - **Two quick steering messages** - the kv slot holds one interjection per conversation, so a second one sent before a tool round reads the first overwrites it (both bubbles are saved; the turn reads only the second).

@@ -106,6 +106,17 @@ describe('AgentEditor', () => {
     expect(field('.agent-editor-save').textContent?.trim()).toBe('Create Agent');
   });
 
+  it('leaves out the model field when only one model is offered', async () => {
+    useStore.setState({ models: [{ id: 'm1', name: 'Model One', short_name: 'One' }] as never });
+    const { result } = await open();
+    expect(modal().querySelector('#agent-model')).toBeNull();
+    field<HTMLInputElement>('#agent-name').value = 'Solo';
+    api.create.mockResolvedValue(agent({ id: 'a9', name: 'Solo' }));
+    save();
+    await result;
+    expect(api.create.mock.calls[0]?.[0]).not.toHaveProperty('model');
+  });
+
   it('marks a custom schedule and offers WhatsApp when it is set up', async () => {
     api.settingsGet.mockResolvedValue({ whatsapp_available: true, whatsapp_phone: '+420' });
     await open(agent({ schedule: '30 6 * * *' }));

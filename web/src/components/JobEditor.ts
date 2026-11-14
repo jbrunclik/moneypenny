@@ -304,9 +304,11 @@ function scheduleField(schedule: string): HTMLElement {
   ]);
 }
 
-/** Model field: the models the agent can run on. */
-function modelField(model: string): HTMLElement {
+/** Model field: the models the agent can run on - none with no choice to make
+ * (the run then uses the agent's model or the default). */
+function modelField(model: string): HTMLElement | null {
   const { models } = useStore.getState();
+  if (models.length <= 1) return null;
   return formGroup([
     el('label', { for: 'agent-model' }, ['Model']),
     el(
@@ -381,7 +383,7 @@ function toggles(freshContext: boolean, enabled: boolean): HTMLElement[] {
 }
 
 /** The form's fields, top to bottom. */
-function formFields(v: ReturnType<typeof agentTextValues> & ReturnType<typeof agentRunValues>, availableTools: typeof BASE_TOOLS): HTMLElement[] {
+function formFields(v: ReturnType<typeof agentTextValues> & ReturnType<typeof agentRunValues>, availableTools: typeof BASE_TOOLS): (HTMLElement | null)[] {
   return [
     formGroup([
       el('label', { for: 'agent-name' }, ['Name ', el('span', { class: 'required' }, ['*'])]),

@@ -210,6 +210,9 @@ export function renderModelDropdown(): void {
     })
   );
 
+  // No choice to make (non-admins get only the Fast model): no picker
+  dropdown.closest('.model-selector')?.classList.toggle('hidden', models.length <= 1);
+
   // Update current model display (show short name in button)
   const currentModel = models.find((m) => m.id === currentModelId);
   if (currentModel) {
