@@ -93,6 +93,40 @@ class TestChatStop:
 
         assert stop_requested(test_user.id, test_conversation.id, reply_id) is True
 
+    def test_a_stop_for_an_earlier_message_leaves_the_running_turn_alone(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        """A stale Stop naming an older message must not stop the turn that
+        answers a newer one."""
+        old_id = "6f1d2c3b-4a59-4e8d-9c7b-1a2b3c4d5e6f"
+        test_database.add_message(test_conversation.id, "user", "Old", message_id=old_id)
+        test_database.add_message(test_conversation.id, "assistant", "Old answer")
+        test_database.add_message(test_conversation.id, "user", "New question")
+        reply_id = test_database.add_message(test_conversation.id, "assistant", "").id
+
+        client.post(
+            f"/api/conversations/{test_conversation.id}/chat/stop",
+            json={"client_message_id": old_id},
+            headers=auth_headers,
+        )
+
+        assert stop_requested(test_user.id, test_conversation.id, reply_id) is False
+
+    def test_rejects_a_client_id_that_only_contains_a_uuid(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_conversation: Conversation
+    ) -> None:
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/stop",
+            json={"client_message_id": "x6f1d2c3b-4a59-4e8d-9c7b-1a2b3c4d5e6fx"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 400
+
     def test_rejects_unknown_conversation(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:

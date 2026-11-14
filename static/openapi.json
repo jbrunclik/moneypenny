@@ -6507,7 +6507,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StopChatRequest"
+                "$ref": "#/components/schemas/FinishNowRequest"
               }
             }
           }
@@ -18771,7 +18771,8 @@
           "client_message_id": {
             "anyOf": [
               {
-                "pattern": "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+                "maxLength": 64,
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
                 "type": "string"
               },
               {
@@ -20062,6 +20063,22 @@
           "message"
         ],
         "title": "InterjectRequest",
+        "type": "object"
+      },
+      "FinishNowRequest": {
+        "description": "Schema for POST /api/conversations/<conv_id>/chat/finish-now: the\nrunning deep-research turn, by its assistant message id.",
+        "properties": {
+          "message_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Message Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id"
+        ],
+        "title": "FinishNowRequest",
         "type": "object"
       },
       "UpdateQuickActionsRequest.QuickActionItem": {

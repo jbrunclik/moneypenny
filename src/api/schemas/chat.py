@@ -28,7 +28,14 @@ class ClientLocation(RequestModel):
     timestamp_ms: int | None = Field(default=None, ge=0)
 
 
-_UUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+class FinishNowRequest(RequestModel):
+    """Schema for POST /api/conversations/<conv_id>/chat/finish-now: the
+    running deep-research turn, by its assistant message id."""
+
+    message_id: str = Field(..., min_length=1, max_length=64)
+
+
+_UUID = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
 
 class StopChatRequest(RequestModel):
@@ -42,7 +49,10 @@ class StopChatRequest(RequestModel):
 
     message_id: str | None = Field(default=None, min_length=1, max_length=64)
     client_message_id: str | None = Field(
-        default=None, pattern=_UUID, description="The sent message's id, before the turn's ack"
+        default=None,
+        max_length=64,
+        pattern=_UUID,
+        description="The sent message's id, before the turn's ack",
     )
 
     @model_validator(mode="after")

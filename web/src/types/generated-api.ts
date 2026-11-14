@@ -7215,7 +7215,7 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["StopChatRequest"];
+                    "application/json": components["schemas"]["FinishNowRequest"];
                 };
             };
             responses: {
@@ -14598,6 +14598,15 @@ export interface components {
              * @default null
              */
             client_message_id?: string | null;
+        };
+        /**
+         * FinishNowRequest
+         * @description Schema for POST /api/conversations/<conv_id>/chat/finish-now: the
+         *     running deep-research turn, by its assistant message id.
+         */
+        FinishNowRequest: {
+            /** Message Id */
+            message_id: string;
         };
         /**
          * QuickActionItem

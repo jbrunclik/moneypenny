@@ -226,6 +226,12 @@ async function handleStreamFailure(send: StreamSend, error: unknown): Promise<vo
   markSendFailed(convId, tempUserMessageId);
 }
 
+/** A new send's message id names its turn for a Stop before the server's
+ * first event; a re-run sends none. */
+function sentMessageId(tempUserMessageId: string, rerunMode?: 'regenerate' | 'continue'): string | undefined {
+  return rerunMode ? undefined : tempUserMessageId;
+}
+
 /**
  * Send message with streaming response.
  */
@@ -246,9 +252,7 @@ export async function sendStreamingMessage(
   if (hasFiles) {
     setUserMessageUploading(tempUserMessageId, true);
   }
-  // A new send's message id names its turn for a Stop before the server's
-  // first event (a re-run sends none)
-  if (!rerunMode) state.clientMessageId = tempUserMessageId;
+  state.clientMessageId = sentMessageId(tempUserMessageId, rerunMode);
   const send: StreamSend = { convId, tempUserMessageId, hasFiles, state };
   setStopHandler(convId, () => requestServerStop(convId, state));
 

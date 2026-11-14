@@ -37,7 +37,7 @@ export interface StreamingState {
   expectedAssistantMessageId: string | null;
   /** The sent message's id (a new send, not a re-run): a Stop before the
    * server's first event names the turn by it */
-  clientMessageId?: string;
+  clientMessageId?: string | undefined;
   /** Highest journal seq rendered so far (resume offset for resumable streams) */
   lastSeq: number;
   /** Set before aborting the reader to resume proactively (foreground/pageshow) */

@@ -49,6 +49,7 @@ from src.api.rate_limiting import rate_limit_chat
 from src.api.schemas.chat import (
     ChatBatchResponse,
     ChatRequest,
+    FinishNowRequest,
     InterjectRequest,
     ResumeStreamQuery,
     StopChatRequest,
@@ -58,6 +59,7 @@ from src.api.utils import build_chat_response, streaming_message_id
 from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
+from src.enums import MessageRole
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -424,10 +426,20 @@ def _stop_by_client_id(user_id: str, conv_id: str, client_message_id: str) -> No
     """Stop the turn answering the client's message: running already (its
     first event had not reached the client), or adopted when it starts."""
     request_stop_by_client_id(user_id, conv_id, client_message_id)
-    sent = db.get_message_by_id(client_message_id)
-    running = running_turn_id(conv_id) if sent and sent.conversation_id == conv_id else None
-    if running is not None:
+    running = running_turn_id(conv_id)
+    if running is not None and _answers(conv_id, running, client_message_id):
         request_stop(user_id, conv_id, running)
+
+
+def _answers(conv_id: str, reply_id: str, user_message_id: str) -> bool:
+    """Whether the reply answers that message: it is the last user message
+    before the reply (a stale or other message's Stop must not stop it)."""
+    messages = db.get_messages(conv_id)
+    index = next((i for i, m in enumerate(messages) if m.id == reply_id), None)
+    if index is None:
+        return False
+    before = [m for m in messages[:index] if m.role == MessageRole.USER]
+    return bool(before) and before[-1].id == user_message_id
 
 
 @api.route("/conversations/<conv_id>/chat/finish-now", methods=["POST"])
@@ -443,8 +455,8 @@ def _stop_by_client_id(user_id: str, conv_id: str, client_message_id: str) -> No
 )
 @rate_limit_chat
 @require_auth
-@validate_request(StopChatRequest)
-def chat_finish_now(user: User, data: StopChatRequest, conv_id: str) -> dict[str, str]:
+@validate_request(FinishNowRequest)
+def chat_finish_now(user: User, data: FinishNowRequest, conv_id: str) -> dict[str, str]:
     """Request that a running deep-research turn writes its report now."""
     if not db.get_conversation(conv_id, user.id):
         raise_not_found_error("Conversation")
