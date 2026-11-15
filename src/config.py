@@ -514,6 +514,10 @@ class Config:
     # 8000 measurably slowed turns without helping further
     RESEARCH_PER_SOURCE_MAX_CHARS = 6000
     RESEARCH_FETCH_WORKERS = 4
+    # A research page's own fetch timeout (TOOL_TIMEOUT_SECONDS, 90, let one slow
+    # page hold the whole call; Nov 15 2026); a refused page then gets Exa's own
+    # WEB_EXTRACT_TIMEOUT_SECONDS. fetch_url keeps the long one
+    RESEARCH_FETCH_TIMEOUT_SECONDS = 15
 
     # Model for delegate_task subagents (context-isolated research runs).
     # `or` (not a getenv default): a copied .env.example sets it to "".

@@ -20,10 +20,11 @@ class TestSourceRanking:
     def test_interleaves_by_rank_and_dedupes(
         self, mock_search: MagicMock, _fetch: MagicMock
     ) -> None:
-        mock_search.side_effect = [
-            [_result("https://a"), _result("https://b")],
-            [_result("https://a"), _result("https://c")],
-        ]
+        by_query = {
+            "q1": [_result("https://a"), _result("https://b")],
+            "q2": [_result("https://a"), _result("https://c")],
+        }
+        mock_search.side_effect = lambda query, _n: by_query[query]  # searches run in parallel
 
         parsed = json.loads(
             research.invoke({"question": "q", "queries": ["q1", "q2"], "max_sources": 3})
@@ -37,10 +38,12 @@ class TestSourceRanking:
     def test_failed_query_skipped(self, mock_search: MagicMock, _fetch: MagicMock) -> None:
         from src.services.search_adapters import SearchProviderError
 
-        mock_search.side_effect = [
-            SearchProviderError("rate limited"),
-            [_result("https://a")],
-        ]
+        def search(query: str, _n: int) -> list[dict[str, str]]:
+            if query == "q1":
+                raise SearchProviderError("rate limited")
+            return [_result("https://a")]
+
+        mock_search.side_effect = search
 
         parsed = json.loads(
             research.invoke({"question": "q", "queries": ["q1", "q2"], "max_sources": 2})
@@ -97,7 +100,7 @@ class TestResearchTool:
         while untried candidates sat in "unfetched"."""
         mock_search.return_value = [_result(f"https://{c}") for c in "abcdef"]
         failing = {"https://b": "HTTP 429 when fetching https://b"}
-        mock_fetch.side_effect = lambda url, _max: (
+        mock_fetch.side_effect = lambda url, _max, **_: (
             (None, failing[url]) if url in failing else (f"page {url}", None)
         )
 
@@ -224,3 +227,55 @@ class TestResearchDegradedSources:
         parsed = json.loads(research.invoke({"question": "what is X?", "max_sources": 2}))
 
         assert len(parsed["sources"]) == 2
+
+
+class TestResearchSpeed:
+    """Searches run in parallel and a page gets RESEARCH_FETCH_TIMEOUT_SECONDS
+    (one slow page held research 90 s; Nov 15 2026 audit)."""
+
+    @patch("src.agent.tools.research.fetch_page_text", return_value=("page", None))
+    @patch("src.agent.tools.research.search_web")
+    def test_the_searches_run_at_once(self, mock_search: MagicMock, _fetch: MagicMock) -> None:
+        import threading
+
+        both_waiting = threading.Barrier(2, timeout=5)
+
+        def search(query: str, _n: int) -> list[dict[str, str]]:
+            both_waiting.wait()  # breaks (and fails the call) if run one after another
+            return [_result(f"https://{query}")]
+
+        mock_search.side_effect = search
+        parsed = json.loads(research.invoke({"question": "q", "queries": ["a", "b"]}))
+        assert {s["url"] for s in parsed["sources"]} == {"https://a", "https://b"}
+
+    @patch("src.agent.tools.research.fetch_page_text", return_value=("page", None))
+    @patch("src.agent.tools.research.search_web")
+    def test_every_search_failing_is_an_error(
+        self, mock_search: MagicMock, _fetch: MagicMock
+    ) -> None:
+        from src.services.search_adapters import SearchProviderError
+
+        mock_search.side_effect = SearchProviderError("down")
+        result = research.invoke({"question": "q", "queries": ["a", "b"]})
+        assert "All searches failed" in result
+
+    @patch("src.agent.tools.research.fetch_page_text", return_value=("page", None))
+    @patch("src.agent.tools.research.search_web", return_value=[_result("https://a")])
+    def test_a_page_gets_a_short_timeout(self, _search: MagicMock, fetch: MagicMock) -> None:
+        research.invoke({"question": "q"})
+        assert fetch.call_args.kwargs["timeout"] == Config.RESEARCH_FETCH_TIMEOUT_SECONDS == 15
+
+    @patch("src.agent.tools.research.fetch_page_text", return_value=("page", None))
+    @patch("src.agent.tools.research.search_web", return_value=[_result("https://a")])
+    def test_the_log_says_where_the_time_went(self, _search: MagicMock, _fetch: MagicMock) -> None:
+        import importlib
+
+        research_mod = importlib.import_module("src.agent.tools.research")
+
+        with patch.object(research_mod.logger, "info") as info:
+            research.invoke({"question": "q"})
+        [extra] = [
+            c.kwargs["extra"] for c in info.call_args_list if c.args[0] == "research completed"
+        ]
+        assert isinstance(extra["search_ms"], int)
+        assert isinstance(extra["fetch_ms"], int)

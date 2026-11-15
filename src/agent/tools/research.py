@@ -11,6 +11,7 @@ Deterministic - no nested LLM call (delegate_task is the agentic variant).
 
 import contextvars
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -46,22 +47,15 @@ def _ranked_unique_urls(queries: list[str], per_query: int) -> tuple[list[dict[s
     Returns (ordered results, number of queries whose search FAILED) - a
     failed search and a search that found nothing need different handling.
     """
-    per_query_results: list[list[dict[str, str]]] = []
-    failed = 0
-    for query in queries:
-        try:
-            per_query_results.append(search_web(query, per_query))
-        except SearchProviderError as e:
-            logger.warning("research: search failed", extra={"query": query, "error": str(e)})
-            per_query_results.append([])
-            failed += 1
+    per_query_results = _search_all(queries, per_query)
+    failed = sum(1 for results in per_query_results if results is None)
 
     seen: set[str] = set()
     ordered: list[dict[str, str]] = []
-    max_rank = max((len(results) for results in per_query_results), default=0)
+    max_rank = max((len(results) for results in per_query_results if results), default=0)
     for rank in range(max_rank):
         for results in per_query_results:
-            if rank >= len(results):
+            if results is None or rank >= len(results):
                 continue
             url = results[rank].get("url", "")
             if url and url not in seen:
@@ -70,10 +64,29 @@ def _ranked_unique_urls(queries: list[str], per_query: int) -> tuple[list[dict[s
     return ordered, failed
 
 
+def _search_one(query: str, per_query: int) -> list[dict[str, str]] | None:
+    """One query's results; None when its search failed."""
+    try:
+        return search_web(query, per_query)
+    except SearchProviderError as e:
+        logger.warning("research: search failed", extra={"query": query, "error": str(e)})
+        return None
+
+
+def _search_all(queries: list[str], per_query: int) -> list[list[dict[str, str]] | None]:
+    """Every query searched at once (one after another took a second each),
+    results in query order."""
+    contexts = [contextvars.copy_context() for _ in queries]  # logs keep the request id
+    with ThreadPoolExecutor(max_workers=max(1, len(queries))) as pool:
+        return list(pool.map(lambda ctx, q: ctx.run(_search_one, q, per_query), contexts, queries))
+
+
 def _fetch_source(candidate: dict[str, str]) -> dict[str, str]:
     """Fetch one candidate page; degrade to a snippet-only entry on failure."""
     url = candidate["url"]
-    text, error = fetch_page_text(url, Config.RESEARCH_PER_SOURCE_MAX_CHARS)
+    text, error = fetch_page_text(
+        url, Config.RESEARCH_PER_SOURCE_MAX_CHARS, timeout=Config.RESEARCH_FETCH_TIMEOUT_SECONDS
+    )
     if text is not None:
         return {
             "url": url,
@@ -159,7 +172,9 @@ def run_research(question: str = "", queries: list[str] | None = None, max_sourc
     # Search deep enough that even a single query yields both the pages to
     # fetch and a tail of snippet-only candidates
     per_query = min(Config.WEB_SEARCH_MAX_RESULTS, n_sources + _UNFETCHED_CANDIDATES)
+    started = time.monotonic()
     candidates, failed = _ranked_unique_urls(all_queries, per_query)
+    search_ms = round((time.monotonic() - started) * 1000)
     if not candidates and failed == len(all_queries):
         return tool_error(
             "All searches failed (search providers unavailable). "
@@ -177,6 +192,7 @@ def run_research(question: str = "", queries: list[str] | None = None, max_sourc
             }
         )
 
+    started = time.monotonic()
     sources = _fetch_sources(candidates[:n_sources])
     # One wave of replacements: a page that failed (403/429) gives its place
     # to the next candidate (Oct 2026 prod: 62 of 210 research calls had a
@@ -198,6 +214,8 @@ def run_research(question: str = "", queries: list[str] | None = None, max_sourc
             "fetched_ok": fetched_ok,
             "fetch_failures": len(sources) - fetched_ok,
             "replacements": len(spare),
+            "search_ms": search_ms,
+            "fetch_ms": round((time.monotonic() - started) * 1000),
         },
     )
 
