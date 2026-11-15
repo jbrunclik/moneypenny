@@ -26,6 +26,7 @@ from langchain_core.tools import tool
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.turn_usage import record_tool_call
 from src.config import Config
 from src.db.models import db
 from src.db.models.memory import MemoryWrite, MemoryWriteConflictError
@@ -479,6 +480,11 @@ def search_memory(query: str) -> str:
 
     memories = db.list_memories(user_id)
     by_id = {mem.id: mem for mem in memories}
+    if query in by_id:  # a condensed memory's full text
+        record_tool_call("memory_fetch")
+        mem = by_id[query]
+        logger.info("Memory fetched by id", extra={"user_id": user_id, "memory_id": mem.id})
+        return f"- id={mem.id} [{mem.category or 'uncategorized'}] {mem.content}"
 
     # Keyword pass: case-insensitive substring over content and category
     needle = query.casefold()

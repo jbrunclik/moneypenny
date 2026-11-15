@@ -134,6 +134,22 @@ cosine similarity (`MEMORY_SEARCH_MIN_SIMILARITY`), returning ids so
 patch/delete work on unlisted entries. This bounds the per-turn token cost of
 a bank approaching the 200-entry cap.
 
+### Condensed memories (Nov 15 2026)
+
+The memory list is re-sent every turn in the uncached per-turn context, and
+memories run long (6-14k characters per user, 235-470 on average). A memory
+longer than `MEMORY_SUMMARY_MAX_CHARS` (150) shows its `summary` there, with
+`"full_chars": N`; `search_memory` with the entry's id returns the full text
+(counted as a `memory_fetch`, `turn_timing.memory_fetches`), and the guidance
+says to fetch it when a detail matters and always before patching such an
+entry. Summaries are written by Flash-Lite (`MEMORY_SUMMARY_MODEL`) in the
+every-minute scheduler pass ([memory_summaries.py](../../src/agent/memory_summaries.py),
+`MEMORY_SUMMARIES_PER_PASS` a pass, a `memory_summary` side cost); a trigger
+(migration 0094) clears a summary whenever the text changes, by any path, so
+an edited memory shows whole until the next pass. A failed summary leaves the
+memory whole. Evals: `condensed_memory_detail`, `condensed_memory_patch`.
+[Spec](../superpowers/specs/2026-11-15-cost-telemetry-design.md).
+
 Additional guards:
 
 - **Injection scan** (Nov 2026, `src/utils/threat_patterns.py`): a memory, a program

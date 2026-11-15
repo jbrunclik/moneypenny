@@ -291,6 +291,11 @@ are shown. Use the search_memory tool to look up anything else BEFORE concluding
 you don't know something about the user. patch/delete need the memory id -
 search_memory returns ids for entries not listed in your context.
 
+An entry with "full_chars" is condensed: its content is a short summary of a
+longer memory. When a detail beyond the summary matters, call search_memory
+with that entry's id for the full text - and always before you patch or
+update a condensed entry.
+
 ## What NOT to Memorize
 - Temporary, one-off requests (e.g., "help me write this email")
 - Information they're asking about (external facts, not about them)

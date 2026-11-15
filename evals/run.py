@@ -221,6 +221,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 files=[str(f) for f in (data.get("files") or [])],
                 memories=[
                     {"content": str(m["content"]), "category": str(m.get("category", "fact"))}
+                    | ({"summary": str(m["summary"])} if m.get("summary") else {})
                     for m in (data.get("memories") or [])
                 ],
                 artifacts=[
@@ -639,6 +640,10 @@ def _seed_case(
     seeded_memory_ids = [
         db.add_memory(user.id, m["content"], m.get("category") or "fact").id for m in case.memories
     ]
+    # A condensed memory (its summary is what the per-turn list shows)
+    for memory_id, m in zip(seeded_memory_ids, case.memories, strict=True):
+        if m.get("summary"):
+            db.set_memory_summary(memory_id, m["content"], m["summary"])
 
     # Seed a past conversation for episodic-recall cases
     if case.seed_conversation:

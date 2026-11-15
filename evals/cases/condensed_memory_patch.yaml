@@ -1,0 +1,16 @@
+id: condensed_memory_patch
+description: A correction to a condensed memory reads its full text first, then patches it
+memories:
+  - content: "Bike: Canyon Endurace CF 7 (2023), SRAM Rival AXS 2x12, tubeless 32 mm Continental GP5000 S TR. Last service at Kolo Praha on 2026-09-14: chain replaced, rear derailleur hanger straightened, brake pads front only. Next service due at 8000 km; the shop asked to bring the spare hanger (part 00.7918.087.000) next time."
+    summary: "Canyon Endurace CF 7, SRAM Rival AXS, tubeless 32 mm; serviced at Kolo Praha 2026-09-14; next at 8000 km."
+    category: fact
+user: "Small correction: the tyres are 30 mm, not 32 mm."
+expect:
+  rubric: >
+    Acknowledges the correction briefly and confirms it was saved. Must not
+    claim failure.
+  required_tools: [search_memory, manage_memory]
+  forbidden_arg_patterns:
+    manage_memory.operations:
+      - "'action': '(add|update)'"
+  max_tool_rounds: 4

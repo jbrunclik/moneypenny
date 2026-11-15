@@ -671,6 +671,13 @@ class Config:
     # Raised from 500 (Oct 2026): 74 of 272 updates hit the old cap and the
     # forced rewrites silently dropped details
     MEMORY_MAX_ENTRY_CHARS: int = int(os.getenv("MEMORY_MAX_ENTRY_CHARS", "1000"))
+    # Condensed memories in the per-turn context (Nov 15 2026): a memory longer
+    # than this shows its summary (Flash-Lite, written by the scheduler pass)
+    # with "full_chars"; search_memory with its id returns the full text
+    MEMORY_SUMMARY_MAX_CHARS = 150
+    MEMORY_SUMMARY_MODEL = "gemini-3.5-flash-lite"
+    MEMORY_SUMMARIES_PER_PASS = 20
+    MEMORY_SUMMARY_TIMEOUT_SECONDS = 10
     # An update leaving an entry at this share of the cap gets a nudge to save
     # new topics as separate memories (catch-all memories were the lossy ones)
     MEMORY_ENTRY_NEAR_LIMIT_RATIO = 0.8

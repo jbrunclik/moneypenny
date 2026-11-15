@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.agent.item_scheduler import run_due_items
+from src.agent.memory_summaries import summarize_pending
 from src.agent.prefix_cache import purge_old_prefix_records
 from src.agent.run_approvals import expire_stale_run_cards
 from src.db.models import db
@@ -45,6 +46,7 @@ def run_scheduled_agents() -> SchedulerResult:
 
     items = run_due_items(now)
     _purge_prefix_records()
+    _summarize_memories()
     result = SchedulerResult(items_fired=items.fired, items_run=items.run)
     logger.info(
         "Scheduler: completed",
@@ -65,3 +67,12 @@ def _purge_prefix_records() -> None:
         purge_old_prefix_records()
     except Exception:  # telemetry housekeeping must not fail the pass
         logger.exception("Scheduler: prefix record purge failed")
+
+
+def _summarize_memories() -> None:
+    """Condensed memories for the per-turn context (src/agent/memory_summaries.py);
+    a failure is logged, the pass goes on (the memories show whole meanwhile)."""
+    try:
+        summarize_pending()
+    except Exception:  # summaries are an optimisation, never a reason to fail
+        logger.exception("Scheduler: memory summaries failed")

@@ -83,12 +83,18 @@ def get_user_memories_list_prompt(user_id: str) -> str:
     if shown:
         memory_list = []
         for mem in shown:
-            entry: dict[str, str] = {
+            condensed = (
+                mem.summary is not None and len(mem.content) > Config.MEMORY_SUMMARY_MAX_CHARS
+            )
+            entry: dict[str, str | int] = {
                 "id": mem.id,
                 "category": mem.category or "",
-                "content": mem.content,
+                "content": mem.summary if condensed and mem.summary else mem.content,
                 "created": to_local(mem.created_at).strftime("%Y-%m-%d"),
             }
+            if condensed:
+                # The full text is a search_memory id lookup away (Nov 15 2026)
+                entry["full_chars"] = len(mem.content)
             updated_date = to_local(mem.updated_at).strftime("%Y-%m-%d")
             if updated_date != entry["created"]:
                 entry["updated"] = updated_date

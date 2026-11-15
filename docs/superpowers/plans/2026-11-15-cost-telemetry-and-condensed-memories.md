@@ -63,7 +63,7 @@
 ### Task 3: Condensed memories
 
 **Files:**
-- Create: `migrations/0094_memory_summary.py` (column `summary TEXT`, trigger clearing it when `content` changes), `src/services/memory_summaries.py`
+- Create: `migrations/0094_memory_summary.py` (column `summary TEXT`, trigger clearing it when `content` changes), `src/agent/memory_summaries.py`
 - Modify: `src/db/models/memory.py` (`Memory.summary`, `_row_to_memory`, `memories_needing_summary(min_chars, limit)`, `set_memory_summary(id, content, summary)` only if the content is unchanged), `src/agent/scheduler.py` (a summaries step after the items), `src/agent/prompt_memory.py` (list rendering), `src/agent/tools/memory.py` (`search_memory` by id; `memory_fetch` counted), the memory guidance in `src/agent/prompt_texts/`, `src/agent/turn_usage.py` (`memory_fetches` in `turn_timing`)
 - Test: `tests/unit/test_memory_summaries.py`, `tests/integration/test_db_memory_summary.py`
 

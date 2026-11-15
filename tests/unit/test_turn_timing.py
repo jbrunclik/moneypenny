@@ -275,3 +275,19 @@ def test_the_calls_are_in_the_turns_timing() -> None:
 def test_a_turn_without_calls_leaves_them_out() -> None:
     clock = TurnClock(started=0.0)
     assert "calls" not in clock.timing(first_token_at=None, decision=None)
+
+
+def test_memory_fetches_are_in_the_turns_timing() -> None:
+    """Condensed memories pay off while fewer than ~1 in 4 turns fetch one."""
+    from src.agent.tool_results import set_current_request_id
+    from src.agent.tools.turn_usage import record_tool_call
+
+    set_current_request_id("req-fetches")
+    try:
+        record_tool_call("memory_fetch")
+        record_tool_call("memory_fetch")
+        timing = TurnClock(started=0.0).timing(first_token_at=None, decision=None)
+    finally:
+        set_current_request_id(None)
+    assert timing["memory_fetches"] == 2
+    assert "memory_fetches" not in TurnClock(started=0.0).timing(None, None)

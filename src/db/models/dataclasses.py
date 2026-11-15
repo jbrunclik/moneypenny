@@ -221,6 +221,9 @@ class Memory:
     source_conversation_id: str | None = None
     # Set when soft-deleted; the row is purged after the retention window.
     deleted_at: datetime | None = None
+    # A short version for the per-turn context (None: short, new, or just
+    # edited - the full text is shown; src/agent/memory_summaries.py)
+    summary: str | None = None
 
 
 @dataclass

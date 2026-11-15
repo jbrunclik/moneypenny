@@ -92,6 +92,11 @@ The review itself changes nothing in production and edits nothing but
   min) - where Gemini's implicit cache stops paying; the share of first calls cached
   thanks to another user (`same_user` false) - what per-user tool sets would lose;
   first call vs later rounds. Decides per-user tools and keeping the prefix warm.
+- Condensed memories (from Nov 15 2026; [memory-and-context.md](features/memory-and-context.md)):
+  the share of chat turns with `turn_timing.memory_fetches` > 0 (they pay off while
+  under ~1 in 4; an extra round costs ~$0.018), "Memory summaries written" per day,
+  and memories still without a summary over 150 characters (should be ~0 after a
+  pass).
 - Side costs (from Nov 15 2026; [cost-tracking.md](features/cost-tracking.md)):
   `side_costs` per `feature` and `model` per week (sum of `cost_usd`, count) next to
   the chat turns' total; the nightly `memory_defrag` on Carbon from Dec 1 2026 (its

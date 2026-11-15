@@ -14,6 +14,7 @@ from typing import Any, Protocol
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
 
 from src.agent.tool_round_check import tool_message_error
+from src.agent.tools.turn_usage import get_tool_call_count
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -204,6 +205,8 @@ class TurnClock:
             "finish_reason": self.model.finish_reason,
             "max_silence_ms": self.model.max_silence_ms,
             "calls": self.model.entries or None,
+            # Lookups of a condensed memory's full text (Nov 15 2026)
+            "memory_fetches": get_tool_call_count("memory_fetch") or None,
         }
         if decision is not None:
             timing["gate_lookup"] = bool(decision.lookup)

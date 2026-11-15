@@ -367,7 +367,32 @@ class MemoryMixin:
             protected=bool(row["protected"]),
             source_conversation_id=row["source_conversation_id"],
             deleted_at=from_db_or_none(row["deleted_at"]),
+            summary=row["summary"],
         )
+
+    def memories_needing_summary(self, min_chars: int, limit: int) -> list[Memory]:
+        """Live memories longer than ``min_chars`` without a summary (any user)."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT * FROM user_memories
+                   WHERE deleted_at IS NULL AND summary IS NULL AND length(content) > ?
+                   ORDER BY updated_at DESC LIMIT ?""",
+                (min_chars, limit),
+            ).fetchall()
+        return [self._row_to_memory(row) for row in rows]
+
+    def set_memory_summary(self, memory_id: str, content: str, summary: str) -> bool:
+        """Store a summary of ``content`` - only while the memory still holds
+        that text (one edited meanwhile keeps none until the next pass)."""
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                "UPDATE user_memories SET summary = ? WHERE id = ? AND content = ?",
+                (summary, memory_id, content),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
 
     def get_memory(self, memory_id: str, user_id: str) -> Memory | None:
         """Fetch a single live memory.
