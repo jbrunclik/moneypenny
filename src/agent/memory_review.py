@@ -22,6 +22,7 @@ from src.agent.prompt_texts.memory_review import MEMORY_REVIEW_PROMPT
 from src.agent.tools.memory import MemoryOp, apply_single_op
 from src.config import Config
 from src.db.models import db
+from src.services.side_costs import record_side_cost
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -117,6 +118,7 @@ def _call_model(prompt: str) -> tuple[str, int, int]:
             thinking_config=ThinkingConfig(thinking_level=ThinkingLevel.LOW),
         ),
     )
+    record_side_cost("memory_review", Config.AI_ASSIST_MODEL, response)
     usage = getattr(response, "usage_metadata", None)
     tokens_in = int(getattr(usage, "prompt_token_count", 0) or 0)
     # Thinking is billed at the output rate

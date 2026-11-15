@@ -12,6 +12,7 @@ from google.genai.types import GenerateContentConfig, ThinkingConfig, ThinkingLe
 
 from src.agent.gemini_clients import shared_genai_client
 from src.config import Config
+from src.services.side_costs import record_side_cost
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -37,6 +38,7 @@ def run_summary_model(prompt: str) -> str | None:
                 thinking_config=ThinkingConfig(thinking_level=ThinkingLevel.LOW),
             ),
         )
+        record_side_cost("compaction", Config.AI_ASSIST_MODEL, response)
         if response.text:
             return response.text.strip()
         # No text without an exception is usually a blocked response (safety,

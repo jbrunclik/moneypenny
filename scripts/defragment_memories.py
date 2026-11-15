@@ -34,6 +34,7 @@ from pydantic import BaseModel, Field
 from src.agent.tools.memory import VALID_CATEGORIES
 from src.config import Config
 from src.db.models import Memory, User, db, skip_if_migrations_pending
+from src.services.side_costs import record_side_cost
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
@@ -309,12 +310,18 @@ def _request_plan(
     llm: ChatGoogleGenerativeAI, system_prompt: str, user_prompt: str
 ) -> DefragPlan | None:
     """Ask for a schema-validated plan rather than JSON embedded in prose."""
-    changes = llm.with_structured_output(DefragPlan).invoke(
+    out = llm.with_structured_output(DefragPlan, include_raw=True).invoke(
         [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
     )
+    # include_raw wraps the plan as {"raw", "parsed", "parsing_error"}; some
+    # providers (and the tests) hand the plan back directly, even as a dict
+    wrapped = isinstance(out, dict) and "parsed" in out and "raw" in out
+    if wrapped:
+        record_side_cost("memory_defrag", Config.MEMORY_DEFRAG_MODEL, out["raw"])
+    changes = out["parsed"] if wrapped else out
     if changes is None:
         return None
     return (

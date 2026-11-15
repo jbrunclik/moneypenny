@@ -369,7 +369,7 @@ class TestDefragmentUserMemories:
 
         defragment_user_memories(mock_user, sample_memories, mock_llm)
 
-        mock_llm.with_structured_output.assert_called_once_with(DefragPlan)
+        mock_llm.with_structured_output.assert_called_once_with(DefragPlan, include_raw=True)
         call_args = mock_llm.with_structured_output.return_value.invoke.call_args[0][0]
         assert len(call_args) == 2
         assert call_args[0]["role"] == "system"

@@ -7,6 +7,7 @@ from langchain_core.messages import HumanMessage
 from src.agent.content import extract_text_content
 from src.agent.gemini_clients import chat_model
 from src.config import Config
+from src.services.side_costs import record_side_cost
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -52,6 +53,7 @@ Title:"""
 
     try:
         response = model.invoke([HumanMessage(content=prompt)])
+        record_side_cost("title", Config.TITLE_GENERATION_MODEL, response)
         title = extract_text_content(response.content).strip()
         # Clean up any quotes or prefixes that slipped through
         title = title.strip("\"'")

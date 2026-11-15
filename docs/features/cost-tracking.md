@@ -61,6 +61,18 @@ CREATE TABLE message_costs (
 
 **Note**: `delete_conversation()` intentionally preserves cost data for accurate reporting.
 
+### Side calls (`side_costs`, from Nov 15 2026)
+
+Model calls outside a chat turn record their spend in `side_costs` (`feature`,
+`model`, tokens, `cost_usd`, `user_id` when known) through
+[`record_side_cost`](../../src/services/side_costs.py), which takes either SDK's
+usage and never raises into the call: `title`, `program_review`,
+`instructions_review`, `ai_assist`, `compaction`, `memory_review`,
+`memory_defrag` (the nightly script) and `memory_summary`. The freshness gate
+and the grounding check are part of the turn's cost already. Embeddings are not
+recorded yet (priced per character, a few cents a month). The admin page does
+not show side costs yet; the regular review reads the table.
+
 ## UI Display
 
 ### Conversation Cost

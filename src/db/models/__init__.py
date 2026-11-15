@@ -71,6 +71,7 @@ from src.db.models.push import PushSubscriptionMixin
 from src.db.models.scheduled_items import ScheduledItemsMixin
 from src.db.models.search import SearchMixin
 from src.db.models.settings import SettingsMixin
+from src.db.models.side_costs import SideCostsMixin
 from src.db.models.standing_chats import StandingChatMixin
 from src.db.models.stream_journal import StreamJournalMixin
 from src.db.models.sync_changes import ConversationChange, SyncChangesMixin
@@ -98,6 +99,7 @@ class Database(
     PlannerMixin,
     CacheMixin,
     CostMixin,
+    SideCostsMixin,
     SearchMixin,
     SettingsMixin,
     StandingChatMixin,

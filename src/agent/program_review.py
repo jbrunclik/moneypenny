@@ -27,6 +27,7 @@ from src.db.models.programs import PROGRAM_FEATURES
 from src.services import program_setup as setup
 from src.services.costs import calculate_token_cost
 from src.services.program_setup import ProgramRef, SetupChange, SetupChangeError
+from src.services.side_costs import record_side_cost
 from src.utils.clock import to_local
 from src.utils.logging import get_logger
 
@@ -153,6 +154,7 @@ def _invoke(prompt: str) -> tuple[ReviewOutput | None, dict[str, int]]:
     out = model.with_structured_output(ReviewOutput, include_raw=True).invoke(prompt)
     parsed = out.get("parsed") if isinstance(out, dict) else None
     raw = out.get("raw") if isinstance(out, dict) else None
+    record_side_cost("program_review", Config.PROGRAM_REVIEW_MODEL, raw)
     metadata = getattr(raw, "usage_metadata", None) or {}
     usage = {
         "input_tokens": int(metadata.get("input_tokens", 0)),

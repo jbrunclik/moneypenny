@@ -26,6 +26,7 @@ from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User
+from src.services.side_costs import record_side_cost
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -189,6 +190,7 @@ For example:
 Use standard 5-part cron format: minute hour day-of-month month day-of-week"""
 
         response = model.invoke([HumanMessage(content=prompt)])
+        record_side_cost("ai_assist", Config.DEFAULT_MODEL, response, user_id=user.id)
         response_text = extract_text_content(response.content)
 
         # Extract JSON from response (handle potential markdown code blocks)
@@ -271,6 +273,7 @@ If the prompt cannot be improved (too vague, empty, or inappropriate), return:
 {{"enhanced_prompt": null, "error": "<explanation of the issue>"}}"""
 
         response = model.invoke([HumanMessage(content=prompt)])
+        record_side_cost("ai_assist", Config.DEFAULT_MODEL, response, user_id=user.id)
         response_text = extract_text_content(response.content)
 
         # Clean up response - remove markdown code blocks if present
