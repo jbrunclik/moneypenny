@@ -34,7 +34,7 @@ def run_scheduled_agents() -> SchedulerResult:
     """Run everything due: one pass over scheduled items (agents included)."""
     now = utc_now()
 
-    # Clean up zombie executions (stuck in running/waiting_approval for too long)
+    # Close crashed runs (stuck running; a wait past its card's lifetime)
     zombies_cleaned = db.cleanup_zombie_executions()
     if zombies_cleaned > 0:
         logger.warning("Scheduler: cleaned up zombie executions", extra={"count": zombies_cleaned})

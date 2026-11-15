@@ -456,7 +456,7 @@ trigger a job that's already in the current chain, and the chain is capped at
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AGENT_APPROVAL_TTL_HOURS` | 24 | Hours until approval requests expire |
-| `AGENT_EXECUTION_TIMEOUT_MINUTES` | 10 | Max execution time before considered stale |
+| `AGENT_EXECUTION_TIMEOUT_MINUTES` | 10 | Max time a run stays `running` before the scheduler's zombie cleanup closes it as failed (a run `waiting_approval` stays until its card is answered or expires; since Nov 15 2026) |
 | `AGENT_MAX_TRIGGER_DEPTH` | 3 | Maximum job-to-job trigger chain length (cycles are always blocked) |
 | `AGENT_MAX_RETRIES` | 3 | Max retry attempts for transient failures |
 | `AGENT_MODEL_SDK_MAX_RETRIES` | 1 | Retries inside the Gemini SDK per chat-model call; a model that is down falls back to the other tier |

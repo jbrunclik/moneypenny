@@ -143,16 +143,22 @@ class JobRunMixin:
             return [row_to_job_run(row) for row in rows]
 
     def cleanup_zombie_executions(self) -> int:
-        """Clean up executions stuck in 'running' or 'waiting_approval' status.
+        """Close executions that crashed: marked 'failed' when stuck in 'running'
+        longer than AGENT_EXECUTION_TIMEOUT_MINUTES.
 
-        Marks executions as 'failed' if they've been stuck for longer than
-        AGENT_EXECUTION_TIMEOUT_MINUTES. This prevents permanently locked agents
-        due to crashed executions.
+        A run waiting on its card ('waiting_approval') is not stuck: the card
+        lives AGENT_APPROVAL_TTL_HOURS and its expiry closes the run
+        (run_approvals.expire_stale_run_cards). Closing it after the 10-minute
+        timeout showed it failed until the card was answered (Nov 15 2026
+        audit); only a wait past the card's lifetime - its card was lost - is
+        closed here.
 
         Returns:
             Number of zombie executions cleaned up.
         """
-        cutoff = utc_now() - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
+        now = utc_now()
+        cutoff = now - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
+        wait_cutoff = cutoff - timedelta(hours=Config.AGENT_APPROVAL_TTL_HOURS)
 
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
@@ -161,9 +167,9 @@ class JobRunMixin:
                    SET status = 'failed',
                        completed_at = ?,
                        error_message = 'Execution timed out (zombie cleanup)'
-                   WHERE status IN ('running', 'waiting_approval')
-                   AND started_at < ?""",
-                (to_db(utc_now()), to_db(cutoff)),
+                   WHERE (status = 'running' AND started_at < ?)
+                      OR (status = 'waiting_approval' AND started_at < ?)""",
+                (to_db(now), to_db(cutoff), to_db(wait_cutoff)),
             )
             conn.commit()
 
