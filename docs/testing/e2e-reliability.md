@@ -51,6 +51,11 @@ the test's setup, never in the baseline. Root-caused examples (Sep 2026):
   the user (see [Scroll Behavior](../ui/scroll-behavior.md#outside-forces-oct-10-2026-ios)),
   a bare `scrollTo` reads as layout - the image chase re-pinned "the user" who
   had scrolled up, depending on timing. Dispatch a `wheel` on `#messages` first.
+- **A synthetic wheel does nothing on macOS WebKit** (Nov 2026, Playwright
+  1.65). `page.mouse.wheel` scrolled nothing unless the document (or window)
+  had a wheel listener - one on `#messages` itself was not enough; Linux
+  WebKit in CI scrolled either way. Wheel the list with `wheelMessages()`
+  (`tests/e2e/gestures.ts`), which installs a no-op passive listener first.
 - **Agent editor: "the Name field holds the description"** (Oct 2026, WebKit).
   Not a fill race - the editor body was scrolled by about one field (filling
   the last field scrolls it into view, settling at varying offsets), so the
@@ -417,6 +422,7 @@ One-off failures not yet reproduced (each passed on retry). Oct 26 2026: none of
 trace and `test-results/` on the next occurrence - copy them before rerunning,
 since a rerun clears the folder. Fixed or quiet for a month: delete the entry.
 
+- **WebKit timeout: mobile sheet body drag** (Nov 15 2026) - `mobile-sheets.spec.ts:62` "a drag starting in the sheet body does not dismiss it" hit the 30 s test timeout once in a local `make test-all` (no failing step named; nothing in the SLOW/INFLIGHT log). 40/40 with `--repeat-each=40 --workers=8` right after. The trace was overwritten by the reruns - copy `test-results/` first next time.
 - **CI hang: WebKit E2E shard froze in deep research** (Oct 9 2026) - run 37948653042 (95249c0), `Frontend E2E Tests (webkit 2/4)` hit the 30-min job timeout (normally ~6 min): `deep-research.spec.ts` "an explicit request starts by itself" (test 86, the countdown autostart) never reported and nothing after test 87 ran; the mock server's SLOW/INFLIGHT log was empty. A hang past Playwright's per-test timeout points at a frozen worker/browser, not an assertion. Re-ran the job; capture the Playwright trace if it recurs. Likely the same root cause found Oct 23 2026: Playwright's WebKit has no push service and `pushManager.getSubscription()` on a service-worker-controlled page could freeze the page; service workers are now blocked suite-wide - drop this item if it does not recur.
 - **Chromium flake: stream resume after a connection drop** (Oct 13 2026) - `stream-resume.spec.ts:63` "connection drop mid-stream resumes from offset to full message" timed out once in a full `make test-all`: `page.waitForRequest('/resume?after_seq=')` never saw the client's resume request within 30s. Webkit passed in the same run; 5/5 alone on chromium. The trace was lost (isolated reruns clear `test-results/`) - copy `test-results/` before rerunning next time.
 - **WebKit stall: sync specs can't find visible buttons** (Oct 14 2026) - one full `make test-all` failed 4 WebKit tests (`sync.spec.ts` x3 in `beforeEach` on `#stream-btn`, `sync-other-device.spec.ts:374` on `#send-btn`): the screenshot shows the button rendered, yet the call log never got past "waiting for locator" - a frozen page, not an assertion. Both specs passed 132/132 with `--repeat-each=3` right after, and the next full run was green. Same shape as the Oct 9 deep-research hang; capture a trace on the next occurrence. Likely the same root cause found Oct 23 2026: Playwright's WebKit has no push service and `pushManager.getSubscription()` on a service-worker-controlled page could freeze the page; service workers are now blocked suite-wide - drop this item if it does not recur.

@@ -312,7 +312,8 @@ test.describe('Visual: Modal Dialogs', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test message for delete');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    // The finished reply: the sidebar row stops re-rendering (title, order)
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Wait for conversation to appear in sidebar
     await page.waitForSelector('.conversation-item-wrapper', { timeout: 5000 });
@@ -325,7 +326,8 @@ test.describe('Visual: Modal Dialogs', () => {
 
     // Click delete button - it's .conversation-delete inside .conversation-item
     const deleteBtn = convItem.locator('.conversation-delete');
-    await deleteBtn.click({ force: true });
+    // A checked click: a forced one fired at a re-rendered row once and no modal opened
+    await deleteBtn.click();
 
     // Wait for our custom modal to appear (not native dialog)
     await page.waitForSelector('.modal-container:not(.modal-hidden)', { timeout: 5000 });
@@ -350,7 +352,8 @@ test.describe('Visual: Modal Dialogs', () => {
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test message');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+    // The finished reply: the sidebar row stops re-rendering (title, order)
+    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
     // Wait for conversation to appear in sidebar
     await page.waitForSelector('.conversation-item-wrapper', { timeout: 5000 });
@@ -363,7 +366,8 @@ test.describe('Visual: Modal Dialogs', () => {
 
     // Click delete button
     const deleteBtn = convItem.locator('.conversation-delete');
-    await deleteBtn.click({ force: true });
+    // A checked click: a forced one fired at a re-rendered row once and no modal opened
+    await deleteBtn.click();
 
     // Wait for our custom modal to appear
     await page.waitForSelector('.modal-container:not(.modal-hidden)', { timeout: 5000 });

@@ -6,6 +6,7 @@
  * list short and the button still showing - "needs multiple taps".
  */
 import { test, expect } from '../global-setup';
+import { wheelMessages } from './gestures';
 import { scrollSettled } from './waits';
 
 test.use({ viewport: { width: 390, height: 664 }, hasTouch: true });
@@ -21,8 +22,7 @@ test('one tap reaches the bottom even when content grows during the scroll', asy
   await page.locator('.conversation-item-wrapper', { hasText: 'Long' }).click();
   await expect(page.locator('#messages .message').last()).toBeVisible();
   await scrollSettled(page);
-  await page.locator('#messages').hover();
-  await page.mouse.wheel(0, -3000);
+  await wheelMessages(page, -3000);
   await expect(page.locator('.scroll-to-bottom')).toBeVisible();
 
   await page.locator('.scroll-to-bottom').tap();
@@ -55,8 +55,7 @@ test('a tap while the list still coasts from a flick reaches the bottom', async 
   await page.locator('.conversation-item-wrapper', { hasText: 'Long' }).click();
   await expect(page.locator('#messages .message').last()).toBeVisible();
   await scrollSettled(page);
-  await page.locator('#messages').hover();
-  await page.mouse.wheel(0, -3000);
+  await wheelMessages(page, -3000);
   await expect(page.locator('.scroll-to-bottom')).toBeVisible();
 
   // iOS momentum: the list keeps moving up on its own (no touch events -
