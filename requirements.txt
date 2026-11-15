@@ -49,7 +49,7 @@ click==8.5.0
     #   flask
 courlan==1.4.0
     # via trafilatura
-croniter==6.2.4
+croniter==7.0.0
     # via -r requirements.in
 cryptography==50.0.2
     # via
@@ -111,7 +111,7 @@ googleapis-common-protos==1.76.0
     # via google-api-core
 greenlet==3.5.6
     # via playwright
-gunicorn==26.2.0
+gunicorn==27.0.1
     # via -r requirements.in
 h11==0.16.0
     # via
@@ -238,7 +238,7 @@ pillow==13.0.0
     #   pillow-heif
 pillow-heif==1.8.1
     # via -r requirements.in
-playwright==1.64.1
+playwright==1.65.2
     # via -r requirements.in
 primp==2.0.1
     # via ddgs
@@ -273,8 +273,6 @@ pydantic==2.14.3
     #   llm-sandbox
 pydantic-core==2.50.4
     # via pydantic
-pyee==14.0.0
-    # via playwright
 pyjwt==2.15.1
     # via -r requirements.in
 python-dateutil==3.0.0
@@ -349,7 +347,6 @@ typing-extensions==4.16.0
     #   opentelemetry-api
     #   pydantic
     #   pydantic-core
-    #   pyee
     #   typing-inspection
 typing-inspection==0.4.4
     # via pydantic
