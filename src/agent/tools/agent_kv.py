@@ -39,6 +39,7 @@ RESERVED_NAMESPACES = frozenset(
         "memory_review",
         "oauth_state",
         "search-usage",
+        "prefix-cache",
         "gemini_files",
         "instructions_tuning",
         "turn_owner",
