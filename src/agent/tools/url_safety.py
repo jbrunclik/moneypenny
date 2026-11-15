@@ -157,16 +157,21 @@ class SSRFSafeTransport(httpx.HTTPTransport):
     def __init__(
         self, *, verify: ssl.SSLContext | bool = True, deadline_s: float | None = None
     ) -> None:
-        """``deadline_s``: each response's total time to its last body byte."""
+        """``deadline_s``: the whole fetch's budget from now - every redirect
+        hop's headers and body share it (one transport per fetch)."""
         super().__init__(verify=verify)
-        self._deadline_s = deadline_s
+        self._deadline = None if deadline_s is None else _monotonic() + deadline_s
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         error = check_host(request.url.host, request.url.port)
         if error:
             raise httpx.ConnectError(f"SSRF blocked: {error}")
-        started = _monotonic()
         response = super().handle_request(request)
-        if self._deadline_s is not None and isinstance(response.stream, httpx.SyncByteStream):
-            response.stream = _DeadlineStream(response.stream, started + self._deadline_s)
+        if self._deadline is None:
+            return response
+        if _monotonic() > self._deadline:  # headers came too late (a slow drip)
+            response.close()
+            raise httpx.ReadTimeout("the page took longer than its total deadline")
+        if isinstance(response.stream, httpx.SyncByteStream):
+            response.stream = _DeadlineStream(response.stream, self._deadline)
         return response

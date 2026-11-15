@@ -178,3 +178,30 @@ class _Iter(httpx.SyncByteStream):
 
     def close(self) -> None:
         pass
+
+
+class TestFetchDeadlineIsShared:
+    """One budget for the whole fetch: redirect hops share it, and a reply
+    whose headers arrive after it is refused (security review)."""
+
+    def test_hops_share_one_budget(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.agent.tools import url_safety
+
+        clock = [0.0]
+        monkeypatch.setattr(url_safety, "_monotonic", lambda: clock[0])
+        monkeypatch.setattr(url_safety, "check_host", lambda *_: None)
+        transport = url_safety.SSRFSafeTransport(deadline_s=10)
+
+        def reply(_self: object, request: httpx.Request) -> httpx.Response:
+            clock[0] += 6  # each hop's headers take 6 s
+            return httpx.Response(
+                302, headers={"location": "https://example.com/next"}, request=request
+            )
+
+        with (
+            patch.object(url_safety.httpx.HTTPTransport, "handle_request", reply),
+            httpx.Client(transport=transport) as client,
+        ):
+            client.get("https://example.com/a")  # 6 s: within the budget
+            with pytest.raises(httpx.ReadTimeout):
+                client.get("https://example.com/next")  # 12 s: past it
