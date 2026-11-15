@@ -1,5 +1,6 @@
 """Unit tests for src/services/costs.py."""
 
+import json
 from collections.abc import Generator
 from datetime import UTC, datetime
 from typing import ClassVar
@@ -8,6 +9,7 @@ import pytest
 
 from src.services.costs import (
     calculate_image_generation_cost,
+    calculate_image_generation_cost_from_tool_results,
     calculate_token_cost,
     calculate_total_cost,
     convert_currency,
@@ -378,3 +380,52 @@ class TestDelegateCostFromToolResults:
         base = calculate_total_cost("gemini-3.8-flash", 1000, 100)
         with_tool = calculate_total_cost("gemini-3.8-flash", 1000, 100, tool_llm_cost=0.5)
         assert with_tool == base + 0.5
+
+
+class TestImageCostFromToolResults:
+    """Only image generations carry image usage: code and file results also
+    have a _full_result (their files) and are not images (Nov 15 2026 audit:
+    all 30 "missing usage_metadata" warnings were code and file results)."""
+
+    def _result(self, content: dict[str, object]) -> dict[str, object]:
+        return {"type": "tool", "content": json.dumps(content)}
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            {
+                "success": True,
+                "exit_code": 0,
+                "stdout": "",
+                "files": [],
+                "_full_result": {"files": []},
+            },
+            {
+                "success": True,
+                "file": {"name": "a.pdf"},
+                "message": "ok",
+                "_full_result": {"file": {}},
+            },
+        ],
+    )
+    def test_file_results_are_not_images(self, content: dict[str, object]) -> None:
+        from unittest.mock import patch
+
+        from src.services import costs
+
+        with patch.object(costs.logger, "warning") as warning:
+            assert calculate_image_generation_cost_from_tool_results([self._result(content)]) == 0.0
+        warning.assert_not_called()
+
+    def test_an_image_without_usage_is_still_reported(self) -> None:
+        from unittest.mock import patch
+
+        from src.services import costs
+
+        image = {
+            "success": True,
+            "_full_result": {"image": {"data": "x", "mime_type": "image/png"}},
+        }
+        with patch.object(costs.logger, "warning") as warning:
+            assert calculate_image_generation_cost_from_tool_results([self._result(image)]) == 0.0
+        warning.assert_called_once()
