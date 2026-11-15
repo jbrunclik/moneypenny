@@ -25,10 +25,6 @@ function contents(download: Download): Promise<string> {
 test.describe('Export a conversation', () => {
   test('the chat header downloads it as Markdown', async ({ page }) => {
     await chatWithOneTurn(page);
-    // A brand-new chat keeps its plain header until reopened (its actions too)
-    await page.reload();
-    await appReady(page);
-    await page.locator('.conversation-item').first().click();
     const exportButton = page.locator('#chat-header [aria-label="Export as Markdown"]');
     await expect(exportButton).toBeVisible();
 
@@ -39,6 +35,15 @@ test.describe('Export a conversation', () => {
     expect(text).toMatch(/^# /);
     expect(text).toContain('**You**');
     expect(text).toContain('Export me please');
+  });
+});
+
+test.describe('A brand-new chat', () => {
+  test('gets its header actions once the first message saved it', async ({ page }) => {
+    await chatWithOneTurn(page);
+    for (const label of ['Pin conversation', 'Export as Markdown', 'Archive conversation', 'Delete conversation']) {
+      await expect(page.locator(`#chat-header [aria-label="${label}"]`)).toBeVisible();
+    }
   });
 });
 

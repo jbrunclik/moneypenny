@@ -40,6 +40,7 @@ import { setMessageSendState } from '../components/messages/send-state';
 import { stopResearchCountdowns } from '../components/messages/research-offer';
 
 import { createConversation } from './conversation';
+import { renderChatHeaderForConversation } from './conversation-header';
 import { isTempConversation } from '../utils/conversation-id';
 import {
   addOutboxEntry,
@@ -151,6 +152,8 @@ async function persistTempConversation(store: StoreState, conv: Conversation): P
     store.removeConversation(tempId);
     store.addConversation(persistedConv);
     store.setCurrentConversation(persistedConv);
+    // The temp chat's header was plain (no rename/actions); now it is saved
+    renderChatHeaderForConversation(persistedConv);
     renderConversationsList();
     setActiveConversation(persistedConv.id);
 
