@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.agent.item_scheduler import run_due_items
+from src.agent.prefix_cache import purge_old_prefix_records
 from src.agent.run_approvals import expire_stale_run_cards
 from src.db.models import db
 from src.utils.clock import utc_now
@@ -43,6 +44,7 @@ def run_scheduled_agents() -> SchedulerResult:
     expire_stale_run_cards(now)
 
     items = run_due_items(now)
+    _purge_prefix_records()
     result = SchedulerResult(items_fired=items.fired, items_run=items.run)
     logger.info(
         "Scheduler: completed",
@@ -54,3 +56,12 @@ def run_scheduled_agents() -> SchedulerResult:
         },
     )
     return result
+
+
+def _purge_prefix_records() -> None:
+    """Old model-prefix telemetry rows go (src/agent/prefix_cache.py); a
+    failure is logged, the pass goes on."""
+    try:
+        purge_old_prefix_records()
+    except Exception:  # telemetry housekeeping must not fail the pass
+        logger.exception("Scheduler: prefix record purge failed")

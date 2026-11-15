@@ -47,3 +47,14 @@ def note_prefix_sent(key: str, user_id: str | None, now: float) -> tuple[float |
         return round(now - float(sent_at), 1), sender == (user_id or "")
     except ValueError:
         return None, None
+
+
+# Gemini's implicit cache lasts minutes: a prefix not sent for a day counts as
+# never sent. Delegate subagents send per-task prompts (a new key each), so the
+# records are purged by the scheduler pass instead of growing forever.
+PREFIX_RECORD_MAX_AGE_SECONDS = 86_400
+
+
+def purge_old_prefix_records() -> int:
+    """Delete prefix records not sent for a day; how many."""
+    return db.kv_delete_older_than(_SYSTEM_USER_ID, _NAMESPACE, PREFIX_RECORD_MAX_AGE_SECONDS)

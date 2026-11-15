@@ -54,3 +54,21 @@ def test_the_gap_and_who_sent_it_last() -> None:
 def test_a_store_failure_gives_no_gap_and_no_error() -> None:
     with patch.object(prefix_cache.db, "kv_get", side_effect=RuntimeError("locked")):
         assert note_prefix_sent("abcd1234", "user-a", 1000.0) == (None, None)
+
+
+def test_old_records_are_purged(test_database: Database) -> None:
+    """Delegate subagents send per-task prompts: each is a new key, so the
+    records must not grow forever (security review)."""
+    from src.agent.prefix_cache import purge_old_prefix_records
+
+    note_prefix_sent("old00000", "user-a", 1000.0)
+    note_prefix_sent("new00000", "user-a", 1000.0)
+    with test_database._pool.get_connection() as conn:
+        conn.execute(
+            "UPDATE kv_store SET updated_at = '2000-01-01T00:00:00+00:00' WHERE key = 'old00000'"
+        )
+        conn.commit()
+
+    assert purge_old_prefix_records() == 1
+    assert note_prefix_sent("old00000", "user-a", 2000.0) == (None, None)
+    assert note_prefix_sent("new00000", "user-a", 1010.0) == (10.0, True)
