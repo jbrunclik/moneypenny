@@ -253,7 +253,7 @@ def _invoke_model(
         response = model.invoke(messages, config=_with_cancel_callback(config, handler))
     except Exception as error:
         if timing:
-            timing.record(started, None)
+            timing.record(started, None, handler.longest_gap_s())
         if handler.streamed:
             logger.warning(
                 "Model call failed after streaming text, not retried",
@@ -262,7 +262,7 @@ def _invoke_model(
             raise PartialStreamError(str(error)) from error
         raise
     if timing:
-        timing.record(started, response)
+        timing.record(started, response, handler.longest_gap_s())
     record_model_usage(response)
     return response
 

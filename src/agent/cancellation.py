@@ -109,6 +109,10 @@ def raise_if_cancelled() -> None:
         raise TurnCancelled
 
 
+# Patched in tests: the clock CancelOnToken times a call's silences with
+_clock = time.monotonic
+
+
 class CancelOnToken(BaseCallbackHandler):
     """Abort a model call mid-stream once the turn is cancelled.
 
@@ -125,6 +129,19 @@ class CancelOnToken(BaseCallbackHandler):
         # Text reached the stream: a failed call is then not retried
         # (src/agent/retry.py PartialStreamError)
         self.streamed = False
+        # The call's longest silence (longest_gap_s): any chunk - text, a
+        # thought, an empty one - shows the stream is alive
+        self._started = _clock()
+        self._last_chunk: float | None = None
+        self._longest_gap = 0.0
+
+    def longest_gap_s(self) -> float | None:
+        """The longest stretch without a chunk so far, counting the wait for
+        the first and the time since the last; None when none arrived (a
+        call that did not stream)."""
+        if self._last_chunk is None:
+            return None
+        return max(self._longest_gap, _clock() - self._last_chunk)
 
     def on_llm_new_token(
         self,
@@ -133,6 +150,9 @@ class CancelOnToken(BaseCallbackHandler):
         run_id: UUID,
         **kwargs: Any,
     ) -> None:
+        now = _clock()
+        self._longest_gap = max(self._longest_gap, now - (self._last_chunk or self._started))
+        self._last_chunk = now
         if token:
             self.streamed = True
         raise_if_cancelled()

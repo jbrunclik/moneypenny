@@ -6,12 +6,15 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
 from langchain_core.messages import AIMessage, AIMessageChunk
 
-from src.agent import chat_node
+from src.agent import cancellation, chat_node
+from src.agent.retry import PartialStreamError
 from src.agent.stream_events import StreamEventProcessor
 from src.agent.turn_usage import MODEL_TIMING_KEY, ModelTiming, TurnClock, with_model_timing
 
@@ -119,3 +122,104 @@ def test_the_cost_service_passes_the_timing_on() -> None:
         costs.calculate_and_save_message_cost("m1", "c1", "u1", "gemini-2.5-flash", usage, [], 2)
     assert save.call_args.kwargs["turn_timing"] == {"model_calls": 1}
     assert json.dumps(save.call_args.kwargs["turn_timing"])
+
+
+# The longest silence inside a model call: decides whether a stall watchdog
+# is needed, and its threshold (docs/superpowers/specs/2026-11-15-title-speed-and-silence-design.md)
+
+
+def _ticking(monkeypatch: pytest.MonkeyPatch, start: float = 0.0) -> list[float]:
+    now = [start]
+    monkeypatch.setattr(cancellation, "_clock", lambda: now[0])
+    return now
+
+
+def test_the_longest_gap_between_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
+    now = _ticking(monkeypatch)
+    handler = cancellation.CancelOnToken()
+    for at in (2.0, 3.0, 9.0):
+        now[0] = at
+        handler.on_llm_new_token("x", run_id=uuid4())
+    now[0] = 10.0
+    assert handler.longest_gap_s() == 6.0
+
+
+def test_the_wait_for_the_first_chunk_and_after_the_last_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = _ticking(monkeypatch)
+    handler = cancellation.CancelOnToken()
+    now[0] = 7.0
+    handler.on_llm_new_token("x", run_id=uuid4())
+    now[0] = 8.0
+    assert handler.longest_gap_s() == 7.0
+    now[0] = 20.0
+    assert handler.longest_gap_s() == 13.0
+
+
+def test_thought_and_empty_chunks_are_not_silence(monkeypatch: pytest.MonkeyPatch) -> None:
+    now = _ticking(monkeypatch)
+    handler = cancellation.CancelOnToken()
+    for at, token in ((1.0, [{"type": "thinking", "thinking": "hmm"}]), (2.0, ""), (3.0, "ok")):
+        now[0] = at
+        handler.on_llm_new_token(token, run_id=uuid4())
+    assert handler.longest_gap_s() == 1.0
+
+
+def test_a_call_with_no_chunks_has_no_silence(monkeypatch: pytest.MonkeyPatch) -> None:
+    now = _ticking(monkeypatch)
+    handler = cancellation.CancelOnToken()
+    now[0] = 30.0
+    assert handler.longest_gap_s() is None
+
+
+def _streaming_model(
+    now: list[float], chunks_at: list[float], end: float, fail: bool = False
+) -> Any:
+    def invoke(_messages: Any, config: Any) -> AIMessage:
+        [handler] = [h for h in config["callbacks"] if isinstance(h, cancellation.CancelOnToken)]
+        for at in chunks_at:
+            now[0] = at
+            handler.on_llm_new_token("x", run_id=uuid4())
+        now[0] = end
+        if fail:
+            raise ValueError("boom")
+        return AIMessage(content="ok")
+
+    model = MagicMock()
+    model.invoke.side_effect = invoke
+    return model
+
+
+def test_the_turn_keeps_its_longest_silence(monkeypatch: pytest.MonkeyPatch) -> None:
+    now = _ticking(monkeypatch)
+    timing = ModelTiming()
+    chat_node._invoke_model(_streaming_model(now, [2.0, 3.0], 4.0), [], _config(timing))
+    now[0] = 100.0
+    chat_node._invoke_model(_streaming_model(now, [105.0], 106.0), [], _config(timing))
+    assert timing.max_silence_ms == 5000
+
+
+def test_a_failed_call_keeps_its_silence(monkeypatch: pytest.MonkeyPatch) -> None:
+    now = _ticking(monkeypatch)
+    timing = ModelTiming()
+    with pytest.raises(PartialStreamError):  # text had streamed: not retried
+        chat_node._invoke_model(_streaming_model(now, [1.0], 41.0, fail=True), [], _config(timing))
+    assert timing.max_silence_ms == 40000
+
+
+def test_a_batch_call_records_no_silence() -> None:
+    model = MagicMock()
+    model.invoke.return_value = AIMessage(content="ok")
+    timing = ModelTiming()
+    chat_node._invoke_model(model, [], _config(timing))
+    assert timing.max_silence_ms is None
+    clock = TurnClock(started=0.0)
+    clock.model = timing
+    assert "max_silence_ms" not in clock.timing(first_token_at=None, decision=None)
+
+
+def test_the_silence_is_in_the_turns_timing() -> None:
+    clock = TurnClock(started=0.0)
+    clock.model.calls, clock.model.ms, clock.model.max_silence_ms = 1, 7000, 4200
+    assert clock.timing(first_token_at=None, decision=None)["max_silence_ms"] == 4200

@@ -124,11 +124,19 @@ class ModelTiming:
     calls: int = 0
     ms: int = 0
     finish_reason: str | None = None
+    # The longest stretch inside a streamed call with no chunk (None: no call
+    # streamed) - decides whether a stall watchdog is needed (Nov 15 2026)
+    max_silence_ms: int | None = None
 
-    def record(self, started: float, response: BaseMessage | None) -> None:
-        """One call that began at ``started`` (monotonic) and ended now."""
+    def record(
+        self, started: float, response: BaseMessage | None, silence_s: float | None = None
+    ) -> None:
+        """One call that began at ``started`` (monotonic) and ended now, with
+        its longest silence when it streamed."""
         self.calls += 1
         self.ms += _ms_since(started)
+        if silence_s is not None:
+            self.max_silence_ms = max(self.max_silence_ms or 0, round(silence_s * 1000))
         reason = response.response_metadata.get("finish_reason") if response else None
         if reason:
             self.finish_reason = str(reason)
@@ -190,6 +198,7 @@ class TurnClock:
             "model_ms": self.model.ms,
             "model_calls": self.model.calls,
             "finish_reason": self.model.finish_reason,
+            "max_silence_ms": self.model.max_silence_ms,
         }
         if decision is not None:
             timing["gate_lookup"] = bool(decision.lookup)

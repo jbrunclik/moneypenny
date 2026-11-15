@@ -107,8 +107,15 @@ The review itself changes nothing in production and edits nothing but
 - Where reply time goes (from Nov 15 2026; `message_costs.turn_timing`, JSON): median
   and p90 of `json_extract(turn_timing, '$.first_token_ms')` for streamed turns, and of
   `gate_ms`, `lookup_ms` (when `gate_lookup`), `model_ms` and `model_calls`, split by
-  `thinking`; `finish_reason` other than `STOP` (MAX_TOKENS, SAFETY) is a finding. The
-  Reply speed items in TODO.md are judged against these.
+  `thinking`; `finish_reason` other than `STOP` (MAX_TOKENS, SAFETY) is a finding.
+  `max_silence_ms` (from Nov 15 2026; streamed turns only): the longest stretch inside a
+  model call with no chunk - it includes the model's thinking before its first thought
+  summary, so judge outliers against `thinking`; silences far beyond the healthy turns'
+  p99 are stalls (the watchdog item in TODO.md). The Reply speed items in TODO.md are
+  judged against these.
+- Title calls (from Nov 15 2026; "Conversation title generated" journal lines): median
+  and p90 `elapsed_ms` (a new chat's `done` waits for it; Flash-Lite took ~0.6 s) and
+  the share with `ok` false.
 - Backup sizes: the nightly `Backup compressed` journal lines (`plain_size_bytes`,
   `compressed_size_bytes`, `ratio` per database). A ratio creeping towards 1, or
   sizes growing much faster than usage, is a finding; a `Backup compression
