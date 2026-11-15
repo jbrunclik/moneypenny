@@ -378,6 +378,7 @@ class ChatAgent:
             Tuple of (response_text, tool_results, usage_info, result_messages)
         """
         clock = TurnClock()
+        clock.model.user_id = user_id
         messages = self._build_messages(
             text,
             files,
@@ -480,6 +481,7 @@ class ChatAgent:
             - {"type": "final", "content": "...", "tool_results": [...], "usage_info": {...}, "result_messages": [...]}
         """
         clock = TurnClock()
+        clock.model.user_id = user_id
         messages = self._build_messages(
             text,
             files,

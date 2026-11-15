@@ -223,3 +223,55 @@ def test_the_silence_is_in_the_turns_timing() -> None:
     clock = TurnClock(started=0.0)
     clock.model.calls, clock.model.ms, clock.model.max_silence_ms = 1, 7000, 4200
     assert clock.timing(first_token_at=None, decision=None)["max_silence_ms"] == 4200
+
+
+# Per-call cache use (docs/superpowers/specs/2026-11-15-cost-telemetry-design.md)
+
+
+def test_each_call_records_its_tokens_and_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
+    from langchain_core.messages import SystemMessage
+
+    noted: list[tuple[str, str | None]] = []
+
+    def note(key: str, user_id: str | None, _now: float) -> tuple[float | None, bool | None]:
+        noted.append((key, user_id))
+        return (42.0, False) if len(noted) > 1 else (None, None)
+
+    monkeypatch.setattr(chat_node, "note_prefix_sent", note)
+    model = MagicMock()
+    model.model = "gemini-4-hydrogen"
+    model.invoke.return_value = AIMessage(
+        content="ok",
+        usage_metadata={
+            "input_tokens": 1000,
+            "output_tokens": 20,
+            "total_tokens": 1020,
+            "input_token_details": {"cache_read": 600},
+        },
+    )
+    timing = ModelTiming(user_id="user-a")
+    messages = [SystemMessage(content="You are Moneypenny.")]
+    chat_node._invoke_model(model, messages, _config(timing))
+    chat_node._invoke_model(model, messages, _config(timing))
+
+    first, second = timing.entries
+    assert (first["input"], first["cached"], first["output"]) == (1000, 600, 20)
+    assert first["prefix"] == second["prefix"] and len(str(first["prefix"])) == 8
+    assert (first["gap_s"], first["same_user"]) == (None, None)
+    assert (second["gap_s"], second["same_user"]) == (42.0, False)
+    assert isinstance(first["ms"], int)
+    assert noted[0][1] == "user-a"
+
+
+def test_the_calls_are_in_the_turns_timing() -> None:
+    clock = TurnClock(started=0.0)
+    clock.model.calls, clock.model.ms = 1, 900
+    clock.model.entries.append({"input": 10, "cached": 0, "output": 1, "ms": 900})
+    assert clock.timing(first_token_at=None, decision=None)["calls"] == [
+        {"input": 10, "cached": 0, "output": 1, "ms": 900}
+    ]
+
+
+def test_a_turn_without_calls_leaves_them_out() -> None:
+    clock = TurnClock(started=0.0)
+    assert "calls" not in clock.timing(first_token_at=None, decision=None)

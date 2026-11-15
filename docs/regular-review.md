@@ -86,6 +86,12 @@ The review itself changes nothing in production and edits nothing but
   a run stopped on time where it used to be killed.
 - Integration tokens that expired (Calendar, Garmin, Todoist "disconnected"
   results in the journal) - the person may not know.
+- Cache use per model call (from Nov 15 2026; `message_costs.turn_timing` `calls`,
+  one entry per call: `input`, `cached`, `output`, `ms`, `prefix`, `gap_s`,
+  `same_user`): the cached share by `gap_s` bucket (<1 min, 1-5, 5-15, 15-60, >60
+  min) - where Gemini's implicit cache stops paying; the share of first calls cached
+  thanks to another user (`same_user` false) - what per-user tool sets would lose;
+  first call vs later rounds. Decides per-user tools and keeping the prefix warm.
 - Side costs (from Nov 15 2026; [cost-tracking.md](features/cost-tracking.md)):
   `side_costs` per `feature` and `model` per week (sum of `cost_usd`, count) next to
   the chat turns' total; the nightly `memory_defrag` on Carbon from Dec 1 2026 (its

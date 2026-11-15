@@ -127,6 +127,10 @@ class ModelTiming:
     # The longest stretch inside a streamed call with no chunk (None: no call
     # streamed) - decides whether a stall watchdog is needed (Nov 15 2026)
     max_silence_ms: int | None = None
+    # Whose turn it is (the prefix telemetry's same-user flag) and one entry
+    # per call: tokens, ms, prefix, gap since it was last sent (Nov 15 2026)
+    user_id: str | None = None
+    entries: list[dict[str, object]] = field(default_factory=list)
 
     def record(
         self, started: float, response: BaseMessage | None, silence_s: float | None = None
@@ -186,12 +190,12 @@ class TurnClock:
 
     def timing(
         self, first_token_at: float | None, decision: _GateDecision | None
-    ) -> dict[str, int | str | bool]:
+    ) -> dict[str, object]:
         """usage_info["timing"] (message_costs.turn_timing); unmeasured parts left out."""
         first_token_ms = (
             round((first_token_at - self.started) * 1000) if first_token_at is not None else None
         )
-        timing: dict[str, int | str | bool | None] = {
+        timing: dict[str, object] = {
             "first_token_ms": first_token_ms,
             "gate_ms": self.gate_ms,
             "lookup_ms": self.lookup_ms,
@@ -199,6 +203,7 @@ class TurnClock:
             "model_calls": self.model.calls,
             "finish_reason": self.model.finish_reason,
             "max_silence_ms": self.model.max_silence_ms,
+            "calls": self.model.entries or None,
         }
         if decision is not None:
             timing["gate_lookup"] = bool(decision.lookup)

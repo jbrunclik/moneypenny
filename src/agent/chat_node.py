@@ -1,10 +1,11 @@
 """The graph's chat node: one model call per round, with retries, Stop and fallback."""
 
+import json
 import time
 from typing import Any
 
 from langchain_core.callbacks import BaseCallbackManager
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.config import get_stream_writer
@@ -13,6 +14,7 @@ from src.agent.cancellation import CancelOnToken, raise_if_cancelled
 from src.agent.chat_model import FallbackModel, create_chat_model
 from src.agent.content import extract_text_content
 from src.agent.graph_state import AgentState
+from src.agent.prefix_cache import note_prefix_sent, prefix_key
 from src.agent.retry import PartialStreamError, is_model_unavailable, with_retry
 from src.agent.tool_result_aging import age_consumed_tool_messages
 from src.agent.turn_budget import (
@@ -263,8 +265,41 @@ def _invoke_model(
         raise
     if timing:
         timing.record(started, response, handler.longest_gap_s())
+        timing.entries.append(_call_entry(model, messages, response, started, timing.user_id))
     record_model_usage(response)
     return response
+
+
+def _call_entry(
+    model: object,
+    messages: list[BaseMessage],
+    response: BaseMessage,
+    started: float,
+    user_id: str | None,
+) -> dict[str, object]:
+    """One model call's cache use for turn_timing.calls: tokens, time, which
+    fixed prefix it sent and how long since anyone sent it (the data behind
+    per-user tool sets; docs/superpowers/specs/2026-11-15-cost-telemetry-design.md)."""
+    usage = getattr(response, "usage_metadata", None) or {}
+    details = usage.get("input_token_details") or {}
+    bound = getattr(model, "bound", model)  # a model with tools bound is a binding
+    tools = getattr(model, "kwargs", {}).get("tools") if bound is not model else None
+    system = next((m for m in messages if isinstance(m, SystemMessage)), None)
+    key = prefix_key(
+        str(getattr(bound, "model", "")),
+        str(system.content) if system is not None else "",
+        json.dumps(tools, default=str, sort_keys=True) if tools else "",
+    )
+    gap_s, same_user = note_prefix_sent(key, user_id, time.time())
+    return {
+        "input": int(usage.get("input_tokens", 0) or 0),
+        "cached": int(details.get("cache_read", 0) or 0),
+        "output": int(usage.get("output_tokens", 0) or 0),
+        "ms": round((time.monotonic() - started) * 1000),
+        "prefix": key,
+        "gap_s": gap_s,
+        "same_user": same_user,
+    }
 
 
 def _with_cancel_callback(config: RunnableConfig | None, handler: CancelOnToken) -> RunnableConfig:
