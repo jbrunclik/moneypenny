@@ -106,7 +106,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 ## Chat & UI
 
 
-- [ ] **A network blip at startup signs the user out** (Nov 15 2026 audit; bug) - `checkAuth()` treats any `/auth/me` failure as an auth failure and calls `logout`, which clears the token and drafts (`web/src/auth/google.ts`). Log out only on an auth error; on network, timeout or 5xx keep the token and show retry. May be part of the iPhone connection errors in Next up.
 - [ ] **Client findings, Nov 15 2026 audit** (remove each line as it ships):
   - **Streaming re-renders the whole reply per token** - marked + DOMPurify + innerHTML on every token, KaTeX uncached. One render per animation frame and a KaTeX cache.
   - **Cold start** - a serial waterfall with nothing cached locally; paint the last conversation list from storage, fold the five boot calls into one, and load KaTeX (519 KB in the entry bundle) on first math.

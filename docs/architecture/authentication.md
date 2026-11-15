@@ -46,6 +46,7 @@ production configuration it rejects.
 - **Auto-refresh**: Frontend refreshes when less than 2 days remain
 - **Refresh window**: 48-hour window ensures users can skip a day without getting logged out
 - **Page load**: `checkAuth()` validates token and schedules refresh
+- **Unreachable server at page load**: only an auth error (401, `AUTH_*`) signs out. A network error, timeout or 5xx keeps the token and retries `/auth/me` (`AUTH_CHECK_RETRY_DELAYS_MS`, at once on the `online` event) behind a "Can't reach Moneypenny - retrying..." toast; before Nov 15 2026 any failure signed out and cleared the drafts
 - **Refresh endpoint**: `POST /auth/refresh`
 
 ### Token Security

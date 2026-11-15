@@ -157,6 +157,12 @@ export const API_RETRY_MAX_DELAY_MS = 10 * MS_PER_SECOND;
 /** Jitter factor for exponential backoff (0.25 = ±25%) */
 export const API_RETRY_JITTER_FACTOR = 0.25;
 
+/**
+ * Startup auth check: delays between /auth/me attempts while the server
+ * can't be reached (the last one repeats). Only an auth error signs out.
+ */
+export const AUTH_CHECK_RETRY_DELAYS_MS = [2 * MS_PER_SECOND, 5 * MS_PER_SECOND, 15 * MS_PER_SECOND, 30 * MS_PER_SECOND];
+
 /** HTTP status codes that are safe to retry */
 export const API_RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
 

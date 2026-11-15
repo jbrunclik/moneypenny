@@ -4,7 +4,9 @@ import { useStore } from '../state/store';
 import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';
 import { disablePush } from '../core/push';
+import type { User } from '../types/api';
 import {
+  AUTH_CHECK_RETRY_DELAYS_MS,
   GOOGLE_BUTTON_WIDTH,
   GOOGLE_SCRIPT_POLL_INTERVAL_MS,
   GOOGLE_SCRIPT_TIMEOUT_MS,
@@ -126,19 +128,9 @@ async function handleGoogleCredential(
 export async function checkAuth(): Promise<boolean> {
   const store = useStore.getState();
 
+  let user: User;
   try {
-    const user = await auth.me();
-    log.info('User authenticated', { userId: user.id });
-    store.setUser(user);
-
-    // Schedule automatic token refresh for existing valid token (read after
-    // the request: a login or refresh meanwhile replaces it)
-    const { token } = useStore.getState();
-    if (token) {
-      scheduleTokenRefresh(token);
-    }
-
-    return true;
+    user = await currentUserWhenReachable();
   } catch (error) {
     // Auth failed - clear any stale token and cancel refresh
     if (useStore.getState().token) {
@@ -152,6 +144,55 @@ export async function checkAuth(): Promise<boolean> {
     }
     return false;
   }
+
+  log.info('User authenticated', { userId: user.id });
+  store.setUser(user);
+  // Schedule automatic token refresh for existing valid token (read after
+  // the request: a login or refresh meanwhile replaces it)
+  const { token } = useStore.getState();
+  if (token) {
+    scheduleTokenRefresh(token);
+  }
+  return true;
+}
+
+/**
+ * The signed-in user. A failure that is not an auth error (network, timeout,
+ * 5xx) keeps the token and retries until the server answers: signing out
+ * there cleared the token and the drafts on a blip (Nov 15 2026 audit).
+ * Throws on an auth error, or on any failure when there is no token.
+ */
+async function currentUserWhenReachable(): Promise<User> {
+  let waiting: { dismiss: () => void } | null = null;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const user = await auth.me();
+      waiting?.dismiss();
+      return user;
+    } catch (error) {
+      if ((error instanceof ApiError && error.isAuthError) || !useStore.getState().token) {
+        waiting?.dismiss();
+        throw error;
+      }
+      log.warn('Server unreachable at startup - retrying', { error, attempt });
+      waiting ??= toast.loading('Can\'t reach Moneypenny - retrying...');
+      const delays = AUTH_CHECK_RETRY_DELAYS_MS;
+      await delayOrOnline(delays[Math.min(attempt, delays.length - 1)] ?? 0);
+    }
+  }
+}
+
+/** Resolve after `ms`, or as soon as the browser reports it is back online. */
+function delayOrOnline(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const done = (): void => {
+      clearTimeout(timer);
+      window.removeEventListener('online', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    window.addEventListener('online', done);
+  });
 }
 
 /**
