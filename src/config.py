@@ -403,7 +403,11 @@ class Config:
     )  # Default to 12 months
 
     # Title generation settings
-    TITLE_GENERATION_MODEL = "gemini-4-hydrogen"
+    # A new chat's `done` waits for its title: Flash-Lite takes ~0.6 s where
+    # Hydrogen at its default thinking took 3-17 s (Nov 15 2026); a failed
+    # title is retried on the next message, so no retries here
+    TITLE_GENERATION_MODEL = "gemini-3.5-flash-lite"
+    TITLE_GENERATION_TIMEOUT_SECONDS = 10
     TITLE_GENERATION_TEMPERATURE = 0.7
     TITLE_MAX_LENGTH = 62  # Extra 2 chars for emoji + space prefix
     TITLE_TRUNCATE_LENGTH = 59  # Leaves room for "..."

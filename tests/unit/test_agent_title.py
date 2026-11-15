@@ -62,3 +62,52 @@ class TestGenerateTitle:
         assert title_mod.generate_title("how do I sort?", "use sorted()") == (
             "🐍 Python List Sorting"
         )
+
+
+class TestTitleSpeed:
+    """A new chat's `done` waits for its title: Flash-Lite, a short limit,
+    no retries (docs/superpowers/specs/2026-11-15-title-speed-and-silence-design.md)."""
+
+    def test_the_title_model_is_quick_and_not_retried(self, monkeypatch) -> None:
+        from unittest.mock import MagicMock
+
+        from src.agent import title as title_mod
+        from src.config import Config
+
+        factory = MagicMock()
+        factory.return_value.invoke.return_value.content = "🚲 Servis kola"
+        monkeypatch.setattr(title_mod, "chat_model", factory)
+
+        assert title_mod.generate_title("servis", "odpověď") == "🚲 Servis kola"
+        assert Config.TITLE_GENERATION_MODEL == "gemini-3.5-flash-lite"
+        factory.assert_called_once_with(
+            Config.TITLE_GENERATION_MODEL,
+            temperature=Config.TITLE_GENERATION_TEMPERATURE,
+            timeout=Config.TITLE_GENERATION_TIMEOUT_SECONDS,
+            max_retries=0,
+        )
+        assert Config.TITLE_GENERATION_TIMEOUT_SECONDS == 10
+
+    def test_each_call_logs_its_time_and_outcome(self, monkeypatch) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from src.agent import title as title_mod
+
+        factory = MagicMock()
+        factory.return_value.invoke.side_effect = [
+            MagicMock(content="🚲 Servis kola"),
+            TimeoutError("read timed out"),
+        ]
+        monkeypatch.setattr(title_mod, "chat_model", factory)
+
+        with patch.object(title_mod.logger, "info") as info:
+            title_mod.generate_title("a", "b")
+            assert title_mod.generate_title("a", "b") is None
+
+        lines = [
+            c.kwargs["extra"]
+            for c in info.call_args_list
+            if c.args[0] == "Conversation title generated"
+        ]
+        assert [line["ok"] for line in lines] == [True, False]
+        assert all(isinstance(line["elapsed_ms"], int) for line in lines)

@@ -1,5 +1,7 @@
 """Conversation title generation."""
 
+import time
+
 from langchain_core.messages import HumanMessage
 
 from src.agent.content import extract_text_content
@@ -23,11 +25,13 @@ def generate_title(user_message: str, assistant_response: str) -> str | None:
         failed. Callers should leave the existing title untouched on None so
         it can be retried opportunistically on the next user message.
     """
-    logger.debug("Generating conversation title")
-    # Use Flash model for fast, cheap title generation
     model = chat_model(
-        Config.TITLE_GENERATION_MODEL, temperature=Config.TITLE_GENERATION_TEMPERATURE
+        Config.TITLE_GENERATION_MODEL,
+        temperature=Config.TITLE_GENERATION_TEMPERATURE,
+        timeout=Config.TITLE_GENERATION_TIMEOUT_SECONDS,
+        max_retries=0,
     )
+    started = time.monotonic()
 
     # Truncate context to avoid sending too much data
     max_context = Config.TITLE_CONTEXT_MAX_LENGTH
@@ -57,7 +61,7 @@ Title:"""
         if len(title) > Config.TITLE_MAX_LENGTH:
             title = title[: Config.TITLE_TRUNCATE_LENGTH] + "..."
         final_title = title or f"💬 {user_message[: Config.TITLE_FALLBACK_LENGTH]}"
-        logger.debug("Title generated", extra={"title": final_title})
+        _log_call(started, ok=True)
         return final_title
     except Exception as e:  # must never break the message save
         # Catch broadly: provider SDKs wrap errors in their own exception types
@@ -65,9 +69,18 @@ Title:"""
         # never break the surrounding message-save flow. Returning None tells
         # the caller to leave the default title in place so the next user
         # message will retry opportunistically.
+        _log_call(started, ok=False)
         logger.warning(
             "Title generation failed",
             extra={"error": str(e), "error_type": type(e).__name__},
             exc_info=True,
         )
         return None
+
+
+def _log_call(started: float, *, ok: bool) -> None:
+    """A new chat's `done` waits for this call: its time and outcome for review."""
+    logger.info(
+        "Conversation title generated",
+        extra={"elapsed_ms": round((time.monotonic() - started) * 1000), "ok": ok},
+    )
