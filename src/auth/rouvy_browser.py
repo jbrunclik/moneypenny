@@ -137,7 +137,14 @@ def fetch(
         raise RouvyBrowserError("Too many Rouvy browser requests at once")
 
     t = threading.Thread(target=_run, name="rouvy-fetch", daemon=True)
-    t.start()
+    try:
+        t.start()
+    except BaseException:
+        _SLOTS.release()  # the worker that would free it never ran
+        raise
+    # On a timeout the slot stays taken until the worker's browser closed
+    # (every Playwright step has its own timeout): freeing it here would let
+    # more browsers run than the cap allows
     t.join(timeout=Config.ROUVY_HTTP_TIMEOUT_SECONDS + _JOIN_BUFFER_SECONDS)
     if t.is_alive():
         raise RouvyBrowserError("Rouvy browser request timed out")

@@ -95,3 +95,14 @@ def test_the_slot_is_freed_when_the_request_fails():
         slots.acquire.return_value = True
         rb.fetch("GET", URL, {}, {}, "UA")
     slots.release.assert_called_once()
+
+
+def test_the_slot_is_freed_when_the_worker_cannot_start():
+    with (
+        patch.object(rb, "_SLOTS") as slots,
+        patch.object(rb.threading.Thread, "start", side_effect=RuntimeError("no threads")),
+        pytest.raises(RuntimeError),
+    ):
+        slots.acquire.return_value = True
+        rb.fetch("GET", URL, {}, {}, "UA")
+    slots.release.assert_called_once()
