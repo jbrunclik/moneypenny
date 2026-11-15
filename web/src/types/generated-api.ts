@@ -5751,6 +5751,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/proposals/{proposal_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-offer a started deep-research card instead of re-running its turn
+         * @description (Regenerate, Continue or Retry on the run): the Start message and what
+         *     followed are deleted and the card is open again, its plan editable.
+         *     409 while a turn in the conversation is still running.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposal_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ReopenProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/language/programs/{program_id}": {
         parameters: {
             query?: never;
@@ -13225,17 +13308,6 @@ export interface components {
             }[];
         };
         /**
-         * UpdateMemoryProtectionRequest
-         * @description Request to protect or unprotect a memory.
-         */
-        UpdateMemoryProtectionRequest: {
-            /**
-             * Protected
-             * @description Whether the memory is exempt from auto-deletion
-             */
-            protected: boolean;
-        };
-        /**
          * ProposalDetailResponse
          * @description One label/value row on a card (a list: JSON objects lose their order).
          */
@@ -13362,6 +13434,35 @@ export interface components {
              * @default null
              */
             changes: components["schemas"]["ProposalResponse.SetupFieldChange"][] | null;
+        };
+        /**
+         * ReopenProposalRequest
+         * @description Re-offering a started deep-research card: the user message that started it.
+         */
+        ReopenProposalRequest: {
+            /**
+             * Message Id
+             * @description The Start message
+             */
+            message_id: string;
+            /**
+             * Reason
+             * @description What re-ran the run's turn (telemetry)
+             * @default retry
+             * @enum {string}
+             */
+            reason?: "regenerate" | "continue" | "retry";
+        };
+        /**
+         * UpdateMemoryProtectionRequest
+         * @description Request to protect or unprotect a memory.
+         */
+        UpdateMemoryProtectionRequest: {
+            /**
+             * Protected
+             * @description Whether the memory is exempt from auto-deletion
+             */
+            protected: boolean;
         };
         /**
          * ApproveProposalRequest

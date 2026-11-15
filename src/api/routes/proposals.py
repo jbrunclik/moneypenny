@@ -1,4 +1,4 @@
-"""Proposal routes: approve or decline a card (docs/features/proposals.md).
+"""Proposal routes: approve, decline or re-offer a card (docs/features/proposals.md).
 
 On conversations.api: a proposal belongs to a conversation's reply. The
 server applies the chosen option's stored payload (src/agent/proposals.py),
@@ -8,12 +8,18 @@ shown under a saved reply is a 409.
 
 from __future__ import annotations
 
+from src.agent.deep_research.plan import OfferConflictError, reopen_offer
 from src.agent.proposals import STREAM_STARTED, ProposalNotPendingError, resolve
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
 from src.api.helpers.chat_turn import refuse_if_read_only
+from src.api.helpers.turn_steering import running_turn_id
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
-from src.api.schemas.proposals import ApproveProposalRequest, ProposalResponse
+from src.api.schemas.proposals import (
+    ApproveProposalRequest,
+    ProposalResponse,
+    ReopenProposalRequest,
+)
 from src.api.utils import proposal_to_response
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
@@ -63,6 +69,30 @@ def approve_proposal(
     if proposal.kind in STREAM_STARTED:
         raise_validation_error("Start it from its card.", field="choice")
     return _answer(user, proposal_id, data.choice)
+
+
+@api.route("/proposals/<proposal_id>/reopen", methods=["POST"])
+@api.output(ProposalResponse)
+@api.doc(responses=[404, 409, 429])
+@rate_limit_conversations
+@require_auth
+@validate_request(ReopenProposalRequest)
+def reopen_proposal(user: User, data: ReopenProposalRequest, proposal_id: str) -> dict[str, object]:
+    """Re-offer a started deep-research card instead of re-running its turn
+    (Regenerate, Continue or Retry on the run): the Start message and what
+    followed are deleted and the card is open again, its plan editable.
+    409 while a turn in the conversation is still running."""
+    proposal = db.get_proposal(proposal_id, user.id)
+    conv = db.get_conversation(proposal.conversation_id, user.id) if proposal else None
+    if proposal is None or conv is None:
+        raise_not_found_error("Proposal")
+    refuse_if_read_only(conv)
+    if running_turn_id(conv.id) is not None:
+        raise_conflict_error("Please wait for the current response to finish.")
+    try:
+        return proposal_to_response(reopen_offer(proposal, data.message_id, data.reason))
+    except OfferConflictError as e:
+        raise_conflict_error(str(e), {"proposal": proposal_to_response(proposal)})
 
 
 @api.route("/proposals/<proposal_id>/decline", methods=["POST"])

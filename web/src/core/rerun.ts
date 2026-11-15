@@ -18,6 +18,7 @@ import { resetAutoRetry } from './send-delivery';
 import { sendStreamingMessage } from './stream-send';
 import { sendBatchMessage } from './batch-send';
 import { dispatchSend, sendUiMessage } from './messaging';
+import { reopenResearchRun } from './deep-research';
 
 const log = createLogger('messaging');
 
@@ -58,7 +59,9 @@ function answerLastUserMessage(e: Event): void {
   const { convId } = (e as CustomEvent<{ convId: string }>).detail;
   if (useStore.getState().currentConversation?.id !== convId) return;
   if (useStore.getState().getActiveRequest(convId)) return;
-  void dispatchRerun(convId, 'regenerate');
+  void reopenResearchRun(convId, 'retry').then((reopened) => {
+    if (!reopened) void dispatchRerun(convId, 'regenerate');
+  });
 }
 
 /**
@@ -103,6 +106,8 @@ async function dispatchRerun(convId: string, mode: 'regenerate' | 'continue'): P
 async function regenerateResponse(messageId: string): Promise<void> {
   const convId = idleCurrentConversationId();
   if (!convId) return;
+  // A deep-research run is re-offered, not re-run as an ordinary turn
+  if (await reopenResearchRun(convId, 'regenerate')) return;
   log.info('Regenerating response', { conversationId: convId, messageId });
   try {
     await messages.delete(messageId);
@@ -119,6 +124,7 @@ async function regenerateResponse(messageId: string): Promise<void> {
 async function continueResponse(): Promise<void> {
   const convId = idleCurrentConversationId();
   if (!convId) return;
+  if (await reopenResearchRun(convId, 'continue')) return;
   log.info('Continuing response', { conversationId: convId });
   await dispatchRerun(convId, 'continue');
 }

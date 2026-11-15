@@ -101,6 +101,23 @@ This page covers what the user sees. The rest of the feature:
   message). No cap on rounds; one open offer per conversation (a new card
   marks older open ones `superseded`). Migration 0089 moved the offers stored
   on messages (`research.offer`, `research.run.followup`) into cards.
+- **Re-running a run re-offers it** (Nov 2026). A run's turn is a run, not
+  a chat turn: Regenerate or Continue on its report, or Retry when its reply
+  was lost (a deploy killed the run), would otherwise answer "Start deep
+  research" as an ordinary turn. `reopenResearchRun()`
+  ([core/deep-research.ts](../../web/src/core/deep-research.ts)) catches
+  these when the chat's last user message is a Start (its `deep_research`
+  action names the offer's reply) and calls `POST
+  /api/proposals/<id>/reopen` with that message and the reason.
+  `reopen_offer()` ([plan.py](../../src/agent/deep_research/plan.py)) checks
+  the message started this card, puts the card back to `pending` in one
+  conditional write (`reopen_proposal`: only from `approved`, so two devices
+  cannot both do it) with `status: offered` and no autostart, deletes the
+  Start message and everything after it, and supersedes any other open
+  offer. The editor shows the started plan (`final_sub_questions`), so the
+  user starts again with what they had, or edits it. Refused (409) while a
+  turn in the chat is running. Logged as "Deep research reopened" with
+  `reason` (regenerate / continue / retry) and `deleted_messages`.
 - **Progress and the chip.** See [Progress UI](#progress-ui).
 
 ## Progress UI

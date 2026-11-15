@@ -146,6 +146,46 @@ def typed_start_plan(answered: list[Proposal]) -> DeepResearchPlan | None:
     return _plan(card, final)
 
 
+def reopen_offer(card: Proposal, start_message_id: str, reason: str) -> Proposal:
+    """Put a started card back on the table: its run's turn is re-run
+    (Regenerate, Continue, Retry - a deploy may have killed it), which would
+    otherwise be an ordinary turn on "Start deep research". The Start message
+    and everything after it go; the card shows the started plan, editable,
+    with no countdown. Raises OfferConflictError when this message did not
+    start this card or the card is not started.
+    """
+    start = db.get_message_by_id(start_message_id)
+    action = start.action if start else None
+    if (
+        start is None
+        or start.conversation_id != card.conversation_id
+        or card.kind != KIND
+        or action is None
+        or action["type"] != "deep_research"
+        or action["offer_message_id"] != card.message_id
+    ):
+        raise OfferConflictError("That message did not start this research offer.")
+    option = card.options[0]
+    offer = {**option["payload"], "status": "offered", "autostart": False}
+    if not db.reopen_proposal(card.id, [{**option, "payload": offer}]):
+        raise OfferConflictError(
+            f"This research offer was {_STATE_WORDS.get(card.state, 'closed')}, not started."
+        )
+    deleted = db.delete_messages_after(card.conversation_id, card.user_id, start.id, True)
+    db.supersede_open_proposals(card.conversation_id, KIND, card.id)
+    logger.info(
+        "Deep research reopened",
+        extra={
+            "conversation_id": card.conversation_id,
+            "offer_message_id": card.message_id,
+            "reason": reason,
+            "deleted_messages": deleted,
+        },
+    )
+    reopened = db.get_proposal(card.id, card.user_id)
+    return reopened or card
+
+
 def apply_research(proposal: Proposal, option: ProposalOption) -> str:
     """A typed yes: the turn it arrived in runs the research (typed_start_plan)."""
     if not Config.DEEP_RESEARCH_ENABLED:

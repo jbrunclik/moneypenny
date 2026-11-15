@@ -66,6 +66,15 @@ class ProposalResponse(ResponseModel):
     )
 
 
+class ReopenProposalRequest(RequestModel):
+    """Re-offering a started deep-research card: the user message that started it."""
+
+    message_id: str = Field(..., max_length=64, description="The Start message")
+    reason: Literal["regenerate", "continue", "retry"] = Field(
+        default="retry", description="What re-ran the run's turn (telemetry)"
+    )
+
+
 class ApproveProposalRequest(RequestModel):
     """Approving a card: which of its options (0 when it has one)."""
 

@@ -92,6 +92,42 @@ test.describe('Deep research', () => {
     await expect(page.locator('.research-chip summary')).toContainText('3 questions', { timeout: 15000 });
   });
 
+  test('Regenerate on a report re-opens its offer instead of an ordinary turn', async ({ page, request }) => {
+    await offerTurn(page, request);
+    await card(page).locator('.research-offer__remove').first().click({ timeout: 15000 });
+    await card(page).locator('.research-offer__start').click();
+    const report = page.locator('.message.assistant').last();
+    await expect(report.locator('.research-chip__text')).toBeVisible({ timeout: 15000 });
+
+    await report.locator('.message-regenerate-btn').click({ force: true }); // revealed on hover
+
+    // The run (Start message and report) is gone; the card is open with the started plan
+    await expect(page.locator('.research-chip')).toHaveCount(0);
+    await expect(page.locator('.message--action')).toHaveCount(0);
+    await expect(card(page).locator('.research-offer__item textarea')).toHaveCount(2);
+    await expect(card(page).locator('.research-offer__start')).toBeVisible();
+    await expect(card(page).locator('.research-offer__countdown')).toHaveCount(0);
+    await expect(page.locator('.message.assistant')).toHaveCount(1);
+
+    await page.reload();
+    await expect(card(page).locator('.research-offer__item textarea')).toHaveCount(2, { timeout: 15000 });
+    await expect(page.locator('.message.assistant')).toHaveCount(1);
+  });
+
+  test('a run whose reply was lost re-opens its offer on Retry', async ({ page, request }) => {
+    await offerTurn(page, request);
+    await card(page).locator('.research-offer__start').click({ timeout: 15000 });
+    await expect(page.locator('.message.assistant').last().locator('.research-chip__text')).toBeVisible({ timeout: 15000 });
+    // As if a deploy killed the run: the chat ends on the Start message
+    await page.locator('.message.assistant').last().evaluate((el) => el.remove());
+    await page.evaluate(() => document.dispatchEvent(new CustomEvent('message:retry-reply', {
+      detail: { convId: location.hash.split('/')[2] },
+    })));
+
+    await expect(card(page).locator('.research-offer__start')).toBeVisible();
+    await expect(page.locator('.message--action')).toHaveCount(0);
+  });
+
   test('Not now declines the offer, and it stays declined', async ({ page, request }) => {
     await offerTurn(page, request);
     await card(page).locator('.proposal-card__decline').click({ timeout: 15000 });

@@ -128,6 +128,8 @@ The review itself changes nothing in production and edits nothing but
   declined / expired / superseded) and `resolved_by` (button vs typed) from
   `proposals`, and the "Deep research started" lines' edits - do people start
   what is offered, and does the next-message expiry close offers they wanted?
+  The "Deep research reopened" lines by `reason`: many `retry` means runs
+  are killed (deploys mid-run); many `regenerate` means reports disappoint.
 - Artifact checklists: artifacts whose `state` has a non-empty `checklist`
   against all checklist artifacts, and the "Artifact read" lines with
   `checklist_items > 0` - do people tick items, and does the agent read them

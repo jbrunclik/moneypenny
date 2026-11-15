@@ -197,6 +197,19 @@ class ProposalsMixin:
             "UPDATE proposals SET options = ? WHERE id = ?", (json.dumps(options), proposal_id)
         )
 
+    def reopen_proposal(self, proposal_id: str, options: list[ProposalOption]) -> bool:
+        """Put an approved (started) proposal back to pending with `options`
+        - True for the one call that wins (a deep-research run re-offered)."""
+        return (
+            self._write(
+                """UPDATE proposals SET state = 'pending', chosen = NULL, resolved_by = NULL,
+                       resolved_at = NULL, result = NULL, options = ?
+                   WHERE id = ? AND state = 'approved'""",
+                (json.dumps(options), proposal_id),
+            )
+            == 1
+        )
+
     def finish_proposal(self, proposal_id: str, state: ProposalState, result: str) -> None:
         """Record what applying the claimed option did (or why it failed)."""
         self._write(

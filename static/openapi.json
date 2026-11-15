@@ -5074,6 +5074,86 @@
         "description": "The whole conversation as a text/markdown attachment: title, who wrote what and when, content as written, attachments, sources and artifacts by name."
       }
     },
+    "/api/proposals/{proposal_id}/reopen": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Re-offer a started deep-research card instead of re-running its turn",
+        "description": "(Regenerate, Continue or Retry on the run): the Start message and what\nfollowed are deleted and the card is open again, its plan editable.\n409 while a turn in the conversation is still running.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReopenProposalRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/language/programs/{program_id}": {
       "delete": {
         "parameters": [
@@ -17271,21 +17351,6 @@
         "title": "SportsConversationResponse",
         "type": "object"
       },
-      "UpdateMemoryProtectionRequest": {
-        "description": "Request to protect or unprotect a memory.",
-        "properties": {
-          "protected": {
-            "description": "Whether the memory is exempt from auto-deletion",
-            "title": "Protected",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "protected"
-        ],
-        "title": "UpdateMemoryProtectionRequest",
-        "type": "object"
-      },
       "ProposalResponse.ProposalDetailResponse": {
         "description": "One label/value row on a card (a list: JSON objects lose their order).",
         "properties": {
@@ -17542,6 +17607,48 @@
           "changes"
         ],
         "title": "ProposalResponse",
+        "type": "object"
+      },
+      "ReopenProposalRequest": {
+        "description": "Re-offering a started deep-research card: the user message that started it.",
+        "properties": {
+          "message_id": {
+            "description": "The Start message",
+            "maxLength": 64,
+            "title": "Message Id",
+            "type": "string"
+          },
+          "reason": {
+            "default": "retry",
+            "description": "What re-ran the run's turn (telemetry)",
+            "enum": [
+              "regenerate",
+              "continue",
+              "retry"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id"
+        ],
+        "title": "ReopenProposalRequest",
+        "type": "object"
+      },
+      "UpdateMemoryProtectionRequest": {
+        "description": "Request to protect or unprotect a memory.",
+        "properties": {
+          "protected": {
+            "description": "Whether the memory is exempt from auto-deletion",
+            "title": "Protected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "protected"
+        ],
+        "title": "UpdateMemoryProtectionRequest",
         "type": "object"
       },
       "ApproveProposalRequest": {

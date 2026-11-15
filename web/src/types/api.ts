@@ -164,6 +164,9 @@ interface MessageResearch {
   run?: ResearchRun;
 }
 
+/** What re-ran a deep-research run's turn, when its card is re-offered (telemetry) */
+export type ReopenReason = NonNullable<Schemas['ReopenProposalRequest']['reason']>;
+
 /** The chat request's deep_research field: start an offer with the edited plan */
 export type DeepResearchStart = Schemas['ChatRequest.DeepResearchStart'];
 
