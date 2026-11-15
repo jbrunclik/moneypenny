@@ -86,7 +86,11 @@ valid + broken, list, get, get unknown, dead session, no session, delete):
   with cookies the browser rotated as `Set-Cookie`, so the parsing, rotation
   and re-login logic is unchanged. Only a browser reply that is challenged
   too (or a browser failure) is `RouvyBlockedError`. Log line: "Rouvy request
-  via browser" (`method`, `status`, `elapsed_ms`). If Rouvy tightens it
+  via browser" (`method`, `status`, `elapsed_ms`). Pitfalls: fetch() hands back the
+  decoded body, so the reply drops `content-encoding`/`content-length` (kept,
+  httpx inflated it again: "Error -3 while decompressing data", the first
+  live upload on Nov 15); one Chromium per request, capped at
+  `BROWSER_MAX_CONCURRENT_SESSIONS` (a slot frees only once its browser closed). If Rouvy tightens it
   further, the remaining options are a headed browser or giving up the API
   (the agent hands over a ZWO file to import).
 - **List** returned exactly 30 workouts for an account with more: possibly the

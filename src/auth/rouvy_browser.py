@@ -28,6 +28,17 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+# fetch() hands back the decoded body: keeping these made httpx inflate it
+# again ("Error -3 while decompressing data", Nov 15 2026); Set-Cookie is
+# rebuilt from the context
+_DROPPED_HEADERS = frozenset(
+    {"content-encoding", "content-length", "transfer-encoding", "set-cookie"}
+)
+
+# One Chromium per request: cap them like the browser tool's sessions. A
+# worker frees its slot only once its browser closed, also after a timeout
+_SLOTS = threading.BoundedSemaphore(Config.BROWSER_MAX_CONCURRENT_SESSIONS)
+
 # Over the page timeout, so the join outlives Playwright's own timeout
 _JOIN_BUFFER_SECONDS = 10.0
 
@@ -94,7 +105,7 @@ def to_response(
     (read off its context afterwards) come back as Set-Cookie headers. A
     redirect fetch() would not follow (status 0) reads as a 302.
     """
-    pairs = [(k, v) for k, v in headers.items() if k.lower() != "set-cookie"]
+    pairs = [(k, v) for k, v in headers.items() if k.lower() not in _DROPPED_HEADERS]
     for name, value in after.items():
         if value and sent.get(name) != value:
             pairs.append(("set-cookie", f"{name}={value}; Domain=.rouvy.com; Path=/"))
@@ -119,6 +130,11 @@ def fetch(
             replies.append(_fetch_sync(url, fetch_spec(method, kwargs), jar, user_agent))
         except Exception as e:  # noqa: BLE001 - re-raised on the caller's thread
             errors.append(e)
+        finally:
+            _SLOTS.release()
+
+    if not _SLOTS.acquire(timeout=Config.ROUVY_HTTP_TIMEOUT_SECONDS):
+        raise RouvyBrowserError("Too many Rouvy browser requests at once")
 
     t = threading.Thread(target=_run, name="rouvy-fetch", daemon=True)
     t.start()
