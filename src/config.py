@@ -648,6 +648,8 @@ class Config:
 
     # HTML processing
     HTML_TEXT_MAX_LENGTH = 15000
+    # fetch_url lists up to this many of a page's links after its text
+    FETCH_URL_MAX_LINKS = 40
     # Tool result size caps (chars) - results land in LLM context
     CODE_EXECUTION_MAX_STDOUT_CHARS: int = int(
         os.getenv("CODE_EXECUTION_MAX_STDOUT_CHARS", "10000")

@@ -16,7 +16,9 @@ from src.agent.tools.turn_usage import get_tool_call_count, record_tool_call
 from src.agent.tools.url_safety import SSRFSafeTransport, validate_public_url
 from src.agent.tools.web_content import (
     content_type_category,
+    extract_links,
     extract_text_from_html,
+    page_text,
     sniffed_encoding,
     wrap_untrusted_content,
 )
@@ -190,7 +192,7 @@ def _response_text(
 
 
 @tool
-def fetch_url(url: str) -> str | list[dict[str, Any]]:
+def fetch_url(url: str, start: int = 0) -> str | list[dict[str, Any]]:
     """Fetch content from a KNOWN URL - web pages, PDFs, and images.
 
     Use this tool to:
@@ -206,6 +208,7 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
 
     Args:
         url: The URL to fetch (must start with http:// or https://)
+        start: Character to continue a long page from (its result says where)
 
     Returns:
         For web pages: The text content in markdown format
@@ -241,11 +244,11 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
 
     # Handle HTML content - extract text
     if content_category == "html":
-        return _html_result(url, extract_text_from_html(response.text))
+        return _html_result(url, response.text, start)
 
     # Handle plain text content
     if content_category == "text":
-        return _text_result(url, response.text)
+        return _text_result(url, response.text, start)
 
     # Handle binary content (PDFs, images)
     if content_category == "binary":
@@ -263,13 +266,48 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
     )
 
 
-def _html_result(url: str, extracted_text: str) -> str:
-    """The page's extracted text, wrapped as untrusted, with the tool's notes."""
-    logger.info("HTML content extracted", extra={"url": url, "text_length": len(extracted_text)})
-    wrapped = wrap_untrusted_content(extracted_text, url)
+def _window(text: str, start: int) -> tuple[str, str]:
+    """HTML_TEXT_MAX_LENGTH characters of ``text`` from ``start``, and the
+    trusted note saying where to continue (or that nothing is left)."""
+    total = len(text)
+    if start > 0 and start >= total:
+        return "", f"[Nothing after character {start} - the page has {total} characters]"
+    end = min(start + Config.HTML_TEXT_MAX_LENGTH, total)
+    if end >= total:
+        return text[start:], ""
+    note = f"[Truncated at {end} of {total} characters - call fetch_url with start={end} for more]"
+    return text[start:end], note
+
+
+def _links_section(html: str, url: str) -> str:
+    links = extract_links(html, url, Config.FETCH_URL_MAX_LINKS)
+    if not links:
+        return ""
+    return "\n\nLinks:\n" + "\n".join(
+        f"- {text}: {link}" if text else f"- {link}" for text, link in links
+    )
+
+
+def _framed(url: str, body: str, note: str) -> str:
+    """Page content inside the untrusted markers; our notes after them."""
+    framed = wrap_untrusted_content(body, url)
+    return framed + (f"\n\n{note}" if note else "")
+
+
+def _html_result(url: str, html: str, start: int) -> str:
+    """The page's text from ``start`` (and its links on the first read),
+    wrapped as untrusted, with the tool's notes."""
+    full_text = page_text(html)
+    chunk, note = _window(full_text, start)
+    logger.info(
+        "HTML content extracted",
+        extra={"url": url, "text_length": len(full_text), "start": start},
+    )
+    body = chunk + (_links_section(html, url) if start == 0 else "")
+    wrapped = _framed(url, body, note)
     # Hint at browser tool when page likely needs JS rendering (our own
     # trusted note, kept outside the untrusted-content markers)
-    if len(extracted_text) < 100 and Config.BROWSER_ENABLED:
+    if start == 0 and len(full_text) < 100 and Config.BROWSER_ENABLED:
         wrapped += (
             "\n\n[Note: This page returned very little text. "
             "It may require JavaScript rendering. "
@@ -286,13 +324,11 @@ def _extracted_result(url: str, text: str) -> str:
     return wrap_untrusted_content(text, url) + f"\n\n[{GROUNDING_DIRECTIVE}]"
 
 
-def _text_result(url: str, text_content: str) -> str:
-    """Plain text, truncated and wrapped as untrusted."""
-    limit = Config.HTML_TEXT_MAX_LENGTH
-    if len(text_content) > limit:
-        text_content = text_content[:limit] + "\n\n[Content truncated...]"
+def _text_result(url: str, text_content: str, start: int = 0) -> str:
+    """Plain text from ``start``, wrapped as untrusted."""
+    chunk, note = _window(text_content, start)
     logger.info("Text content fetched", extra={"url": url, "text_length": len(text_content)})
-    return wrap_untrusted_content(text_content, url) + f"\n\n[{GROUNDING_DIRECTIVE}]"
+    return _framed(url, chunk, note) + f"\n\n[{GROUNDING_DIRECTIVE}]"
 
 
 def _binary_result(url: str, content: bytes, content_type: str) -> str | list[dict[str, Any]]:

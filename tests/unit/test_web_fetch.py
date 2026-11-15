@@ -274,8 +274,9 @@ class TestFetchUrl:
         with patch("src.agent.tools.web.Config.HTML_TEXT_MAX_LENGTH", 10):
             result = fetch_url.invoke({"url": "https://example.com/file.txt"})
 
-        assert "x" * 10 + "\n\n[Content truncated...]" in result
+        assert "x" * 10 in result
         assert "x" * 11 not in result
+        assert "call fetch_url with start=10 for more" in result
 
     @patch("src.agent.tools.web.httpx.Client")
     def test_near_empty_page_suggests_the_browser(self, mock_client_class: MagicMock) -> None:

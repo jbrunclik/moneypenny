@@ -5,6 +5,7 @@ content types and the charset sniff for bodies whose header names none.
 
 import codecs
 import re
+from urllib.parse import urljoin, urlsplit
 
 import html2text
 import trafilatura
@@ -97,18 +98,53 @@ def extract_text_from_html(html: str, max_length: int | None = None) -> str:
     # price markup): a huge page is cut once, here, so none of them can tie the
     # worker up with it - the text is cut to far less anyway
     html = html[:TRAFILATURA_MAX_HTML_CHARS]
-    text = extract_main_content(html)
-    if len(text) < _MIN_MAIN_CONTENT_CHARS:
-        text = html_to_markdown(html)
+    text = _readable_text(html)
 
     # Truncate if too long
     limit = max_length if max_length is not None else Config.HTML_TEXT_MAX_LENGTH
     if len(text) > limit:
         text = text[:limit] + "\n\n[Content truncated...]"
+    return _with_page_header(html, text)
 
-    # The page's own date and price markup, first (extraction drops both)
+
+def page_text(html: str) -> str:
+    """The page's whole readable text (no cut; fetch_url slices it)."""
+    html = html[:TRAFILATURA_MAX_HTML_CHARS]
+    return _with_page_header(html, _readable_text(html))
+
+
+def _readable_text(html: str) -> str:
+    text = extract_main_content(html)
+    if len(text) < _MIN_MAIN_CONTENT_CHARS:
+        text = html_to_markdown(html)
+    return text
+
+
+def _with_page_header(html: str, text: str) -> str:
+    """The page's own date and price markup, first (extraction drops both)."""
     header = "\n".join(line for line in (page_date_line(html), product_data_line(html)) if line)
     return f"{header}\n\n{text.strip()}" if header else text.strip()
+
+
+_LINK_SCHEMES = {"http", "https"}
+
+
+def extract_links(html: str, base_url: str, limit: int) -> list[tuple[str, str]]:
+    """The page's links as (text, absolute URL): web links only, the first
+    of each URL, fragments to the page itself dropped, at most ``limit``."""
+    links: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    with parsed_html(html[:TRAFILATURA_MAX_HTML_CHARS]) as soup:
+        for anchor in soup.find_all("a", href=True):
+            href = str(anchor.get("href", "")).strip()
+            url = urljoin(base_url, href).split("#")[0]
+            if href.startswith("#") or urlsplit(url).scheme not in _LINK_SCHEMES or url in seen:
+                continue
+            seen.add(url)
+            links.append((" ".join(anchor.get_text(" ").split()), url))
+            if len(links) >= limit:
+                break
+    return links
 
 
 # Supported binary MIME types for fetch_url

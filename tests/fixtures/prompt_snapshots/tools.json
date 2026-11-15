@@ -280,12 +280,15 @@
     }
   },
   {
-    "description": "Fetch content from a KNOWN URL - web pages, PDFs, and images.\n\nUse this tool to:\n- Read a page whose URL you already have (from the user or conversation)\n- Analyze PDF documents (returns the PDF for your analysis)\n- Analyze images from URLs (returns the image for your analysis)\n\nDo NOT use this to open web_search results - for find-and-read tasks\ncall `research` instead, which searches and reads in one round.\n\nFor PDFs and images, the binary content is returned directly for you to analyze.\nYou can describe images, extract text from PDFs, answer questions about their content, etc.\n\nArgs:\n    url: The URL to fetch (must start with http:// or https://)\n\nReturns:\n    For web pages: The text content in markdown format\n    For PDFs/images: Multimodal content for analysis\n    For errors: JSON with error field",
+    "description": "Fetch content from a KNOWN URL - web pages, PDFs, and images.\n\nUse this tool to:\n- Read a page whose URL you already have (from the user or conversation)\n- Analyze PDF documents (returns the PDF for your analysis)\n- Analyze images from URLs (returns the image for your analysis)\n\nDo NOT use this to open web_search results - for find-and-read tasks\ncall `research` instead, which searches and reads in one round.\n\nFor PDFs and images, the binary content is returned directly for you to analyze.\nYou can describe images, extract text from PDFs, answer questions about their content, etc.\n\nArgs:\n    url: The URL to fetch (must start with http:// or https://)\n    start: Character to continue a long page from (its result says where)\n\nReturns:\n    For web pages: The text content in markdown format\n    For PDFs/images: Multimodal content for analysis\n    For errors: JSON with error field",
     "name": "fetch_url",
     "parameters": {
       "properties": {
         "url": {
           "type": "STRING"
+        },
+        "start": {
+          "type": "INTEGER"
         }
       },
       "required": [
