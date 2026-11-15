@@ -115,3 +115,18 @@ def test_links_are_capped() -> None:
         == 40
         == Config.FETCH_URL_MAX_LINKS
     )
+
+
+def test_start_past_the_end_has_no_empty_wrapper(small_limit: int) -> None:
+    result = _fetch(_text_page("a" * 150), start=400)
+    assert "UNTRUSTED" not in result.upper()
+    assert "[Nothing after character 400 - the page has 150 characters]" in result
+
+
+def test_links_resolve_against_the_final_url_after_redirects() -> None:
+    import httpx
+
+    page = _html_page("<p>" + "Plenty of page text. " * 10 + '</p><a href="manual.pdf">Manual</a>')
+    page.url = httpx.URL("https://example.com/docs/v2/")  # where the redirects ended
+    result = _fetch(page)
+    assert "- Manual: https://example.com/docs/v2/manual.pdf" in result

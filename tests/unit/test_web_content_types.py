@@ -65,3 +65,27 @@ def test_data_follows_the_text_limits(monkeypatch: pytest.MonkeyPatch) -> None:
     with patch.object(web, "_fetch_response", return_value=(page, None, None)):
         result = web.fetch_url.invoke({"url": "https://api.example/big.json"})
     assert "call fetch_url with start=50 for more" in result
+
+
+def test_xhtml_is_a_web_page() -> None:
+    assert content_type_category("application/xhtml+xml") == "html"
+
+
+def test_deeply_nested_json_is_shown_as_it_came() -> None:
+    from src.agent.tools.web_content import data_text
+
+    raw = "[" * 1000 + "]" * 1000
+    # The parser's depth depends on the recursion limit: force its failure
+    with patch("src.agent.tools.web_content.json.loads", side_effect=RecursionError("too deep")):
+        assert data_text(raw, "application/json") == raw
+
+
+def test_huge_json_is_cut_before_it_is_parsed() -> None:
+    from src.agent.tools.web_content import data_text
+    from src.constants import TRAFILATURA_MAX_HTML_CHARS
+
+    raw = '{"a": "' + "x" * (TRAFILATURA_MAX_HTML_CHARS * 2) + '"}'
+    with patch("src.agent.tools.web_content.json.loads") as loads:
+        text = data_text(raw, "application/json")
+    loads.assert_not_called()  # cut JSON is no longer valid: shown as it came, cut
+    assert len(text) <= TRAFILATURA_MAX_HTML_CHARS

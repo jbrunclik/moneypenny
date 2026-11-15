@@ -155,12 +155,15 @@ _DATA_TYPES = frozenset({"application/json", "application/xml", "text/xml"})
 def data_text(raw: str, content_type: str) -> str:
     """A data response as text: JSON pretty-printed (letters kept), anything
     else - XML, feeds, broken JSON - as it came."""
+    if len(raw) > TRAFILATURA_MAX_HTML_CHARS:  # too big to parse; cut JSON is not JSON
+        return raw[:TRAFILATURA_MAX_HTML_CHARS]
     mime_type = content_type.split(";")[0].strip().lower()
     if mime_type == "application/json" or mime_type.endswith("+json"):
         try:
-            return json.dumps(json.loads(raw), indent=2, ensure_ascii=False)
-        except ValueError:
+            pretty = json.dumps(json.loads(raw), indent=2, ensure_ascii=False)
+        except ValueError, RecursionError:  # broken, or nested past the parser's depth
             return raw
+        return pretty[:TRAFILATURA_MAX_HTML_CHARS]
     return raw
 
 
@@ -188,7 +191,7 @@ def content_type_category(content_type: str) -> str:
     # Normalize content type (remove charset and parameters)
     mime_type = content_type.split(";")[0].strip().lower()
 
-    if "text/html" in mime_type:
+    if "text/html" in mime_type or mime_type == "application/xhtml+xml":
         return "html"
     if mime_type in ("text/plain", "text/markdown", "text/csv"):
         return "text"

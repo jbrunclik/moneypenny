@@ -109,6 +109,11 @@ def _fetch_response(url: str, timeout: float | None = None) -> _FetchResult:
 
 
 def _may_read_elsewhere(url: str) -> bool:
+    """Exa may read it: a public web URL (validated as a direct fetch would
+    be - a private or tokenised link must not leak to a third party), not
+    Reddit, and Exa has headroom."""
+    if validate_public_url(url):
+        return False
     host = (urlsplit(url).hostname or "").lower()
     no_fallback = host == _NO_FALLBACK_DOMAIN or host.endswith(f".{_NO_FALLBACK_DOMAIN}")
     return not no_fallback and extract_available()
@@ -222,9 +227,9 @@ def fetch_url(url: str, start: int = 0) -> str | list[dict[str, Any]]:
     if fetch_error or response is None:
         fetch_error = fetch_error or f"Failed to fetch {url}"
         if status in _REFUSED_STATUSES:
-            text, other_error = _read_elsewhere(url, Config.HTML_TEXT_MAX_LENGTH, status)
-            if text is not None:
-                return _extracted_result(url, text)
+            result, other_error = _exa_page_result(url, start, status)
+            if result is not None:
+                return result
             fetch_error += _ALSO_UNAVAILABLE if other_error else ""
         return tool_error(fetch_error)
 
@@ -245,7 +250,8 @@ def fetch_url(url: str, start: int = 0) -> str | list[dict[str, Any]]:
 
     # Handle HTML content - extract text
     if content_category == "html":
-        return _html_result(url, response.text, start)
+        final_url = response.url if isinstance(response.url, httpx.URL) else url
+        return _html_result(url, response.text, start, str(final_url))
 
     # Handle plain text content, JSON and feeds
     if content_category in {"text", "data"}:
@@ -254,9 +260,9 @@ def fetch_url(url: str, start: int = 0) -> str | list[dict[str, Any]]:
     # Handle binary content (PDFs, images)
     if content_category == "binary":
         if _is_pdf(content_type) and content_length > Config.FETCH_URL_MAX_FILE_SIZE_BYTES:
-            text, _ = _read_elsewhere(url, Config.HTML_TEXT_MAX_LENGTH, None)
-            if text is not None:
-                return _extracted_result(url, text)
+            result, _ = _exa_page_result(url, start, None)
+            if result is not None:
+                return result
         return _binary_result(url, response.content, content_type)
 
     # Unsupported content type
@@ -292,11 +298,13 @@ def _links_section(html: str, url: str) -> str:
 
 def _framed(url: str, body: str, note: str) -> str:
     """Page content inside the untrusted markers; our notes after them."""
+    if not body:
+        return note
     framed = wrap_untrusted_content(body, url)
     return framed + (f"\n\n{note}" if note else "")
 
 
-def _html_result(url: str, html: str, start: int) -> str:
+def _html_result(url: str, html: str, start: int, base_url: str) -> str:
     """The page's text from ``start`` (and its links on the first read),
     wrapped as untrusted, with the tool's notes."""
     full_text = page_text(html)
@@ -305,7 +313,7 @@ def _html_result(url: str, html: str, start: int) -> str:
         "HTML content extracted",
         extra={"url": url, "text_length": len(full_text), "start": start},
     )
-    body = chunk + (_links_section(html, url) if start == 0 else "")
+    body = chunk + (_links_section(html, base_url) if start == 0 else "")
     wrapped = _framed(url, body, note)
     # Hint at browser tool when page likely needs JS rendering (our own
     # trusted note, kept outside the untrusted-content markers)
@@ -321,9 +329,23 @@ def _html_result(url: str, html: str, start: int) -> str:
     return wrapped + f"\n\n[{GROUNDING_DIRECTIVE}]"
 
 
-def _extracted_result(url: str, text: str) -> str:
-    """Text read through Exa, framed like a fetched page."""
-    return wrap_untrusted_content(text, url) + f"\n\n[{GROUNDING_DIRECTIVE}]"
+def _exa_page_result(
+    url: str, start: int, direct_status: int | None
+) -> tuple[str | None, str | None]:
+    """fetch_url's window of a page read through Exa: (result, None), or
+    (None, Exa's error / None when not tried). Exa is asked for one
+    character past the window, so the result knows whether more is left
+    (Exa does not say the page's full length)."""
+    window = Config.HTML_TEXT_MAX_LENGTH
+    text, error = _read_elsewhere(url, start + window + 1, direct_status)
+    if text is None:
+        return None, error
+    if start > 0 and start >= len(text):
+        return f"[Nothing after character {start}]\n\n[{GROUNDING_DIRECTIVE}]", None
+    end = start + window
+    note = f"[Truncated at {end} characters - call fetch_url with start={end} for more]"
+    body = _framed(url, text[start:end], note if len(text) > end else "")
+    return body + f"\n\n[{GROUNDING_DIRECTIVE}]", None
 
 
 def _text_result(url: str, text_content: str, start: int = 0) -> str:
