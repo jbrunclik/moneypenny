@@ -70,7 +70,7 @@ distro==1.9.0
     # via
     #   google-genai
     #   langsmith
-dnspython==2.9.0
+dnspython==2.9.2
     # via email-validator
 docker==7.2.0
     # via llm-sandbox
@@ -215,7 +215,7 @@ multidict==7.1.0
     # via
     #   aiohttp
     #   yarl
-opentelemetry-api==1.45.1
+opentelemetry-api==1.45.2
     # via google-api-core
 ordered-set==4.1.0
     # via flask-limiter
@@ -318,7 +318,7 @@ sniffio==1.3.1
     # via
     #   google-genai
     #   langsmith
-soupsieve==3.0.4
+soupsieve==4.1.1
     # via beautifulsoup4
 sqlparse==0.6.0
     # via yoyo-migrations
