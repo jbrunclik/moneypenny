@@ -191,3 +191,79 @@ def test_another_users_id_returns_nothing(database: Database, test_user: User) -
     ):
         result = search_memory.invoke({"query": memory_id})
     assert _LONG not in result
+
+
+# ---- final review fixes ----
+
+
+def test_a_slow_model_cannot_stretch_the_pass(
+    database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reminders run in the same oneshot pass: summaries get a time budget
+    and stop at the first failure (final review)."""
+    for i in range(5):
+        _add(database, test_user, f"{i} " + _LONG)
+    clock = [0.0]
+    monkeypatch.setattr(memory_summaries, "_monotonic", lambda: clock[0])
+
+    def slow(_messages: object) -> AIMessage:
+        clock[0] += 12  # each call takes 12 s
+        return _reply("Canyon Endurace CF 7.")
+
+    factory = MagicMock()
+    factory.return_value.invoke.side_effect = slow
+    with (
+        patch.object(memory_summaries, "chat_model", factory),
+        patch.object(memory_summaries, "record_side_cost"),
+    ):
+        written = memory_summaries.summarize_pending()
+
+    assert written == 2  # 0 s and 12 s started within the 20 s budget; 24 s did not
+    assert Config.MEMORY_SUMMARIES_PASS_BUDGET_SECONDS == 20
+
+
+def test_a_failure_ends_the_batch(database: Database, test_user: User) -> None:
+    for i in range(3):
+        _add(database, test_user, f"{i} " + _LONG)
+    factory = MagicMock()
+    factory.return_value.invoke.side_effect = TimeoutError("read timed out")
+    with patch.object(memory_summaries, "chat_model", factory):
+        memory_summaries.summarize_pending()
+    assert factory.return_value.invoke.call_count == 1
+
+
+def test_an_empty_reply_is_not_retried_every_pass(database: Database, test_user: User) -> None:
+    """A blocked or empty reply would otherwise cost a call a minute, for ever."""
+    memory_id = _add(database, test_user, _LONG)
+    factory = MagicMock()
+    factory.return_value.invoke.return_value = _reply("")
+    with (
+        patch.object(memory_summaries, "chat_model", factory),
+        patch.object(memory_summaries, "record_side_cost"),
+    ):
+        memory_summaries.summarize_pending()
+        memory_summaries.summarize_pending()
+    assert factory.return_value.invoke.call_count == 1
+    assert _LONG in get_user_memories_list_prompt(test_user.id)  # shown whole
+    listing = get_user_memories_list_prompt(test_user.id)
+    assert "full_chars" not in listing
+    assert memory_id in listing
+
+
+@pytest.mark.parametrize("form", ["id={}", "'{}'", '"{}"', " {} "])
+def test_a_quoted_or_prefixed_id_still_finds_the_memory(
+    database: Database, test_user: User, form: str
+) -> None:
+    memory_id = _add(database, test_user, _LONG)
+    with patch(
+        "src.agent.tools.memory.get_conversation_context", return_value=(None, test_user.id)
+    ):
+        result = search_memory.invoke({"query": form.format(memory_id)})
+    assert _LONG.strip() in result
+
+
+def test_the_guidance_covers_merging_and_deleting() -> None:
+    """Consolidating from summaries alone would lose the details (final review)."""
+    from src.agent.prompt_texts.memory import MEMORY_SYSTEM_PROMPT
+
+    assert "patch, merge or delete a condensed entry" in " ".join(MEMORY_SYSTEM_PROMPT.split())

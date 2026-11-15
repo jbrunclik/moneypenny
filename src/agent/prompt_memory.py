@@ -83,9 +83,8 @@ def get_user_memories_list_prompt(user_id: str) -> str:
     if shown:
         memory_list = []
         for mem in shown:
-            condensed = (
-                mem.summary is not None and len(mem.content) > Config.MEMORY_SUMMARY_MAX_CHARS
-            )
+            # "" marks a memory Flash-Lite would not summarise: shown whole
+            condensed = bool(mem.summary) and len(mem.content) > Config.MEMORY_SUMMARY_MAX_CHARS
             entry: dict[str, str | int] = {
                 "id": mem.id,
                 "category": mem.category or "",

@@ -10,6 +10,8 @@ ones whose summary a trigger cleared - so no write path needs a hook.
 
 from __future__ import annotations
 
+import time
+
 from langchain_core.messages import HumanMessage
 
 from src.agent.content import extract_text_content
@@ -21,6 +23,9 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Patched in tests: the pass's summary budget clock
+_monotonic = time.monotonic
+
 _PROMPT = """Condense this note an assistant keeps about its user into at most {limit}
 characters. Keep names, numbers, dates and the point a reader would act on;
 drop filler. Same language as the note. Output only the condensed text.
@@ -30,12 +35,20 @@ Note ({category}): {content}"""
 
 def summarize_pending() -> int:
     """Summarise up to MEMORY_SUMMARIES_PER_PASS memories that need one; how
-    many were written. A failed one stays without a summary (shown whole)."""
+    many were written. Starts no summary after
+    MEMORY_SUMMARIES_PASS_BUDGET_SECONDS and stops at the first failure (an
+    outage, most likely): reminders run in the same pass. A memory left
+    without a summary is shown whole."""
     limit = Config.MEMORY_SUMMARY_MAX_CHARS
+    started = _monotonic()
     written = 0
     for memory in db.memories_needing_summary(limit, Config.MEMORY_SUMMARIES_PER_PASS):
+        if _monotonic() - started >= Config.MEMORY_SUMMARIES_PASS_BUDGET_SECONDS:
+            break
         summary = _summarize(memory)
-        if summary and db.set_memory_summary(memory.id, memory.content, summary):
+        if summary is None:
+            break
+        if db.set_memory_summary(memory.id, memory.content, summary) and summary:
             written += 1
     if written:
         logger.info("Memory summaries written", extra={"count": written})
@@ -60,4 +73,8 @@ def _summarize(memory: Memory) -> str | None:
         return None
     record_side_cost("memory_summary", Config.MEMORY_SUMMARY_MODEL, response, memory.user_id)
     text = " ".join(extract_text_content(response.content).split())
-    return text[: Config.MEMORY_SUMMARY_MAX_CHARS] or None
+    if not text:
+        # Empty or blocked: stored as "" so it is not asked again every minute
+        # (shown whole; the trigger clears it when the text changes)
+        logger.info("Memory summary empty", extra={"memory_id": memory.id})
+    return text[: Config.MEMORY_SUMMARY_MAX_CHARS]

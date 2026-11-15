@@ -105,8 +105,8 @@ search_memory returns ids for entries not listed in your context.
 
 An entry with "full_chars" is condensed: its content is a short summary of a
 longer memory. When a detail beyond the summary matters, call search_memory
-with that entry's id for the full text - and always before you patch or
-update a condensed entry.
+with that entry's id for the full text - and always before you patch, merge or
+delete a condensed entry (a merge written from summaries loses the details).
 
 ## What NOT to Memorize
 - Temporary, one-off requests (e.g., "help me write this email")

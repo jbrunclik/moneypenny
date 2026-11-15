@@ -480,9 +480,10 @@ def search_memory(query: str) -> str:
 
     memories = db.list_memories(user_id)
     by_id = {mem.id: mem for mem in memories}
-    if query in by_id:  # a condensed memory's full text
+    as_id = query.removeprefix("id=").strip("'\" ")
+    if as_id in by_id:  # a condensed memory's full text (also as id=... or quoted)
         record_tool_call("memory_fetch")
-        mem = by_id[query]
+        mem = by_id[as_id]
         logger.info("Memory fetched by id", extra={"user_id": user_id, "memory_id": mem.id})
         return f"- id={mem.id} [{mem.category or 'uncategorized'}] {mem.content}"
 

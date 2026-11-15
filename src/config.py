@@ -677,6 +677,9 @@ class Config:
     MEMORY_SUMMARY_MAX_CHARS = 150
     MEMORY_SUMMARY_MODEL = "gemini-3.5-flash-lite"
     MEMORY_SUMMARIES_PER_PASS = 20
+    # Reminders run in the same oneshot pass: summaries stop starting after this
+    # (and at the first failure) so a slow Flash-Lite cannot delay them
+    MEMORY_SUMMARIES_PASS_BUDGET_SECONDS = 20
     MEMORY_SUMMARY_TIMEOUT_SECONDS = 10
     # An update leaving an entry at this share of the cap gets a nudge to save
     # new topics as separate memories (catch-all memories were the lossy ones)
