@@ -120,6 +120,12 @@ class CancelOnToken(BaseCallbackHandler):
 
     raise_error = True  # propagate instead of logging and continuing
 
+    def __init__(self) -> None:
+        super().__init__()
+        # Text reached the stream: a failed call is then not retried
+        # (src/agent/retry.py PartialStreamError)
+        self.streamed = False
+
     def on_llm_new_token(
         self,
         token: str | list[str | dict[str, Any]],
@@ -127,6 +133,8 @@ class CancelOnToken(BaseCallbackHandler):
         run_id: UUID,
         **kwargs: Any,
     ) -> None:
+        if token:
+            self.streamed = True
         raise_if_cancelled()
 
 

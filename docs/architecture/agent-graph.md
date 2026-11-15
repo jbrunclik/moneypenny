@@ -45,6 +45,21 @@ responses (`is_transient_error()` walks the exception cause chain, since the Gem
 wraps them) are retried with exponential backoff and jitter, configured by
 `AGENT_MAX_RETRIES`, `AGENT_RETRY_BASE_DELAY_SECONDS` and `AGENT_RETRY_MAX_DELAY_SECONDS`.
 
+**What counts as transient (Nov 15 2026).** The installed SDKs classify their own errors:
+langchain-google-genai 4.x raises `langchain_core` `ModelError`s with `is_retryable`
+(`GoogleAPIError` for 5xx, `GoogleRateLimitError` for 429; `GoogleInvalidRequestError` and
+`GoogleContextOverflowError` are not retryable), google-genai raises `APIError` with a `code`,
+and its network failures are `httpx.TransportError`s. The first exception in the cause chain
+that classifies itself decides; message patterns are the fallback. Before Nov 15 the check
+matched `google.api_core` classes nothing raises any more, so 500, 504 and network timeouts
+were never retried.
+
+**No retry after streamed text.** `_invoke_model` watches the call's tokens (`CancelOnToken.
+streamed`); a call that fails after text reached the stream raises `PartialStreamError`, which
+is neither retried nor sent to the fallback model: the retry streamed the reply again while
+the failed attempt's text stayed on screen and in the saved reply, so it appeared twice. The
+turn fails with its error and the partial text, and Retry answers it again.
+
 **A model that is down falls back to the other tier.** A `503 UNAVAILABLE` ("high demand",
 `is_model_unavailable()`) is not retried: on Aug 27 2026 Flash returned it for minutes
 while Pro was up, and stacked retries (the SDK's own backoff, ~40 s, inside each of

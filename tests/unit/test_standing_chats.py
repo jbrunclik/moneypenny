@@ -805,20 +805,6 @@ class TestRetryLogic:
 
         assert model.invoke.call_count == 1
 
-    def test_retry_on_google_api_errors(self):
-        """Test that Google API exceptions are detected as transient."""
-        from google.api_core.exceptions import (
-            DeadlineExceeded,
-            ResourceExhausted,
-            ServiceUnavailable,
-        )
-
-        from src.agent.retry import is_transient_error
-
-        assert is_transient_error(ResourceExhausted("429 rate limit"))
-        assert is_transient_error(ServiceUnavailable("503 unavailable"))
-        assert is_transient_error(DeadlineExceeded("504 deadline"))
-
 
 # =============================================================================
 # Compaction logic tests

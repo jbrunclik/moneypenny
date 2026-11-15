@@ -14,11 +14,9 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
-from google.api_core.exceptions import (
-    DeadlineExceeded,
-    ResourceExhausted,
-    ServiceUnavailable,
-)
+import httpx
+from google.genai.errors import APIError as GenaiAPIError
+from langchain_core.exceptions import ModelError
 
 from src.config import Config
 from src.utils.logging import get_logger
@@ -31,10 +29,34 @@ TRANSIENT_EXCEPTIONS = (
     ConnectionError,
     TimeoutError,
     OSError,  # Includes socket errors
-    ResourceExhausted,  # Google API 429 rate limit
-    ServiceUnavailable,  # Google API 503
-    DeadlineExceeded,  # Google API 504
+    httpx.TransportError,  # google-genai's network failures and timeouts
 )
+
+# google-genai API errors worth another attempt (langchain-google-genai 4.x
+# also marks its own wrappers: ModelError.is_retryable)
+_RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
+
+
+class PartialStreamError(Exception):
+    """A model call failed after it had streamed text: never retried.
+
+    A retry streamed the reply again while the failed attempt's text stayed
+    on screen and in the saved reply, so it appeared twice (Nov 2026 audit).
+    """
+
+
+def _typed_verdict(error: BaseException) -> bool | None:
+    """Whether this exception's own type says retry; None when it says nothing."""
+    if isinstance(error, PartialStreamError):
+        return False
+    if isinstance(error, ModelError):
+        return bool(error.is_retryable)
+    if isinstance(error, GenaiAPIError):
+        return error.code in _RETRYABLE_STATUS_CODES
+    if isinstance(error, TRANSIENT_EXCEPTIONS):
+        return True
+    return None
+
 
 # Patterns are only matched against the START of the message (see below):
 # exception strings can embed tool/page payloads whose text ("timeout",
@@ -65,13 +87,16 @@ def is_transient_error(error: Exception) -> bool:
         True if the error is transient and retryable
     """
     # Walk the cause chain: provider SDKs wrap transient errors in their own
-    # exception types (e.g. ChatGoogleGenerativeAIError around a 429)
+    # exception types (e.g. ChatGoogleGenerativeAIError around a 429). The
+    # first type that classifies itself decides (a context overflow is not
+    # retried whatever it wraps)
     seen: set[int] = set()
     current: BaseException | None = error
     while current is not None and id(current) not in seen:
         seen.add(id(current))
-        if isinstance(current, TRANSIENT_EXCEPTIONS):
-            return True
+        verdict = _typed_verdict(current)
+        if verdict is not None:
+            return verdict
         current = current.__cause__ or current.__context__
 
     # Pattern-match only the start of the message (payloads embedded in
@@ -85,7 +110,10 @@ def is_model_unavailable(error: BaseException) -> bool:
 
     Retrying such a model is futile for minutes at a time (Aug 27 2026: each
     retry spent ~40 s inside the SDK); the caller falls back to another model.
+    Not after streamed text: the fallback's reply would follow it.
     """
+    if isinstance(error, PartialStreamError):
+        return False
     seen: set[int] = set()
     current: BaseException | None = error
     while current is not None and id(current) not in seen:

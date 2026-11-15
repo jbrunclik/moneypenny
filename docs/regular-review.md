@@ -47,6 +47,10 @@ The review itself changes nothing in production and edits nothing but
   normal finish, and turns with `tool_errors > 0` in `message_costs` (the
   admin page shows the rate). A rising rate or one tool dominating is a
   finding.
+- Model-call retries (from Nov 15 2026; [agent-graph.md](architecture/agent-graph.md#chat-node-and-transient-error-retries)):
+  "Transient error, retrying" by error head (500/504/timeouts now retry) and "Model call
+  failed after streaming text, not retried" - the latter are turns the user saw fail
+  mid-reply; many of them argue for resuming the stream instead.
 
 ## 2. Agents and integrations
 

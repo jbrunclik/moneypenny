@@ -12,7 +12,7 @@ from src.agent.cancellation import CancelOnToken, raise_if_cancelled
 from src.agent.chat_model import FallbackModel, create_chat_model
 from src.agent.content import extract_text_content
 from src.agent.graph_state import AgentState
-from src.agent.retry import is_model_unavailable, with_retry
+from src.agent.retry import PartialStreamError, is_model_unavailable, with_retry
 from src.agent.tool_result_aging import age_consumed_tool_messages
 from src.agent.turn_budget import (
     call_cost_usd,
@@ -241,14 +241,26 @@ def _final_answer(
 def _invoke_model(
     model: ChatGoogleGenerativeAI, messages: list[BaseMessage], config: RunnableConfig | None
 ) -> BaseMessage:
-    """One model call that Stop can abort mid-stream (checked per attempt and per token)."""
+    """One model call that Stop can abort mid-stream (checked per attempt and
+    per token). A failure after text streamed is a PartialStreamError, which
+    is not retried (the retry would show the text twice)."""
     raise_if_cancelled()
-    response = model.invoke(messages, config=_with_cancel_callback(config))
+    handler = CancelOnToken()
+    try:
+        response = model.invoke(messages, config=_with_cancel_callback(config, handler))
+    except Exception as error:
+        if handler.streamed:
+            logger.warning(
+                "Model call failed after streaming text, not retried",
+                extra={"error": str(error)[:200]},
+            )
+            raise PartialStreamError(str(error)) from error
+        raise
     record_model_usage(response)
     return response
 
 
-def _with_cancel_callback(config: RunnableConfig | None) -> RunnableConfig:
+def _with_cancel_callback(config: RunnableConfig | None, handler: CancelOnToken) -> RunnableConfig:
     """The node's config plus CancelOnToken, KEEPING the inherited callbacks.
 
     Replacing them (config={"callbacks": [...]} or with_config) drops
@@ -257,7 +269,6 @@ def _with_cancel_callback(config: RunnableConfig | None) -> RunnableConfig:
     """
     config = config or {}
     inherited = config.get("callbacks")
-    handler = CancelOnToken()
     if isinstance(inherited, BaseCallbackManager):
         callbacks: Any = inherited.copy()
         callbacks.add_handler(handler, inherit=True)
