@@ -415,7 +415,7 @@ def test_a_run_gets_the_time_left_before_the_pass_deadline(
     _watcher(db, test_user, test_conversation)
 
     assert item_scheduler.run_due_items(_NOW).run == 1
-    assert seen == [budget]
+    assert seen == [pytest.approx(budget, abs=0.5)]
 
 
 def test_a_run_with_too_little_time_left_waits_for_the_next_pass(

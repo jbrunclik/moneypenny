@@ -29,20 +29,22 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-# A run's time budget below the default: the scheduler pass sets it around a
-# model run (item_scheduler), initial_state copies it into the graph state -
-# graph nodes run on other threads and read the state, not this var
-_run_time_budget: ContextVar[float | None] = ContextVar("run_time_budget", default=None)
+# A run's deadline (monotonic): the scheduler pass sets it around a model
+# run (item_scheduler), initial_state turns it into the graph state's budget -
+# graph nodes run on other threads and read the state, not this var. A
+# deadline, not a length: a delegate started late in the run gets only what
+# is left
+_run_deadline: ContextVar[float | None] = ContextVar("run_deadline", default=None)
 
 
 @contextmanager
 def run_time_budget(seconds: float) -> Iterator[None]:
-    """Turns started inside the block may take at most ``seconds``."""
-    token = _run_time_budget.set(seconds)
+    """Turns started inside the block must end within ``seconds`` from now."""
+    token = _run_deadline.set(time.monotonic() + seconds)
     try:
         yield
     finally:
-        _run_time_budget.reset(token)
+        _run_deadline.reset(token)
 
 
 def time_budget_s(state: AgentState) -> float:
@@ -50,15 +52,23 @@ def time_budget_s(state: AgentState) -> float:
     return state.get("turn_time_budget_s", Config.TURN_TIME_BUDGET_SECONDS)
 
 
+def _budget_now() -> float:
+    """A turn starting now: the default, or less when a run deadline is near."""
+    budget = float(Config.TURN_TIME_BUDGET_SECONDS)
+    deadline = _run_deadline.get()
+    if deadline is None:
+        return budget
+    return max(0.0, min(budget, deadline - time.monotonic()))
+
+
 def initial_state(messages: list[BaseMessage]) -> AgentState:
     """A graph run's input: its messages and a fresh budget (clock started)."""
-    capped = _run_time_budget.get()
     return {
         "messages": messages,
         "tool_retries": 0,
         "tool_rounds": 0,
         "turn_started_at": time.monotonic(),
-        "turn_time_budget_s": Config.TURN_TIME_BUDGET_SECONDS if capped is None else capped,
+        "turn_time_budget_s": _budget_now(),
         "turn_cost_usd": 0.0,
         "failed_calls": {},
     }

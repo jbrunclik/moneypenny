@@ -111,15 +111,61 @@ def test_the_next_pass_runs_the_continuation_off_schedule(
     assert (after.status, after.next_run_at, after.failures) == ("active", before.next_run_at, 0)
 
 
-def test_a_paused_jobs_continuation_runs_and_it_stays_paused(
+def _pause(db: Database, item_id: str, reason: str) -> None:
+    with db._pool.get_connection() as conn:
+        conn.execute(
+            "UPDATE scheduled_items SET status = 'paused', paused_reason = ? WHERE id = ?",
+            (reason, item_id),
+        )
+        conn.commit()
+
+
+def test_a_job_paused_after_failures_continues_and_stays_paused(
     agent: Any, test_database: Database, test_user: User, runs: MagicMock
 ) -> None:
     card = _park(test_database, agent, test_user)
     resolve(card, 0, "button")
-    test_database.update_standing_chat(agent.id, test_user.id, enabled=False)
+    _pause(test_database, agent.id, "failures")
 
     assert item_scheduler.run_due_items(utc_now()).run == 1
-    assert _job(test_database, agent).status == "paused"
+    job = _job(test_database, agent)
+    assert (job.status, job.paused_reason) == ("paused", "failures")
+
+
+def test_a_disabled_agent_does_not_continue(
+    agent: Any, test_database: Database, test_user: User, runs: MagicMock
+) -> None:
+    """Disabling the agent drops a continuation it had not run yet (security review)."""
+    card = _park(test_database, agent, test_user)
+    resolve(card, 0, "button")
+    test_database.update_standing_chat(agent.id, test_user.id, enabled=False)
+
+    assert item_scheduler.run_due_items(utc_now()).run == 0
+    runs.assert_not_called()
+    assert _job(test_database, agent).resume_message is None
+
+
+def test_a_paused_job_left_for_lack_of_time_stays_paused(
+    agent: Any,
+    test_database: Database,
+    test_user: User,
+    runs: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    card = _park(test_database, agent, test_user)
+    resolve(card, 0, "button")
+    _pause(test_database, agent.id, "failures")
+    before = _job(test_database, agent)
+    ticks = iter([0.0])
+
+    def tick() -> float:  # the pass starts, then its deadline has passed
+        return next(ticks, 999.0)
+
+    monkeypatch.setattr(item_scheduler, "_monotonic", tick)
+    assert item_scheduler.run_due_items(utc_now()).run == 0
+    job = _job(test_database, agent)
+    assert (job.status, job.next_run_at, job.failures) == ("paused", before.next_run_at, 0)
+    assert job.resume_message is not None
 
 
 def test_a_held_continuation_waits_and_keeps_its_message(
@@ -147,18 +193,29 @@ def test_a_deleted_job_leaves_nothing_to_run(
     runs.assert_not_called()
 
 
-def test_a_continuation_that_raises_counts_a_failure_and_keeps_its_message(
-    agent: Any, test_database: Database, test_user: User, runs: MagicMock
+@pytest.mark.parametrize("how", ["failed", "raises"])
+def test_a_continuation_runs_at_most_once_and_says_when_it_failed(
+    agent: Any, test_database: Database, test_user: User, runs: MagicMock, how: str
 ) -> None:
+    """A failed continuation is not retried every pass (cost, a second write)
+    and not lost silently: the chat says so; the job is given back as it was."""
     card = _park(test_database, agent, test_user)
     resolve(card, 0, "button")
-    runs.side_effect = RuntimeError("boom")
+    before = _job(test_database, agent)
+    if how == "raises":
+        runs.side_effect = RuntimeError("boom")
+    else:
+        runs.return_value = RunOutcome("failed", "Gemini unavailable")
 
     item_scheduler.run_due_items(utc_now())
+    item_scheduler.run_due_items(utc_now())
 
+    assert runs.call_count == 1
     job = _job(test_database, agent)
-    assert job.failures == 1
-    assert job.resume_message is not None
+    assert job.resume_message is None
+    assert (job.status, job.next_run_at, job.failures) == ("active", before.next_run_at, 0)
+    [note] = [c.args[1] for c in runs.deliver.call_args_list]
+    assert "could not continue" in note.lower()
 
 
 def test_the_wait_is_logged(

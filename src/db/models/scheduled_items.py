@@ -275,14 +275,16 @@ class ScheduledItemsMixin:
     def claim_due_items(self, now: datetime) -> list[ScheduledItem]:
         """Mark every active item due by `now` in a live chat as running; return
         them. A job waiting to continue after its cards (`resume_message`) is
-        claimed too, due or not, and paused or not (as Run now runs a paused one)."""
+        claimed too, due or not - also one paused after failures, never a
+        disabled one (disabling drops it, standing_chats._DISABLE_SQL)."""
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 f"""UPDATE scheduled_items SET status = 'running', claimed_at = ?
                     WHERE {_LIVE_CHAT} AND (
                         (status = 'active' AND next_run_at <= ?)
-                        OR (status IN ('active', 'paused') AND resume_message IS NOT NULL))
+                        OR (status IN ('active', 'paused') AND resume_message IS NOT NULL
+                            AND paused_reason IS NOT 'disabled'))
                     RETURNING *""",
                 (to_db(now), to_db(now)),
             ).fetchall()

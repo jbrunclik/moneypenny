@@ -50,9 +50,10 @@ found two holes; neither has happened yet (0 run cards ever, longest run 102 s o
   `resume_message` and gives the item back with its schedule unchanged (a resume
   is off-schedule, like `run_job_now`). A due regular run of the same item waits
   for the next pass.
-- A resume that raises counts a failure like any run and keeps its message for
-  the next pass; one killed by a crash is freed by the stale reset and runs again
-  (the rare kill path, as today).
+- A resume runs at most once (review, Nov 15 2026): its message is cleared before
+  the run; one that fails or raises is not retried - the chat says "I could not
+  continue after your answer (...)" - and the job goes back exactly as it was.
+  A disabled agent's continuation is never claimed, and disabling drops it.
 - `hold_reason` still applies (a new pending card or an exhausted budget holds it).
 
 **Pass deadline.**
@@ -63,6 +64,8 @@ found two holes; neither has happened yet (0 run cards ever, longest run 102 s o
   `SCHEDULE_MIN_RUN_SECONDS` (60) the run is not started: the item is given back
   unchanged and runs next pass (as `SCHEDULE_TICK_BUDGET_SECONDS` does today, which
   this replaces).
+- The cap is a deadline, not a length (review): a delegate started late in the
+  run gets only the time left.
 - The run's budget reaches the turn budget through the run's context (the graph
   state's `turn_started_at` clock with a per-run limit instead of the global one);
   `budget_stop`, `wrap_up_due` and `stop_facts` read that limit.

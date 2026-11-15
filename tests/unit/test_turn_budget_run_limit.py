@@ -8,6 +8,8 @@ from __future__ import annotations
 import time
 from typing import Any
 
+import pytest
+
 from src.agent import turn_budget
 from src.agent.turn_budget import (
     budget_stop,
@@ -33,7 +35,7 @@ def test_a_turn_has_the_default_budget() -> None:
 def test_inside_a_capped_run_the_turn_gets_the_cap() -> None:
     with run_time_budget(30):
         state = initial_state([])
-    assert state["turn_time_budget_s"] == 30
+    assert state["turn_time_budget_s"] == pytest.approx(30, abs=0.5)
     assert initial_state([])["turn_time_budget_s"] == Config.TURN_TIME_BUDGET_SECONDS
 
 
@@ -59,3 +61,15 @@ def test_the_stop_names_the_capped_limit() -> None:
 def test_a_state_without_the_key_uses_the_default() -> None:
     assert time_budget_s({"messages": []}) == Config.TURN_TIME_BUDGET_SECONDS  # type: ignore[typeddict-item]
     assert turn_budget.Config is Config
+
+
+def test_the_cap_is_a_deadline_shared_by_nested_runs(monkeypatch: Any) -> None:
+    """A delegate started late in a capped run gets only the time left, not a
+    fresh cap (final review)."""
+    now = [1000.0]
+    monkeypatch.setattr(turn_budget.time, "monotonic", lambda: now[0])
+    with run_time_budget(30):
+        now[0] += 20
+        assert initial_state([])["turn_time_budget_s"] == 10
+        now[0] += 15
+        assert initial_state([])["turn_time_budget_s"] == 0

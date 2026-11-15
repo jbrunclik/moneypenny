@@ -43,6 +43,12 @@ logger = get_logger(__name__)
 
 WATCH_MAX_INTERVAL_HOURS = 168
 _ONE_OFFS = {"reminder", "check_in"}
+# A continuation after cards that failed: told once in its chat, not retried
+_CONTINUATION_FAILED = (
+    "I could not continue after your answer ({}). Run me again from the agent's page "
+    "if it still needs doing."
+)
+_CONTINUATION_ERROR_CHARS = 160
 # Patched in tests: the pass's elapsed time against SCHEDULE_TICK_DEADLINE_SECONDS
 _monotonic = time.monotonic
 _PUSH_BODY_CHARS = 160
@@ -89,6 +95,10 @@ def run_due_items(now: datetime) -> ItemsResult:
         budget = None
         if item.kind not in _ONE_OFFS:
             budget = _run_budget_s(started, _monotonic())
+            if budget is None and item.resume_message is not None:
+                # Off-schedule: back exactly as it was, continuation kept
+                db.release_item(item.id, item.claimed_at or now, _status_before(item))
+                continue
             if budget is None:
                 db.finish_item_run(
                     item.id,
@@ -218,12 +228,19 @@ def _run_off_schedule(
     return outcome
 
 
+def _status_before(item: ScheduledItem) -> str:
+    """A claimed job's status before the claim (a pause keeps its reason)."""
+    return "paused" if item.paused_reason else "active"
+
+
 def _continue_after_cards(item: ScheduledItem, now: datetime, result: ItemsResult) -> None:
     """A job whose cards were answered: run its continuation with their
-    outcome, then give it back on its unchanged schedule. Held (another
-    card, its budget) it keeps the message for a later pass."""
+    outcome, at most once, then give it back exactly as it was (status and
+    schedule). Held (another card, its budget) it keeps the message for a
+    later pass; one that fails is not retried - its chat says so (a retry
+    every pass cost a model run each time, final review Nov 15 2026)."""
     claimed_at = item.claimed_at or now  # this pass claimed it at `now`
-    prior = "paused" if item.paused_reason else "active"
+    prior = _status_before(item)
     user = db.get_user_by_id(item.user_id)
     if user is None:
         db.delete_item(item.id)
@@ -241,8 +258,16 @@ def _continue_after_cards(item: ScheduledItem, now: datetime, result: ItemsResul
         },
     )
     result.run += 1
-    _run_off_schedule(item, user, "approval", item.resume_message)
     db.clear_resume(item.id)
+    try:
+        outcome = _run_off_schedule(item, user, "approval", item.resume_message)
+        failure = outcome.text or "the run failed" if outcome.status == "failed" else None
+    except Exception as error:  # given back below, never retried
+        logger.exception("Run continuation crashed", extra={"item_id": item.id})
+        failure = str(error)[:_CONTINUATION_ERROR_CHARS]
+    if failure is not None:
+        label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, "after your answer")
+        deliver(item, _CONTINUATION_FAILED.format(failure), label)
     db.release_item(item.id, claimed_at, prior)
 
 

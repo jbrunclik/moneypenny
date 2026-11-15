@@ -56,9 +56,13 @@ _ENABLE_SQL = (
     "paused_reason = CASE WHEN paused_reason IN ('disabled', 'failures') THEN NULL "
     "ELSE paused_reason END",
 )
+# Disabling also drops a continuation the agent had not run yet (security
+# review, Nov 15 2026): it must not run behind the user's back
 _DISABLE_SQL = (
     "status = CASE WHEN status = 'running' THEN status ELSE 'paused' END",
     "paused_reason = 'disabled'",
+    "resume_message = NULL",
+    "resume_requested_at = NULL",
 )
 
 

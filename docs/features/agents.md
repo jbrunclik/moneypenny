@@ -194,11 +194,13 @@ proposal, [proposals](proposals.md); `src/agent/run_approvals.py`):
    `approval`: its report pushes - the answer may have come from a push),
    told the exact calls to re-issue; `rejected` otherwise. The re-run is
    stored on the job (`scheduled_items.resume_message`, `request_resume`) and
-   the scheduler's next pass runs it, due or not, paused or not, then gives
-   the job back on its unchanged schedule; the card says "Approved -
-   continuing shortly." Before Nov 15 2026 it ran on a thread in the web
-   worker, which a deploy killed. Held (another card, its budget) it waits
-   with its message; a re-run that raises counts a failure and stays queued. Only
+   the scheduler's next pass runs it, due or not (also a job paused after
+   failures; disabling the agent drops it), then gives the job back exactly
+   as it was; the card says "Approved - continuing shortly." Before Nov 15
+   2026 it ran on a thread in the web worker, which a deploy killed. Held
+   (another card, its budget) it waits with its message. It runs at most
+   once: one that fails is not retried (each retry cost a model run) - the
+   chat gets "I could not continue after your answer (...)" instead. Only
    the identical call consumes an approval, once (`consume_run_approval`;
    a card still applying counts, as the rerun can start first). Always allow
    also grants `<tool>:write`. An approved settings change applies itself,
