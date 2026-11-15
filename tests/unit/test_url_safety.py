@@ -1,6 +1,7 @@
 """Unit tests for src/agent/tools/url_safety (SSRF validation)."""
 
 import socket
+from typing import Any
 from unittest.mock import patch
 
 import httpx
@@ -112,3 +113,68 @@ class TestSSRFSafeTransport:
         request = httpx.Request("GET", "http://127.0.0.1/")
         with pytest.raises(httpx.ConnectError, match="SSRF blocked"):
             transport.handle_request(request)
+
+
+class TestFetchDeadline:
+    """A page that sends a byte just inside httpx's per-read timeout must not
+    keep its fetch (and research's worker thread) alive past a total
+    deadline (security review, Nov 15 2026)."""
+
+    def _transport_reply(self, chunks: list[bytes], clock: list[float], step: float) -> Any:
+        import httpx
+
+        from src.agent.tools import url_safety
+
+        def dripping() -> Any:
+            for chunk in chunks:
+                clock[0] += step
+                yield chunk
+
+        def reply(_self: object, request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, stream=_Iter(dripping()), request=request)
+
+        return patch.object(url_safety.httpx.HTTPTransport, "handle_request", reply)
+
+    def test_a_dripping_body_hits_the_deadline(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import httpx
+
+        from src.agent.tools import url_safety
+
+        clock = [0.0]
+        monkeypatch.setattr(url_safety, "_monotonic", lambda: clock[0])
+        monkeypatch.setattr(url_safety, "check_host", lambda *_: None)
+        transport = url_safety.SSRFSafeTransport(deadline_s=10)
+        with (
+            self._transport_reply([b"x"] * 5, clock, step=4.0),
+            pytest.raises(httpx.ReadTimeout),
+            httpx.Client(transport=transport) as client,
+        ):
+            client.get("https://example.com/slow")
+
+    def test_a_body_within_the_deadline_is_read(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import httpx
+
+        from src.agent.tools import url_safety
+
+        clock = [0.0]
+        monkeypatch.setattr(url_safety, "_monotonic", lambda: clock[0])
+        monkeypatch.setattr(url_safety, "check_host", lambda *_: None)
+        transport = url_safety.SSRFSafeTransport(deadline_s=10)
+        with (
+            self._transport_reply([b"ab", b"cd"], clock, step=1.0),
+            httpx.Client(transport=transport) as client,
+        ):
+            assert client.get("https://example.com/ok").content == b"abcd"
+
+
+class _Iter(httpx.SyncByteStream):
+    """A sync byte stream over an iterator, as a real transport returns."""
+
+    def __init__(self, chunks: Any) -> None:
+        self._chunks = chunks
+
+    def __iter__(self) -> Any:
+        return iter(self._chunks)
+
+    def close(self) -> None:
+        pass

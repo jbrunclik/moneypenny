@@ -69,7 +69,10 @@ def _fetch_response(url: str, timeout: float | None = None) -> _FetchResult:
         with httpx.Client(
             timeout=float(timeout or Config.TOOL_TIMEOUT_SECONDS),
             follow_redirects=False,
-            transport=SSRFSafeTransport(verify=shared_ssl_context()),
+            transport=SSRFSafeTransport(
+                verify=shared_ssl_context(),
+                deadline_s=float(timeout or Config.TOOL_TIMEOUT_SECONDS),
+            ),
             default_encoding=sniffed_encoding,
             headers={
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"

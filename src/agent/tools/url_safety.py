@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import ipaddress
 import socket
+import ssl
+import time
+from collections.abc import Iterator
 from urllib.parse import urlparse
 
 import httpx
@@ -118,6 +121,30 @@ def validate_public_url(url: str) -> str | None:
     return check_host(parsed.hostname, parsed.port)
 
 
+# Patched in tests: the clock a response body's total deadline is measured with
+_monotonic = time.monotonic
+
+
+class _DeadlineStream(httpx.SyncByteStream):
+    """A response body that raises ReadTimeout once ``deadline`` (monotonic)
+    passes: httpx's timeouts are per read, so a server dripping a byte just
+    inside one could hold the fetch - and research's worker thread, which a
+    worker's exit then waits for - indefinitely (security review, Nov 15 2026)."""
+
+    def __init__(self, inner: httpx.SyncByteStream, deadline: float) -> None:
+        self._inner = inner
+        self._deadline = deadline
+
+    def __iter__(self) -> Iterator[bytes]:
+        for chunk in self._inner:
+            if _monotonic() > self._deadline:
+                raise httpx.ReadTimeout("the page took longer than its total deadline")
+            yield chunk
+
+    def close(self) -> None:
+        self._inner.close()
+
+
 class SSRFSafeTransport(httpx.HTTPTransport):
     """httpx transport that re-validates the destination host at connect time.
 
@@ -127,8 +154,19 @@ class SSRFSafeTransport(httpx.HTTPTransport):
     protection still requires network-level egress filtering.
     """
 
+    def __init__(
+        self, *, verify: ssl.SSLContext | bool = True, deadline_s: float | None = None
+    ) -> None:
+        """``deadline_s``: each response's total time to its last body byte."""
+        super().__init__(verify=verify)
+        self._deadline_s = deadline_s
+
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         error = check_host(request.url.host, request.url.port)
         if error:
             raise httpx.ConnectError(f"SSRF blocked: {error}")
-        return super().handle_request(request)
+        started = _monotonic()
+        response = super().handle_request(request)
+        if self._deadline_s is not None and isinstance(response.stream, httpx.SyncByteStream):
+            response.stream = _DeadlineStream(response.stream, started + self._deadline_s)
+        return response
