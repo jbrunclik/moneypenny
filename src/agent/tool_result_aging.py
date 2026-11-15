@@ -17,7 +17,15 @@ AGED_MULTIMODAL_STUB = (
     "already extracted from it; call the tool again only if you truly need it.]"
 )
 
-AGED_TRUNCATION_MARKER = "\n[...result truncated after you already processed it]"
+AGED_TRUNCATION_MARKER = (
+    "\n[...result truncated after you already processed it - call the tool again "
+    "if you need the full result]"
+)
+
+# Reads the agent edits from, kept whole for the turn: a Todoist task with a
+# long description was aged to 2,000 chars while the agent rewrote it, and it
+# concluded it could not read it (Nov 15 2026). (tool, action) pairs.
+_KEPT_WHOLE = frozenset({("todoist", "get_task")})
 
 
 def _aged_copy(msg: ToolMessage, max_chars: int, log: Callable[..., Any]) -> ToolMessage | None:
@@ -33,6 +41,17 @@ def _aged_copy(msg: ToolMessage, max_chars: int, log: Callable[..., Any]) -> Too
         aged = msg.content[:max_chars] + AGED_TRUNCATION_MARKER
         return msg.model_copy(update={"content": aged})
     return None
+
+
+def _kept_whole_call_ids(messages: list[BaseMessage]) -> set[str]:
+    """Ids of the turn's tool calls whose results are never aged (_KEPT_WHOLE)."""
+    return {
+        call_id
+        for msg in messages
+        if isinstance(msg, AIMessage)
+        for call in msg.tool_calls
+        if (call_id := call.get("id")) and (call["name"], call["args"].get("action")) in _KEPT_WHOLE
+    }
 
 
 def age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
@@ -70,10 +89,13 @@ def age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
     # Results before the previous round were aged (and logged) by an earlier call
     first_new_idx = rounds[-2] if len(rounds) > 1 else -1
 
+    kept_whole = _kept_whole_call_ids(messages)
     for i, msg in enumerate(messages[:last_tool_call_idx]):
         # A loaded skill is instructions for the whole turn, not consumed data:
         # truncating it would drop exactly the guidance later rounds need
         if not isinstance(msg, ToolMessage) or msg.name == "load_skill":
+            continue
+        if msg.tool_call_id in kept_whole:
             continue
         log = logger.info if i > first_new_idx else logger.debug
         aged = _aged_copy(msg, max_chars, log)

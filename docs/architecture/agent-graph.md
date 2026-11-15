@@ -96,7 +96,11 @@ wrote a word, and the answer lost its sources (48 prod turns in 14 days, Oct 202
 Only the list sent to the model gets aged copies; the turn's state keeps the full
 results, because the source chips and the grounding check parse them after the turn
 (aging in place left research JSON unparseable: 52 of 156 research turns in 30 days
-lost their pages, Oct 2026).
+lost their pages, Oct 2026). Reads the agent edits from are never aged (`_KEPT_WHOLE`
+in [tool_result_aging.py](../../src/agent/tool_result_aging.py), today Todoist
+`get_task`): a 9.7k-char task description was cut to 2000 while the agent rewrote it,
+and it told the user it could not read descriptions that long (Nov 15 2026). The
+truncation marker says to call the tool again for the full result.
 
 ## Tool Node
 
