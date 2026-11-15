@@ -64,10 +64,13 @@ def _now() -> float:
 # - skip_environment_setup: every library is pre-installed in the custom image
 #   (make sandbox-image); the default setup runs an in-container pip upgrade,
 #   which needs the network we just disabled
+# - execution_timeout: llm-sandbox's own default is 60 s, and the model is told
+#   CODE_SANDBOX_TIMEOUT_SECONDS (it was never passed; Nov 15 2026 audit)
 SANDBOX_SESSION_KWARGS: dict[str, Any] = {
     "lang": "python",
     "verbose": False,
     "skip_environment_setup": True,
+    "execution_timeout": Config.CODE_SANDBOX_TIMEOUT_SECONDS,
 }
 
 
@@ -443,6 +446,35 @@ def _copy_attachments(
     return copied
 
 
+def _is_sandbox_timeout(error: Exception) -> bool:
+    """llm-sandbox raises its own SandboxTimeoutError, not a TimeoutError."""
+    from llm_sandbox.exceptions import SandboxTimeoutError  # noqa: PLC0415 - kept off startup
+
+    return isinstance(error, SandboxTimeoutError)
+
+
+def _execution_error(error: Exception) -> str:
+    """The tool result for a failed execution, with a hint for common causes."""
+    if _is_sandbox_timeout(error):
+        return _timed_out()
+    error_msg = str(error)
+    logger.error("Code execution error", extra={"error": error_msg}, exc_info=error)
+    if "docker" in error_msg.lower() or "connection" in error_msg.lower():
+        return tool_error(
+            "Docker connection failed. The sandbox service is temporarily unavailable.",
+            hint="Please try again later or contact the administrator.",
+        )
+    return tool_error(f"Code execution failed: {error_msg}")
+
+
+def _timed_out() -> str:
+    logger.warning("Code execution timed out")
+    return tool_error(
+        f"Code execution timed out after {Config.CODE_SANDBOX_TIMEOUT_SECONDS} seconds.",
+        hint="Try optimizing your code or breaking it into smaller pieces.",
+    )
+
+
 @tool
 def execute_code(code: str, files: list[str] | None = None) -> str:
     """Run Python in an isolated sandbox: calculations, data processing, charts, and files
@@ -535,20 +567,6 @@ def execute_code(code: str, files: list[str] | None = None) -> str:
     except TurnCancelled:
         raise  # Stop pressed: end the turn, not an error result
     except TimeoutError:
-        logger.warning("Code execution timed out")
-        return tool_error(
-            f"Code execution timed out after {Config.CODE_SANDBOX_TIMEOUT_SECONDS} seconds.",
-            hint="Try optimizing your code or breaking it into smaller pieces.",
-        )
-    except Exception as e:
-        error_msg = str(e)
-        logger.exception("Code execution error", extra={"error": error_msg})
-
-        # Provide helpful error messages for common issues
-        if "docker" in error_msg.lower() or "connection" in error_msg.lower():
-            return tool_error(
-                "Docker connection failed. The sandbox service is temporarily unavailable.",
-                hint="Please try again later or contact the administrator.",
-            )
-
-        return tool_error(f"Code execution failed: {error_msg}")
+        return _timed_out()
+    except Exception as e:  # noqa: BLE001 - every sandbox failure becomes a tool error, logged there
+        return _execution_error(e)

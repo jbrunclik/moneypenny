@@ -10,6 +10,7 @@ from src.agent.tools import (
     is_code_sandbox_available,
 )
 from src.agent.tools.code_execution_output import get_mime_type
+from src.config import Config
 
 
 class TestGetMimeType:
@@ -352,6 +353,35 @@ class TestExecuteCode:
 
         assert "error" in parsed
         assert "timed out" in parsed["error"].lower()
+
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
+    @patch("llm_sandbox.SandboxSession")
+    def test_the_sandbox_libraries_timeout_is_reported_as_one(
+        self, mock_session_class: MagicMock, mock_check: MagicMock
+    ) -> None:
+        """llm-sandbox raises its own SandboxTimeoutError, not TimeoutError
+        (Nov 15 2026 audit)."""
+        from llm_sandbox.exceptions import SandboxTimeoutError
+
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+        mock_session.run.side_effect = SandboxTimeoutError("took too long", 30)
+        mock_session_class.return_value = mock_session
+
+        parsed = json.loads(execute_code.invoke({"code": "while True: pass"}))
+
+        assert parsed["error"] == (
+            f"Code execution timed out after {Config.CODE_SANDBOX_TIMEOUT_SECONDS} seconds."
+        )
+
+    def test_the_session_uses_the_configured_timeout(self) -> None:
+        """llm-sandbox's own default is 60 s; the model is told 30 (audit)."""
+        from src.agent.tools.code_execution import SANDBOX_SESSION_KWARGS
+
+        assert SANDBOX_SESSION_KWARGS["execution_timeout"] == Config.CODE_SANDBOX_TIMEOUT_SECONDS
+        assert f"{Config.CODE_SANDBOX_TIMEOUT_SECONDS} s timeout" in execute_code.description
 
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
     @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
