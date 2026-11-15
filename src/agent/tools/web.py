@@ -16,6 +16,7 @@ from src.agent.tools.turn_usage import get_tool_call_count, record_tool_call
 from src.agent.tools.url_safety import SSRFSafeTransport, validate_public_url
 from src.agent.tools.web_content import (
     content_type_category,
+    data_text,
     extract_links,
     extract_text_from_html,
     page_text,
@@ -177,8 +178,8 @@ def _response_text(
 
     if category == "html":
         return extract_text_from_html(response.text, max_chars), None
-    if category == "text":
-        text = response.text
+    if category in {"text", "data"}:
+        text = data_text(response.text, content_type)
         if len(text) > limit:
             text = text[:limit] + "\n\n[Content truncated...]"
         return text.strip(), None
@@ -246,9 +247,9 @@ def fetch_url(url: str, start: int = 0) -> str | list[dict[str, Any]]:
     if content_category == "html":
         return _html_result(url, response.text, start)
 
-    # Handle plain text content
-    if content_category == "text":
-        return _text_result(url, response.text, start)
+    # Handle plain text content, JSON and feeds
+    if content_category in {"text", "data"}:
+        return _text_result(url, data_text(response.text, content_type), start)
 
     # Handle binary content (PDFs, images)
     if content_category == "binary":
@@ -262,7 +263,8 @@ def fetch_url(url: str, start: int = 0) -> str | list[dict[str, Any]]:
     logger.warning("Unsupported content type", extra={"url": url, "content_type": content_type})
     return tool_error(
         f"Unsupported content type: {content_type}. "
-        f"Supported types: HTML, plain text, PDF, and common image formats (PNG, JPEG, GIF, WebP)."
+        "Supported types: HTML, plain text, JSON, XML/RSS/Atom, PDF, and common image "
+        "formats (PNG, JPEG, GIF, WebP)."
     )
 
 

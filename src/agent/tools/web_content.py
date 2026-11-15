@@ -4,6 +4,7 @@ content types and the charset sniff for bodies whose header names none.
 """
 
 import codecs
+import json
 import re
 from urllib.parse import urljoin, urlsplit
 
@@ -147,6 +148,22 @@ def extract_links(html: str, base_url: str, limit: int) -> list[tuple[str, str]]
     return links
 
 
+# Read as text (Nov 15 2026: were refused); "+json"/"+xml" suffixes too
+_DATA_TYPES = frozenset({"application/json", "application/xml", "text/xml"})
+
+
+def data_text(raw: str, content_type: str) -> str:
+    """A data response as text: JSON pretty-printed (letters kept), anything
+    else - XML, feeds, broken JSON - as it came."""
+    mime_type = content_type.split(";")[0].strip().lower()
+    if mime_type == "application/json" or mime_type.endswith("+json"):
+        try:
+            return json.dumps(json.loads(raw), indent=2, ensure_ascii=False)
+        except ValueError:
+            return raw
+    return raw
+
+
 # Supported binary MIME types for fetch_url
 FETCHABLE_BINARY_TYPES = {
     "application/pdf": "pdf",
@@ -159,7 +176,8 @@ FETCHABLE_BINARY_TYPES = {
 
 
 def content_type_category(content_type: str) -> str:
-    """Categorize content type as 'html', 'text', 'binary', or 'unsupported'.
+    """Categorize content type as 'html', 'text', 'data' (JSON, XML, feeds),
+    'binary', or 'unsupported'.
 
     Args:
         content_type: The Content-Type header value
@@ -174,6 +192,8 @@ def content_type_category(content_type: str) -> str:
         return "html"
     if mime_type in ("text/plain", "text/markdown", "text/csv"):
         return "text"
+    if mime_type in _DATA_TYPES or mime_type.endswith(("+json", "+xml")):
+        return "data"
     if mime_type in FETCHABLE_BINARY_TYPES:
         return "binary"
     return "unsupported"

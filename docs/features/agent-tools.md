@@ -136,6 +136,15 @@ all agree — the first two are the obvious ones, the third is easy to miss:
   the quota, and Exa's 402 benches it for search too; other failures leave search
   alone. When Exa cannot read it either the error says "(also unavailable through
   the reading service)". One "Page read via fallback" line per read.
+- **Long pages, links, data** (Nov 15 2026): `fetch_url(url, start=0)` returns
+  `HTML_TEXT_MAX_LENGTH` characters from `start`; a cut page ends with "[Truncated at
+  N of M characters - call fetch_url with start=N for more]", a trusted note outside
+  the untrusted markers. The first read lists up to `FETCH_URL_MAX_LINKS` (40) of the
+  page's links (absolute, deduplicated, inside the markers). JSON (pretty-printed),
+  XML and RSS/Atom feeds are read as text by `fetch_url` and `research` (they were
+  refused). `research` runs its searches at once and gives each page
+  `RESEARCH_FETCH_TIMEOUT_SECONDS` (15); "research completed" logs `search_ms` and
+  `fetch_ms`.
 - **Untrusted content**: text from `fetch_url`/`browser` is wrapped in
   `[UNTRUSTED WEB CONTENT ...]` markers and `web_search` carries a `_warning`
   field; the system prompt instructs the model to treat all such content
