@@ -4,11 +4,12 @@ Feeds the usage_info dict every ChatAgent entry point returns (cost tracking
 and the per-turn observability columns on message_costs).
 """
 
+import time
 from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
 
@@ -105,6 +106,95 @@ class TokenTotals:
     def any(self) -> bool:
         """True once any input or output tokens were recorded."""
         return self.input_tokens > 0 or self.output_tokens > 0
+
+
+# Where a turn's model calls are timed: the graph config's configurable (a
+# delegate's or a deep-research subagent's own graph is not counted)
+MODEL_TIMING_KEY = "model_timing"
+
+
+def _ms_since(started: float) -> int:
+    return round((time.monotonic() - started) * 1000)
+
+
+@dataclass
+class ModelTiming:
+    """Wall time of a turn's model calls (chat_node._invoke_model)."""
+
+    calls: int = 0
+    ms: int = 0
+    finish_reason: str | None = None
+
+    def record(self, started: float, response: BaseMessage | None) -> None:
+        """One call that began at ``started`` (monotonic) and ended now."""
+        self.calls += 1
+        self.ms += _ms_since(started)
+        reason = response.response_metadata.get("finish_reason") if response else None
+        if reason:
+            self.finish_reason = str(reason)
+
+
+def _configurable(config: Mapping[str, object] | None) -> Mapping[str, object]:
+    configurable = (config or {}).get("configurable")
+    return configurable if isinstance(configurable, Mapping) else {}
+
+
+def with_model_timing(config: Mapping[str, object], timing: ModelTiming) -> dict[str, object]:
+    """The graph config, with ``timing`` collecting its model calls."""
+    return {**config, "configurable": {**_configurable(config), MODEL_TIMING_KEY: timing}}
+
+
+def model_timing_of(config: Mapping[str, object] | None) -> ModelTiming | None:
+    """The turn's model-call clock in a node's config, if it has one."""
+    timing = _configurable(config).get(MODEL_TIMING_KEY)
+    return timing if isinstance(timing, ModelTiming) else None
+
+
+class _GateDecision(Protocol):
+    @property
+    def lookup(self) -> bool: ...
+    @property
+    def thinking(self) -> str | None: ...
+
+
+@dataclass
+class TurnClock:
+    """Where one turn's time went (Nov 15 2026 audit: nothing measured it).
+
+    ``started`` is when the agent took the turn, before the prompt is built;
+    the gate and its lookup run before the graph, the model calls inside it.
+    """
+
+    started: float = field(default_factory=time.monotonic)
+    gate_ms: int | None = None
+    lookup_ms: int | None = None
+    model: ModelTiming = field(default_factory=ModelTiming)
+
+    def gate_done(self, started: float) -> None:
+        self.gate_ms = _ms_since(started)
+
+    def lookup_done(self, started: float) -> None:
+        self.lookup_ms = _ms_since(started)
+
+    def timing(
+        self, first_token_at: float | None, decision: _GateDecision | None
+    ) -> dict[str, int | str | bool]:
+        """usage_info["timing"] (message_costs.turn_timing); unmeasured parts left out."""
+        first_token_ms = (
+            round((first_token_at - self.started) * 1000) if first_token_at is not None else None
+        )
+        timing: dict[str, int | str | bool | None] = {
+            "first_token_ms": first_token_ms,
+            "gate_ms": self.gate_ms,
+            "lookup_ms": self.lookup_ms,
+            "model_ms": self.model.ms,
+            "model_calls": self.model.calls,
+            "finish_reason": self.model.finish_reason,
+        }
+        if decision is not None:
+            timing["gate_lookup"] = bool(decision.lookup)
+            timing["thinking"] = decision.thinking
+        return {k: v for k, v in timing.items() if v is not None}
 
 
 def build_usage_info(

@@ -33,7 +33,7 @@ from src.agent.standing import StandingContext
 from src.agent.stream_events import StreamEventProcessor
 from src.agent.tools import get_tools_for_request
 from src.agent.turn_budget import initial_state
-from src.agent.turn_usage import batch_usage_info
+from src.agent.turn_usage import TurnClock, batch_usage_info, with_model_timing
 from src.config import Config
 from src.db.models import ConversationFact
 from src.utils.logging import get_logger
@@ -377,6 +377,7 @@ class ChatAgent:
         Returns:
             Tuple of (response_text, tool_results, usage_info, result_messages)
         """
+        clock = TurnClock()
         messages = self._build_messages(
             text,
             files,
@@ -403,11 +404,14 @@ class ChatAgent:
         )
 
         # Run the graph
-        config = get_graph_config()
+        config = with_model_timing(get_graph_config(), clock.model)
         turn_started = time.monotonic()
         decision = self._freshness_decision(messages)
+        clock.gate_done(turn_started)
         if decision and decision.lookup:
+            lookup_started = time.monotonic()
             messages = [*messages, *self._prefetch(decision, messages)]
+            clock.lookup_done(lookup_started)
         result = self._turn_graph(decision).invoke(
             cast(Any, initial_state(messages)), config=config
         )
@@ -433,6 +437,7 @@ class ChatAgent:
             usage_info["freshness_usage"] = decision.usage
         if decision and decision.thinking:
             usage_info["thinking"] = decision.thinking
+        usage_info["timing"] = clock.timing(None, decision)
         grounding_check.apply_grounding(response_text, result_messages, usage_info, None, history)
 
         return response_text, tool_results, usage_info, result_messages
@@ -474,6 +479,7 @@ class ChatAgent:
             - {"type": "token", "text": "..."} - Text token for streaming display
             - {"type": "final", "content": "...", "tool_results": [...], "usage_info": {...}, "result_messages": [...]}
         """
+        clock = TurnClock()
         messages = self._build_messages(
             text,
             files,
@@ -487,17 +493,21 @@ class ChatAgent:
             conversation_title=conversation_title,
             conversation_facts=conversation_facts,
         )
+        gate_started = time.monotonic()
         decision = self._freshness_decision(messages)
+        clock.gate_done(gate_started)
         if decision and decision.lookup:
             # Shown like any tool call while it runs (it takes seconds)
             yield freshness_tool_event("tool_start", decision)
+            lookup_started = time.monotonic()
             messages = [*messages, *self._prefetch(decision, messages)]
+            clock.lookup_done(lookup_started)
             yield freshness_tool_event("tool_end", decision)
         processor = StreamEventProcessor(messages)
 
         # Stream the graph execution with messages mode for token-level streaming
         # Wrapped in try-except to handle executor shutdown gracefully
-        config = get_graph_config()
+        config = with_model_timing(get_graph_config(), clock.model)
         turn_started = time.monotonic()
         stream = self._turn_graph(decision).stream(
             cast(Any, initial_state(messages)),
@@ -514,6 +524,7 @@ class ChatAgent:
                     event["usage_info"]["freshness_usage"] = decision.usage
                 if decision and decision.thinking:
                     event["usage_info"]["thinking"] = decision.thinking
+                event["usage_info"]["timing"] = clock.timing(processor.first_token_at, decision)
                 args = (event["content"], event["result_messages"])
                 stop = event.get("stop_reason")
                 # The verifier runs between the last token and done (~1 s)

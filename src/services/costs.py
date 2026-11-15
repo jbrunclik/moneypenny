@@ -299,6 +299,7 @@ def calculate_and_save_message_cost(
         tools_used=usage_info.get("tools_used"),
         job_id=job_id,
         stopped_by=usage_info.get("stopped_by"),
+        turn_timing=usage_info.get("timing"),
     )
 
     logger.info(

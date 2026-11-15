@@ -1,5 +1,6 @@
 """The graph's chat node: one model call per round, with retries, Stop and fallback."""
 
+import time
 from typing import Any
 
 from langchain_core.callbacks import BaseCallbackManager
@@ -21,7 +22,7 @@ from src.agent.turn_budget import (
     final_reply,
     model_view,
 )
-from src.agent.turn_usage import record_model_usage
+from src.agent.turn_usage import model_timing_of, record_model_usage
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -246,9 +247,13 @@ def _invoke_model(
     is not retried (the retry would show the text twice)."""
     raise_if_cancelled()
     handler = CancelOnToken()
+    timing = model_timing_of(config)
+    started = time.monotonic()
     try:
         response = model.invoke(messages, config=_with_cancel_callback(config, handler))
     except Exception as error:
+        if timing:
+            timing.record(started, None)
         if handler.streamed:
             logger.warning(
                 "Model call failed after streaming text, not retried",
@@ -256,6 +261,8 @@ def _invoke_model(
             )
             raise PartialStreamError(str(error)) from error
         raise
+    if timing:
+        timing.record(started, response)
     record_model_usage(response)
     return response
 

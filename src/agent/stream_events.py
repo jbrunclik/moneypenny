@@ -125,6 +125,8 @@ class StreamEventProcessor:
         self.accumulated_thinking = ""
         # Track token yields for debugging
         self.token_yield_count = 0
+        # When the first reply text went to the client (turn_timing)
+        self.first_token_at: float | None = None
         # Why the turn stopped early (chat_node writes it with the final reply)
         self.stopped_by: str | None = None
         self.msg_context = MsgContextFilter()
@@ -339,6 +341,8 @@ class StreamEventProcessor:
             # Add to full response and yield token
             self.full_response += text_content
             if text_content:
+                if self.first_token_at is None:
+                    self.first_token_at = time.monotonic()
                 self.token_yield_count += 1
                 yield {"type": "token", "text": text_content}
 

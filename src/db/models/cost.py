@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.timestamps import to_db
@@ -56,6 +57,7 @@ class CostMixin:
         tools_used: list[str] | None = None,
         job_id: str | None = None,
         stopped_by: str | None = None,
+        turn_timing: Mapping[str, object] | None = None,
     ) -> None:
         """Save cost information for a message.
 
@@ -76,6 +78,7 @@ class CostMixin:
             tools_used: Unique tool names executed in the turn (stored as JSON)
             job_id: The standing job whose unattended run this was (its budget)
             stopped_by: Why the turn stopped early (cost, time, rounds, loop), if it did
+            turn_timing: Where the turn's time went (agent TurnClock; stored as JSON)
         """
         cost_id = str(uuid.uuid4())
         logger.debug(
@@ -102,8 +105,8 @@ class CostMixin:
                     input_tokens, output_tokens, cached_input_tokens,
                     tool_rounds, tool_call_count,
                     cost_usd, image_generation_cost_usd, created_at,
-                    duration_ms, tool_errors, tools_used, job_id, stopped_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    duration_ms, tool_errors, tools_used, job_id, stopped_by, turn_timing
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     cost_id,
                     message_id,
@@ -123,6 +126,7 @@ class CostMixin:
                     json.dumps(tools_used) if tools_used else None,
                     job_id,
                     stopped_by,
+                    json.dumps(dict(turn_timing)) if turn_timing else None,
                 ),
             )
             conn.commit()

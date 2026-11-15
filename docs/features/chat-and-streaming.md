@@ -81,6 +81,15 @@ Both paths put `stopped_early` on the reply when a turn budget stopped the turn
 `response_metadata["turn_stop"]` into `usage_info["stopped_by"]`;
 [Stopped-Early Replies](../architecture/agent-graph.md#stopped-early-replies)).
 
+**Turn timing (Nov 15 2026).** Every turn records where its time went in
+`usage_info["timing"]`, saved as `message_costs.turn_timing` (JSON): `first_token_ms`
+(streamed turns: from the agent taking the turn, before the prompt is built, to the
+first reply text sent), `gate_ms` and `lookup_ms` (the freshness gate and its prefetch),
+`model_ms` / `model_calls` / `finish_reason` (every chat-node model call, timed in
+`_invoke_model` through the graph config's `configurable["model_timing"]`, so a
+delegate's or subagent's own calls are not counted), `gate_lookup` and `thinking`.
+`TurnClock` in [turn_usage.py](../../src/agent/turn_usage.py) builds it.
+
 **Grounding.** Both paths run the post-answer [grounding check](grounding.md) on
 web-tool turns before saving. Streaming emits a `grounding_started` event between
 the last token and `done` while the verifier runs (the client shows the footer's

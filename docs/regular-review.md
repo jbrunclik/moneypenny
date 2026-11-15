@@ -98,6 +98,11 @@ The review itself changes nothing in production and edits nothing but
   volatile moved into that prefix.
 - Response time: median and 95th percentile (admin page "Responses"); a
   slower p95 usually means a tool or the model provider, so name which.
+- Where reply time goes (from Nov 15 2026; `message_costs.turn_timing`, JSON): median
+  and p90 of `json_extract(turn_timing, '$.first_token_ms')` for streamed turns, and of
+  `gate_ms`, `lookup_ms` (when `gate_lookup`), `model_ms` and `model_calls`, split by
+  `thinking`; `finish_reason` other than `STOP` (MAX_TOKENS, SAFETY) is a finding. The
+  Reply speed items in TODO.md are judged against these.
 - Backup sizes: the nightly `Backup compressed` journal lines (`plain_size_bytes`,
   `compressed_size_bytes`, `ratio` per database). A ratio creeping towards 1, or
   sizes growing much faster than usage, is a finding; a `Backup compression
