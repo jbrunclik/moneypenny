@@ -121,6 +121,20 @@ class TestArchiveAndRescheduleGates:
             {"operation": "update_event", "event_id": "e1", "attendees": ["a@b.c"]},
         )
 
+    def test_create_event_with_attendees_gated(self, agent_ctx: Any) -> None:
+        # Google adds the event to the guests' calendars and can email them:
+        # an injected instruction must not reach arbitrary addresses (Nov 15 2026 audit)
+        _blocked(
+            "google_calendar",
+            {"operation": "create_event", "summary": "Lunch", "attendees": ["x@evil.example"]},
+        )
+
+    def test_create_event_without_attendees_allowed(self, agent_ctx: Any) -> None:
+        check_autonomous_permission(
+            "google_calendar",
+            {"operation": "create_event", "summary": "Lunch", "attendees": []},
+        )
+
     def test_update_event_cosmetic_edit_allowed(self, agent_ctx: Any) -> None:
         # Renames/description tweaks are reversible and stay ungated
         check_autonomous_permission(

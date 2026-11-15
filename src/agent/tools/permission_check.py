@@ -48,10 +48,25 @@ DESTRUCTIVE_OPERATIONS: dict[str, frozenset[str]] = {
 _UPDATE_EVENT_GATED_FIELDS = ("start_time", "end_time", "attendees")
 
 
+def sends_invites(tool_name: str, tool_args: Mapping[str, object]) -> bool:
+    """A Calendar create or update naming attendees: Google puts the event on
+    their calendars and can email them, so an injected instruction could
+    reach arbitrary addresses. It needs the user's yes, in a run and in chat
+    (Nov 15 2026 audit; update_event alone was gated, and only in runs)."""
+    operation = tool_args.get("operation") or tool_args.get("action")
+    return (
+        tool_name == "google_calendar"
+        and operation in ("create_event", "update_event")
+        and bool(tool_args.get("attendees"))
+    )
+
+
 def _destructive_operation(tool_name: str, tool_args: dict[str, Any]) -> str | None:
     """The operation name when this call needs an approval, else None."""
     operation = tool_args.get("operation") or tool_args.get("action")
     if operation in DESTRUCTIVE_OPERATIONS.get(tool_name, frozenset()):
+        return str(operation)
+    if sends_invites(tool_name, tool_args):
         return str(operation)
     if (
         tool_name == "google_calendar"

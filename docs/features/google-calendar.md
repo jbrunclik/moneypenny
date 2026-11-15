@@ -78,6 +78,7 @@ shared "disconnected - reconnect in Settings" result
 | `delete_event` | `calendar_id`, `event_id`, optional `send_updates` | Delete an event (confirm first) |
 | `respond_event` | `calendar_id`, `event_id`, `response_status` | RSVP to invitations (accepted/tentative/declined) |
 
+A `create_event` or `update_event` with `attendees` waits on an approval card, in chat and in agent runs (since Nov 15 2026; [proposals.md](proposals.md#chat-changes-step-4-nov-9-2026)): the guests get the event, and can get an email.
 
 **Cut lists say so (Nov 2026):** `list_events` asks for one page; when Google returns a
 `nextPageToken` (more events than `max_results`, or 250), the result carries an

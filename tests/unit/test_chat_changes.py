@@ -319,3 +319,106 @@ def test_a_rouvy_delete_is_applied_as_the_cards_user(
 
     assert done.state == "approved"
     delete.assert_called_once_with(connected, 7)
+
+
+def _calendar(test_database: Database, test_conversation: Conversation) -> Any:
+    calendar = importlib.import_module("src.agent.tools.google_calendar")
+    created = {"id": "new1", "summary": "Lunch", "start": {"dateTime": "2026-11-20T12:00:00+01:00"}}
+    return calendar, created
+
+
+def test_an_invite_in_chat_waits_on_its_card(
+    test_database: Database, test_conversation: Conversation
+) -> None:
+    """Calendar invites email people outside the family: they need a yes, in
+    chat too (Nov 15 2026 audit)."""
+    from src.agent.tools.google_calendar import google_calendar
+
+    calendar, created = _calendar(test_database, test_conversation)
+    with (
+        use_database(test_database),
+        patch.object(calendar, "_is_google_calendar_configured", return_value=True),
+        patch.object(calendar, "_get_google_calendar_access_token", return_value=("t", None)),
+        patch.object(calendar, "_google_calendar_api_request", return_value=created) as api,
+    ):
+        set_conversation_context(test_conversation.id, test_conversation.user_id)
+        set_current_request_id("turn-1")
+        google_calendar.invoke(
+            {
+                "action": "create_event",
+                "summary": "Lunch",
+                "start_time": "2026-11-20T12:00:00",
+                "end_time": "2026-11-20T13:00:00",
+                "attendees": ["jana@example.com"],
+            }
+        )
+        assert not [c for c in api.call_args_list if c.args[0] == "POST"]
+        card = _shown(test_database, test_conversation)
+        assert card.summary == "Invite guests to event “Lunch (jana@example.com)”"
+        assert card.details == {"Invite guests to event": "Lunch (jana@example.com)"}
+        assert [o["label"] for o in card.options] == ["Invite"]
+
+        done = resolve(card, 0, "button")
+        set_conversation_context(None, None)
+        set_current_request_id(None)
+
+    assert done.state == "approved"
+    posts = [c for c in api.call_args_list if c.args[0] == "POST"]
+    assert [c.args[1] for c in posts] == ["/calendars/primary/events"]
+
+
+def test_an_event_without_guests_is_created_at_once(
+    test_database: Database, test_conversation: Conversation
+) -> None:
+    from src.agent.tools.google_calendar import google_calendar
+
+    calendar, created = _calendar(test_database, test_conversation)
+    with (
+        use_database(test_database),
+        patch.object(calendar, "_is_google_calendar_configured", return_value=True),
+        patch.object(calendar, "_get_google_calendar_access_token", return_value=("t", None)),
+        patch.object(calendar, "_google_calendar_api_request", return_value=created) as api,
+    ):
+        set_conversation_context(test_conversation.id, test_conversation.user_id)
+        set_current_request_id("turn-1")
+        google_calendar.invoke(
+            {
+                "action": "create_event",
+                "summary": "Lunch",
+                "start_time": "2026-11-20T12:00:00",
+                "end_time": "2026-11-20T13:00:00",
+            }
+        )
+        set_conversation_context(None, None)
+        set_current_request_id(None)
+
+    assert test_database.pending_proposals(test_conversation.id) == []
+    assert [c.args[1] for c in api.call_args_list if c.args[0] == "POST"] == [
+        "/calendars/primary/events"
+    ]
+
+
+def test_inviting_guests_to_an_existing_event_waits_too(
+    test_database: Database, test_conversation: Conversation
+) -> None:
+    from src.agent.tools.google_calendar import google_calendar
+
+    calendar = importlib.import_module("src.agent.tools.google_calendar")
+    event = {"summary": "Dentist", "start": {"dateTime": "2026-11-12T09:00:00+01:00"}}
+    with (
+        use_database(test_database),
+        patch.object(calendar, "_is_google_calendar_configured", return_value=True),
+        patch.object(calendar, "_get_google_calendar_access_token", return_value=("t", None)),
+        patch.object(calendar, "_google_calendar_api_request", return_value=event) as api,
+    ):
+        set_conversation_context(test_conversation.id, test_conversation.user_id)
+        set_current_request_id("turn-1")
+        google_calendar.invoke(
+            {"action": "update_event", "event_id": "e1", "attendees": ["a@example.com"]}
+        )
+        card = _shown(test_database, test_conversation)
+        set_conversation_context(None, None)
+        set_current_request_id(None)
+
+    assert card.details == {"Invite guests to event": "Dentist (Thu 12 Nov 09:00) (a@example.com)"}
+    assert not [c for c in api.call_args_list if c.args[0] in ("PATCH", "PUT")]

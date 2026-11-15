@@ -45,10 +45,14 @@ the agent's name.
 In a chat turn, a call in the run gate's list (`DESTRUCTIVE_OPERATIONS` in
 [permission_check.py](../../src/agent/tools/permission_check.py): Todoist
 delete_task / delete_project / delete_section / archive_project, Calendar
-delete_event, the Rouvy delete) does not run.
+delete_event, the Rouvy delete) does not run - nor, since Nov 15 2026, a Calendar
+`create_event` or `update_event` that names `attendees` (`sends_invites`: Google puts
+the event on the guests' calendars and can email them, so an injected instruction
+could reach any address; the run gate holds it too, even with the write level). Its
+row is "Invite guests to event: Lunch (jana@example.com)" and its button "Invite".
 `check_autonomous_permission` returns `hold_destructive_call()`'s card text
 ([chat_changes.py](../../src/agent/chat_changes.py)) and the tool answers with
-it. Completes, reschedules and attendee changes still run at once; the prompt
+it. Completes and reschedules still run at once; the prompt
 asks about the ambiguous ones in text. The card:
 - One per turn: the turn's calls collect into its `chat_change` proposal
   (`turn_proposal` / `extend_proposal`, under a lock, because a round's calls

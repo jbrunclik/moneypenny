@@ -54,7 +54,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 - [ ] **Agent safety** (Nov 15 2026 audit):
   - **`kv_store` namespaces** - an unattended run with no grants can write or delete `places`, program data or another agent's namespace (only internal namespaces are reserved). Restrict runs to their own namespace.
-  - **Calendar invites** - `create_event` with attendees needs no card (only `update_event` does), so an injected instruction could email arbitrary addresses. Gate create-with-attendees the same way, in chat too.
   - **Untrusted framing** - `wrap_untrusted_content` covers web results only; calendar, Todoist, file and past-chat text reach the model unframed. One wrapper in the tool node, plus injection evals through tool results (`forbidden_tools`).
   - **No safety settings or output cap** on any Gemini call - decide explicit thresholds, add 2-3 age-appropriate evals.
   - **Sandbox** runs as root with no `pids_limit`, `cap_drop` or disk quota on `/work`.

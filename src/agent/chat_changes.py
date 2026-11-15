@@ -2,7 +2,8 @@
 
 In a chat turn, a call in the run gate's list (permission_check.
 DESTRUCTIVE_OPERATIONS: Todoist deletes and archives, Calendar delete_event,
-the Rouvy delete) does not run: hold_destructive_call puts it on the turn's
+the Rouvy delete), or a Calendar create or update that invites guests
+(permission_check.sends_invites), does not run: hold_destructive_call puts it on the turn's
 one chat_change card - its tool, full arguments and the item's name, looked
 up from the integration - and the tool returns the card text instead. All of
 a turn's destructive calls share that card (one row each) and apply together:
@@ -51,6 +52,8 @@ _WORDS: dict[tuple[str, str], tuple[str, str]] = {
     ("todoist", "archive_project"): ("Archive", "project"),
     ("google_calendar", "delete_event"): ("Delete", "event"),
     ("rouvy_workout", "delete"): ("Delete", "Rouvy workout"),
+    ("google_calendar", "create_event"): ("Invite", "guests to event"),
+    ("google_calendar", "update_event"): ("Invite", "guests to event"),
 }
 
 # The stored calls are being performed: the gate lets them through
@@ -80,14 +83,20 @@ def _lookups() -> dict[str, Callable[[Mapping[str, object]], str | None]]:
 
 
 def item_label(tool: str, args: Mapping[str, object]) -> str:
-    """The item a call changes, by name; its id when the lookup fails."""
-    lookup = _lookups().get(tool)
-    try:
-        name = lookup(args) if lookup else None
-    except Exception:  # a lookup never blocks the card
-        logger.warning("Chat change lookup failed", extra={"tool": tool}, exc_info=True)
-        name = None
-    return name or _item_id(args)
+    """The item a call changes, by name; its id when the lookup fails. An
+    invite names its event and the guests: "Lunch (jana@example.com)"."""
+    name = None
+    if args.get("event_id") or _operation(args) != "create_event":
+        lookup = _lookups().get(tool)
+        try:
+            name = lookup(args) if lookup else None
+        except Exception:  # a lookup never blocks the card
+            logger.warning("Chat change lookup failed", extra={"tool": tool}, exc_info=True)
+    name = name or str(args.get("summary") or "") or _item_id(args)
+    guests = args.get("attendees")
+    if isinstance(guests, list) and guests:
+        return f"{name} ({', '.join(str(g) for g in guests)})"
+    return name
 
 
 def _call_words(call: Mapping[str, object]) -> tuple[str, str]:
@@ -126,11 +135,17 @@ def _card(calls: list[dict[str, object]]) -> tuple[str, dict[str, object], list[
 def hold_destructive_call(tool: str, args: Mapping[str, object]) -> str | None:
     """A chat turn's delete or archive: put it on the turn's card and return
     the card text for the tool's result; None lets the call run."""
-    from src.agent.tools.permission_check import DESTRUCTIVE_OPERATIONS  # noqa: PLC0415 - cycle: permission_check imports this module
+    from src.agent.tools.permission_check import (  # noqa: PLC0415 - cycle: permission_check imports this module
+        DESTRUCTIVE_OPERATIONS,
+        sends_invites,
+    )
 
-    if _applying.get() or _operation(args) not in DESTRUCTIVE_OPERATIONS.get(tool, frozenset()):
+    if _applying.get():
         return None
-    if not _item_id(args):
+    invites = sends_invites(tool, args)
+    if not invites and _operation(args) not in DESTRUCTIVE_OPERATIONS.get(tool, frozenset()):
+        return None
+    if not invites and not _item_id(args):
         return None  # the tool's own "needs task_id" error goes back to the model
     request_id = get_current_request_id()
     conversation_id, _user_id = get_conversation_context()
@@ -234,14 +249,16 @@ def apply_chat_change(proposal: Proposal, option: ProposalOption) -> str:
     return f"Done - {', '.join(done)}."
 
 
-# A delete's own verb is a yes to its card ("smaž to"), so a natural reply
+# A delete's (or an invite's) own verb is a yes to its card ("smaž to"), so a natural reply
 # does not expire it into a confirm loop
 _VERB_YES = frozenset(
     {
         "delete", "delete it", "delete them", "yes delete", "yes delete it",
         "archive", "archive it", "yes archive",
+        "invite", "invite them", "send the invites", "yes invite",
         "smaž", "smaž to", "smaž je", "smazat", "ano smaž", "ano smazat", "jo smaž",
         "archivuj", "archivovat", "ano archivuj",
+        "pozvi", "pozvi je", "pošli pozvánky", "pošli pozvánku", "ano pozvi",
     }
 )  # fmt: skip
 
