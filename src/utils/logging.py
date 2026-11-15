@@ -98,6 +98,19 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_data, default=str)
 
 
+class _DropIgnoredDefs(logging.Filter):
+    """langchain-google-genai inlines a tool's nested `$ref`s, then warns that
+    it ignores the leftover `$defs` key - once per tool per model build (586
+    lines in 30 days, read as lost types by the Nov 15 2026 audit; the types
+    arrive, tests/unit/test_tool_schema_nesting.py). Only that message goes."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not record.getMessage().startswith("Key '$defs' is not supported in schema")
+
+
+_DROP_IGNORED_DEFS = _DropIgnoredDefs()
+
+
 def setup_logging() -> None:
     """Configure structured logging for the application."""
 
@@ -132,6 +145,9 @@ def setup_logging() -> None:
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("langchain").setLevel(logging.WARNING)
     logging.getLogger("langgraph").setLevel(logging.WARNING)
+    function_utils = logging.getLogger("langchain_google_genai._function_utils")
+    if _DROP_IGNORED_DEFS not in function_utils.filters:
+        function_utils.addFilter(_DROP_IGNORED_DEFS)
 
 
 def get_logger(name: str) -> logging.Logger:

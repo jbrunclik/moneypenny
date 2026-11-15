@@ -68,6 +68,14 @@ class TestTheInstalledSdksErrors:
         assert is_transient_error(httpx.ReadTimeout("The read operation timed out")) is True
         assert is_transient_error(httpx.ConnectError("[Errno 104] reset")) is True
 
+    def test_the_gemini_clients_network_failures_are_retried(self) -> None:
+        # google-genai 3.x sends requests through httpx2 (pydantic's fork),
+        # whose exceptions are not httpx's
+        import httpx2
+
+        assert is_transient_error(httpx2.ReadTimeout("The read operation timed out")) is True
+        assert is_transient_error(httpx2.ConnectError("[Errno 104] reset")) is True
+
     def test_a_bad_request_is_not_retried(self) -> None:
         from langchain_google_genai.chat_models import GoogleInvalidRequestError
 

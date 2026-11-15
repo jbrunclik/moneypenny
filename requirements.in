@@ -19,6 +19,7 @@ pyjwt>=2.15.1
 
 # Web tools
 httpx>=0.28.1
+httpx2>=2.16.0  # google-genai 3.x's HTTP client; retry.py matches its errors
 beautifulsoup4>=4.15.0
 html2text>=2025.4.15
 trafilatura>=2.3.1

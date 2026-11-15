@@ -277,7 +277,8 @@ fails if a tool sends it again.
 >
 > A nested Pydantic model as a parameter (`list[BrowserStep]`, `list[ArtifactEdit]`)
 > does work: langchain inlines each `$ref` before it drops `$defs`, so the log line
-> "Key '$defs' is not supported in schema, ignoring" is noise.
+> "Key '$defs' is not supported in schema, ignoring" is noise (filtered out of the log
+> since Nov 15 2026, `_DropIgnoredDefs` in `src/utils/logging.py`).
 > `tests/unit/test_context_cache.py::TestNestedToolSchemas` fails if an upgrade
 > stops inlining.
 

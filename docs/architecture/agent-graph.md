@@ -49,7 +49,8 @@ wraps them) are retried with exponential backoff and jitter, configured by
 langchain-google-genai 4.x raises `langchain_core` `ModelError`s with `is_retryable`
 (`GoogleAPIError` for 5xx, `GoogleRateLimitError` for 429; `GoogleInvalidRequestError` and
 `GoogleContextOverflowError` are not retryable), google-genai raises `APIError` with a `code`,
-and its network failures are `httpx.TransportError`s. The first exception in the cause chain
+and its network failures are `httpx2.TransportError`s - google-genai 3.x sends through `httpx2`
+(pydantic's fork), whose exceptions are not `httpx`'s, so both are matched. The first exception in the cause chain
 that classifies itself decides; message patterns are the fallback. Before Nov 15 the check
 matched `google.api_core` classes nothing raises any more, so 500, 504 and network timeouts
 were never retried.

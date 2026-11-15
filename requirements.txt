@@ -128,6 +128,7 @@ httpx==0.28.1
     #   langgraph-sdk
 httpx2==2.16.0
     # via
+    #   -r requirements.in
     #   google-genai
     #   langsmith
 httpx2-jsfetch==1.0 ; sys_platform == 'emscripten'

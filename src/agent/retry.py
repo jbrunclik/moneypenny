@@ -15,6 +15,7 @@ from functools import wraps
 from typing import Any
 
 import httpx
+import httpx2
 from google.genai.errors import APIError as GenaiAPIError
 from langchain_core.exceptions import ModelError
 
@@ -29,7 +30,8 @@ TRANSIENT_EXCEPTIONS = (
     ConnectionError,
     TimeoutError,
     OSError,  # Includes socket errors
-    httpx.TransportError,  # google-genai's network failures and timeouts
+    httpx.TransportError,  # network failures and timeouts (other clients)
+    httpx2.TransportError,  # google-genai 3.x's: it sends through httpx2, not httpx
 )
 
 # google-genai API errors worth another attempt (langchain-google-genai 4.x
