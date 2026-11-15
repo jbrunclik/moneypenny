@@ -17,6 +17,7 @@ from src.agent.graph_state import AgentState
 from src.agent.permissions import PermissionResult, check_tool_permission
 from src.agent.tool_loops import blocked_calls, blocked_message, dedupe_results
 from src.agent.tool_results import get_current_request_id, store_tool_result
+from src.agent.tool_round_check import tool_message_error
 from src.agent.tools.request_approval import ApprovalRequestedException
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -210,7 +211,9 @@ def _log_tool_round(messages: list[Any], elapsed_ms: int) -> None:
     outcomes = [
         {
             "tool": msg.name or "unknown",
-            "status": getattr(msg, "status", None) or "success",
+            # The same detection as message_costs.tool_errors: a tool's JSON
+            # error result has status "success" (Nov 15 2026 audit)
+            "status": "error" if tool_message_error(msg) is not None else "success",
             "result_chars": len(msg.content) if isinstance(msg.content, str) else None,
         }
         for msg in messages
