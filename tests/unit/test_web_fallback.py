@@ -212,3 +212,27 @@ def test_a_redirect_to_a_blocked_host_never_reaches_exa(exa: MagicMock) -> None:
         text, error = web.fetch_page_text(_SHOP, 6000)
     assert text is None and error is not None and "Blocked redirect" in error
     exa.assert_not_called()
+
+
+# ---- Deferred minors from the final review ----
+
+
+def test_a_pdf_link_refused_after_exa_failed_is_not_sent_to_exa_again(exa: MagicMock) -> None:
+    exa.return_value = (None, "reading service could not read it")
+    url = "https://example.com/manual.pdf"
+    with patch.object(
+        web, "_fetch_response", return_value=(None, f"HTTP 403 when fetching {url}", 403)
+    ):
+        text, error = web.fetch_page_text(url, 6000)
+    assert text is None
+    assert error == f"HTTP 403 when fetching {url} (also unavailable through the reading service)"
+    assert exa.call_count == 1
+
+
+def test_a_large_pdf_exa_cannot_read_says_it_was_tried(exa: MagicMock) -> None:
+    exa.return_value = (None, "reading service could not read it")
+    big = _page("application/pdf", b"%PDF" + b"x" * (Config.FETCH_URL_MAX_FILE_SIZE_BYTES + 1))
+    with patch.object(web, "_fetch_response", return_value=(big, None, None)):
+        result = web.fetch_url.invoke({"url": "https://example.com/manual.pdf"})
+    assert isinstance(result, str)
+    assert "too large" in result and "also unavailable through the reading service" in result

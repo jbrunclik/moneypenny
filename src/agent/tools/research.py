@@ -12,7 +12,7 @@ Deterministic - no nested LLM call (delegate_task is the agentic variant).
 import contextvars
 import json
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Any
 
 from langchain_core.tools import tool
@@ -102,12 +102,34 @@ def _fetch_source(candidate: dict[str, str]) -> dict[str, str]:
 
 
 def _fetch_sources(candidates: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Fetch candidates in parallel, in order."""
+    """Fetch candidates all at once, in order, within
+    RESEARCH_PAGE_DEADLINE_SECONDS of wall-clock: httpx's timeout is per read,
+    so a page that drips could hold research far longer. A page still
+    running then is given up on (its thread finishes on its own timeouts;
+    the result is dropped) and reported as timed out, like a failed page."""
     if not candidates:
         return []
     contexts = [contextvars.copy_context() for _ in candidates]  # logs keep the request id
-    with ThreadPoolExecutor(max_workers=Config.RESEARCH_FETCH_WORKERS) as pool:
-        return list(pool.map(lambda ctx, c: ctx.run(_fetch_source, c), contexts, candidates))
+    pool = ThreadPoolExecutor(max_workers=len(candidates))
+    futures = [
+        pool.submit(ctx.run, _fetch_source, c) for ctx, c in zip(contexts, candidates, strict=True)
+    ]
+    done, _ = wait(futures, timeout=Config.RESEARCH_PAGE_DEADLINE_SECONDS)
+    pool.shutdown(wait=False, cancel_futures=True)
+    return [
+        future.result() if future in done else _timed_out(candidate)
+        for future, candidate in zip(futures, candidates, strict=True)
+    ]
+
+
+def _timed_out(candidate: dict[str, str]) -> dict[str, str]:
+    logger.info("research: page timed out", extra={"url": candidate["url"]})
+    return {
+        "url": candidate["url"],
+        "title": candidate.get("title", ""),
+        "snippet": candidate.get("snippet", ""),
+        "error": f"timed out after {Config.RESEARCH_PAGE_DEADLINE_SECONDS:g} s",
+    }
 
 
 @tool

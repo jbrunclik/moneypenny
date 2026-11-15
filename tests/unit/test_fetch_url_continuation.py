@@ -130,3 +130,8 @@ def test_links_resolve_against_the_final_url_after_redirects() -> None:
     page.url = httpx.URL("https://example.com/docs/v2/")  # where the redirects ended
     result = _fetch(page)
     assert "- Manual: https://example.com/docs/v2/manual.pdf" in result
+
+
+def test_a_negative_start_reads_from_the_top(small_limit: int) -> None:
+    page = _text_page("a" * 100 + "b" * 50)
+    assert _fetch(page, start=-30) == _fetch(page)

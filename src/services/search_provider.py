@@ -200,7 +200,8 @@ class _Provider:
     search: Callable[[str, int], list[dict[str, str]]]
 
 
-def _provider_available(provider: _Provider) -> bool:
+def _provider_available(provider: _Provider, share: float = 1.0) -> bool:
+    """Configured, not benched, and below ``share`` of its monthly quota."""
     if provider.monthly_quota() is None:
         return True  # ddgs: always available, needs no key
     if not provider.api_key():
@@ -208,7 +209,7 @@ def _provider_available(provider: _Provider) -> bool:
     if _breaker_tripped(provider.name):
         return False
     quota = provider.monthly_quota()
-    return quota is None or get_monthly_usage(provider.name) < quota
+    return quota is None or get_monthly_usage(provider.name) < quota * share
 
 
 def active_provider() -> str:
@@ -452,10 +453,7 @@ def has_headroom(name: str, share: float) -> bool:
     """Whether a metered provider is configured, not benched, and below
     ``share`` of its monthly quota (the rest is kept for search)."""
     provider = next((p for p in _PROVIDERS if p.name == name), None)
-    if provider is None or not provider.api_key() or _breaker_tripped(name):
-        return False
-    quota = provider.monthly_quota()
-    return quota is None or get_monthly_usage(name) < quota * share
+    return provider is not None and _provider_available(provider, share)
 
 
 def bill_units(name: str, units: int) -> None:

@@ -3,6 +3,8 @@
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.agent.tools.research import research
 from src.config import Config
 
@@ -279,3 +281,41 @@ class TestResearchSpeed:
         ]
         assert isinstance(extra["search_ms"], int)
         assert isinstance(extra["fetch_ms"], int)
+
+
+class TestResearchPageDeadline:
+    """A page that drips slower than httpx's per-read timeout cannot hold
+    research past its wall-clock deadline (final review minor)."""
+
+    @patch("src.agent.tools.research.search_web")
+    @patch("src.agent.tools.research.fetch_page_text")
+    def test_a_hung_page_is_given_up_on(
+        self, mock_fetch: MagicMock, mock_search: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import threading
+        import time
+
+        release = threading.Event()
+        mock_search.return_value = [_result("https://slow"), _result("https://fast")]
+
+        def fetch(url: str, _max: int, **_: object) -> tuple[str | None, str | None]:
+            if url == "https://slow":
+                release.wait(10)
+            return f"page {url}", None
+
+        mock_fetch.side_effect = fetch
+        monkeypatch.setattr(Config, "RESEARCH_PAGE_DEADLINE_SECONDS", 0.5)
+        started = time.monotonic()
+        try:
+            parsed = json.loads(research.invoke({"question": "q", "max_sources": 2}))
+        finally:
+            release.set()
+        assert time.monotonic() - started < 5
+        by_url = {s["url"]: s for s in parsed["sources"]}
+        assert "content" in by_url["https://fast"]
+        assert "timed out" in by_url["https://slow"]["error"]
+
+    def test_the_deadline_covers_a_direct_read_and_an_exa_read(self) -> None:
+        assert Config.RESEARCH_PAGE_DEADLINE_SECONDS == (
+            Config.RESEARCH_FETCH_TIMEOUT_SECONDS + Config.WEB_EXTRACT_TIMEOUT_SECONDS
+        )

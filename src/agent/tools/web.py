@@ -157,16 +157,20 @@ def fetch_page_text(
         exa_tried = exa_error is not None
     response, error, status = _fetch_response(url, timeout)
     if error or response is None:
-        return _refused_page_text(url, limit, error or f"Failed to fetch {url}", status)
+        error = error or f"Failed to fetch {url}"
+        return _refused_page_text(url, limit, error, status, exa_failed=exa_tried)
     return _response_text(response, url, max_chars, limit, try_exa=not exa_tried)
 
 
 def _refused_page_text(
-    url: str, limit: int, error: str, status: int | None
+    url: str, limit: int, error: str, status: int | None, *, exa_failed: bool = False
 ) -> tuple[str | None, str | None]:
-    """A failed direct fetch: read through Exa when it was refused (403/429)."""
+    """A failed direct fetch: read through Exa when it was refused (403/429)
+    and Exa has not just failed on it (``exa_failed``: a .pdf link's read)."""
     if status not in _REFUSED_STATUSES:
         return None, error
+    if exa_failed:
+        return None, error + _ALSO_UNAVAILABLE
     text, other_error = _read_elsewhere(url, limit, status)
     if text is not None:
         return text, None
@@ -222,6 +226,7 @@ def fetch_url(url: str, start: int = 0) -> str | list[dict[str, Any]]:
         For errors: JSON with error field
     """
     logger.info("fetch_url called", extra={"url": url})
+    start = max(0, start)
     record_tool_call("fetch_url")
     response, fetch_error, status = _fetch_response(url)
     if fetch_error or response is None:
@@ -260,9 +265,10 @@ def fetch_url(url: str, start: int = 0) -> str | list[dict[str, Any]]:
     # Handle binary content (PDFs, images)
     if content_category == "binary":
         if _is_pdf(content_type) and content_length > Config.FETCH_URL_MAX_FILE_SIZE_BYTES:
-            result, _ = _exa_page_result(url, start, None)
+            result, exa_error = _exa_page_result(url, start, None)
             if result is not None:
                 return result
+            return _binary_result(url, response.content, content_type, exa_tried=bool(exa_error))
         return _binary_result(url, response.content, content_type)
 
     # Unsupported content type
@@ -355,7 +361,9 @@ def _text_result(url: str, text_content: str, start: int = 0) -> str:
     return _framed(url, chunk, note) + f"\n\n[{GROUNDING_DIRECTIVE}]"
 
 
-def _binary_result(url: str, content: bytes, content_type: str) -> str | list[dict[str, Any]]:
+def _binary_result(
+    url: str, content: bytes, content_type: str, *, exa_tried: bool = False
+) -> str | list[dict[str, Any]]:
     """A PDF or image as multimodal content, or the error when it is too large."""
     content_length = len(content)
     # Check file size limit (10MB default)
@@ -368,6 +376,7 @@ def _binary_result(url: str, content: bytes, content_type: str) -> str | list[di
         return tool_error(
             f"File is too large ({content_length // 1024 // 1024}MB). "
             f"Maximum allowed size is {max_size // 1024 // 1024}MB."
+            + (_ALSO_UNAVAILABLE if exa_tried else "")
         )
 
     # Get normalized MIME type

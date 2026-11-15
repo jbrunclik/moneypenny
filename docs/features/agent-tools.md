@@ -142,9 +142,11 @@ all agree — the first two are the obvious ones, the third is easy to miss:
   the untrusted markers. The first read lists up to `FETCH_URL_MAX_LINKS` (40) of the
   page's links (absolute, deduplicated, inside the markers). JSON (pretty-printed),
   XML and RSS/Atom feeds are read as text by `fetch_url` and `research` (they were
-  refused). `research` runs its searches at once and gives each page
-  `RESEARCH_FETCH_TIMEOUT_SECONDS` (15); "research completed" logs `search_ms` and
-  `fetch_ms`.
+  refused). `research` runs its searches at once, starts all its pages at once and
+  gives each `RESEARCH_FETCH_TIMEOUT_SECONDS` (15, per read) within a wall-clock
+  `RESEARCH_PAGE_DEADLINE_SECONDS` (30: a direct read plus an Exa read) - a page still
+  running then is reported as timed out and replaced like a failed one;
+  "research completed" logs `search_ms` and `fetch_ms`.
 - **Untrusted content**: text from `fetch_url`/`browser` is wrapped in
   `[UNTRUSTED WEB CONTENT ...]` markers and `web_search` carries a `_warning`
   field; the system prompt instructs the model to treat all such content
