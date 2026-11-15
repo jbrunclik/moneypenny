@@ -86,6 +86,12 @@ The review itself changes nothing in production and edits nothing but
   a run stopped on time where it used to be killed.
 - Integration tokens that expired (Calendar, Garmin, Todoist "disconnected"
   results in the journal) - the person may not know.
+- Web reading (from Nov 15 2026; [agent-tools.md](features/agent-tools.md#tool-security)):
+  the share of research page fetches that fail ("research completed"
+  `fetch_failures` against `fetched_ok`; baseline 27%, 937 of 3,475 in the 30 days to
+  Nov 15 2026), and "Page read via fallback" per week by `status` and `host` with the
+  summed `cost_usd` (Exa extract spend; the fallback stops at 90% of Exa's quota).
+  Hosts that keep failing there are candidates for their own reader.
 - Rouvy (from Nov 15 2026; [rouvy.md](features/rouvy.md)): "Rouvy request via browser"
   count, `status` and median `elapsed_ms` (the in-page fetch Cloudflare lets
   through), against "Rouvy request met the Cloudflare challenge" and "Rouvy browser

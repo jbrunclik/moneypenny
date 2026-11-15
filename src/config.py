@@ -456,6 +456,13 @@ class Config:
     # credit was still sitting there. Over-setting this is now safe: Exa
     # answers 402 when credits really are gone, which benches it at once.
     SEARCH_QUOTA_EXA_MONTHLY = int(os.getenv("SEARCH_QUOTA_EXA_MONTHLY", "1400"))
+    # One Exa usage unit (a search with text snippets, measured Sep 25 2026)
+    EXA_SEARCH_UNIT_USD = 0.007
+    # Pages refused directly (403/429) are read through Exa /contents (~$0.001
+    # a page, billed into Exa's counter by cost); the fallback stops at this
+    # share of SEARCH_QUOTA_EXA_MONTHLY so the rest stays for search
+    WEB_EXTRACT_QUOTA_SHARE = 0.9
+    WEB_EXTRACT_TIMEOUT_SECONDS = 15
     # Linkup free tier: ~$5/mo credit plus a one-off signup grant. Probed live
     # Sep 25 2026 at 1,000 recorded searches and it still served, so the
     # signup grant had headroom the old cap was throwing away. A 429 means

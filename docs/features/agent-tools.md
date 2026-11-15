@@ -122,6 +122,20 @@ all agree — the first two are the obvious ones, the third is easy to miss:
   by its `<meta charset>` (`sniffed_encoding` in
   [web_content.py](../../src/agent/tools/web_content.py)), else UTF-8 - httpx's UTF-8
   fallback turned an old windows-1250 Czech page into "B�ve" for the model.
+- **Pages the production host is refused** (Nov 15 2026,
+  [spec](../superpowers/specs/2026-11-15-web-reading-design.md)): a `fetch_url` or
+  `research` fetch answering 403 or 429 is read through Exa `/contents`
+  ([page_extract.py](../../src/services/page_extract.py)) - shops, Wikipedia in bursts
+  and manual sites refuse the host whatever it sends, while Exa read 9 of 10 of them.
+  PDFs go the same way: `research` sends a `.pdf` link (or a response that turns out
+  to be a PDF) to Exa as text, and `fetch_url` a PDF over
+  `FETCH_URL_MAX_FILE_SIZE_BYTES` (a small one stays multimodal). Reddit never goes
+  to Exa (refused there too; it waits for its own API, TODO.md). The spend shares
+  Exa's search credit: billed into its usage counter by `costDollars` ($0.007 a
+  unit, the fraction carried in kv), stopped at `WEB_EXTRACT_QUOTA_SHARE` (90%) of
+  the quota, and Exa's 402 benches it for search too; other failures leave search
+  alone. When Exa cannot read it either the error says "(also unavailable through
+  the reading service)". One "Page read via fallback" line per read.
 - **Untrusted content**: text from `fetch_url`/`browser` is wrapped in
   `[UNTRUSTED WEB CONTENT ...]` markers and `web_search` carries a `_warning`
   field; the system prompt instructs the model to treat all such content

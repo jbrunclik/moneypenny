@@ -6,7 +6,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from langchain_core.tools import tool
@@ -21,6 +21,7 @@ from src.agent.tools.web_content import (
     wrap_untrusted_content,
 )
 from src.config import Config
+from src.services.page_extract import extract_available, extract_page
 from src.services.search_adapters import SearchProviderError
 from src.services.search_provider import (
     active_provider,
@@ -35,13 +36,23 @@ logger = get_logger(__name__)
 
 # Max redirects to follow manually in fetch_url (each hop is SSRF-validated)
 _MAX_REDIRECTS = 5
+# A direct fetch refused with these is read through Exa instead (shops,
+# Wikipedia in bursts, manual sites refuse the production host whatever it sends)
+_REFUSED_STATUSES = frozenset({403, 429})
+# Reddit refuses Exa too; it waits for its own API (TODO.md)
+_NO_FALLBACK_DOMAIN = "reddit.com"
+_ALSO_UNAVAILABLE = " (also unavailable through the reading service)"
+
+_FetchResult = tuple[httpx.Response | None, str | None, int | None]
 
 
-def _fetch_response(url: str) -> tuple[httpx.Response | None, str | None]:
+def _fetch_response(url: str, timeout: float | None = None) -> _FetchResult:
     """Fetch a URL with SSRF validation and manual, re-validated redirects.
 
-    Returns (response, None) on success or (None, error_message) on failure.
-    The response body is fully loaded before the client closes.
+    Returns (response, None, None) on success, or (None, error_message,
+    HTTP status of a refused fetch or None). The response body is fully
+    loaded before the client closes. ``timeout`` defaults to
+    TOOL_TIMEOUT_SECONDS.
     """
     # SSRF protection: validate scheme + that the host doesn't resolve to a
     # private/reserved/metadata address. Redirects are followed manually below
@@ -49,11 +60,11 @@ def _fetch_response(url: str) -> tuple[httpx.Response | None, str | None]:
     url_error = validate_public_url(url)
     if url_error:
         logger.warning("Blocked or invalid URL", extra={"url": url, "reason": url_error})
-        return None, url_error
+        return None, url_error, None
 
     try:
         with httpx.Client(
-            timeout=float(Config.TOOL_TIMEOUT_SECONDS),
+            timeout=float(timeout or Config.TOOL_TIMEOUT_SECONDS),
             follow_redirects=False,
             transport=SSRFSafeTransport(verify=shared_ssl_context()),
             default_encoding=sniffed_encoding,
@@ -76,37 +87,88 @@ def _fetch_response(url: str) -> tuple[httpx.Response | None, str | None]:
                         "Blocked redirect target",
                         extra={"from": current_url, "to": next_url, "reason": redirect_error},
                     )
-                    return None, f"Blocked redirect: {redirect_error}"
+                    return None, f"Blocked redirect: {redirect_error}", None
                 current_url = next_url
             else:
-                return None, f"Too many redirects fetching {url}"
+                return None, f"Too many redirects fetching {url}", None
             response.raise_for_status()
-            return response, None
+            return response, None, None
     except httpx.TimeoutException:
         logger.warning("URL fetch timeout", extra={"url": url})
-        return None, f"Request to {url} timed out"
+        return None, f"Request to {url} timed out", None
     except httpx.HTTPStatusError as e:
-        logger.warning(
-            "URL fetch HTTP error", extra={"url": url, "status_code": e.response.status_code}
-        )
-        return None, f"HTTP {e.response.status_code} when fetching {url}"
+        status = e.response.status_code
+        logger.warning("URL fetch HTTP error", extra={"url": url, "status_code": status})
+        return None, f"HTTP {status} when fetching {url}", status
     except httpx.RequestError as e:
         logger.exception("URL fetch request error", extra={"url": url, "error": str(e)})
-        return None, f"Failed to fetch {url}: {e}"
+        return None, f"Failed to fetch {url}: {e}", None
 
 
-def fetch_page_text(url: str, max_chars: int | None = None) -> tuple[str | None, str | None]:
+def _may_read_elsewhere(url: str) -> bool:
+    host = (urlsplit(url).hostname or "").lower()
+    no_fallback = host == _NO_FALLBACK_DOMAIN or host.endswith(f".{_NO_FALLBACK_DOMAIN}")
+    return not no_fallback and extract_available()
+
+
+def _read_elsewhere(
+    url: str, max_chars: int, direct_status: int | None
+) -> tuple[str | None, str | None]:
+    """Exa's text for a page the direct fetch could not use: (text, None),
+    (None, Exa's error), or (None, None) when Exa is not tried."""
+    if not _may_read_elsewhere(url):
+        return None, None
+    return extract_page(url, max_chars, direct_status=direct_status)
+
+
+def _is_pdf_link(url: str) -> bool:
+    return urlsplit(url).path.lower().endswith(".pdf")
+
+
+def _is_pdf(content_type: str) -> bool:
+    return content_type.split(";")[0].strip().lower() == "application/pdf"
+
+
+def fetch_page_text(
+    url: str, max_chars: int | None = None, timeout: float | None = None
+) -> tuple[str | None, str | None]:
     """Fetch a URL and return readable page text (for programmatic reuse).
 
-    Unlike the fetch_url tool this handles ONLY textual content; callers that
-    need PDFs/images should use fetch_url's multimodal path.
+    Unlike the fetch_url tool this handles ONLY textual content (a PDF is
+    read as text through Exa). A page refused with 403/429 is read through
+    Exa too.
 
     Returns (text, None) on success or (None, error_message) on failure.
     """
-    response, error = _fetch_response(url)
+    limit = max_chars if max_chars is not None else Config.HTML_TEXT_MAX_LENGTH
+    exa_tried = False
+    if _is_pdf_link(url):
+        text, exa_error = _read_elsewhere(url, limit, None)
+        if text is not None:
+            return text, None
+        exa_tried = exa_error is not None
+    response, error, status = _fetch_response(url, timeout)
     if error or response is None:
-        return None, error or f"Failed to fetch {url}"
+        return _refused_page_text(url, limit, error or f"Failed to fetch {url}", status)
+    return _response_text(response, url, max_chars, limit, try_exa=not exa_tried)
 
+
+def _refused_page_text(
+    url: str, limit: int, error: str, status: int | None
+) -> tuple[str | None, str | None]:
+    """A failed direct fetch: read through Exa when it was refused (403/429)."""
+    if status not in _REFUSED_STATUSES:
+        return None, error
+    text, other_error = _read_elsewhere(url, limit, status)
+    if text is not None:
+        return text, None
+    return None, error + (_ALSO_UNAVAILABLE if other_error else "")
+
+
+def _response_text(
+    response: httpx.Response, url: str, max_chars: int | None, limit: int, try_exa: bool
+) -> tuple[str | None, str | None]:
+    """A fetched response's readable text; a PDF through Exa (``try_exa``)."""
     content_type = response.headers.get("content-type", "")
     category = content_type_category(content_type)
     mime_type = content_type.split(";")[0].strip().lower()
@@ -115,10 +177,13 @@ def fetch_page_text(url: str, max_chars: int | None = None) -> tuple[str | None,
         return extract_text_from_html(response.text, max_chars), None
     if category == "text":
         text = response.text
-        limit = max_chars if max_chars is not None else Config.HTML_TEXT_MAX_LENGTH
         if len(text) > limit:
             text = text[:limit] + "\n\n[Content truncated...]"
         return text.strip(), None
+    if category == "binary" and _is_pdf(content_type) and try_exa:
+        pdf_text, _ = _read_elsewhere(url, limit, None)
+        if pdf_text is not None:
+            return pdf_text, None
     if category == "binary":
         return None, f"binary content ({mime_type}) - use fetch_url to analyze it"
     return None, f"Unsupported content type: {content_type}"
@@ -149,9 +214,15 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
     """
     logger.info("fetch_url called", extra={"url": url})
     record_tool_call("fetch_url")
-    response, fetch_error = _fetch_response(url)
+    response, fetch_error, status = _fetch_response(url)
     if fetch_error or response is None:
-        return tool_error(fetch_error or f"Failed to fetch {url}")
+        fetch_error = fetch_error or f"Failed to fetch {url}"
+        if status in _REFUSED_STATUSES:
+            text, other_error = _read_elsewhere(url, Config.HTML_TEXT_MAX_LENGTH, status)
+            if text is not None:
+                return _extracted_result(url, text)
+            fetch_error += _ALSO_UNAVAILABLE if other_error else ""
+        return tool_error(fetch_error)
 
     content_type = response.headers.get("content-type", "")
     content_category = content_type_category(content_type)
@@ -178,6 +249,10 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
 
     # Handle binary content (PDFs, images)
     if content_category == "binary":
+        if _is_pdf(content_type) and content_length > Config.FETCH_URL_MAX_FILE_SIZE_BYTES:
+            text, _ = _read_elsewhere(url, Config.HTML_TEXT_MAX_LENGTH, None)
+            if text is not None:
+                return _extracted_result(url, text)
         return _binary_result(url, response.content, content_type)
 
     # Unsupported content type
@@ -204,6 +279,11 @@ def _html_result(url: str, extracted_text: str) -> str:
     if chain_nudge:
         wrapped += f"\n\n[{chain_nudge}]"
     return wrapped + f"\n\n[{GROUNDING_DIRECTIVE}]"
+
+
+def _extracted_result(url: str, text: str) -> str:
+    """Text read through Exa, framed like a fetched page."""
+    return wrap_untrusted_content(text, url) + f"\n\n[{GROUNDING_DIRECTIVE}]"
 
 
 def _text_result(url: str, text_content: str) -> str:

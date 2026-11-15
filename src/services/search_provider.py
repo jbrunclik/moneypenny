@@ -440,3 +440,41 @@ def degraded_today() -> bool:
     """Whether search fell back to the free provider at some point today."""
     key = f"degraded-alert:{local_today().isoformat()}"
     return bool(db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, key))
+
+
+# ============ Other spend on a search provider's credit ============
+#
+# Exa's page extract (src/services/page_extract.py) bills the same credit as
+# Exa search, so it shares the counter, the breaker and the quota.
+
+
+def has_headroom(name: str, share: float) -> bool:
+    """Whether a metered provider is configured, not benched, and below
+    ``share`` of its monthly quota (the rest is kept for search)."""
+    provider = next((p for p in _PROVIDERS if p.name == name), None)
+    if provider is None or not provider.api_key() or _breaker_tripped(name):
+        return False
+    quota = provider.monthly_quota()
+    return quota is None or get_monthly_usage(name) < quota * share
+
+
+def bill_units(name: str, units: int) -> None:
+    """Add ``units`` searches' worth of spend to a provider's usage counter."""
+    if units > 0:
+        db.kv_increment(_SYSTEM_USER_ID, USAGE_NAMESPACE, usage_key(name), units)
+
+
+def bill_micro_usd(name: str, micro_usd: int, unit_micro_usd: int) -> None:
+    """Carry spend smaller than a usage unit: whole units are billed as the
+    running total for the period crosses them."""
+    if micro_usd <= 0:
+        return
+    key = f"{usage_key(name)}:micro-usd"
+    after = db.kv_increment(_SYSTEM_USER_ID, USAGE_NAMESPACE, key, micro_usd)
+    before = after - micro_usd
+    bill_units(name, after // unit_micro_usd - before // unit_micro_usd)
+
+
+def mark_out_of_credit(name: str) -> None:
+    """The provider said its credit is gone: bench it for search too."""
+    _record_breaker_failure(name, exhausted=True)

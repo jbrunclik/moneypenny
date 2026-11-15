@@ -45,7 +45,7 @@ def test_page_fetches_load_the_ca_bundle_at_most_once() -> None:
         patch("src.agent.tools.url_safety.check_host", return_value=None),
     ):
         for _ in range(3):
-            response, error = web._fetch_response("https://example.com/")
+            response, error, _ = web._fetch_response("https://example.com/")
             assert error is None and response is not None
     assert len(loads) <= 1
 

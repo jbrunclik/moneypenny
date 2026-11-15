@@ -87,7 +87,7 @@ class TestBatchingNudge:
 
         page = MagicMock(status_code=200, is_redirect=False, headers={"content-type": "text/html"})
         page.text = "<html><body><p>" + "Plenty of page text. " * 20 + "</p></body></html>"
-        with patch("src.agent.tools.web._fetch_response", return_value=(page, None)):
+        with patch("src.agent.tools.web._fetch_response", return_value=(page, None, None)):
             before = fetch_url.invoke({"url": "https://example.com/a"})
             record_tool_call("web_search")
             after = fetch_url.invoke({"url": "https://example.com/b"})
