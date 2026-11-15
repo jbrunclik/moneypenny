@@ -371,6 +371,10 @@ class ScheduledItem:
     fresh_context: bool = True
     timezone: str | None = None  # the cron's zone; None = APP_TIMEZONE
     paused_reason: str | None = None  # "failures", "disabled"
+    # A run's continuation after its cards were answered: the outcome the
+    # scheduler's next pass runs it with (src/agent/run_approvals.py)
+    resume_message: str | None = None
+    resume_requested_at: datetime | None = None
 
     @property
     def standing(self) -> bool:

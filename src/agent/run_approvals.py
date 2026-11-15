@@ -19,7 +19,6 @@ tool's write level. The run's report is the reply - no chat turn of its own.
 from __future__ import annotations
 
 import json
-import threading
 import uuid
 from collections.abc import Mapping
 from datetime import datetime, timedelta
@@ -146,25 +145,11 @@ def _grant_write(proposal: Proposal, tool: str) -> None:
 
 
 def _resume(proposal: Proposal, message: str) -> None:
-    """Resume the job's run with the outcome (background: the request returns)."""
-    from src.agent.item_scheduler import JobBusyError, JobHeldError, run_job_now  # noqa: PLC0415 - cycle: the scheduler imports the tools
-
-    job = db.get_item(proposal.job_id or "", proposal.user_id)
-    user = db.get_user_by_id(proposal.user_id)
-    if job is None or user is None:
-        return
-
-    def run() -> None:
-        try:
-            run_job_now(job, user, message=message, trigger="approval")
-        except (JobHeldError, JobBusyError) as held:  # the approval stands
-            logger.info(
-                "Job not resumed after a card", extra={"job_id": job.id, "reason": str(held)}
-            )
-        except Exception:
-            logger.exception("Resumed job run crashed", extra={"job_id": job.id})
-
-    threading.Thread(target=run, name=f"resume-{job.id[:8]}", daemon=True).start()
+    """Have the scheduler continue the job's run with the outcome: its next
+    pass (within a minute) runs it. Not a thread in this web worker - a
+    deploy killed that while the card said it was continuing (Nov 15 2026)."""
+    if not db.request_resume(proposal.job_id or "", message):
+        logger.info("Job gone before its run could continue", extra={"job_id": proposal.job_id})
 
 
 def _approved_call(card: Proposal) -> str | None:
@@ -216,7 +201,7 @@ def apply_agent_action(proposal: Proposal, option: ProposalOption) -> str:
         proposal.conversation_id, MessageRole.USER, f"[Action approved: {proposal.summary}]"
     )
     if _settle(proposal):
-        return "Approved - continuing."
+        return "Approved - continuing shortly."
     return "Approved - the run continues once you've answered its other cards."
 
 

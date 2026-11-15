@@ -32,7 +32,7 @@ _AGENT_JOB = "id IN (SELECT job_id FROM conversations WHERE is_agent = 1 AND job
 # Back from a run: an agent disabled meanwhile stays paused
 _AFTER_RUN_STATUS = "CASE WHEN paused_reason = 'disabled' THEN 'paused' ELSE 'active' END"
 _COLUMNS = [f.name for f in fields(ScheduledItem)]
-_TIMES = {"next_run_at", "expires_at", "created_at", "claimed_at"}
+_TIMES = {"next_run_at", "expires_at", "created_at", "claimed_at", "resume_requested_at"}
 # A standing job with no schedule (run by hand or by another agent only)
 NEVER_RUN_AT = datetime(9999, 12, 31, tzinfo=UTC)
 # A migrated or new agent's job: its chat's standing instructions say what to do
@@ -71,6 +71,8 @@ def row_to_item(row: sqlite3.Row) -> ScheduledItem:
         fresh_context=bool(row["fresh_context"]),
         timezone=row["timezone"],
         paused_reason=row["paused_reason"],
+        resume_message=row["resume_message"],
+        resume_requested_at=from_db_or_none(row["resume_requested_at"]),
     )
 
 
@@ -271,12 +273,16 @@ class ScheduledItemsMixin:
             return cursor.rowcount > 0
 
     def claim_due_items(self, now: datetime) -> list[ScheduledItem]:
-        """Mark every active item due by `now` in a live chat as running; return them."""
+        """Mark every active item due by `now` in a live chat as running; return
+        them. A job waiting to continue after its cards (`resume_message`) is
+        claimed too, due or not, and paused or not (as Run now runs a paused one)."""
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 f"""UPDATE scheduled_items SET status = 'running', claimed_at = ?
-                    WHERE status = 'active' AND next_run_at <= ? AND {_LIVE_CHAT}
+                    WHERE {_LIVE_CHAT} AND (
+                        (status = 'active' AND next_run_at <= ?)
+                        OR (status IN ('active', 'paused') AND resume_message IS NOT NULL))
                     RETURNING *""",
                 (to_db(now), to_db(now)),
             ).fetchall()
@@ -299,6 +305,30 @@ class ScheduledItemsMixin:
             if cursor.rowcount > 0:
                 return prior, now
         return None
+
+    def request_resume(self, item_id: str, message: str) -> bool:
+        """Have the scheduler's next pass continue this job's run with
+        `message` (its answered cards' outcome); False when it is gone."""
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """UPDATE scheduled_items SET resume_message = ?, resume_requested_at = ?
+                   WHERE id = ?""",
+                (message, to_db(utc_now()), item_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def clear_resume(self, item_id: str) -> None:
+        """The continuation ran: forget it."""
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                """UPDATE scheduled_items SET resume_message = NULL, resume_requested_at = NULL
+                   WHERE id = ?""",
+                (item_id,),
+            )
+            conn.commit()
 
     def release_item(self, item_id: str, claimed_at: datetime, status: str) -> bool:
         """End a hand-started run's claim, back to `status`, keeping the

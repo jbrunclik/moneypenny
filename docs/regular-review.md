@@ -78,6 +78,12 @@ The review itself changes nothing in production and edits nothing but
   `cost_usd` ("Instructions review unreadable" / "Setup review unreadable" should
   be rare; often = the structured output needs attention); from the DB (counts only) the `custom_instructions` length
   distribution against the 8000 limit, and how `custom_instructions` cards end.
+- Run continuations and capped runs (from Nov 15 2026;
+  [agents.md](features/agents.md)): "Run resumed after cards" per week and its
+  `waited_s` (about a minute is expected); "Run continuation held" repeating for
+  one item means a card or budget blocks it; "Run budget capped by the scheduler
+  pass" `budget_s` against turns with `stopped_by = 'time'` from the scheduler -
+  a run stopped on time where it used to be killed.
 - Integration tokens that expired (Calendar, Garmin, Todoist "disconnected"
   results in the journal) - the person may not know.
 - Rouvy (from Nov 15 2026; [rouvy.md](features/rouvy.md)): "Rouvy request via browser"

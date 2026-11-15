@@ -190,9 +190,15 @@ proposal, [proposals](proposals.md); `src/agent/run_approvals.py`):
    locks).
 4. Each answer leaves a plain `[Action approved/rejected: ...]` note in the
    chat. Once every card of the paused run is answered, the run closes -
-   `completed` if anything was approved, then the job re-runs in the
-   background (trigger `approval`: its report pushes - the answer may have
-   come from a push), told the exact calls to re-issue; `rejected` otherwise. Only
+   `completed` if anything was approved, then the job re-runs (trigger
+   `approval`: its report pushes - the answer may have come from a push),
+   told the exact calls to re-issue; `rejected` otherwise. The re-run is
+   stored on the job (`scheduled_items.resume_message`, `request_resume`) and
+   the scheduler's next pass runs it, due or not, paused or not, then gives
+   the job back on its unchanged schedule; the card says "Approved -
+   continuing shortly." Before Nov 15 2026 it ran on a thread in the web
+   worker, which a deploy killed. Held (another card, its budget) it waits
+   with its message; a re-run that raises counts a failure and stays queued. Only
    the identical call consumes an approval, once (`consume_run_approval`;
    a card still applying counts, as the rerun can start first). Always allow
    also grants `<tool>:write`. An approved settings change applies itself,

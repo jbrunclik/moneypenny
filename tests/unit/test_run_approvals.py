@@ -81,23 +81,6 @@ def test_approving_resumes_that_run_with_the_call_to_reissue(
     assert execution.status == "completed"
 
 
-def test_the_resume_is_an_approval_run(
-    run: tuple[Any, JobContext], test_database: Database
-) -> None:
-    """It runs (and reports, with a push) as a resume, not a hand-started run."""
-    _agent, context = run
-    card = _park(test_database, context, {"operation": "add_task", "content": "Buy milk"})
-
-    with (
-        patch("src.agent.item_scheduler.run_job_now") as run_now,
-        patch("src.agent.run_approvals.threading.Thread") as thread,
-    ):
-        resolve(card, 0, "button")
-        thread.call_args.kwargs["target"]()
-
-    assert run_now.call_args.kwargs["trigger"] == "approval"
-
-
 def test_always_allow_grants_the_write_level(
     run: tuple[Any, JobContext], test_database: Database
 ) -> None:

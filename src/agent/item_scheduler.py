@@ -136,6 +136,9 @@ def _recover(item: ScheduledItem, now: datetime) -> None:
 
 
 def _handle(item: ScheduledItem, now: datetime, result: ItemsResult) -> None:
+    if item.resume_message is not None:
+        _continue_after_cards(item, now, result)
+        return
     if item.kind in {"reminder", "check_in"}:
         _fire_one_off(item, now, result)
         return
@@ -175,11 +178,10 @@ def run_job_now(
     trigger: RunTrigger = "manual",
     trigger_chain: list[str] | None = None,
 ) -> RunOutcome:
-    """Run a standing job now - by hand (Run), resumed after the user
-    answered its cards (approval), or triggered by another agent - and post
-    its report; no failure counting. A hand-started run does not push (the
-    user is in the app); a resumed one does (they may have answered from a
-    push and left).
+    """Run a standing job now - by hand (Run) or triggered by another agent -
+    and post its report; no failure counting. A hand-started run does not
+    push (the user is in the app). A run continuing after its cards goes
+    through the scheduler instead (_continue_after_cards).
 
     The job is claimed for the run like a due one, so the scheduler (or a
     second tap) cannot run it at the same time - writes would happen twice.
@@ -192,16 +194,56 @@ def run_job_now(
         raise JobBusyError(item.id)
     prior_status, claimed_at = claim
     try:
-        outcome = run_model_item(
-            item, user, trigger=trigger, message=message, trigger_chain=trigger_chain
-        )
-        if outcome.status in {"report", "done"} and outcome.text:
-            tag = _DELIVERY_TAGS.get(trigger, "triggered")
-            label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, tag)
-            deliver(item, outcome.text, label, push=trigger != "manual", outcome=outcome)
+        return _run_off_schedule(item, user, trigger, message, trigger_chain)
     finally:
         db.release_item(item.id, claimed_at, prior_status)
+
+
+def _run_off_schedule(
+    item: ScheduledItem,
+    user: User,
+    trigger: RunTrigger,
+    message: str | None,
+    trigger_chain: list[str] | None = None,
+) -> RunOutcome:
+    """Run a claimed job outside its schedule and post its report (pushed
+    unless the user started it by hand)."""
+    outcome = run_model_item(
+        item, user, trigger=trigger, message=message, trigger_chain=trigger_chain
+    )
+    if outcome.status in {"report", "done"} and outcome.text:
+        tag = _DELIVERY_TAGS.get(trigger, "triggered")
+        label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, tag)
+        deliver(item, outcome.text, label, push=trigger != "manual", outcome=outcome)
     return outcome
+
+
+def _continue_after_cards(item: ScheduledItem, now: datetime, result: ItemsResult) -> None:
+    """A job whose cards were answered: run its continuation with their
+    outcome, then give it back on its unchanged schedule. Held (another
+    card, its budget) it keeps the message for a later pass."""
+    claimed_at = item.claimed_at or now  # this pass claimed it at `now`
+    prior = "paused" if item.paused_reason else "active"
+    user = db.get_user_by_id(item.user_id)
+    if user is None:
+        db.delete_item(item.id)
+        return
+    if (reason := hold_reason(item)) is not None:
+        logger.info("Run continuation held", extra={"item_id": item.id, "reason": reason})
+        db.release_item(item.id, claimed_at, prior)
+        return
+    requested = item.resume_requested_at
+    logger.info(
+        "Run resumed after cards",
+        extra={
+            "item_id": item.id,
+            "waited_s": round((now - requested).total_seconds()) if requested else None,
+        },
+    )
+    result.run += 1
+    _run_off_schedule(item, user, "approval", item.resume_message)
+    db.clear_resume(item.id)
+    db.release_item(item.id, claimed_at, prior)
 
 
 def hold_reason(item: ScheduledItem) -> str | None:
