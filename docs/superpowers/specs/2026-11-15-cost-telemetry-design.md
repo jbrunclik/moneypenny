@@ -1,7 +1,8 @@
-# Cost telemetry: per-call cache use, prefix sharing, side-call spend
+# Cost telemetry, and condensed memories in the per-turn context
 
 Date: 2026-11-15. Size: small change. Status: approach agreed in chat
-(telemetry first, then decide), design for review.
+(telemetry first for the prefix levers; condensed memories now), design for
+review.
 
 ## Why
 
@@ -16,12 +17,22 @@ of input cached, Nov 8-15 2026) can backfire, and today's data cannot tell:
   in misses than it saves. `message_costs` keeps cached tokens per turn, not
   per call, and nothing records which prefix was sent or when it was last
   sent.
+- **The memory list** is re-sent every turn in the uncached per-turn context:
+  6.1-14.3k characters per user (26-31 memories, 235-470 characters on
+  average; nearly all preferences, so keeping one category in full saves
+  little). Indented JSON is not the bulk - the memory text is.
 - **Side calls** (titles, program/instruction reviews, AI assist, compaction,
   memory review and defrag) never reach `message_costs`: their spend, and
   whether lowering their thinking level is worth it, is unknown.
 
+Measured Nov 8-15 2026 (Hydrogen chat turns): no tool round 33.7k input
+tokens, 29% cached, $0.045; one round 66.5k, 51%, $0.063 - so a turn's first
+call is mostly billed in full (nobody sent the prefix minutes before), while
+an extra round is ~3/4 cached and costs ~$0.018.
+
 The user: "we need to implement better telemetry first and then see";
-quality, speed and the memories as they are must not suffer.
+memories stay (condensed in the list, the full text a lookup away); quality
+and speed must not suffer much.
 
 ## Goals / non-goals / anti-goals
 
@@ -29,8 +40,11 @@ quality, speed and the memories as they are must not suffer.
   the same prefix was last sent, (2) how often a turn's cache comes from
   another user's call, (3) first call vs later rounds, (4) side-call spend
   by feature and model.
-- Non-goal: any change to what the model sees (per-user tools, compact
-  memories, thinking levels) - decided from this data later.
+- Goal: the per-turn memory list carries a condensed version of each
+  memory (about 4-5k characters per user instead of 6-14k), the full text
+  fetched when needed.
+- Non-goal: per-user tool sets, keeping the prefix warm, side-call thinking
+  levels - decided from this data later.
 - Anti-goal: telemetry that slows a turn noticeably (a write per model call
   is fine; nothing on the critical path waits on the network); a migration
   where a JSON key does.
@@ -43,6 +57,11 @@ quality, speed and the memories as they are must not suffer.
   path for data that fits the existing JSON column.
 - Logs only: no migration, but joins to turns and costs become journal
   parsing; the journal keeps ~45 h on the production host for some units.
+
+For the memory list (the user's idea): **picked: an LLM-written summary per
+memory**, over cutting each at ~200 characters (no cost, but the detail that
+matters is often at the end) and over a compact one-line format of the full
+text (only ~25-35% smaller - the text is the bulk).
 
 ## Design
 
@@ -66,14 +85,35 @@ writer/subagents if not already in `message_costs`), `model`,
 helper records a side call from its response's usage; each feature's call
 site uses it. Failures to record are logged, never raised.
 
+**Condensed memories.**
+- `user_memories.summary` (migration, nullable): up to
+  `MEMORY_SUMMARY_MAX_CHARS` (150), written by Flash-Lite
+  (`MEMORY_SUMMARY_MODEL`, low cost, ~0.6 s) whenever a memory is created or
+  its content changes - off the reply path (after the tool's own write; a
+  failed summary leaves it null and is retried by the backfill). A one-time
+  backfill writes the existing ~114. Its spend is a side cost
+  (`memory_summary`). A memory shorter than the limit needs no summary (its
+  text is shown).
+- The per-turn list shows each memory's summary (or its text when short or
+  not yet summarised) with its id, category and dates, plus `[full: N
+  chars]` when condensed; the guidance says to look it up (`search_memory`,
+  which also takes an id) when a detail matters, and to read the full text
+  before updating a condensed memory.
+- Checked before shipping with the memory eval cases (`--only`, a handful,
+  under $1) against today's list.
+- Telemetry: each turn records `memory_fetches` (lookups of a condensed
+  memory). The summaries pay off while fewer than ~1 in 4 turns fetch; above
+  that, raise the limit or show full text again.
+
 **Instrumented by itself.** Regular review: a cache section (hit rate by
 `gap_s` bucket and by `same_user`, first call vs rounds) and side costs per
-feature per week. TODO: decide per-user tools, compact memories and
-side-call thinking ~Nov 23 2026 from a week of data.
+feature per week. TODO: ~Nov 23 2026 decide per-user tools, keeping the prefix warm and
+side-call thinking from a week of data, and check `memory_fetches` and the
+per-turn input against this week's.
 
 ## Left to the builder
 
 The exact hash input (stable across workers and restarts), the gap buckets
 the review uses, which side-call sites exist (grep `chat_model(` and
-`generate_content`), and whether the admin page shows side costs now or
-later.
+`generate_content`), whether the admin page shows side costs now or
+later, the summary prompt, and how `search_memory` takes an id.
