@@ -82,6 +82,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Integrations & proactive nudges
 
+- [ ] **Re-measure Rouvy via the browser (~Nov 29 2026)** - the Nov 15 fix replays Cloudflare-challenged requests as an in-page `fetch()` (docs/features/rouvy.md). Check "Rouvy request via browser" `status` and `elapsed_ms` against "Cloudflare challenge" / "browser request failed" lines; if latency hurts, keep one page per tool call instead of one per request.
 - [ ] **Gmail integration** - read-only inbox triage via OAuth (reuse the Calendar OAuth pattern): what needs a reply, invoices, feed for briefings/agents. (Bespoke module: an MCP client is parked, decided Oct 26 2026.)
 - [ ] **One alert per failure** (Oct 26 2026, Hermes `cron.md`) - a failing job pauses after `SCHEDULE_ITEM_MAX_FAILURES` runs but can push on each failed run before that: push once per error signature, with a later reminder.
 - [ ] **Web Push Phase 3** (Phases 1-2 + Daily Briefing shipped Jun 2026; docs/features/push-notifications.md):

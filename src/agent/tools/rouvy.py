@@ -33,7 +33,7 @@ from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.agent.tools.integration_status import not_connected_result
 from src.agent.tools.permission_check import call_arguments, check_autonomous_permission
-from src.auth import rouvy_auth
+from src.auth import rouvy_auth, rouvy_browser
 from src.config import Config
 from src.db.models import User, db
 from src.utils.logging import get_logger
@@ -73,6 +73,27 @@ def _client_request(
         verify=shared_ssl_context(),
     ) as c:
         return c.request(method, url, **kwargs)
+
+
+def _send(
+    method: str, url: str, kwargs: dict[str, object], jar: dict[str, str], user_agent: str
+) -> httpx.Response:
+    """httpx first; a request Cloudflare challenges is replayed as an in-page
+    fetch() (src/auth/rouvy_browser.py), which it lets through (Nov 15 2026)."""
+    resp = _client_request(method, url, kwargs, jar)
+    if not _is_cloudflare_challenge(resp):
+        return resp
+    try:
+        resp = rouvy_browser.fetch(method, url, kwargs, jar, user_agent)
+    except rouvy_browser.RouvyBrowserError as e:
+        logger.warning("Rouvy browser request failed", extra={"error": str(e)})
+        raise RouvyBlockedError() from e
+    if _is_cloudflare_challenge(resp):
+        logger.warning(
+            "Rouvy request met the Cloudflare challenge", extra={"status": resp.status_code}
+        )
+        raise RouvyBlockedError()
+    return resp
 
 
 def _is_cloudflare_challenge(resp: httpx.Response) -> bool:
@@ -132,15 +153,10 @@ def _authed_request(user: User, method: str, url: str, **kwargs: Any) -> httpx.R
         "User-Agent": rouvy_auth.session_user_agent(user.rouvy_session),
     }
     kwargs = {**kwargs, "headers": headers}
-    resp = _client_request(method, url, kwargs, jar)
-    if _is_cloudflare_challenge(resp):
-        logger.warning(
-            "Rouvy request met the Cloudflare challenge", extra={"status": resp.status_code}
-        )
-        raise RouvyBlockedError()
+    resp = _send(method, url, kwargs, jar, headers["User-Agent"])
     rotated_jar = _persist_rotated_cookies(user, resp)
     if rotated_jar is not None and _is_refresh_redirect(resp):
-        resp = _client_request(method, url, kwargs, rotated_jar)
+        resp = _send(method, url, kwargs, rotated_jar, headers["User-Agent"])
     if not _looks_expired(resp):
         return resp
     # Refresh: re-login with stored creds, persist, retry once.
@@ -153,8 +169,8 @@ def _authed_request(user: User, method: str, url: str, **kwargs: Any) -> httpx.R
     db.update_user_rouvy_session(user.id, new_session)
     user.rouvy_session = new_session
     jar = rouvy_auth.cookies_to_jar(new_session)
-    kwargs["headers"]["User-Agent"] = rouvy_auth.session_user_agent(new_session)
-    resp = _client_request(method, url, kwargs, jar)
+    headers["User-Agent"] = rouvy_auth.session_user_agent(new_session)
+    resp = _send(method, url, kwargs, jar, headers["User-Agent"])
     if _looks_expired(resp):
         raise RouvySessionExpiredError()
     return resp

@@ -76,6 +76,10 @@ The review itself changes nothing in production and edits nothing but
   distribution against the 8000 limit, and how `custom_instructions` cards end.
 - Integration tokens that expired (Calendar, Garmin, Todoist "disconnected"
   results in the journal) - the person may not know.
+- Rouvy (from Nov 15 2026; [rouvy.md](features/rouvy.md)): "Rouvy request via browser"
+  count, `status` and median `elapsed_ms` (the in-page fetch Cloudflare lets
+  through), against "Rouvy request met the Cloudflare challenge" and "Rouvy browser
+  request failed" - any of those two means the user saw "Rouvy is blocking".
 
 ## 3. Cost and speed
 

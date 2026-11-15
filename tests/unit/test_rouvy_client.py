@@ -244,17 +244,47 @@ def test_a_sign_in_redirect_counts_as_expired_and_relogs_in(mock_req):
     assert out == [{"id": 4183941, "name": "ZZ Ride"}]
 
 
+def _challenge():
+    return _resp(status=403, text=_CLOUDFLARE_CHALLENGE, ctype="text/html; charset=UTF-8")
+
+
+@patch("src.agent.tools.rouvy.rouvy_browser.fetch")
 @patch("src.agent.tools.rouvy._client_request")
-def test_a_cloudflare_challenge_is_reported_without_a_relogin(mock_req):
-    mock_req.return_value = _resp(
-        status=403, text=_CLOUDFLARE_CHALLENGE, ctype="text/html; charset=UTF-8"
-    )
+def test_a_cloudflare_challenge_is_reported_without_a_relogin(mock_req, browser):
+    mock_req.return_value = _challenge()
+    browser.return_value = _challenge()
     with (
         patch("src.agent.tools.rouvy.rouvy_auth.login") as login,
         pytest.raises(rc.RouvyBlockedError),
     ):
         rc.rouvy_list(FakeUser())
     assert not login.called
+
+
+@patch("src.agent.tools.rouvy.rouvy_browser.fetch")
+@patch("src.agent.tools.rouvy._client_request")
+def test_a_challenged_request_is_replayed_in_the_browser(mock_req, browser):
+    """Since Nov 15 2026 Cloudflare challenges every httpx call to the `.data`
+    endpoints, while the same call as an in-page fetch() passes."""
+    mock_req.return_value = _challenge()
+    browser.return_value = _resp(text='x,"4183941","ZZ Ride",6')
+    user = FakeUser()
+    user.rouvy_session = json.dumps(
+        {"cookies": [{"name": "s", "value": "v", "domain": ".rouvy.com"}], "user_agent": "UA"}
+    )
+    assert rc.rouvy_list(user) == [{"id": 4183941, "name": "ZZ Ride"}]
+    method, url, kwargs, jar, user_agent = browser.call_args[0]
+    assert (method, jar, user_agent) == ("GET", {"s": "v"}, "UA")
+    assert url.endswith("/workouts/collections/created.data")
+    assert kwargs["headers"]["User-Agent"] == "UA"
+
+
+@patch("src.agent.tools.rouvy.rouvy_browser.fetch")
+@patch("src.agent.tools.rouvy._client_request")
+def test_an_unchallenged_request_never_starts_the_browser(mock_req, browser):
+    mock_req.return_value = _resp(text='x,"4183941","ZZ Ride",6')
+    rc.rouvy_list(FakeUser())
+    assert not browser.called
 
 
 def test_the_tool_says_rouvy_is_blocking_access():

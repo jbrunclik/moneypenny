@@ -70,9 +70,25 @@ valid + broken, list, get, get unknown, dead session, no session, delete):
   `{"cookies": [...], "user_agent": "..."}` so every httpx request sends the
   identity the login's cookies (incl. Cloudflare's `__cf_bm`) were issued to.
   Old bare-list sessions read fine and send `FALLBACK_USER_AGENT`. This works
-  around Rouvy's bot protection for the user's own account (Jiri's call); if
-  Rouvy tightens it, the fallback plan is a session the user hands over from
-  their own browser, kept fresh in the background.
+  around Rouvy's bot protection for the user's own account (Jiri's call).
+- **Nov 15 2026: Cloudflare challenges every direct request** to the `.data`
+  endpoints - httpx and curl, with or without cookies or a browser
+  User-Agent, from the laptop and the production host alike; the clearance
+  the login earned on Nov 11 lasted minutes, not days. Headless Chromium
+  cannot solve the challenge either (30 s on "Just a moment...", no
+  `cf_clearance`), so a clearance cookie cannot be earned and reused. The
+  same request made by `fetch()` from a page on riders.rouvy.com passes (the
+  browser's own TLS fingerprint and fetch headers, like the web app's calls).
+- **Fix (Nov 15 2026, the user's call):** httpx stays the first try; a
+  challenged request is replayed as an in-page `fetch()` in headless Chromium
+  with the session's cookies and user agent (`src/auth/rouvy_browser.py`,
+  ~2-4 s per request). The reply is turned back into an `httpx.Response`,
+  with cookies the browser rotated as `Set-Cookie`, so the parsing, rotation
+  and re-login logic is unchanged. Only a browser reply that is challenged
+  too (or a browser failure) is `RouvyBlockedError`. Log line: "Rouvy request
+  via browser" (`method`, `status`, `elapsed_ms`). If Rouvy tightens it
+  further, the remaining options are a headed browser or giving up the API
+  (the agent hands over a ZWO file to import).
 - **List** returned exactly 30 workouts for an account with more: possibly the
   first page only (`pageMeta`) - unverified.
 
@@ -86,6 +102,7 @@ login) and per-user connect state. Available in sports program chats (they get t
 ## Key files
 
 - Auth/login: [src/auth/rouvy_auth.py](../../src/auth/rouvy_auth.py)
+- In-browser requests (Cloudflare): [src/auth/rouvy_browser.py](../../src/auth/rouvy_browser.py)
 - Client + tool: [src/agent/tools/rouvy.py](../../src/agent/tools/rouvy.py)
 - Routes: [src/api/routes/rouvy.py](../../src/api/routes/rouvy.py) (`/auth/rouvy/connect|status|disconnect`)
 - Settings UI: [web/src/components/settings/rouvy.ts](../../web/src/components/settings/rouvy.ts)
