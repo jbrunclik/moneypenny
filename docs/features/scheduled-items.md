@@ -36,9 +36,14 @@ message, each belonging to the chat that set it
 - **Scheduler** (`src/agent/item_scheduler.py`, every minute, before agents): hands back
   runs that never finished (`SCHEDULE_RUN_STALE_MINUTES`; counted as a failure, so a run
   that always dies stops), then claims due items in one `UPDATE ... RETURNING`
-  (overlapping runs never handle one twice). One-offs go first; no watcher or recurring
-  run starts after `SCHEDULE_TICK_BUDGET_SECONDS` (240 - the scheduler service is killed
-  at 300 s and agents run after items), the rest wait for the next tick. A bare `[DONE]`
+  (overlapping runs never handle one twice). One-offs go first. The pass must end by
+  `SCHEDULE_TICK_DEADLINE_SECONDS` (270; systemd kills it at 300 s): each model run's time
+  budget is the time left minus `SCHEDULE_RUN_FINISH_MARGIN_SECONDS` (90: one more tool
+  round and the final reply), at most `TURN_TIME_BUDGET_SECONDS` - so a run starting first
+  gets 180 s - and the turn budget stops it on time with its wrap-up instead of a kill and
+  a full replay (Nov 15 2026). With less than `SCHEDULE_MIN_RUN_SECONDS` (60) left a run
+  waits for the next pass, unchanged ("Run budget capped by the scheduler pass" logs each
+  run's budget). A bare `[DONE]`
   still delivers "Found: ..."; an empty report counts as silent. A one-off more than
   `SCHEDULE_MISSED_GRACE_HOURS` late (scheduler down, chat restored after the time) is not
   fired late but noted as "Missed (was due ...)" in its chat. A quiet watcher slows down

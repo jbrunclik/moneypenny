@@ -382,7 +382,43 @@ def test_one_offs_fire_before_model_runs(
     assert order == ["push", "run"]
 
 
-def test_model_runs_stop_at_the_tick_budget(
+def _budgets_seen(runs: MagicMock) -> list[float | None]:
+    """The run time budget each model run started with (turn_budget's var)."""
+    from src.agent import turn_budget
+
+    seen: list[float | None] = []
+
+    def run(*_args: object, **_kwargs: object) -> RunOutcome:
+        seen.append(turn_budget.initial_state([])["turn_time_budget_s"])
+        return RunOutcome("silent", "")
+
+    runs.side_effect = run
+    return seen
+
+
+@pytest.mark.parametrize(("elapsed", "budget"), [(0.0, 180.0), (100.0, 80.0)])
+def test_a_run_gets_the_time_left_before_the_pass_deadline(
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    push: MagicMock,
+    runs: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+    elapsed: float,
+    budget: float,
+) -> None:
+    # systemd kills the pass at 300 s: a run must finish by the 270 s deadline,
+    # with 90 s of margin for one more tool round and the final reply
+    ticks = iter([0.0, elapsed])
+    monkeypatch.setattr(item_scheduler, "_monotonic", lambda: next(ticks, elapsed))
+    seen = _budgets_seen(runs)
+    _watcher(db, test_user, test_conversation)
+
+    assert item_scheduler.run_due_items(_NOW).run == 1
+    assert seen == [budget]
+
+
+def test_a_run_with_too_little_time_left_waits_for_the_next_pass(
     db: Database,
     test_user: User,
     test_conversation: Conversation,
@@ -390,10 +426,9 @@ def test_model_runs_stop_at_the_tick_budget(
     runs: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # The scheduler service is killed after 300 s: no new run starts past the budget
-    monkeypatch.setattr(Config, "SCHEDULE_TICK_BUDGET_SECONDS", 240)
-    ticks = iter([0.0, 0.0, 250.0])
-    monkeypatch.setattr(item_scheduler, "_monotonic", lambda: next(ticks, 250.0))
+    # 270 - 150 - 90 = 30 s left, under the 60 s minimum: not started
+    ticks = iter([0.0, 0.0, 150.0])
+    monkeypatch.setattr(item_scheduler, "_monotonic", lambda: next(ticks, 150.0))
     first = _watcher(db, test_user, test_conversation, next_run_at=_NOW - timedelta(minutes=2))
     second = _watcher(db, test_user, test_conversation, next_run_at=_NOW - timedelta(minutes=1))
 
@@ -404,6 +439,20 @@ def test_model_runs_stop_at_the_tick_budget(
     assert stored is not None
     assert (stored.status, stored.next_run_at, stored.failures) == ("active", second.next_run_at, 0)
     assert db.get_item(first.id, test_user.id).next_run_at > _NOW  # type: ignore[union-attr]
+
+
+def test_a_reminder_fires_even_past_the_deadline(
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    push: MagicMock,
+    runs: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(item_scheduler, "_monotonic", lambda: 1000.0)
+    _add(db, test_user, test_conversation, kind="reminder", text="Call the plumber")
+
+    assert item_scheduler.run_due_items(_NOW).fired == 1
 
 
 def test_a_failing_recovery_does_not_stop_the_tick(

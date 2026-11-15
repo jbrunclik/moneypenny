@@ -19,12 +19,14 @@ from __future__ import annotations
 
 import time
 import uuid
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from src.agent.item_runner import RunOutcome, RunTrigger, deliver, delivery_label, run_model_item
 from src.agent.tools.scheduling import watch_expiry
+from src.agent.turn_budget import run_time_budget
 from src.config import Config
 from src.db.models import db
 from src.db.models.scheduled_items import NEVER_RUN_AT
@@ -41,7 +43,7 @@ logger = get_logger(__name__)
 
 WATCH_MAX_INTERVAL_HOURS = 168
 _ONE_OFFS = {"reminder", "check_in"}
-# Patched in tests: the tick's elapsed time for SCHEDULE_TICK_BUDGET_SECONDS
+# Patched in tests: the pass's elapsed time against SCHEDULE_TICK_DEADLINE_SECONDS
 _monotonic = time.monotonic
 _PUSH_BODY_CHARS = 160
 
@@ -73,34 +75,55 @@ def next_watch_run(
 def run_due_items(now: datetime) -> ItemsResult:
     """Handle every item due by `now`; returns what was done.
 
-    One-offs (a push, no model call) go first. No model run starts once the
-    tick has used SCHEDULE_TICK_BUDGET_SECONDS - the scheduler process is
-    killed a little later - so the rest wait for the next tick, unchanged.
+    One-offs (a push, no model call) go first. The pass must end by
+    SCHEDULE_TICK_DEADLINE_SECONDS (systemd kills it at 300 s): each model
+    run gets the time left as its budget (_run_budget_s), so it stops on
+    time with its wrap-up instead of being killed and replayed; one with too
+    little time left waits for the next pass, unchanged.
     """
     result = ItemsResult()
     db.reset_stale_runs(now, Config.SCHEDULE_RUN_STALE_MINUTES)
     claimed = sorted(db.claim_due_items(now), key=lambda i: i.kind not in _ONE_OFFS)
     started = _monotonic()
     for item in claimed:
-        if (
-            item.kind not in _ONE_OFFS
-            and _monotonic() - started > Config.SCHEDULE_TICK_BUDGET_SECONDS
-        ):
-            db.finish_item_run(
-                item.id,
-                item.next_run_at,
-                item.last_result,
-                item.quiet_runs,
-                item.failures,
-                claimed_at=item.claimed_at,
-            )
-            continue
+        budget = None
+        if item.kind not in _ONE_OFFS:
+            budget = _run_budget_s(started, _monotonic())
+            if budget is None:
+                db.finish_item_run(
+                    item.id,
+                    item.next_run_at,
+                    item.last_result,
+                    item.quiet_runs,
+                    item.failures,
+                    claimed_at=item.claimed_at,
+                )
+                continue
+            if budget < Config.TURN_TIME_BUDGET_SECONDS:
+                logger.info(
+                    "Run budget capped by the scheduler pass",
+                    extra={"item_id": item.id, "budget_s": round(budget)},
+                )
         try:
-            _handle(item, now, result)
+            with run_time_budget(budget) if budget is not None else nullcontext():
+                _handle(item, now, result)
         except Exception:  # one bad item must not stop the others
             logger.exception("Scheduled item failed", extra={"item_id": item.id})
             _recover(item, now)
     return result
+
+
+def _run_budget_s(started: float, now_mono: float) -> float | None:
+    """A model run's time budget at ``now_mono`` in a pass begun at
+    ``started``; None when too little is left to start one."""
+    left = (
+        Config.SCHEDULE_TICK_DEADLINE_SECONDS
+        - (now_mono - started)
+        - Config.SCHEDULE_RUN_FINISH_MARGIN_SECONDS
+    )
+    if left < Config.SCHEDULE_MIN_RUN_SECONDS:
+        return None
+    return min(float(Config.TURN_TIME_BUDGET_SECONDS), left)
 
 
 def _recover(item: ScheduledItem, now: datetime) -> None:

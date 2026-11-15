@@ -755,9 +755,16 @@ class Config:
     SCHEDULE_ITEM_MAX_FAILURES: int = int(os.getenv("SCHEDULE_ITEM_MAX_FAILURES", "3"))
     # A run claimed longer ago than this never finished: it is run again
     SCHEDULE_RUN_STALE_MINUTES: int = int(os.getenv("SCHEDULE_RUN_STALE_MINUTES", "30"))
-    # No new watcher/recurring run starts after this much of a scheduler tick
-    # (the scheduler service is killed at 300 s; agents run after items)
-    SCHEDULE_TICK_BUDGET_SECONDS: int = int(os.getenv("SCHEDULE_TICK_BUDGET_SECONDS", "240"))
+    # The scheduler pass must end by this (systemd kills it at 300 s). Each
+    # model run's time budget is the time left minus the finish margin (one
+    # more tool round and the tools-off final reply), capped at
+    # TURN_TIME_BUDGET_SECONDS; a run with less than the minimum waits for
+    # the next pass
+    SCHEDULE_TICK_DEADLINE_SECONDS: int = int(os.getenv("SCHEDULE_TICK_DEADLINE_SECONDS", "270"))
+    SCHEDULE_RUN_FINISH_MARGIN_SECONDS: int = int(
+        os.getenv("SCHEDULE_RUN_FINISH_MARGIN_SECONDS", "90")
+    )
+    SCHEDULE_MIN_RUN_SECONDS: int = int(os.getenv("SCHEDULE_MIN_RUN_SECONDS", "60"))
     # Docker image for sandbox (custom image with pre-installed fonts and
     # libraries - see docker/code-sandbox/Dockerfile). The sandbox runs with
     # networking disabled, so every library must be baked into the image;

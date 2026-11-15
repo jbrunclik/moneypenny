@@ -135,6 +135,7 @@ NEWER
 # dict access) ---------------------------------------------------------------
 # src/agent/graph_state.py: the turn's budget (LangGraph state keys)
 turn_started_at
+turn_time_budget_s
 turn_cost_usd
 failed_calls
 final_answer

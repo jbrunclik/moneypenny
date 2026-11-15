@@ -18,6 +18,9 @@ class AgentState(TypedDict):
     # failed-call signatures, the stop reason once a limit is hit, and
     # whether the one wrap-up notice went out
     turn_started_at: NotRequired[float]
+    # Seconds this run may take (turn_budget.time_budget_s): the default, or
+    # less when the scheduler pass caps it (turn_budget.run_time_budget)
+    turn_time_budget_s: NotRequired[float]
     turn_cost_usd: NotRequired[float]
     failed_calls: NotRequired[dict[str, int]]
     final_answer: NotRequired[str]

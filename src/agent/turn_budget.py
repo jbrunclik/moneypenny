@@ -10,6 +10,9 @@ or a subagent's run inside a tool call - has its own.
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Literal
 
 from src.agent.content import extract_text_content
@@ -26,13 +29,36 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+# A run's time budget below the default: the scheduler pass sets it around a
+# model run (item_scheduler), initial_state copies it into the graph state -
+# graph nodes run on other threads and read the state, not this var
+_run_time_budget: ContextVar[float | None] = ContextVar("run_time_budget", default=None)
+
+
+@contextmanager
+def run_time_budget(seconds: float) -> Iterator[None]:
+    """Turns started inside the block may take at most ``seconds``."""
+    token = _run_time_budget.set(seconds)
+    try:
+        yield
+    finally:
+        _run_time_budget.reset(token)
+
+
+def time_budget_s(state: AgentState) -> float:
+    """The seconds this run may take: its own cap, else the turn default."""
+    return state.get("turn_time_budget_s", Config.TURN_TIME_BUDGET_SECONDS)
+
+
 def initial_state(messages: list[BaseMessage]) -> AgentState:
     """A graph run's input: its messages and a fresh budget (clock started)."""
+    capped = _run_time_budget.get()
     return {
         "messages": messages,
         "tool_retries": 0,
         "tool_rounds": 0,
         "turn_started_at": time.monotonic(),
+        "turn_time_budget_s": Config.TURN_TIME_BUDGET_SECONDS if capped is None else capped,
         "turn_cost_usd": 0.0,
         "failed_calls": {},
     }
@@ -85,7 +111,7 @@ def stop_facts(reason: StopReason, state: AgentState, tool_rounds: int) -> str:
     spent = f"${state.get('turn_cost_usd', 0.0):.3f} spent"
     limits: dict[str, str] = {
         "cost": f"the ${Config.TURN_COST_LIMIT_USD:.2f} cost limit for one reply",
-        "time": f"the {Config.TURN_TIME_BUDGET_SECONDS:.0f} s time limit for one reply",
+        "time": f"the {time_budget_s(state):.0f} s time limit for one reply",
         "rounds": f"the {tool_round_cap()}-round limit for one reply",
         "loop": "a tool call that kept failing",
     }
@@ -102,7 +128,7 @@ def budget_stop(state: AgentState, tool_rounds: int) -> StopReason | None:
     """The limit this turn just hit, if any: cost, then time, then rounds."""
     if state.get("turn_cost_usd", 0.0) >= Config.TURN_COST_LIMIT_USD:
         return "cost"
-    if elapsed_s(state) >= Config.TURN_TIME_BUDGET_SECONDS:
+    if elapsed_s(state) >= time_budget_s(state):
         return "time"
     cap = tool_round_cap()
     if cap > 0 and tool_rounds >= cap:
@@ -117,8 +143,7 @@ def wrap_up_due(state: AgentState) -> bool:
     """The one wrap-up notice is due (past the fraction, not sent yet)."""
     if state.get("wrap_up_noticed"):
         return False
-    budget = Config.TURN_TIME_BUDGET_SECONDS
-    return elapsed_s(state) >= Config.TURN_WRAP_UP_FRACTION * budget
+    return elapsed_s(state) >= Config.TURN_WRAP_UP_FRACTION * time_budget_s(state)
 
 
 def batching_hint_due(state: AgentState, tool_rounds: int) -> bool:
