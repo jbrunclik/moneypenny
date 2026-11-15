@@ -12,7 +12,7 @@ Exa for search too. Other failures leave search alone.
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TypedDict, cast
 from urllib.parse import urlsplit
 
 import httpx
@@ -25,6 +25,36 @@ from src.utils.tls import shared_ssl_context
 logger = get_logger(__name__)
 
 _EXA_CONTENTS_ENDPOINT = "https://api.exa.ai/contents"
+
+
+class _ExaError(TypedDict, total=False):
+    httpStatusCode: int
+    tag: str
+
+
+class _ExaStatus(TypedDict, total=False):
+    id: str
+    status: str
+    error: _ExaError
+
+
+class _ExaResult(TypedDict, total=False):
+    url: str
+    text: str
+
+
+class _ExaCost(TypedDict, total=False):
+    total: float
+
+
+class _ExaContents(TypedDict, total=False):
+    """The parts of Exa's /contents answer read here."""
+
+    results: list[_ExaResult]
+    statuses: list[_ExaStatus]
+    costDollars: _ExaCost
+
+
 _MICRO = 1_000_000
 
 
@@ -79,7 +109,7 @@ def _read(url: str, max_chars: int) -> tuple[str | None, str | None, float]:
     if response.status_code != 200:
         return None, f"reading service answered HTTP {response.status_code}", 0.0
     try:
-        body: dict[str, Any] = response.json()
+        body = cast("_ExaContents", response.json())
     except ValueError:
         return None, "reading service sent an unreadable answer", 0.0
     cost = float((body.get("costDollars") or {}).get("total") or 0)
@@ -87,7 +117,7 @@ def _read(url: str, max_chars: int) -> tuple[str | None, str | None, float]:
     return (*_page_text(body, max_chars), cost)
 
 
-def _page_text(body: dict[str, Any], max_chars: int) -> tuple[str | None, str | None]:
+def _page_text(body: _ExaContents, max_chars: int) -> tuple[str | None, str | None]:
     statuses = body.get("statuses") or []
     failed = next((s for s in statuses if s.get("status") != "success"), None)
     results = body.get("results") or []

@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.agent.tools import web
-from src.agent.tools.research import _fetch_source
 from src.config import Config
 
 _SHOP = "https://www.alza.cz/cerave-moisturising-cream-177-ml-d6159134.htm"
@@ -94,9 +93,9 @@ def test_reddit_never_goes_to_exa(exa: MagicMock, url: str) -> None:
 def test_research_sends_a_pdf_link_straight_to_exa(exa: MagicMock) -> None:
     url = "https://www.sram.com/globalassets/manual.pdf"
     with patch.object(web, "_fetch_response") as direct:
-        source = _fetch_source({"url": url, "title": "Manual"})
+        text, _ = web.fetch_page_text(url, 6000)
     direct.assert_not_called()
-    assert "289 Kč" in source["content"]
+    assert text == "CeraVe 177 ml - 289 Kč"
 
 
 def test_research_switches_to_exa_when_the_answer_is_a_pdf(exa: MagicMock) -> None:

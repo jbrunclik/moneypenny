@@ -228,3 +228,5 @@ claimed_at  # ScheduledItem field, written through dataclasses.fields()
 chat_items  # CommandCenterResponse field, read by the client (CommandCenter.ts)
 action_id  # src/services/program_setup.py SetupChange key, read as change.get("action_id")
 declined_at  # src/services/program_setup.py DeclinedEntry key, read as e["declined_at"]
+httpStatusCode  # src/services/page_extract.py Exa reply key, read with .get("httpStatusCode")
+costDollars  # src/services/page_extract.py Exa reply key, read with .get("costDollars")

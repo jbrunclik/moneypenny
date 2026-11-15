@@ -15,7 +15,7 @@ import pytest
 
 from src.config import Config
 from src.services import page_extract
-from src.services.search_provider import _breaker_tripped, get_monthly_usage, usage_key
+from src.services.search_provider import get_monthly_usage, has_headroom, usage_key
 
 
 @pytest.fixture
@@ -95,20 +95,20 @@ def test_a_timeout_is_an_error_and_leaves_search_alone() -> None:
     with patch("src.services.page_extract.httpx.post", side_effect=httpx.ReadTimeout("slow")):
         text, error = page_extract.extract_page("https://shop.example/p", 6000)
     assert text is None and error
-    assert not _breaker_tripped("exa")
+    assert has_headroom("exa", 1.0)  # not benched for search
 
 
 def test_a_server_error_leaves_search_alone() -> None:
     with patch("src.services.page_extract.httpx.post", return_value=_reply(500)):
         assert page_extract.extract_page("https://shop.example/p", 6000)[0] is None
-    assert not _breaker_tripped("exa")
+    assert has_headroom("exa", 1.0)  # not benched for search
 
 
 def test_out_of_credit_benches_exa_for_search_too() -> None:
     with patch("src.services.page_extract.httpx.post", return_value=_reply(402)):
         text, error = page_extract.extract_page("https://shop.example/p", 6000)
     assert text is None and error
-    assert _breaker_tripped("exa")
+    assert not has_headroom("exa", 1.0)  # benched for search too
     assert page_extract.extract_available() is False
 
 
