@@ -194,11 +194,15 @@ proposal, [proposals](proposals.md); `src/agent/run_approvals.py`):
    `approval`: its report pushes - the answer may have come from a push),
    told the exact calls to re-issue; `rejected` otherwise. The re-run is
    stored on the job (`scheduled_items.resume_message`, `request_resume`) and
-   the scheduler's next pass runs it, due or not (also a job paused after
-   failures; disabling the agent drops it), then gives the job back exactly
-   as it was; the card says "Approved - continuing shortly." Before Nov 15
-   2026 it ran on a thread in the web worker, which a deploy killed. Held
-   (another card, its budget) it waits with its message. It runs at most
+   the scheduler's next pass runs it, due or not, before due runs (also a
+   paused job; disabling the agent drops it), then gives the job back exactly
+   as it was (the claim keeps the status it took it from); the card says
+   "Approved - continuing shortly." Before Nov 15 2026 it ran on a thread in
+   the web worker, which a deploy killed. A second batch answered before the
+   pass is added to the waiting message. Held (another card, its budget) it
+   waits with its message ("Run continuation held" logged about hourly); a
+   report is not posted into a chat trashed or archived during the run (as
+   for Run and scheduled runs). It runs at most
    once: one that fails is not retried (each retry cost a model run) - the
    chat gets "I could not continue after your answer (...)" instead. Only
    the identical call consumes an approval, once (`consume_run_approval`;
@@ -264,7 +268,7 @@ A scheduled item with `grants` set is a **standing job**: a standing chat's sche
     runs: ...") and one push, keeping its setup. Resume clears the failures.
 - **API:** `POST /api/schedules/<id>/run` runs a job now (409 for light items, or while
   running or awaiting approval); `ScheduledItemResponse` has `standing` and `paused_reason`.
-  Approving a job's request resumes it through `run_job_now` with "[Action approved: ...]".
+  Approving a job's request has the scheduler continue it with "[Action approved: ...]".
 - **UI:** the schedule chip's sheet shows Run for a job and "paused after failing".
 
 ## Settings, Approvals and Grant Levels

@@ -5,19 +5,20 @@ in the trash, not archived) are listed, counted or claimed, so trashing or
 archiving a chat suspends them and restoring it brings them back; a trigger
 deletes them with the conversation row (migration 0076).
 
-claim_due_items flips due active rows to "running" in one UPDATE ...
-RETURNING, so two overlapping scheduler runs never handle one twice.
+claim_due_items flips due active rows (and jobs waiting to continue after
+their cards) to "running" with UPDATE ... RETURNING in one transaction, so
+two overlapping scheduler runs never handle one twice.
 """
 
 from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import astuple, fields
+from dataclasses import astuple, fields, replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 
-from src.db.models.dataclasses import ScheduledItem
+from src.db.models.dataclasses import ItemStatus, ScheduledItem
 from src.db.models.timestamps import from_db, from_db_or_none, to_db, to_db_or_none
 from src.utils.clock import local_day_start, utc_now
 
@@ -31,6 +32,16 @@ _LIVE_CHAT = """conversation_id IN (SELECT id FROM conversations
 _AGENT_JOB = "id IN (SELECT job_id FROM conversations WHERE is_agent = 1 AND job_id IS NOT NULL)"
 # Back from a run: an agent disabled meanwhile stays paused
 _AFTER_RUN_STATUS = "CASE WHEN paused_reason = 'disabled' THEN 'paused' ELSE 'active' END"
+# The scheduler's claims (claim_due_items): a paused job only to continue
+# after its cards, never a disabled one
+_CLAIM_PAUSED_RESUME = f"""UPDATE scheduled_items SET status = 'running', claimed_at = ?
+    WHERE {_LIVE_CHAT} AND status = 'paused' AND paused_reason IS NOT 'disabled'
+        AND resume_message IS NOT NULL
+    RETURNING *"""
+_CLAIM_ACTIVE = f"""UPDATE scheduled_items SET status = 'running', claimed_at = ?
+    WHERE {_LIVE_CHAT} AND status = 'active'
+        AND (next_run_at <= ? OR resume_message IS NOT NULL)
+    RETURNING *"""
 _COLUMNS = [f.name for f in fields(ScheduledItem)]
 _TIMES = {"next_run_at", "expires_at", "created_at", "claimed_at", "resume_requested_at"}
 # A standing job with no schedule (run by hand or by another agent only)
@@ -275,21 +286,22 @@ class ScheduledItemsMixin:
     def claim_due_items(self, now: datetime) -> list[ScheduledItem]:
         """Mark every active item due by `now` in a live chat as running; return
         them. A job waiting to continue after its cards (`resume_message`) is
-        claimed too, due or not - also one paused after failures, never a
-        disabled one (disabling drops it, standing_chats._DISABLE_SQL)."""
-        with self._pool.get_connection() as conn:
-            rows = self._execute_with_timing(
-                conn,
-                f"""UPDATE scheduled_items SET status = 'running', claimed_at = ?
-                    WHERE {_LIVE_CHAT} AND (
-                        (status = 'active' AND next_run_at <= ?)
-                        OR (status IN ('active', 'paused') AND resume_message IS NOT NULL
-                            AND paused_reason IS NOT 'disabled'))
-                    RETURNING *""",
-                (to_db(now), to_db(now)),
-            ).fetchall()
+        claimed too, due or not - also a paused one (by hand or after
+        failures), never a disabled one (disabling drops it,
+        standing_chats._DISABLE_SQL). Each returned item's `status` is the one
+        the claim took it from, to restore when it is given back unchanged."""
+        when = to_db(now)
+        claims: list[tuple[ItemStatus, str, tuple[object, ...]]] = [
+            ("paused", _CLAIM_PAUSED_RESUME, (when,)),
+            ("active", _CLAIM_ACTIVE, (when, when)),
+        ]
+        claimed: list[ScheduledItem] = []
+        with self._pool.get_connection() as conn:  # one transaction: both or neither
+            for prior, query, params in claims:
+                rows = self._execute_with_timing(conn, query, params).fetchall()
+                claimed += [replace(row_to_item(row), status=prior) for row in rows]
             conn.commit()
-        return sorted((row_to_item(row) for row in rows), key=lambda i: i.next_run_at)
+        return sorted(claimed, key=lambda i: i.next_run_at)
 
     def claim_item(self, item_id: str, now: datetime) -> tuple[str, datetime] | None:
         """Claim one item for a hand-started run, as the scheduler claims due
@@ -310,12 +322,16 @@ class ScheduledItemsMixin:
 
     def request_resume(self, item_id: str, message: str) -> bool:
         """Have the scheduler's next pass continue this job's run with
-        `message` (its answered cards' outcome); False when it is gone."""
+        `message` (its answered cards' outcome), added to one still waiting
+        (its wait counts from the first); False when the job is gone."""
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE scheduled_items SET resume_message = ?, resume_requested_at = ?
-                   WHERE id = ?""",
+                """UPDATE scheduled_items
+                   SET resume_message = CASE WHEN resume_message IS NULL THEN ?1
+                           ELSE resume_message || ' ' || ?1 END,
+                       resume_requested_at = COALESCE(resume_requested_at, ?2)
+                   WHERE id = ?3""",
                 (message, to_db(utc_now()), item_id),
             )
             conn.commit()

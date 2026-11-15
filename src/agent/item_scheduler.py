@@ -81,7 +81,8 @@ def next_watch_run(
 def run_due_items(now: datetime) -> ItemsResult:
     """Handle every item due by `now`; returns what was done.
 
-    One-offs (a push, no model call) go first. The pass must end by
+    One-offs (a push, no model call) go first, then continuations after
+    cards (the user is waiting on them), then due runs. The pass must end by
     SCHEDULE_TICK_DEADLINE_SECONDS (systemd kills it at 300 s): each model
     run gets the time left as its budget (_run_budget_s), so it stops on
     time with its wrap-up instead of being killed and replayed; one with too
@@ -89,7 +90,10 @@ def run_due_items(now: datetime) -> ItemsResult:
     """
     result = ItemsResult()
     db.reset_stale_runs(now, Config.SCHEDULE_RUN_STALE_MINUTES)
-    claimed = sorted(db.claim_due_items(now), key=lambda i: i.kind not in _ONE_OFFS)
+    claimed = sorted(
+        db.claim_due_items(now),
+        key=lambda i: (i.kind not in _ONE_OFFS, i.resume_message is None),
+    )
     started = _monotonic()
     for item in claimed:
         budget = None
@@ -97,7 +101,7 @@ def run_due_items(now: datetime) -> ItemsResult:
             budget = _run_budget_s(started, _monotonic())
             if budget is None and item.resume_message is not None:
                 # Off-schedule: back exactly as it was, continuation kept
-                db.release_item(item.id, item.claimed_at or now, _status_before(item))
+                db.release_item(item.id, item.claimed_at or now, item.status)
                 continue
             if budget is None:
                 db.finish_item_run(
@@ -204,7 +208,7 @@ def run_job_now(
         raise JobBusyError(item.id)
     prior_status, claimed_at = claim
     try:
-        return _run_off_schedule(item, user, trigger, message, trigger_chain)
+        return _run_off_schedule(item, user, trigger, message, claimed_at, trigger_chain)
     finally:
         db.release_item(item.id, claimed_at, prior_status)
 
@@ -214,23 +218,26 @@ def _run_off_schedule(
     user: User,
     trigger: RunTrigger,
     message: str | None,
+    claimed_at: datetime,
     trigger_chain: list[str] | None = None,
 ) -> RunOutcome:
     """Run a claimed job outside its schedule and post its report (pushed
-    unless the user started it by hand)."""
+    unless the user started it by hand) - not into a chat trashed or archived
+    during the run (its cost is still recorded, as for a scheduled run)."""
     outcome = run_model_item(
         item, user, trigger=trigger, message=message, trigger_chain=trigger_chain
     )
-    if outcome.status in {"report", "done"} and outcome.text:
-        tag = _DELIVERY_TAGS.get(trigger, "triggered")
-        label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, tag)
-        deliver(item, outcome.text, label, push=trigger != "manual", outcome=outcome)
+    if not (outcome.status in {"report", "done"} and outcome.text):
+        return outcome
+    if db.item_claim_state(item.id, claimed_at) != "live":
+        if outcome.record_cost is not None:
+            outcome.record_cost(f"silent:{uuid.uuid4()}")
+        logger.info("Off-schedule result dropped", extra={"item_id": item.id})
+        return outcome
+    tag = _DELIVERY_TAGS.get(trigger, "triggered")
+    label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, tag)
+    deliver(item, outcome.text, label, push=trigger != "manual", outcome=outcome)
     return outcome
-
-
-def _status_before(item: ScheduledItem) -> str:
-    """A claimed job's status before the claim (a pause keeps its reason)."""
-    return "paused" if item.paused_reason else "active"
 
 
 def _continue_after_cards(item: ScheduledItem, now: datetime, result: ItemsResult) -> None:
@@ -240,32 +247,31 @@ def _continue_after_cards(item: ScheduledItem, now: datetime, result: ItemsResul
     later pass; one that fails is not retried - its chat says so (a retry
     every pass cost a model run each time, final review Nov 15 2026)."""
     claimed_at = item.claimed_at or now  # this pass claimed it at `now`
-    prior = _status_before(item)
+    prior = item.status  # claim_due_items: the status it was claimed from
+    requested = item.resume_requested_at
+    waited_s = round((now - requested).total_seconds()) if requested else None
     user = db.get_user_by_id(item.user_id)
     if user is None:
         db.delete_item(item.id)
         return
     if (reason := hold_reason(item)) is not None:
-        logger.info("Run continuation held", extra={"item_id": item.id, "reason": reason})
+        if waited_s is None or waited_s // 60 % 60 == 0:  # about hourly, not every pass
+            logger.info(
+                "Run continuation held",
+                extra={"item_id": item.id, "reason": reason, "waited_s": waited_s},
+            )
         db.release_item(item.id, claimed_at, prior)
         return
-    requested = item.resume_requested_at
-    logger.info(
-        "Run resumed after cards",
-        extra={
-            "item_id": item.id,
-            "waited_s": round((now - requested).total_seconds()) if requested else None,
-        },
-    )
+    logger.info("Run resumed after cards", extra={"item_id": item.id, "waited_s": waited_s})
     result.run += 1
     db.clear_resume(item.id)
     try:
-        outcome = _run_off_schedule(item, user, "approval", item.resume_message)
+        outcome = _run_off_schedule(item, user, "approval", item.resume_message, claimed_at)
         failure = outcome.text or "the run failed" if outcome.status == "failed" else None
     except Exception as error:  # given back below, never retried
         logger.exception("Run continuation crashed", extra={"item_id": item.id})
         failure = str(error)[:_CONTINUATION_ERROR_CHARS]
-    if failure is not None:
+    if failure is not None and db.item_claim_state(item.id, claimed_at) == "live":
         label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, "after your answer")
         deliver(item, _CONTINUATION_FAILED.format(failure), label)
     db.release_item(item.id, claimed_at, prior)

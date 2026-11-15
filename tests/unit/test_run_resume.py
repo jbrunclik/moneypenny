@@ -111,7 +111,7 @@ def test_the_next_pass_runs_the_continuation_off_schedule(
     assert (after.status, after.next_run_at, after.failures) == ("active", before.next_run_at, 0)
 
 
-def _pause(db: Database, item_id: str, reason: str) -> None:
+def _pause(db: Database, item_id: str, reason: str | None) -> None:
     with db._pool.get_connection() as conn:
         conn.execute(
             "UPDATE scheduled_items SET status = 'paused', paused_reason = ? WHERE id = ?",
@@ -232,3 +232,89 @@ def test_the_wait_is_logged(
     ]
     assert extra["item_id"] == agent.id
     assert extra["waited_s"] >= 39
+
+
+def test_a_job_paused_by_hand_continues_and_stays_paused(
+    agent: Any, test_database: Database, test_user: User, runs: MagicMock
+) -> None:
+    """A pause without a reason (by hand) is restored too, not guessed from
+    the reason (final review minor)."""
+    card = _park(test_database, agent, test_user)
+    resolve(card, 0, "button")
+    _pause(test_database, agent.id, None)
+
+    assert item_scheduler.run_due_items(utc_now()).run == 1
+    job = _job(test_database, agent)
+    assert (job.status, job.paused_reason) == ("paused", None)
+
+
+def _make_due(db: Database, item_id: str) -> None:
+    with db._pool.get_connection() as conn:
+        conn.execute(
+            "UPDATE scheduled_items SET next_run_at = ? WHERE id = ?",
+            ("2000-01-01T00:00:00+00:00", item_id),
+        )
+        conn.commit()
+
+
+def test_a_continuation_runs_before_due_runs(
+    agent: Any, test_database: Database, test_user: User, runs: MagicMock
+) -> None:
+    """The user is waiting on it: on a busy pass it is not the run put off."""
+    other = test_database.create_standing_chat(test_user.id, "Other", grants=["todoist"])
+    _make_due(test_database, other.id)
+    card = _park(test_database, agent, test_user)
+    resolve(card, 0, "button")
+
+    item_scheduler.run_due_items(utc_now())
+
+    assert [c.args[0].id for c in runs.call_args_list] == [agent.id, other.id]
+
+
+def test_a_second_answer_adds_to_the_waiting_continuation(
+    agent: Any, test_database: Database
+) -> None:
+    """Two answered batches before the pass: both outcomes reach the run."""
+    test_database.request_resume(agent.id, "[Action approved: first]")
+    first = _job(test_database, agent).resume_requested_at
+    test_database.request_resume(agent.id, "[Action approved: second]")
+
+    job = _job(test_database, agent)
+    assert job.resume_message is not None
+    assert "first" in job.resume_message
+    assert "second" in job.resume_message
+    assert job.resume_requested_at == first
+
+
+def test_a_held_continuation_is_logged_about_hourly(
+    agent: Any, test_database: Database, test_user: User, runs: MagicMock
+) -> None:
+    """Not every minute while a budget holds it until midnight."""
+    card = _park(test_database, agent, test_user)
+    resolve(card, 0, "button")
+    _park(test_database, agent, test_user, content="Eggs")  # held by a new card
+    start = utc_now()
+
+    with patch.object(item_scheduler.logger, "info") as info:
+        for minutes in (0, 1, 2, 30, 60, 61):
+            item_scheduler.run_due_items(start + timedelta(minutes=minutes))
+
+    held = [c for c in info.call_args_list if c.args[0] == "Run continuation held"]
+    assert len(held) == 2
+
+
+def test_a_continuation_whose_chat_was_trashed_meanwhile_posts_nothing(
+    agent: Any, test_database: Database, test_user: User, runs: MagicMock
+) -> None:
+    """Like a scheduled run: a chat trashed during the run gets no report."""
+    card = _park(test_database, agent, test_user)
+    resolve(card, 0, "button")
+
+    def trash_then_report(*_: Any, **__: Any) -> RunOutcome:
+        test_database.trash_conversation(agent.conversation_id, test_user.id)
+        return RunOutcome("report", "Added Buy milk.")
+
+    runs.side_effect = trash_then_report
+    item_scheduler.run_due_items(utc_now())
+
+    runs.deliver.assert_not_called()

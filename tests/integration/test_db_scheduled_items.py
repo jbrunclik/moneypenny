@@ -111,7 +111,9 @@ def test_claim_marks_running_once(
     second = test_database.claim_due_items(_NOW)
 
     assert [i.id for i in first] == [due.id]
-    assert first[0].status == "running"
+    assert first[0].status == "active"  # the status the claim took it from
+    stored = test_database.get_item(due.id, test_user.id)
+    assert stored is not None and stored.status == "running"
     assert first[0].claimed_at == _NOW
     assert second == []
 

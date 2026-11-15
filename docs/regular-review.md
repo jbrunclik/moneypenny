@@ -80,8 +80,8 @@ The review itself changes nothing in production and edits nothing but
   distribution against the 8000 limit, and how `custom_instructions` cards end.
 - Run continuations and capped runs (from Nov 15 2026;
   [agents.md](features/agents.md)): "Run resumed after cards" per week and its
-  `waited_s` (about a minute is expected); "Run continuation held" repeating for
-  one item means a card or budget blocks it; "Run budget capped by the scheduler
+  `waited_s` (about a minute is expected); "Run continuation held" (logged about
+  hourly, with `waited_s`) repeating for one item means a card or budget blocks it; "Run budget capped by the scheduler
   pass" `budget_s` against turns with `stopped_by = 'time'` from the scheduler -
   a run stopped on time where it used to be killed.
 - Integration tokens that expired (Calendar, Garmin, Todoist "disconnected"
