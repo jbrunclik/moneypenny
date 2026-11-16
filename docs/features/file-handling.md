@@ -301,11 +301,11 @@ FILE_RETENTION_DAYS=30
 
 ## Audio and Office Uploads (Nov 16 2026)
 
-**Audio.** `audio/mpeg`, `audio/mp4`, `audio/x-m4a` (iPhone voice memos), `audio/wav`/`audio/x-wav`, `audio/ogg`, `audio/flac` and `audio/aac`, under the ordinary `MAX_FILE_SIZE_BYTES` (20 MB, about 40 minutes of a voice memo) and `FILE_RETENTION_DAYS`. They take the video path: `attach_gemini_file_uris` and `retrieve_file` upload them to the Gemini Files API (`is_media_mime` in [files.py](../../src/utils/files.py)) and send a `media` block. `gemini_mime_type` renames the browsers' `audio/x-m4a` and `audio/x-wav` to `audio/mp4` and `audio/wav` for Gemini. Magic aliases accept what older libmagic builds say for m4a (`video/mp4`, octet-stream).
+**Audio.** `audio/mpeg`, `audio/mp4`, `audio/x-m4a` (iPhone voice memos), `audio/wav`/`audio/x-wav`, `audio/ogg`, `audio/flac`, `audio/aac` and `audio/webm` (Chrome's recordings; libmagic names the container, `video/webm`), under the ordinary `MAX_FILE_SIZE_BYTES` (20 MB, about 40 minutes of a voice memo) and `FILE_RETENTION_DAYS`. They take the video path: `attach_gemini_file_uris` and `retrieve_file` upload them to the Gemini Files API (`is_media_mime` in [files.py](../../src/utils/files.py)) and send a `media` block. `gemini_mime_type` renames the browsers' `audio/x-m4a` and `audio/x-wav` to `audio/mp4` and `audio/wav` for Gemini. Magic aliases accept what older libmagic builds say for m4a (`video/mp4`). In the chat an audio file is a document chip with a play disc: a tap fetches it through the API client (the JWT rides a header, as for videos) and plays it in place (`renderAudioAttachment` in [attachments.ts](../../web/src/components/messages/attachments.ts)); the player keeps a 260 px minimum, below which Chrome drops its play button.
 
 **Office.** docx, xlsx and pptx are zip containers Gemini cannot read, so the model gets their text ([office_text.py](../../src/utils/office_text.py)):
 - **Word:** headings as `#` lines, paragraphs, and tables as `| a | b |` rows in reading order.
-- **Excel:** `## Sheet: name`, then one row per line with cached values; where nothing computed a cell (a file written by a script), its formula.
+- **Excel:** `## Sheet: name`, then one row per line with cached values. A workbook without `xl/calcChain.xml` was never computed (a script wrote it), so an empty cell with a formula shows the formula; with one (Excel computed it), an empty value is the formula's real result and stays empty.
 - **PowerPoint:** `## Slide n`, each shape's text, tables, and `Notes:`.
 
 Layout, charts and images are lost; the original still goes to the sandbox (`execute_code(files=[id])`) for edits.
@@ -316,6 +316,6 @@ Layout, charts and images are lost; the original still goes to the sandbox (`exe
 - **Failure:** a corrupt, password-protected or mislabelled file becomes "could not be read as text: <reason>", with its id.
 - **XML:** openpyxl parses through defusedxml (a test pins that it does).
 - **Log:** each conversion logs "office text extracted" (`type`, `chars`, `truncated`, `ms`, `error`).
-- **Validation:** the specific type or `application/zip` from libmagic is accepted (no octet-stream: unknown bytes must not pass as a document or an m4a); a zip claimed as a PDF is not. A password-protected file is an OLE container, so it is refused at upload as not matching its type.
+- **Validation:** the specific type or `application/zip` from libmagic is accepted (no octet-stream: unknown bytes must not pass as a document or an m4a); a zip claimed as a PDF is not. A password-protected (or pre-2007) file is an OLE container: the upload is refused with "is password-protected or in the old Office format - save it without a password as .docx, .xlsx or .pptx" (the OLE signature, not libmagic's name for it).
 
 **The agent's own files** are listed in the history with ids like uploads (`_add_role_metadata` in [history.py](../../src/agent/history.py)), so "make that image darker" or "add a column to the xlsx you made" can point at them. The "conversation file: found" log line carries `role` (assistant = the agent reopened its own output).

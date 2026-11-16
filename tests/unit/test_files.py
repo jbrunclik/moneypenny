@@ -543,6 +543,8 @@ AUDIO_SAMPLES = [
     ("tiny.ogg", "audio/ogg"),
     ("tiny.flac", "audio/flac"),
     ("tiny.aac", "audio/aac"),
+    # Chrome's own recordings (MediaRecorder): libmagic says video/webm
+    ("tiny-audio.webm", "audio/webm"),
 ]
 
 

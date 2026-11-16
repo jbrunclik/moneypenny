@@ -285,3 +285,34 @@ def test_unknown_bytes_do_not_pass_as_a_voice_memo_or_a_document() -> None:
     with patch.object(Config, "ALLOWED_FILE_TYPES", allowed):
         assert not validate_files([{"name": "m.m4a", "type": "audio/x-m4a", "data": noise}])[0]
         assert not validate_files([{"name": "d.docx", "type": DOCX, "data": noise}])[0]
+
+
+def test_a_password_protected_document_says_so_at_upload() -> None:
+    """Password-protected (and pre-2007) Office files are OLE containers, not
+    zips: they were refused as "content does not match", which said nothing
+    about what to do."""
+    from unittest.mock import patch
+
+    from src.utils.files import validate_files
+
+    ole = _b64(bytes.fromhex("d0cf11e0a1b11ae1") + b"\x00" * 504)
+    allowed = set(Config.DEFAULT_ALLOWED_FILE_TYPES.split(","))
+    with patch.object(Config, "ALLOWED_FILE_TYPES", allowed):
+        ok, error = validate_files([{"name": "Pay.xlsx", "type": XLSX, "data": ole}])
+    assert not ok
+    assert "Pay.xlsx" in error
+    assert "password" in error
+
+
+def test_a_computed_workbook_keeps_an_empty_result_empty() -> None:
+    """Excel writes xl/calcChain.xml when it computed the workbook: there an
+    empty cached value is the formula's real result (e.g. =IF(A1>5,"x","")),
+    not a missing one, so its formula text must not show."""
+    out = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(_xlsx())) as src, zipfile.ZipFile(out, "w") as dst:
+        for info in src.infolist():
+            dst.writestr(info, src.read(info.filename))
+        dst.writestr("xl/calcChain.xml", '<calcChain xmlns="x"><c r="C2" i="1"/></calcChain>')
+    text = office_text(out.getvalue(), XLSX).text
+    assert "| tent | 120 |" in text
+    assert "=B2*2" not in text

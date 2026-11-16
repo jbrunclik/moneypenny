@@ -47,6 +47,8 @@ class StoredFile(TypedDict):
 # No octet-stream for either: every libmagic in use names these formats, and
 # an unknown-bytes allowance would let anything through as a memo or document
 _OFFICE_MAGIC = {"application/zip"}
+# Compound File (OLE) header: encrypted OOXML and pre-2007 .doc/.xls/.ppt
+_OLE_SIGNATURE = bytes.fromhex("d0cf11e0a1b11ae1")
 _M4A_MAGIC = {"audio/x-m4a", "audio/mp4", "video/mp4"}
 _WAV_MAGIC = {"audio/x-wav", "audio/wav", "audio/vnd.wave"}
 
@@ -93,6 +95,8 @@ MIME_TYPE_ALIASES: dict[str, set[str]] = {
     "audio/ogg": {"audio/ogg", "application/ogg", "audio/x-vorbis+ogg"},
     "audio/flac": {"audio/flac", "audio/x-flac"},
     "audio/aac": {"audio/aac", "audio/x-aac", "audio/x-hx-aac-adts"},
+    # Chrome's recordings: libmagic names the container, not the content
+    "audio/webm": {"audio/webm", "video/webm", "video/x-matroska"},
     # Office (Nov 16 2026): zip containers; libmagic names the type when it
     # finds the part it knows, else a plain zip
     DOCX: _OFFICE_MAGIC | {DOCX},
@@ -175,6 +179,15 @@ def verify_file_type_by_magic(
         )
         # Fail open for detection errors - the file already passed MIME whitelist check
         return True, ""
+
+    # A password-protected (or pre-2007) Office file is an OLE container, not
+    # a zip: say what to do instead of "does not match"
+    if claimed_mime_type in (DOCX, XLSX, PPTX) and file_data.startswith(_OLE_SIGNATURE):
+        return (
+            False,
+            f"File '{file_name}' is password-protected or in the old Office format - "
+            "save it without a password as .docx, .xlsx or .pptx",
+        )
 
     # Get allowed magic types for the claimed MIME type
     allowed_magic_types = MIME_TYPE_ALIASES.get(claimed_mime_type)

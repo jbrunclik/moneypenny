@@ -37,6 +37,36 @@ for (const viewport of [
 
     const sent = page.locator('.message.user').last();
     await expect(sent.locator('.document-name')).toHaveText(['Trip plan.docx', 'Memo 12.m4a']);
+    // The memo plays in place: a tap swaps the play disc for a player
+    await expect(sent.locator('.message-audio button.audio-play')).toBeVisible();
     await expect(page.locator('.message.assistant:not(.streaming)').last()).toBeVisible({ timeout: 20000 });
   });
 }
+
+test('a voice memo from earlier plays in place', async ({ page }) => {
+  const response = await page.request.post('/test/seed', {
+    data: {
+      conversations: [
+        {
+          title: 'Memo',
+          messages: [
+            {
+              role: 'user',
+              content: 'Listen to this',
+              files: [{ name: 'Memo 12.m4a', type: 'audio/x-m4a', data: readFileSync(join(FIXTURES, 'tiny.m4a')).toString('base64') }],
+            },
+            { role: 'assistant', content: 'Got it.' },
+          ],
+        },
+      ],
+    },
+  });
+  expect(response.ok()).toBe(true);
+  await page.goto('/');
+  await appReady(page);
+  await page.locator('.conversation-item-wrapper').first().click();
+
+  await page.locator('.message-audio button.audio-play').click();
+  await expect(page.locator('audio.message-audio-player')).toBeVisible();
+  await expect(page.locator('.message-audio button.audio-play')).toHaveCount(0);
+});

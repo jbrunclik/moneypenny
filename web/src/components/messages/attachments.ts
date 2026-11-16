@@ -127,6 +127,10 @@ export function renderMessageFiles(
 
     documents.forEach((file) => {
       const fileIndex = files.indexOf(file);
+      if (file.type.startsWith('audio/')) {
+        list.appendChild(renderAudioAttachment(file, file.messageId || messageId, file.fileIndex ?? fileIndex));
+        return;
+      }
       // Make filename clickable to open in new tab (for PDFs), download button for saving
       const ids = {
         'data-message-id': file.messageId || messageId,
@@ -238,6 +242,48 @@ function renderVideoAttachment(
 
   wrapper.appendChild(button);
   return wrapper;
+}
+
+/**
+ * An audio attachment (voice memo): the document chip with a play button in
+ * place of the icon. A tap fetches the file through the API client (the JWT
+ * rides a header, as for videos) and plays it in place, below the name.
+ */
+function renderAudioAttachment(file: FileMetadata, messageId: string, fileIndex: number): HTMLElement {
+  const ids = { 'data-message-id': messageId, 'data-file-index': String(fileIndex) };
+  const play = createIconButton({ class: 'audio-play', title: 'Play', 'aria-label': `Play ${file.name}` }, PLAY_ICON);
+  const hint = createElement('span', { class: 'audio-hint' }, []);
+  const chip = createElement('div', { class: 'message-document message-audio' }, [
+    play,
+    createElement('span', { class: 'document-name' }, [file.name]),
+    hint,
+    createIconButton({ class: 'document-download', ...ids, 'data-file-name': file.name, title: 'Download' }, DOWNLOAD_ICON),
+  ]);
+
+  play.addEventListener('click', () => {
+    void (async () => {
+      play.disabled = true;
+      hint.textContent = 'Loading…';
+      try {
+        const blob = await filesApi.fetchFile(messageId, fileIndex);
+        const audio = document.createElement('audio');
+        audio.className = 'message-audio-player';
+        audio.controls = true;
+        audio.preload = 'metadata';
+        audio.src = URL.createObjectURL(blob);
+        play.remove();
+        hint.remove();
+        chip.appendChild(audio);
+        void audio.play();
+      } catch (error) {
+        const status = (error as { status?: number }).status;
+        chip.classList.add('expired');
+        hint.textContent = status === 410 ? 'Expired (files are kept 30 days)' : 'Failed to load';
+        play.disabled = status === 410;
+      }
+    })();
+  });
+  return chip;
 }
 
 function createVideoElement(src: string): HTMLVideoElement {

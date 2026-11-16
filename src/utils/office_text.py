@@ -22,6 +22,7 @@ millions of empty paragraphs took 103 s and 2.2 GB - Nov 16 2026 review). So:
 from __future__ import annotations
 
 import io
+import itertools
 import json
 import subprocess
 import sys
@@ -130,22 +131,30 @@ def _cell(value: object) -> str:
 
 
 def _read_xlsx(data: io.BytesIO, out: _Lines) -> None:
-    values = openpyxl.load_workbook(data, read_only=True, data_only=True)
+    # Excel writes a calculation chain when it computed the workbook: then an
+    # empty cached value is a formula's real result. Without one (a file a
+    # script wrote), an empty value means "never computed": show the formula
+    computed = "xl/calcChain.xml" in zipfile.ZipFile(data).namelist()
     data.seek(0)
-    formulas = openpyxl.load_workbook(data, read_only=True, data_only=False)
+    values = openpyxl.load_workbook(data, read_only=True, data_only=True)
+    formulas = None
+    if not computed:
+        data.seek(0)
+        formulas = openpyxl.load_workbook(data, read_only=True, data_only=False)
     for name in values.sheetnames:
         out.add(f"## Sheet: {name}")
-        _xlsx_sheet(values[name], formulas[name], out)
+        _xlsx_sheet(values[name], formulas[name] if formulas else None, out)
         out.add("")
 
 
-def _xlsx_sheet(values: ReadOnlyWorksheet, formulas: ReadOnlyWorksheet, out: _Lines) -> None:
+def _xlsx_sheet(values: ReadOnlyWorksheet, formulas: ReadOnlyWorksheet | None, out: _Lines) -> None:
     # The declared range is the file's claim: too big stalls, too small drops rows
     values.reset_dimensions()
-    formulas.reset_dimensions()
-    rows = zip(
-        values.iter_rows(values_only=True), formulas.iter_rows(values_only=True), strict=False
-    )
+    written_rows: Iterable[tuple[object, ...]] = itertools.repeat(())
+    if formulas is not None:
+        formulas.reset_dimensions()
+        written_rows = formulas.iter_rows(values_only=True)
+    rows = zip(values.iter_rows(values_only=True), written_rows, strict=False)
     for scanned, (cached, written) in enumerate(rows):
         if scanned >= XLSX_MAX_ROWS_SCANNED:
             out.cut = True

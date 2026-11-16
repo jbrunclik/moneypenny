@@ -157,6 +157,7 @@ const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
     'audio/ogg',
     'audio/flac',
     'audio/aac',
+    'audio/webm',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',

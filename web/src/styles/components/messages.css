@@ -918,6 +918,54 @@ a.document-name:hover {
     height: 16px;
 }
 
+/* Voice memos: the document chip with a play disc; the player opens below the name */
+.message-audio {
+    flex-wrap: wrap;
+}
+
+.audio-play {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: var(--radius-full);
+    background-color: var(--accent);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity var(--transition-fast);
+}
+
+/* On the user's own bubble: the disc inverts so it stands out */
+.message.user .audio-play {
+    background-color: var(--color-user-text);
+    color: var(--bg-user);
+}
+
+.audio-play:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.audio-play svg {
+    width: 14px;
+    height: 14px;
+}
+
+.audio-hint {
+    font-size: var(--font-size-xs);
+    opacity: 0.7;
+}
+
+.message-audio-player {
+    width: 100%;
+    /* Narrower, Chrome drops the play/pause button and the time */
+    min-width: 260px;
+    height: 36px;
+}
+
 /* ----------------------------------------
    Markdown Content Styling
    ---------------------------------------- */

@@ -368,7 +368,7 @@ class Config:
         "image/png,image/jpeg,image/gif,image/webp,image/heic,image/heif,"
         "application/pdf,text/plain,text/markdown,application/json,text/csv,"
         "video/mp4,video/quicktime,video/webm,"
-        "audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/x-wav,audio/ogg,audio/flac,audio/aac,"
+        "audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/x-wav,audio/ogg,audio/flac,audio/aac,audio/webm,"
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document,"
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,"
         "application/vnd.openxmlformats-officedocument.presentationml.presentation"
