@@ -60,31 +60,26 @@ test.describe('Chat - Send Failure Handling', () => {
     await expect(page.locator('.message.user')).toHaveCount(1);
   });
 
-  test('failed send survives a page reload with retry available', async ({ page }) => {
+  test('a failed send is resent on its own after a reload', async ({ page }) => {
     await blockSends(page);
     await page.fill('#message-input', 'Survive the reload');
     await page.click('#send-btn');
     await expect(page.locator('.message--send-failed')).toBeVisible({ timeout: 20000 });
 
-    // Reload: the deep-link hash restores the conversation; the unconfirmed
-    // send must be reconciled back into the view as failed.
-    // (page.route blocks persist across reloads - lift them so the retry
-    // below exercises a restored connection)
+    // Reload: the deep-link hash restores the conversation, the unconfirmed
+    // send is reconciled back in and - fresh, connection back - resent
+    // (Nov 16 2026). page.route blocks persist across reloads: lift them
     await restoreSends(page);
     await page.reload();
-    const failedMessage = page.locator('.message.user.message--send-failed');
-    await expect(failedMessage).toBeVisible({ timeout: 20000 });
-    await expect(failedMessage).toContainText('Survive the reload');
-
-    // And it is still retryable after the reload
-    await page.click('[data-action="retry-send"]');
     await expect(page.locator('.message.assistant')).toContainText('mock response', {
       timeout: 20000,
     });
     await expect(page.locator('.message--send-failed')).toHaveCount(0);
+    await expect(page.locator('.message.user')).toHaveCount(1);
+    await expect(page.locator('.toast-info')).toContainText('Resent 1 message.');
   });
 
-  test('retry after a reload resends a large attachment', async ({ page }) => {
+  test('the automatic resend after a reload carries a large attachment', async ({ page }) => {
     // ~1.7 MB: over the outbox's localStorage cap (2M base64 chars), so the
     // file only survives the reload in IndexedDB
     const csv = Buffer.from('id,value\n' + '1,abcdefghij\n'.repeat(140_000));
@@ -97,15 +92,32 @@ test.describe('Chat - Send Failure Handling', () => {
     await expect(page.locator('.message--send-failed')).toBeVisible({ timeout: 20000 });
 
     await restoreSends(page);
+    const resent = page.waitForRequest(CHAT_ENDPOINTS, { timeout: 30000 });
     await page.reload();
-    await expect(page.locator('.message.user.message--send-failed')).toBeVisible({ timeout: 20000 });
-
-    const retried = page.waitForRequest(CHAT_ENDPOINTS);
-    await page.click('[data-action="retry-send"]');
-    const body = (await retried).postDataJSON() as { files?: Array<{ name: string; data: string }> };
+    const body = (await resent).postDataJSON() as { files?: Array<{ name: string; data: string }> };
     expect(body.files?.map((f) => f.name)).toEqual(['big.csv']);
     expect(body.files?.[0]?.data.length).toBeGreaterThan(2_000_000);
     await expect(page.locator('.message.assistant')).toContainText('mock response', { timeout: 20000 });
+  });
+
+  test('a send that failed offline goes once the connection returns', async ({ page, context }) => {
+    // A saved chat first (a new chat's first send also creates it)
+    await page.fill('#message-input', 'Hello first');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).toContainText('mock response', { timeout: 20000 });
+
+    await context.setOffline(true);
+    await page.fill('#message-input', 'Sent from a tunnel');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.user.message--send-failed')).toBeVisible({ timeout: 20000 });
+
+    await context.setOffline(false); // fires the browser's online event
+    await expect(page.locator('.message.assistant')).toHaveCount(2, { timeout: 20000 });
+    await expect(page.locator('.message.assistant').last()).toContainText('mock response', {
+      timeout: 20000,
+    });
+    await expect(page.locator('.message--send-failed')).toHaveCount(0);
+    await expect(page.locator('.message.user')).toHaveCount(2);
   });
 
   test('discard removes the failed message permanently', async ({ page }) => {

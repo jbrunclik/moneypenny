@@ -187,11 +187,19 @@ async function retryFailedMessage(messageId: string): Promise<void> {
     toast.info('Please wait for the current response in this conversation to finish.');
     return;
   }
+  log.info('Retrying failed message', { conversationId: convId, messageId });
+  await resendOutboxEntry(convId, messageId);
+}
+
+/**
+ * Send a failed outbox entry again (Retry, and the automatic resend on
+ * reconnect in outbox-resend.ts). Resolves when the send settled.
+ */
+export async function resendOutboxEntry(convId: string, messageId: string): Promise<void> {
   // Attachments too big for localStorage come back from IndexedDB
   const entry = await restoreOutboxEntry(convId, messageId);
   if (!entry) return;
-  log.info('Retrying failed message', { conversationId: convId, messageId });
-  // A manual retry earns a fresh automatic retry on transient failure
+  // A resend earns a fresh automatic retry on transient failure
   resetAutoRetry(messageId);
   if (entry.filesDropped) {
     toast.warning('Attachments could not be restored after reload - sending text only.');

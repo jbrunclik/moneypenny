@@ -10,6 +10,7 @@ import { createLogger } from '../../utils/logger';
 import { handleStopStreaming } from '../active-requests';
 import { sendMessage } from '../messaging';
 import { initOutboxHandlers } from '../rerun';
+import { initOutboxResend } from '../outbox-resend';
 
 const log = createLogger('init');
 
@@ -21,6 +22,7 @@ export function initComposer(): void {
     void sendMessage().catch((error: unknown) => log.error('Failed to send message', { error }));
   }, handleStopStreaming);
   initOutboxHandlers();
+  initOutboxResend();
   initModelSelector();
   initFileUpload(() => {
     renderFilePreview();

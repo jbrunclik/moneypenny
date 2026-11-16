@@ -284,6 +284,16 @@ function outboxEntryToMessage(entry: OutboxEntry): Message {
 }
 
 /**
+ * A conversation's failed sends that this tab may resend, oldest first: not
+ * in flight here and not owned by another live tab.
+ */
+export function failedEntries(convId: string): OutboxEntry[] {
+  return (readStore()[convId] ?? [])
+    .filter((e) => e.status === 'failed' && !inflightIds.has(e.id) && !isOwnedByLiveTab(e))
+    .sort((a, b) => compareTimestamps(a.createdAt, b.createdAt));
+}
+
+/**
  * Merge server messages with outstanding outbox entries for this conversation.
  *
  * Entries the server knows about are confirmed and dropped; entries still in

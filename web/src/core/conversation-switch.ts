@@ -259,6 +259,11 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
   offerLostReplyRetry(conv);
   // Same for a batch turn: wait for its reply instead of showing none
   void resumeInflightBatchIfAny(conv.id, conv.messages || []);
+  // Its failed sends go again (outbox-resend.ts listens; an event, not an
+  // import: the send pipeline imports this module)
+  if (!isTempConversation(conv.id)) {
+    document.dispatchEvent(new CustomEvent('conversation:opened', { detail: { convId: conv.id } }));
+  }
 
   refreshChromeAfterSwitch(conv, totalMessageCount);
 }

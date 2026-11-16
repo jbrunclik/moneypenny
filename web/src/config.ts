@@ -89,6 +89,19 @@ export const API_CHAT_CONNECT_TIMEOUT_MS = 30 * MS_PER_SECOND;
 export const SEND_AUTO_RETRY_DELAY_MS = 2 * MS_PER_SECOND;
 
 /**
+ * A failed send is resent this long after the connection returns, the app
+ * becomes visible or its conversation opens: resumed streams and lost-reply
+ * checks register their requests first, and the resend must not race them
+ */
+export const OUTBOX_RESEND_DELAY_MS = 1000;
+
+/**
+ * Only sends younger than this go again on their own: an old failed request
+ * ("turn the heating off", typed offline last week) waits for the user's Retry
+ */
+export const OUTBOX_RESEND_MAX_AGE_MS = 24 * 60 * 60 * MS_PER_SECOND;
+
+/**
  * Refetch schedule after a send's 409 ("already received"): the first attempt
  * landed and its turn may still be running, so keep looking for the reply
  * (about 3 min in total) instead of refetching once and leaving the message
