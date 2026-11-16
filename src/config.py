@@ -68,6 +68,8 @@ class Config:
     # Browser errors reported to the server (admin page, regular reviews):
     # rows unseen this long are pruned, and each user keeps at most this many
     CLIENT_ERROR_RETENTION_DAYS: int = int(os.getenv("CLIENT_ERROR_RETENTION_DAYS", "30"))
+    # Startup timing reports (one per page load) kept this long (Nov 16 2026)
+    CLIENT_BOOT_TIMINGS_RETENTION_DAYS = 90
     CLIENT_ERROR_MAX_ROWS_PER_USER: int = int(os.getenv("CLIENT_ERROR_MAX_ROWS_PER_USER", "200"))
 
     # Server

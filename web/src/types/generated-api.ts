@@ -1623,6 +1623,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/client-timing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record how long this page load's startup stages took. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ClientTimingReport"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/garmin/status": {
         parameters: {
             query?: never;
@@ -10113,6 +10178,81 @@ export interface components {
              * @default null
              */
             layout?: components["schemas"]["ClientErrorReport.LayoutCheckDetail"] | null;
+        };
+        /**
+         * BootMarks
+         * @description How long the startup stages took (ms since navigation start).
+         */
+        "ClientTimingReport.BootMarks": {
+            /**
+             * Response End Ms
+             * @default null
+             */
+            response_end_ms?: number | null;
+            /**
+             * Dom Content Loaded Ms
+             * @default null
+             */
+            dom_content_loaded_ms?: number | null;
+            /**
+             * Script Ms
+             * @default null
+             */
+            script_ms?: number | null;
+            /**
+             * Auth Ms
+             * @default null
+             */
+            auth_ms?: number | null;
+            /**
+             * Data Ms
+             * @default null
+             */
+            data_ms?: number | null;
+            /**
+             * Route Ms
+             * @default null
+             */
+            route_ms?: number | null;
+            /**
+             * Ready Ms
+             * @default null
+             */
+            ready_ms?: number | null;
+        };
+        /**
+         * ClientTimingReport
+         * @description One page load's startup timing, sent once the app is ready.
+         */
+        ClientTimingReport: {
+            marks: components["schemas"]["ClientTimingReport.BootMarks"];
+            /**
+             * Standalone
+             * @description Home-screen app, not a browser tab
+             */
+            standalone: boolean;
+            /**
+             * Viewport
+             * @description Under 768 px: mobile
+             * @enum {string}
+             */
+            viewport: "mobile" | "desktop";
+            /**
+             * Connection
+             * @description effectiveType, e.g. 4g
+             * @default null
+             */
+            connection?: string | null;
+            /**
+             * App Version
+             * @default null
+             */
+            app_version?: string | null;
+            /**
+             * Route
+             * @description The initial route type
+             */
+            route: string;
         };
         /**
          * GarminStatusResponse

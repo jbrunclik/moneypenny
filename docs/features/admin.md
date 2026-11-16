@@ -57,6 +57,17 @@ message, the stack, the route (hash, no query) and the build version - never
 the log context, which can hold what someone wrote. The logger hands
 error-level entries to it through `setErrorSink` (utils cannot call the API).
 
+**Startup timing** (Nov 16 2026). Each page load that was signed in at boot
+reports once, when ready, how long its stages took
+(`web/src/core/startup/boot-timing.ts` -> `POST /api/client-timing` ->
+`client_boot_timings`, pruned after `CLIENT_BOOT_TIMINGS_RETENTION_DAYS` = 90
+on insert): `response_end_ms` and `dom_content_loaded_ms` from navigation
+timing, then `script_ms` (main.ts runs), `auth_ms` (signed in), `data_ms` (the
+initial data stored), `route_ms` (the initial route open) and `ready_ms`, all ms
+since navigation start; plus `standalone`, `viewport` (mobile under 768 px),
+`connection` (effectiveType), `app_version` and the initial `route`. No admin
+view yet: the regular review queries it.
+
 The server cuts the message to 300 characters and the stack to 2,000, and
 stores one row per user and fingerprint with a count. The fingerprint ignores
 what a rebuild changes (asset hashes, line and column numbers), so one bug

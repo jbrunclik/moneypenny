@@ -25,6 +25,7 @@ import { loadTrashedConversations } from '../trash';
 import { openInitialRoute } from './initial-route';
 import { markAppReady } from './app-ready';
 import { startSync } from './sync';
+import { markBootStage, reportBootTiming } from './boot-timing';
 
 const log = createLogger('init');
 
@@ -137,15 +138,23 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
 
   try {
     storeInitialData(store, await fetchInitialData());
+    markBootStage('data');
     renderInitialData();
 
     // After the store holds the conversation list: the views read it
     await openInitialRoute(initialRoute);
+    markBootStage('route');
 
     // Only after data is loaded AND the initial route is handled: sync
     // starting earlier showed false "new messages available" banners for
     // the deep-linked conversation
-    startSync(() => void loadArchiveAndTrash(initialRoute).finally(markAppReady));
+    startSync(
+      () =>
+        void loadArchiveAndTrash(initialRoute).finally(() => {
+          markAppReady();
+          reportBootTiming(initialRoute);
+        })
+    );
   } catch (error) {
     log.error('Failed to load initial data', { error });
     toast.error('Failed to load data. Please refresh the page.', {

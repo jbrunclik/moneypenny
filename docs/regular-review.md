@@ -181,6 +181,9 @@ The review itself changes nothing in production and edits nothing but
   against all checklist artifacts, and the "Artifact read" lines with
   `checklist_items > 0` - do people tick items, and does the agent read them
   when asked what is left?
+- Startup speed (Nov 16 2026): `client_boot_timings` - median and p90
+  `ready_ms` by `standalone` x `viewport` (home-screen app vs tab, mobile vs
+  desktop), and which stage (`auth_ms` -> `data_ms` -> `route_ms`) grew.
 - Agent safety (Nov 16 2026): "kv write refused" lines (any from a scheduled
   agent or a coach is a bug - it should write only its own namespace),
   `work_bytes` on the "Code execution" lines against the 256 MB `/work` cap,

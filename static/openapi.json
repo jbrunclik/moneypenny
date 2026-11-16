@@ -66,6 +66,9 @@
     },
     {
       "name": "Client errors"
+    },
+    {
+      "name": "Client errors"
     }
   ],
   "paths": {
@@ -1297,6 +1300,59 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ClientErrorReport"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client-timing": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Client errors"
+        ],
+        "summary": "Record how long this page load's startup stages took.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientTimingReport"
               }
             }
           }
@@ -11019,6 +11075,177 @@
           "message"
         ],
         "title": "ClientErrorReport",
+        "type": "object"
+      },
+      "ClientTimingReport.BootMarks": {
+        "additionalProperties": false,
+        "description": "How long the startup stages took (ms since navigation start).",
+        "properties": {
+          "response_end_ms": {
+            "anyOf": [
+              {
+                "maximum": 600000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Response End Ms"
+          },
+          "dom_content_loaded_ms": {
+            "anyOf": [
+              {
+                "maximum": 600000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Dom Content Loaded Ms"
+          },
+          "script_ms": {
+            "anyOf": [
+              {
+                "maximum": 600000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Script Ms"
+          },
+          "auth_ms": {
+            "anyOf": [
+              {
+                "maximum": 600000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Auth Ms"
+          },
+          "data_ms": {
+            "anyOf": [
+              {
+                "maximum": 600000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Data Ms"
+          },
+          "route_ms": {
+            "anyOf": [
+              {
+                "maximum": 600000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Route Ms"
+          },
+          "ready_ms": {
+            "anyOf": [
+              {
+                "maximum": 600000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ready Ms"
+          }
+        },
+        "title": "BootMarks",
+        "type": "object"
+      },
+      "ClientTimingReport": {
+        "additionalProperties": false,
+        "description": "One page load's startup timing, sent once the app is ready.",
+        "properties": {
+          "marks": {
+            "$ref": "#/components/schemas/ClientTimingReport.BootMarks"
+          },
+          "standalone": {
+            "description": "Home-screen app, not a browser tab",
+            "title": "Standalone",
+            "type": "boolean"
+          },
+          "viewport": {
+            "description": "Under 768 px: mobile",
+            "enum": [
+              "mobile",
+              "desktop"
+            ],
+            "title": "Viewport",
+            "type": "string"
+          },
+          "connection": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "effectiveType, e.g. 4g",
+            "title": "Connection"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "App Version"
+          },
+          "route": {
+            "description": "The initial route type",
+            "maxLength": 24,
+            "minLength": 1,
+            "title": "Route",
+            "type": "string"
+          }
+        },
+        "required": [
+          "marks",
+          "standalone",
+          "viewport",
+          "route"
+        ],
+        "title": "ClientTimingReport",
         "type": "object"
       },
       "GarminStatusResponse": {

@@ -22,6 +22,7 @@ from src.db.models.admin import AdminMixin
 from src.db.models.artifacts import ArtifactMixin
 from src.db.models.base import DatabaseBase
 from src.db.models.cache import CacheMixin
+from src.db.models.client_boot_timings import ClientBootTimingsMixin
 from src.db.models.client_errors import ClientErrorsMixin
 from src.db.models.conversation import ConversationMixin
 from src.db.models.conversation_archive import ConversationArchiveMixin
@@ -116,6 +117,7 @@ class Database(
     SyncChangesMixin,
     ArtifactMixin,
     AdminMixin,
+    ClientBootTimingsMixin,
     ClientErrorsMixin,
     DeviceChecksMixin,
 ):

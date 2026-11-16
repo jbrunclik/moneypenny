@@ -96,9 +96,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 
 - [ ] **Client findings, Nov 15 2026 audit** (remove each line as it ships):
-  - **Streaming re-renders the whole reply per token** - marked + DOMPurify + innerHTML on every token, KaTeX uncached. One render per animation frame and a KaTeX cache.
-  - **Cold start** - a serial waterfall with nothing cached locally; paint the last conversation list from storage, fold the five boot calls into one, and load KaTeX (519 KB in the entry bundle) on first math.
-  - **Failed sends are not retried on reconnect** although the offline toast says they will be.
+  - **Decide on startup speed** (~Nov 30 2026; measured from Nov 16 2026 in `client_boot_timings`) - median and p90 `ready_ms` (and `auth_ms`/`data_ms`/`route_ms`) by `standalone` x `viewport`: is opening slow enough to paint the last conversation list from storage, fold the five boot calls into one, or load KaTeX (519 KB in the entry bundle) on first math? Nothing if p90 is a few hundred ms.
   - **Read-aloud** speaks citation numbers, code and tables in one long utterance; **dictation** needs a hidden long-press to switch language - default it to the conversation's language.
   - **Smaller** - a `#/new?text=` deep link for sharing into the app (iOS has no share target), "Ask about this" on a selection, a print stylesheet, raw Markdown in the copied plain text, the conversation title as the window title, a text-size setting, the app-icon badge set from the push payload, a push offer at the moment it matters (after creating an agent or starting research).
   - **Decide** - a Czech UI (all chrome is English; at least `lang` on rendered messages), and a "what can you do" page or help chat (no chips).

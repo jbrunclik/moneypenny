@@ -30,8 +30,12 @@ import 'katex/dist/katex.min.css';
 import { init } from './core/init';
 import { initStaleChunkReload } from './core/stale-chunks';
 import { createLogger } from './utils/logger';
+import { markBootStage } from './core/startup/boot-timing';
 
 const log = createLogger('main');
+
+// The app's code starts running (startup timing, core/startup/boot-timing.ts)
+markBootStage('script');
 
 // Registered before init so no lazy import can fail unhandled
 initStaleChunkReload();

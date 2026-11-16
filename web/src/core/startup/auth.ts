@@ -19,6 +19,7 @@ import { abortAllStreamingRequests } from '../active-requests';
 import { handleDeepLinkNavigation } from '../conversation-deeplink';
 import { loadInitialData } from './initial-data';
 import { initialRouteFromHash } from './initial-route';
+import { markBootStage } from './boot-timing';
 
 const log = createLogger('init');
 
@@ -60,6 +61,8 @@ export async function startSession(initialRoute: InitialRoute): Promise<boolean>
   const isAuthenticated = await checkAuth();
 
   if (isAuthenticated) {
+    // Signed in at boot: this load reports its startup timing once ready
+    markBootStage('auth');
     hideLoginOverlay();
     // Awaited before loading data: a callback connects the integration,
     // and the integration-status fetch there (planner visibility) must

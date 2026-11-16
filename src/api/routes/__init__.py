@@ -51,6 +51,7 @@ from src.api.routes import (
     calendar,
     chat,
     client_errors,
+    client_timing,
     conversation_messages,  # noqa: F401 - imported for its routes
     conversation_organize,  # noqa: F401 - imported for its routes
     conversation_search,  # noqa: F401 - imported for its routes
@@ -111,6 +112,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(push.api)
     app.register_blueprint(admin.api)
     app.register_blueprint(client_errors.api)
+    app.register_blueprint(client_timing.api)
 
 
 __all__ = [
