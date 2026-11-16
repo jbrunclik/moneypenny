@@ -298,8 +298,14 @@ class TestFtsQueryModes:
     def test_any_mode_drops_short_words(self) -> None:
         assert fts_query("a je kolo", any_words=True) == '"kolo"*'
 
-    def test_any_mode_keeps_short_words_when_nothing_else(self) -> None:
-        assert fts_query("a je", any_words=True) == '"a"* OR "je"*'
+    def test_any_mode_of_only_short_words_is_the_strict_query(self) -> None:
+        """Nothing to loosen: ORing "a", "je", "to" would match almost every
+        Czech message, so the fallback is skipped (review, Nov 16 2026)."""
+        assert fts_query("a je to", any_words=True) == fts_query("a je to")
+
+    def test_a_one_letter_word_is_an_exact_token(self) -> None:
+        """ "C++" tokenizes to "c": as a prefix it matched "cena"."""
+        assert fts_query("C++ kód") == '"C++" "kód"*'
 
     def test_default_mode_unchanged(self) -> None:
         assert fts_query("Matematická olympiáda") == '"Matematická"* "olympiáda"*'
@@ -388,3 +394,34 @@ class TestRecentConversations:
         assert [
             c.conversation_id for c in test_database.recent_conversations(uid, None, None, 10)
         ] == [mine]
+
+
+class TestReviewMinors:
+    """Deferred minors from the Nov 16 2026 review."""
+
+    def test_short_word_query_does_not_flood(self, test_database: Database) -> None:
+        uid = _user(test_database)
+        for i in range(4):
+            _chat(test_database, uid, f"Chat {i}", f"to je zpráva {i}")
+        assert test_database.search(uid, "a je to")[1] == 0
+
+    def test_c_plus_plus_does_not_match_words_starting_with_c(
+        self, test_database: Database
+    ) -> None:
+        uid = _user(test_database)
+        _chat(test_database, uid, "Cena", "cena 10.80 Kč")
+        code = _chat(test_database, uid, "Kód", "píšu to v C++")
+        results, _ = test_database.search(uid, "C++")
+        assert [r.conversation_id for r in results] == [code]
+
+    def test_the_fallback_reads_a_bounded_number_of_rows(
+        self, test_database: Database, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import src.db.models.search as module
+
+        monkeypatch.setattr(module, "ANY_ROW_LIMIT", 2)
+        uid = _user(test_database)
+        for i in range(5):
+            _chat(test_database, uid, f"Kola {i}", f"kola číslo {i}")
+        _, total = test_database.search(uid, "servis kola")
+        assert total == 2

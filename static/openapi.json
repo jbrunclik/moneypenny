@@ -8775,6 +8775,16 @@
             "default": null,
             "description": "Message timestamp (null for title matches)",
             "title": "Created At"
+          },
+          "match_mode": {
+            "default": "all",
+            "description": "'all': every query word matched; 'any': found by the any-word fallback (a partial match)",
+            "enum": [
+              "all",
+              "any"
+            ],
+            "title": "Match Mode",
+            "type": "string"
           }
         },
         "required": [
@@ -8783,7 +8793,8 @@
           "message_id",
           "message_snippet",
           "match_type",
-          "created_at"
+          "created_at",
+          "match_mode"
         ],
         "title": "SearchResultResponse",
         "type": "object"

@@ -23,6 +23,7 @@ function result(overrides: Partial<SearchResult> = {}): SearchResult {
     message_snippet: 'book the [[HIGHLIGHT]]train[[/HIGHLIGHT]] early',
     match_type: 'message',
     created_at: null,
+    match_mode: 'all',
     ...overrides,
   };
 }

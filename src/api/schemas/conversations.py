@@ -303,6 +303,13 @@ class SearchResultResponse(ResponseModel):
     created_at: Timestamp | None = Field(
         default=None, description="Message timestamp (null for title matches)"
     )
+    match_mode: Literal["all", "any"] = Field(
+        default="all",
+        description=(
+            "'all': every query word matched; 'any': found by the any-word fallback "
+            "(a partial match)"
+        ),
+    )
 
 
 class SearchResultsResponse(ResponseModel):

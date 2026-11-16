@@ -86,7 +86,9 @@ class SearchMixin:
                         replace(r, match_mode="any")
                         for r in wanted(
                             _unique_results(
-                                self._match_rows(conn, user_id, any_query, after, before)
+                                self._match_rows(
+                                    conn, user_id, any_query, after, before, ANY_ROW_LIMIT
+                                )
                             )
                         )
                         if (r.message_id or r.conversation_id) not in seen
@@ -112,6 +114,7 @@ class SearchMixin:
         match: str,
         after: datetime | None,
         before: datetime | None,
+        row_limit: int = -1,
     ) -> list[sqlite3.Row]:
         """The ranked FTS rows for one MATCH expression ([] if FTS rejects it).
 
@@ -155,8 +158,9 @@ class SearchMixin:
                               AND (? IS NULL OR mm.created_at < ?)))
                       )
                     ORDER BY rank ASC, message_created_at DESC NULLS LAST
+                    LIMIT ?
                     """,
-                    (user_id, match, after_db, before_db, *bounds, *bounds),
+                    (user_id, match, after_db, before_db, *bounds, *bounds, row_limit),
                 ).fetchall()
             )
         except sqlite3.OperationalError as exc:
@@ -211,6 +215,10 @@ class SearchMixin:
 # The recent-chats listing shows this much of each chat's first user message
 _FIRST_MESSAGE_CHARS = 200
 
+# The any-word fallback reads at most this many rows: a common word ORed in
+# would otherwise run snippet() and bm25() on every message that has it
+ANY_ROW_LIMIT = 200
+
 # The any-word fallback: words shorter than this are dropped (unless no word
 # is left), longer ones from _TRIM_FROM lose _TRIM_CHARS as a crude Czech
 # ending trim ("olympiáda" -> "olympiá*" also matches "olympiády")
@@ -223,15 +231,28 @@ def fts_query(query: str, any_words: bool = False) -> str:
     """The FTS5 MATCH expression for a stripped query ("" when it has no words).
 
     Default: every word a prefix, all required ("hel wor" matches "hello
-    world"). ``any_words``: the words ORed, short ones dropped, long ones
-    trimmed. Quotes are doubled after trimming so no escape is cut in half.
+    world"). ``any_words``: the words ORed, words under 3 letters dropped and
+    long ones trimmed; a query of only short words has nothing to loosen and
+    gets the strict expression (ORing "a", "je", "to" matches nearly every
+    Czech message).
     """
     words = [word for word in query.split() if word]
     if any_words:
-        kept = [word for word in words if len(word) >= _ANY_MIN_WORD] or words
+        kept = [word for word in words if len(word) >= _ANY_MIN_WORD]
+        if not kept:
+            return fts_query(query)
         words = [word[:-_TRIM_CHARS] if len(word) >= _TRIM_FROM else word for word in kept]
-    quoted = [f'"{word.replace(chr(34), chr(34) * 2)}"*' for word in words]
-    return (" OR " if any_words else " ").join(quoted)
+    return (" OR " if any_words else " ").join(_term(word) for word in words)
+
+
+def _term(word: str) -> str:
+    """One quoted FTS term; a prefix unless it holds a single letter or digit.
+
+    "C++" tokenizes to "c", and ``"c"*`` matched every word starting with c.
+    Quotes are doubled after any trim, so no escape is cut in half.
+    """
+    quoted = '"' + word.replace('"', '""') + '"'
+    return quoted + "*" if sum(char.isalnum() for char in word) >= 2 else quoted
 
 
 def _unique_results(rows: list[sqlite3.Row]) -> list[SearchResult]:

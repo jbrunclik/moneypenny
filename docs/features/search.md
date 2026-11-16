@@ -75,9 +75,12 @@ Moving a conversation to the [trash](ui-conversations.md#trash) does not touch t
 
 `Database.search` requires every word (each a prefix). When that finds fewer than
 `CONVERSATION_SEARCH_FALLBACK_MIN_RESULTS` (3) results, it also runs an any-word query
-(`fts_query(query, any_words=True)`: words ORed, words under 3 letters dropped unless
-none remain, words of 6+ letters trimmed by 2 so Czech inflections match) and appends its
-new hits (`match_mode="any"`). The index uses an English (porter) stemmer, so Czech word
+(`fts_query(query, any_words=True)`: words ORed, words under 3 letters dropped, words of
+6+ letters trimmed by 2 so Czech inflections match; a query of only short words skips the
+fallback) and appends its new hits (`match_mode="any"`), reading at most `ANY_ROW_LIMIT`
+(200) rows. A word with a single letter or digit ("C++" tokenizes to "c") is an exact
+term, not a prefix. `/api/search` returns `match_mode` per result and the search list
+labels fallback hits "Partial match" instead of "Message"/"Title". The index uses an English (porter) stemmer, so Czech word
 forms otherwise only match by prefix. The app's search box and the agent's
 `search_conversations` both use it; `after`/`before` (UTC instants) bound message hits by
 their time and title hits by any of the conversation's messages. A query FTS5 still

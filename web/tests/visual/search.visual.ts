@@ -104,6 +104,7 @@ test.describe('Visual: Search Results', () => {
               'Learning about [[HIGHLIGHT]]Python[[/HIGHLIGHT]] programming and data science',
             match_type: 'message',
             created_at: fixedDate,
+            match_mode: 'all',
           },
           {
             conversation_id: 'conv-2',
@@ -113,6 +114,7 @@ test.describe('Visual: Search Results', () => {
               'Understanding machine learning with [[HIGHLIGHT]]Python[[/HIGHLIGHT]] and TensorFlow',
             match_type: 'message',
             created_at: oneDayAgo,
+            match_mode: 'all',
           },
           {
             conversation_id: 'conv-3',
@@ -121,6 +123,7 @@ test.describe('Visual: Search Results', () => {
             message_snippet: null,
             match_type: 'conversation',
             created_at: twoDaysAgo,
+            match_mode: 'all',
           },
         ],
         total: 3,
@@ -157,6 +160,7 @@ test.describe('Visual: Search Results', () => {
               'This is a [[HIGHLIGHT]]highlighted[[/HIGHLIGHT]] search result with matched text',
             match_type: 'message',
             created_at: fixedDate,
+            match_mode: 'all',
           },
         ],
         total: 1,

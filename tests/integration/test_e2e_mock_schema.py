@@ -40,6 +40,7 @@ _SEARCH_RESULT = {
     "message_snippet": "A [[HIGHLIGHT]]test[[/HIGHLIGHT]] snippet",
     "match_type": "message",
     "created_at": "2026-10-26T10:00:00.000000+00:00",
+    "match_mode": "all",
 }
 
 # (method, url, mock config overrides) - every intercepted route, in the

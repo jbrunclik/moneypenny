@@ -117,12 +117,18 @@ function searchResultItem(result: SearchResult, index: number, viewedResultIndex
       createElement('div', { class: 'search-result-title' }, [result.conversation_title]),
       snippet,
       createElement('div', { class: 'search-result-meta' }, [
-        createElement('span', { class: 'search-result-type' }, [isMessageMatch ? 'Message' : 'Title']),
+        createElement('span', { class: 'search-result-type' }, [resultLabel(result, isMessageMatch)]),
         !!result.created_at &&
           createElement('span', { class: 'search-result-date' }, [formatRelativeTime(result.created_at)]),
       ]),
     ]
   );
+}
+
+/** A loose (any-word fallback) hit says so: its words may not all be in it. */
+function resultLabel(result: SearchResult, isMessageMatch: boolean): string {
+  if (result.match_mode === 'any') return 'Partial match';
+  return isMessageMatch ? 'Message' : 'Title';
 }
 
 const HIGHLIGHT_MARKER = /(\[\[HIGHLIGHT\]\]|\[\[\/HIGHLIGHT\]\])/;

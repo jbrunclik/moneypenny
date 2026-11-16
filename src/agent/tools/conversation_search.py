@@ -243,13 +243,16 @@ def _listing(
     before: datetime | None,
 ) -> tuple[str, int]:
     """The recent-chats listing (without the current conversation) and its size."""
+    # Over-fetch and sort agents' runs last BEFORE cutting to the limit: on a
+    # busy day briefings and watchers would otherwise fill the whole list
     chats = [
         chat
-        for chat in db.recent_conversations(user_id, after, before, limit + 1)
+        for chat in db.recent_conversations(user_id, after, before, limit * 3 + 1)
         if chat.conversation_id != conversation_id
-    ][:limit]
+    ]
     agent_ids = db.agent_conversation_ids(user_id, [c.conversation_id for c in chats])
     chats.sort(key=lambda chat: chat.conversation_id in agent_ids)
+    chats = chats[:limit]
     return _format_listing(chats, agent_ids, dated=bool(after or before)), len(chats)
 
 
@@ -279,14 +282,15 @@ def _search(
     mode = "any" if any(r.match_mode == "any" for r in results) else "all"
     current = {conversation_id} if conversation_id else set()
     semantic = _semantic_matches(
-        user_id, query, current, limit, allow_message_ids=summarized, after=after, before=before
+        user_id, query, current, limit * 3, allow_message_ids=summarized, after=after, before=before
     )
-    hits = _fuse(_keyword_hits(results)[:limit], _semantic_hits(semantic))[:limit]
+    hits = _fuse(_keyword_hits(results), _semantic_hits(semantic))
     # Scheduled agents' runs (briefings, watchers) rank below the family's own
-    # chats - many of them would otherwise crowd the results; still listed
+    # chats - many of them would otherwise crowd the results; still listed.
+    # Sorted before the cut, so a family chat is not cut off by runs above it
     agent_ids = db.agent_conversation_ids(user_id, [hit.conversation_id for hit in hits])
     hits.sort(key=lambda hit: hit.conversation_id in agent_ids)
-    return hits, mode, agent_ids
+    return hits[:limit], mode, agent_ids
 
 
 @tool
@@ -337,11 +341,12 @@ def search_conversations(
     limit = max(1, min(int(limit), Config.CONVERSATION_SEARCH_MAX_RESULTS))
     if not query:
         text, count = _listing(user_id, conversation_id, limit, start, end)
-        mode, keyword, semantic = "list", count, 0
+        mode, keyword, semantic, fused = "list", count, 0, 0
     else:
         hits, mode, agent_ids = _search(user_id, conversation_id, query, limit, start, end)
         keyword = sum("words" in hit.how for hit in hits)
         semantic = sum(hit.how == ["meaning"] for hit in hits)
+        fused = sum(len(hit.how) == 2 for hit in hits)
         text = (
             _format_hits(hits, conversation_id, agent_ids)
             if hits
@@ -359,6 +364,7 @@ def search_conversations(
             "mode": mode,
             "results": keyword,
             "semantic": semantic,
+            "fused": fused,
             "after": after,
             "before": before,
             "ms": int((time.monotonic() - started) * 1000),

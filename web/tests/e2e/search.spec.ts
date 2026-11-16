@@ -244,6 +244,7 @@ test.describe('Search - Mock Results', () => {
             message_snippet: 'This is a [[HIGHLIGHT]]test[[/HIGHLIGHT]] snippet with highlighted text',
             match_type: 'message',
             created_at: new Date().toISOString(),
+            match_mode: 'all',
           },
           {
             conversation_id: 'conv-789',
@@ -252,6 +253,7 @@ test.describe('Search - Mock Results', () => {
             message_snippet: null,
             match_type: 'conversation',
             created_at: new Date().toISOString(),
+            match_mode: 'all',
           },
         ],
         total: 2,
@@ -789,6 +791,7 @@ test.describe('Search - Navigation with Pagination', () => {
             message_snippet: 'This message does not exist',
             match_type: 'message',
             created_at: new Date().toISOString(),
+            match_mode: 'all',
           },
         ],
         total: 1,

@@ -520,3 +520,47 @@ class TestReviewFixes:
             search_conversations.invoke({"query": "qqq", "limit": 1, "after": "2026-11-09"})
         )
         assert "Bike last week" in result
+
+
+class TestReviewMinors:
+    """Deferred minors from the Nov 16 2026 review."""
+
+    def test_agent_runs_do_not_crowd_the_listing(
+        self, search_context: tuple[Database, User]
+    ) -> None:
+        database, user = search_context
+        human = _conversation_with_message(database, user, "Family chat", "what to cook")
+        _at(database, human, "2026-11-15T08:00:00.000000Z")
+        for i in range(3):
+            agent = database.create_standing_chat(user.id, f"Watcher {i}")
+            database.add_message(agent.conversation_id, "assistant", f"report {i}")
+        result = str(search_conversations.invoke({"limit": 2}))
+        assert "Family chat" in result
+
+    def test_agent_runs_do_not_crowd_search_hits(self, embedded: tuple[Database, User]) -> None:
+        database, user = embedded
+        human = _conversation_with_message(database, user, "Family chat", "zoo visit")
+        _embed_first(database, user, human, [0.8, 0.6])
+        for i in range(3):
+            agent = database.create_standing_chat(user.id, f"Watcher {i}")
+            run = database.add_message(agent.conversation_id, "assistant", f"zoo report {i}")
+            from src.utils.embeddings import pack_vector
+
+            database.upsert_embedding(user.id, "message", run.id, "m", 2, pack_vector([1.0, 0.0]))
+        result = str(search_conversations.invoke({"query": "qqq", "limit": 2}))
+        assert "Family chat" in result
+
+    def test_log_counts_hits_found_both_ways(
+        self, embedded: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import src.agent.tools.conversation_search as module
+
+        database, user = embedded
+        both = _conversation_with_message(database, user, "Both", "kitchen tiles")
+        _embed_first(database, user, both, [1.0, 0.0])
+        calls: list[dict[str, object]] = []
+        monkeypatch.setattr(
+            module.logger, "info", lambda msg, extra=None, **kw: calls.append(extra or {})
+        )
+        search_conversations.invoke({"query": "tiles"})
+        assert calls[-1]["fused"] == 1

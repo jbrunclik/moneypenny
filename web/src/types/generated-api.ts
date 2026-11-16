@@ -8962,6 +8962,13 @@ export interface components {
              * @default null
              */
             created_at: string | null;
+            /**
+             * Match Mode
+             * @description 'all': every query word matched; 'any': found by the any-word fallback (a partial match)
+             * @default all
+             * @enum {string}
+             */
+            match_mode: "all" | "any";
         };
         /**
          * SearchResultsResponse

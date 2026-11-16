@@ -196,7 +196,8 @@ reachable through search instead, which is what keeps the bank small:
   agents' runs are not in the keyword index but their messages are embedded: they rank
   after the family's own chats and are labelled `(scheduled agent)`. The "Conversation
   search via tool" line carries `mode` (`all`/`any`/`list`), `results` (conversations
-  with a keyword hit), `semantic` (meaning only), `after`, `before`, `ms`. The
+  with a keyword hit), `semantic` (meaning only), `fused` (both), `after`, `before`, `ms`.
+  Agents' runs are sorted last before the list is cut to `limit`, in search and listing. The
   description says to search before asking the user to repeat something
 - `read_conversation(conversation_id, max_messages, around_message_id=None)` - read the
   exchange behind a match; with a hit's `message_id` it returns a window centred on it

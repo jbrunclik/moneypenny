@@ -305,3 +305,29 @@ class TestSearchEndpoint:
             assert "conversation_title" in result
             assert "match_type" in result
             assert result["match_type"] in ("conversation", "message")
+
+
+class TestSearchMatchMode:
+    """Nov 16 2026: any-word fallback hits are marked for the UI."""
+
+    def test_fallback_hits_say_they_are_partial(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        conv = test_database.create_conversation(user_id=test_user.id, title="Škola", model="m")
+        test_database.add_message(conv.id, "user", "Matematické olympiády se letos účastní")
+        exact = test_database.create_conversation(user_id=test_user.id, title="Jiné", model="m")
+        test_database.add_message(exact.id, "user", "účastní se olympiády")
+
+        response = client.get("/api/search?q=olympiády účastní", headers=auth_headers)
+        data = json.loads(response.data)
+        modes = {r["conversation_id"]: r["match_mode"] for r in data["results"]}
+        assert modes[exact.id] == "all"
+
+        response = client.get("/api/search?q=Matematická olympiáda", headers=auth_headers)
+        data = json.loads(response.data)
+        modes = {r["conversation_id"]: r["match_mode"] for r in data["results"]}
+        assert modes[conv.id] == "any"
