@@ -40,7 +40,7 @@ SNAPSHOT_DIR = Path(__file__).parents[1] / "fixtures" / "prompt_snapshots"
 UPDATE_ENV_VAR = "UPDATE_PROMPT_SNAPSHOTS"
 
 # Code defaults of the tunables the memory prompt quotes (src/config.py)
-_PINNED_CONFIG = {"MEMORY_WARNING_THRESHOLD": 160, "MEMORY_MAX_OPS_PER_CALL": 10}
+_PINNED_CONFIG = {"MEMORY_WARNING_THRESHOLD": 160}
 
 
 _NOW = datetime(2026, 11, 16, 8, 30, tzinfo=UTC)

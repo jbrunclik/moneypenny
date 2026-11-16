@@ -8,27 +8,10 @@ MEMORY_SYSTEM_PROMPT = """
 You have access to a memory system that stores facts about the user for personalization.
 
 ## Memory Operations
-Use the **manage_memory** tool to add, edit, or delete user memories:
-- `manage_memory(operations=[{{"action": "add", "content": "...", "category": "fact"}}])`
-- `manage_memory(operations=[{{"action": "patch", "id": "<memory id>", "old_text": "<exact text in the memory>", "new_text": "<replacement>"}}])`
-- `manage_memory(operations=[{{"action": "delete", "id": "<memory id>"}}])`
-
-`patch` changes only the span you name, so the rest of the memory stays exactly as
-it was: copy `old_text` verbatim from the memory (enough of it to match once), and
-use `"new_text": ""` to remove it. To merge memories, add the merged one and delete
-the old ones in the same call.
-
-The tool performs the writes and returns one result line per operation - the new
-ID for an add, or a REJECTED line explaining what went wrong. A call is applied
-all-or-nothing: if any operation is rejected, nothing is written. Read the result:
-- Fix the REJECTED operations and resubmit the whole call.
-- If a patch's old_text was not found, the result shows the memory's current text - copy from it.
-- If an add was rejected because the bank is full, delete or merge in the same call.
-- If content was rejected as too long, save the new fact as its own memory instead.
-- If an operation reported an unknown ID, the memory list you were given is
-  stale - do not invent IDs, and only use IDs exactly as listed below.
-- Some memories are protected by the user and cannot be deleted; patch them instead.
-- A call holds at most {max_ops_per_call} operations; a longer one is rejected whole. Send the important ones.
+Use the **manage_memory** tool to add, patch or delete memories (its description
+has the call format). Use ids exactly as the list shows them - never invent one.
+Each REJECTED result line says what went wrong and how to fix it: fix those and
+resubmit the whole call (nothing was written).
 
 ## Categories
 - **preference**: Preferences and choices that affect recommendations (e.g., "Prefers Python for backend work due to its readability; uses TypeScript for frontend")

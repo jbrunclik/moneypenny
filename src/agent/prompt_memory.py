@@ -20,7 +20,6 @@ def get_memory_instructions_prompt() -> str:
     """
     return MEMORY_SYSTEM_PROMPT.format(
         warning_threshold=Config.MEMORY_WARNING_THRESHOLD,
-        max_ops_per_call=Config.MEMORY_MAX_OPS_PER_CALL,
     )
 
 

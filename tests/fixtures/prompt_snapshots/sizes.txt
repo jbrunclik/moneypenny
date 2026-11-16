@@ -1,10 +1,10 @@
 # Characters sent on every turn. Regenerate: make prompt-snapshots
 
 static prompt
-  standard       26037
-  anonymous      13380
-  planning       29185
-  standing       26037
+  standard       24590
+  anonymous      13200
+  planning       27738
+  standing       24590
 
 dynamic context (example user, 5 memories)    2421
 
