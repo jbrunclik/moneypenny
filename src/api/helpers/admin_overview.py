@@ -48,17 +48,36 @@ def _shares(amounts: dict[str, float]) -> list[dict[str, Any]]:
     return [{"name": name, "amount": money(usd)} for name, usd in ordered]
 
 
+def _merged(*amounts: dict[str, float]) -> dict[str, float]:
+    total: dict[str, float] = {}
+    for part in amounts:
+        for name, usd in part.items():
+            total[name] = total.get(name, 0.0) + usd
+    return total
+
+
 def _spend(now: datetime) -> dict[str, Any]:
-    """Spend by local (APP_TIMEZONE) day and month."""
+    """Spend by local (APP_TIMEZONE) day and month: chat turns plus side calls
+    (titles, reviews, compaction, defrag, ...). People's rows are chat turns only:
+    most side calls have no user."""
     today = local_today(now)
     month, _ = local_month_bounds(today.year, today.month)
-    users = db.admin_spend_per_user(local_day_start(now), month)
+    day_start = local_day_start(now)
+    users = db.admin_spend_per_user(day_start, month)
+    side_calls = db.admin_side_calls_by_feature(month)
+    side_month = sum(c["usd"] for c in side_calls)
     chart_days = [today - timedelta(days=i) for i in reversed(range(SPEND_CHART_DAYS))]
-    by_day = dict(db.admin_spend_by_day(local_date_start(chart_days[0])))
+    chart_start = local_date_start(chart_days[0])
+    by_day = _merged(
+        dict(db.admin_spend_by_day(chart_start)), dict(db.admin_side_spend_by_day(chart_start))
+    )
     days = [day.isoformat() for day in chart_days]
+    by_feature = db.admin_spend_by_feature(month)
+    if side_month:
+        by_feature["side"] = side_month
     return {
-        "today": money(sum(u["today_usd"] for u in users)),
-        "month": money(sum(u["month_usd"] for u in users)),
+        "today": money(sum(u["today_usd"] for u in users) + db.admin_side_spend_since(day_start)),
+        "month": money(sum(u["month_usd"] for u in users) + side_month),
         "threshold": money(Config.SPEND_WARNING_DAILY_USD),
         "users": [
             {
@@ -72,8 +91,13 @@ def _spend(now: datetime) -> dict[str, Any]:
             for u in users
         ],
         "daily": [{"date": day, "amount": money(by_day.get(day, 0.0))} for day in days],
-        "by_feature": _shares(db.admin_spend_by_feature(month)),
-        "by_model": _shares(db.admin_spend_by_model(month)),
+        "by_feature": _shares(by_feature),
+        "by_model": _shares(
+            _merged(db.admin_spend_by_model(month), db.admin_side_spend_by_model(month))
+        ),
+        "side_calls": [
+            {"name": c["name"], "calls": c["calls"], "amount": money(c["usd"])} for c in side_calls
+        ],
     }
 
 

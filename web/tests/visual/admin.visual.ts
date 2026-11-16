@@ -29,10 +29,16 @@ const OVERVIEW = {
       { name: 'agents', amount: money(38.2) },
       { name: 'planner', amount: money(14.1) },
       { name: 'language', amount: money(9.8) },
+      { name: 'side', amount: money(6.4) },
     ],
     by_model: [
       { name: 'gemini-4-hydrogen', amount: money(140.3) },
       { name: 'gemini-4-carbon', amount: money(42.2) },
+    ],
+    side_calls: [
+      { name: 'memory_defrag', calls: 16, amount: money(3.9) },
+      { name: 'compaction', calls: 41, amount: money(1.6) },
+      { name: 'title', calls: 388, amount: money(0.9) },
     ],
   },
   agents: {

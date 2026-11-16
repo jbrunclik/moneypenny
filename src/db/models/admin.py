@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from src.db.models.timestamps import from_db, to_db
 from src.utils.clock import to_api
@@ -32,6 +32,14 @@ _FEATURE_SQL = """
         ELSE 'chat'
     END
 """
+
+
+class SideCallRow(TypedDict):
+    """One side_costs feature's calls and spend."""
+
+    name: str
+    calls: int
+    usd: float
 
 
 class AdminMixin:
@@ -114,6 +122,40 @@ class AdminMixin:
         """Family spend since a moment by model."""
         rows = self._rows(
             "SELECT model, SUM(cost_usd) FROM message_costs WHERE created_at >= ? GROUP BY model",
+            (since,),
+        )
+        return {r[0]: float(r[1]) for r in rows}
+
+    def admin_side_spend_since(self, since: datetime) -> float:
+        """Family spend on side calls (titles, reviews, compaction, defrag, ...) since a moment."""
+        rows = self._rows(
+            "SELECT COALESCE(SUM(cost_usd), 0) FROM side_costs WHERE created_at >= ?", (since,)
+        )
+        return float(rows[0][0])
+
+    def admin_side_spend_by_day(self, since: datetime) -> list[tuple[str, float]]:
+        """Side-call spend per local calendar day since a moment (days with spend only)."""
+        rows = self._rows(
+            """SELECT app_local_date(created_at) AS day, SUM(cost_usd)
+               FROM side_costs WHERE created_at >= ?
+               GROUP BY day ORDER BY day""",
+            (since,),
+        )
+        return [(r[0], float(r[1])) for r in rows]
+
+    def admin_side_calls_by_feature(self, since: datetime) -> list[SideCallRow]:
+        """Side calls since a moment per feature: count and spend, costliest first."""
+        rows = self._rows(
+            """SELECT feature, COUNT(*), SUM(cost_usd) FROM side_costs
+               WHERE created_at >= ? GROUP BY feature ORDER BY SUM(cost_usd) DESC, feature""",
+            (since,),
+        )
+        return [{"name": r[0], "calls": r[1], "usd": float(r[2])} for r in rows]
+
+    def admin_side_spend_by_model(self, since: datetime) -> dict[str, float]:
+        """Side-call spend since a moment by model."""
+        rows = self._rows(
+            "SELECT model, SUM(cost_usd) FROM side_costs WHERE created_at >= ? GROUP BY model",
             (since,),
         )
         return {r[0]: float(r[1]) for r in rows}

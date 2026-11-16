@@ -70,8 +70,9 @@ usage and never raises into the call: `title`, `program_review`,
 `instructions_review`, `ai_assist`, `compaction`, `memory_review`,
 `memory_defrag` (the nightly script) and `memory_summary`. The freshness gate
 and the grounding check are part of the turn's cost already. Embeddings are not
-recorded yet (priced per character, a few cents a month). The admin page does
-not show side costs yet; the regular review reads the table.
+recorded yet (priced per character, a few cents a month). The admin page adds
+them to the family totals and lists them per feature (Nov 16 2026,
+[admin.md](admin.md)).
 
 Thinking level: side calls go through `chat_model()`
 ([gemini_clients.py](../../src/agent/gemini_clients.py)), which sends no

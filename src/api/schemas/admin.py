@@ -31,14 +31,27 @@ class SpendShare(ResponseModel):
     amount: Money
 
 
+class SideCallSpend(ResponseModel):
+    name: str = Field(..., description="The side_costs feature (title, compaction, ...)")
+    calls: int
+    amount: Money
+
+
 class SpendSection(ResponseModel):
-    today: Money
-    month: Money
+    today: Money = Field(..., description="Chat turns plus side calls")
+    month: Money = Field(..., description="Chat turns plus side calls")
     threshold: Money
-    users: list[UserSpend]
-    daily: list[DailySpend] = Field(..., description="The last 30 days, oldest first")
-    by_feature: list[SpendShare] = Field(..., description="This month, largest first")
-    by_model: list[SpendShare] = Field(..., description="This month, largest first")
+    users: list[UserSpend] = Field(..., description="Chat turns only")
+    daily: list[DailySpend] = Field(
+        ..., description="The last 30 days, oldest first; chat turns plus side calls"
+    )
+    by_feature: list[SpendShare] = Field(
+        ..., description="This month, largest first; side calls together as 'side'"
+    )
+    by_model: list[SpendShare] = Field(
+        ..., description="This month, largest first; chat turns plus side calls"
+    )
+    side_calls: list[SideCallSpend] = Field(..., description="This month, costliest first")
 
 
 class AgentFailure(ResponseModel):

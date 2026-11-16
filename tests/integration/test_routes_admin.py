@@ -1,6 +1,6 @@
 """Admin overview and the per-user spend status (S12)."""
 
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from flask.testing import FlaskClient
 
@@ -57,6 +57,43 @@ class TestAdminOverviewContent:
         assert mine["over_threshold"] is True
         assert len(spend["daily"]) == 30
         assert spend["by_feature"][0]["name"] == "chat"
+
+    def test_side_calls_count_toward_family_spend(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        """Titles, reviews, compaction and the nightly defrag bill outside chat
+        turns (side_costs, Nov 15 2026); the family totals include them."""
+        _spend(test_database, test_user, 1.0)
+        test_database.add_side_cost(
+            "title", "gemini-3.5-flash-lite", (10, 0, 5), 0.25, test_user.id
+        )
+        test_database.add_side_cost("title", "gemini-3.5-flash-lite", (10, 0, 5), 0.25)
+        test_database.add_side_cost("memory_defrag", "gemini-4-carbon", (10, 0, 5), 2.0)
+
+        spend = self._overview(client, auth_headers, test_user)["spend"]
+
+        assert spend["today"]["usd"] == 3.5
+        assert spend["month"]["usd"] == 3.5
+        assert spend["daily"][-1]["amount"]["usd"] == 3.5
+        assert spend["side_calls"] == [
+            {"name": "memory_defrag", "calls": 1, "amount": {"usd": 2.0, "formatted": ANY}},
+            {"name": "title", "calls": 2, "amount": {"usd": 0.5, "formatted": ANY}},
+        ]
+        features = {s["name"]: s["amount"]["usd"] for s in spend["by_feature"]}
+        assert features == {"chat": 1.0, "side": 2.5}
+        models = {s["name"]: s["amount"]["usd"] for s in spend["by_model"]}
+        assert models == {
+            "gemini-4-hydrogen": 1.0,
+            "gemini-3.5-flash-lite": 0.5,
+            "gemini-4-carbon": 2.0,
+        }
+        # People: chat turns only
+        mine = next(u for u in spend["users"] if u["name"] == test_user.name)
+        assert mine["month"]["usd"] == 1.0
 
     def test_every_section_is_present(
         self, client: FlaskClient, auth_headers: dict[str, str], test_user: User

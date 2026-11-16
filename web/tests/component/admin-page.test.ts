@@ -45,8 +45,16 @@ function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
         date: `2026-09-${String(26 + i).padStart(2, '0')}`,
         amount: money(i === 29 ? 12.5 : 2),
       })),
-      by_feature: [{ name: 'chat', amount: money(60) }, { name: 'agents', amount: money(20) }],
+      by_feature: [
+        { name: 'chat', amount: money(60) },
+        { name: 'agents', amount: money(20) },
+        { name: 'side', amount: money(4) },
+      ],
       by_model: [{ name: 'gemini-4-hydrogen', amount: money(80) }],
+      side_calls: [
+        { name: 'memory_defrag', calls: 30, amount: money(3) },
+        { name: 'title', calls: 412, amount: money(1) },
+      ],
     },
     agents: {
       runs_7d: 14,
@@ -109,6 +117,22 @@ describe('renderAdminOverview', () => {
   it('shows how many chats and turns each person had this month', () => {
     const cells = [...at(render(overview()).querySelectorAll('.admin-user-row'), 0).querySelectorAll('td')];
     expect(cells.map((c) => c.textContent)).toEqual(['Jana', expect.any(String), expect.any(String), '31', '412']);
+  });
+
+  it('lists side calls with their count and labels them by feature', () => {
+    const page = render(overview());
+    const side = [...page.querySelectorAll('.admin-side-calls li')].map((li) => li.textContent);
+    expect(side).toEqual([expect.stringContaining('Memory defrag'), expect.stringContaining('Titles')]);
+    expect(side[1]).toContain('412 calls');
+    const features = [...page.querySelectorAll('.admin-shares li')].map((li) => li.textContent ?? '');
+    expect(features.some((f) => f.startsWith('Side calls'))).toBe(true);
+    expect(page.textContent).toContain('People: chat turns only');
+  });
+
+  it('leaves the side-call list out when there were none', () => {
+    const data = overview();
+    data.spend.side_calls = [];
+    expect(render(data).querySelector('.admin-side-calls')).toBeNull();
   });
 
   it('highlights a person past the daily threshold', () => {

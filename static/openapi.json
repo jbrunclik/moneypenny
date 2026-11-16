@@ -11709,18 +11709,44 @@
         "title": "SearchSection",
         "type": "object"
       },
+      "AdminOverviewResponse.SideCallSpend": {
+        "properties": {
+          "name": {
+            "description": "The side_costs feature (title, compaction, ...)",
+            "title": "Name",
+            "type": "string"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.Money"
+          }
+        },
+        "required": [
+          "name",
+          "calls",
+          "amount"
+        ],
+        "title": "SideCallSpend",
+        "type": "object"
+      },
       "AdminOverviewResponse.SpendSection": {
         "properties": {
           "today": {
-            "$ref": "#/components/schemas/AdminOverviewResponse.Money"
+            "$ref": "#/components/schemas/AdminOverviewResponse.Money",
+            "description": "Chat turns plus side calls"
           },
           "month": {
-            "$ref": "#/components/schemas/AdminOverviewResponse.Money"
+            "$ref": "#/components/schemas/AdminOverviewResponse.Money",
+            "description": "Chat turns plus side calls"
           },
           "threshold": {
             "$ref": "#/components/schemas/AdminOverviewResponse.Money"
           },
           "users": {
+            "description": "Chat turns only",
             "items": {
               "$ref": "#/components/schemas/AdminOverviewResponse.UserSpend"
             },
@@ -11728,7 +11754,7 @@
             "type": "array"
           },
           "daily": {
-            "description": "The last 30 days, oldest first",
+            "description": "The last 30 days, oldest first; chat turns plus side calls",
             "items": {
               "$ref": "#/components/schemas/AdminOverviewResponse.DailySpend"
             },
@@ -11736,7 +11762,7 @@
             "type": "array"
           },
           "by_feature": {
-            "description": "This month, largest first",
+            "description": "This month, largest first; side calls together as 'side'",
             "items": {
               "$ref": "#/components/schemas/AdminOverviewResponse.SpendShare"
             },
@@ -11744,11 +11770,19 @@
             "type": "array"
           },
           "by_model": {
-            "description": "This month, largest first",
+            "description": "This month, largest first; chat turns plus side calls",
             "items": {
               "$ref": "#/components/schemas/AdminOverviewResponse.SpendShare"
             },
             "title": "By Model",
+            "type": "array"
+          },
+          "side_calls": {
+            "description": "This month, costliest first",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewResponse.SideCallSpend"
+            },
+            "title": "Side Calls",
             "type": "array"
           }
         },
@@ -11759,7 +11793,8 @@
           "users",
           "daily",
           "by_feature",
-          "by_model"
+          "by_model",
+          "side_calls"
         ],
         "title": "SpendSection",
         "type": "object"

@@ -10509,28 +10509,49 @@ export interface components {
              */
             providers: components["schemas"]["AdminOverviewResponse.SearchProviderStatus"][];
         };
+        /** SideCallSpend */
+        "AdminOverviewResponse.SideCallSpend": {
+            /**
+             * Name
+             * @description The side_costs feature (title, compaction, ...)
+             */
+            name: string;
+            /** Calls */
+            calls: number;
+            amount: components["schemas"]["AdminOverviewResponse.Money"];
+        };
         /** SpendSection */
         "AdminOverviewResponse.SpendSection": {
+            /** @description Chat turns plus side calls */
             today: components["schemas"]["AdminOverviewResponse.Money"];
+            /** @description Chat turns plus side calls */
             month: components["schemas"]["AdminOverviewResponse.Money"];
             threshold: components["schemas"]["AdminOverviewResponse.Money"];
-            /** Users */
+            /**
+             * Users
+             * @description Chat turns only
+             */
             users: components["schemas"]["AdminOverviewResponse.UserSpend"][];
             /**
              * Daily
-             * @description The last 30 days, oldest first
+             * @description The last 30 days, oldest first; chat turns plus side calls
              */
             daily: components["schemas"]["AdminOverviewResponse.DailySpend"][];
             /**
              * By Feature
-             * @description This month, largest first
+             * @description This month, largest first; side calls together as 'side'
              */
             by_feature: components["schemas"]["AdminOverviewResponse.SpendShare"][];
             /**
              * By Model
-             * @description This month, largest first
+             * @description This month, largest first; chat turns plus side calls
              */
             by_model: components["schemas"]["AdminOverviewResponse.SpendShare"][];
+            /**
+             * Side Calls
+             * @description This month, costliest first
+             */
+            side_calls: components["schemas"]["AdminOverviewResponse.SideCallSpend"][];
         };
         /** SpendShare */
         "AdminOverviewResponse.SpendShare": {

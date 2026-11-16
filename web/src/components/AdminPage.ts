@@ -38,6 +38,19 @@ const FEATURE_LABELS: Record<string, string> = {
   sports: 'Sports',
   language: 'Language',
   deleted: 'Deleted chats',
+  side: 'Side calls',
+};
+
+/** side_costs features (src/services/side_costs.py) */
+const SIDE_CALL_LABELS: Record<string, string> = {
+  title: 'Titles',
+  program_review: 'Program reviews',
+  instructions_review: 'Instructions reviews',
+  ai_assist: 'AI assist',
+  compaction: 'Compaction',
+  memory_review: 'Memory review',
+  memory_defrag: 'Memory defrag',
+  memory_summary: 'Memory summaries',
 };
 
 function seconds(ms: number | null | undefined): string {
@@ -116,6 +129,19 @@ function shares(title: string, list: Spend['by_feature'], labels: Record<string,
   ]);
 }
 
+function sideCalls(list: Spend['side_calls']): HTMLElement[] {
+  if (list.length === 0) return [];
+  const items = list.map((c) =>
+    el('li', {}, [
+      el('span', {}, [SIDE_CALL_LABELS[c.name] ?? c.name]),
+      el('span', {}, [`${c.calls} ${c.calls === 1 ? 'call' : 'calls'} · ${c.amount.formatted}`]),
+    ])
+  );
+  return [
+    el('div', { class: 'admin-shares admin-side-calls' }, [el('h3', {}, ['Side calls this month']), el('ul', {}, items)]),
+  ];
+}
+
 function spendSection(spend: Spend): HTMLElement {
   const users = spend.users.map((u) =>
     el('tr', { class: `admin-user-row${u.over_threshold ? ' admin-over-threshold' : ''}` }, [
@@ -135,12 +161,15 @@ function spendSection(spend: Spend): HTMLElement {
       ['Person', 'Today', 'This month', ['Chats', 'Chats with an answer this month'], ['Turns', 'Answers this month']],
       users
     ),
-    el('p', { class: 'admin-note' }, [`Highlighted: past ${spend.threshold.formatted} today.`]),
+    el('p', { class: 'admin-note' }, [
+      `People: chat turns only; the totals add side calls (titles, reviews, compaction, defrag). Highlighted: past ${spend.threshold.formatted} today.`,
+    ]),
     el('h3', {}, ['Last 30 days']),
     chart(spend.daily),
     el('div', { class: 'admin-columns' }, [
       shares('By feature this month', spend.by_feature, FEATURE_LABELS),
       shares('By model this month', spend.by_model, {}),
+      ...sideCalls(spend.side_calls),
     ]),
   ]);
 }
