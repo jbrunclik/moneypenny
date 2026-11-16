@@ -19,6 +19,7 @@ from src.agent.tool_loops import blocked_calls, blocked_message, dedupe_results
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tool_round_check import tool_message_error
 from src.agent.tools.request_approval import ApprovalRequestedException
+from src.agent.tools.web_content import is_untrusted_frame, wrap_untrusted_content
 from src.db.models import db
 from src.utils.logging import get_logger
 
@@ -244,6 +245,7 @@ def _capture_and_strip_tool_messages(messages: list[Any], request_id: str | None
             content_len_before = len(msg.content)
             msg.content = strip_full_result_from_tool_content(msg.content)
             content_len_after = len(msg.content)
+            _frame_untrusted(msg)
             if content_len_before != content_len_after:
                 logger.info(
                     "Stripped _full_result from tool message",
@@ -253,6 +255,30 @@ def _capture_and_strip_tool_messages(messages: list[Any], request_id: str | None
                         "bytes_saved": content_len_before - content_len_after,
                     },
                 )
+
+
+# Tools whose results carry text other people can write (a stranger's calendar
+# invite, a shared Todoist project, an uploaded file, outside text pasted into
+# a past chat) -> what the frame calls it. Web tools frame their own pages
+_FRAMED_TOOLS = {
+    "todoist": "todoist data",
+    "google_calendar": "calendar data",
+    "retrieve_file": "file content",
+    "search_conversations": "past chat text",
+    "read_conversation": "past chat text",
+}
+
+
+def _frame_untrusted(msg: ToolMessage) -> None:
+    """Frame a result of other people's text as data (after it was stored, so
+    server-side extraction reads it unframed). Errors stay bare: the round
+    check reads their JSON envelope."""
+    kind = _FRAMED_TOOLS.get(msg.name or "")
+    if kind is None or not isinstance(msg.content, str) or tool_message_error(msg) is not None:
+        return
+    if is_untrusted_frame(msg.content):
+        return
+    msg.content = wrap_untrusted_content(msg.content, kind=kind)
 
 
 _SIBLING_RESULT_MAX_CHARS = 500

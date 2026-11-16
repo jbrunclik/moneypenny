@@ -19,6 +19,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
 from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES
+from src.agent.tools.web_content import strip_untrusted_frame
 
 # Tools whose outputs are NOT digested:
 # - web/page tools: already covered by the sources digest
@@ -76,6 +77,7 @@ def _compact_json(value: Any) -> str:
 def _compact_result(content: Any) -> str:
     if not isinstance(content, str):
         return "[non-text result]"
+    content = strip_untrusted_frame(content)  # the digest keeps the data, not the frame
     try:
         data = json.loads(content)
     except json.JSONDecodeError, TypeError:
