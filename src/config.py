@@ -761,6 +761,16 @@ class Config:
     )  # seconds
     CODE_SANDBOX_MEMORY_LIMIT: str = os.getenv("CODE_SANDBOX_MEMORY_LIMIT", "512m")
     CODE_SANDBOX_CPU_LIMIT: float = float(os.getenv("CODE_SANDBOX_CPU_LIMIT", "1.0"))
+    # Agent safety (Nov 16 2026): a process cap (a fork bomb stops at ~124) and
+    # memory-backed folders - their pages count against CODE_SANDBOX_MEMORY_LIMIT,
+    # so a full disk fails inside the sandbox, never on the host
+    CODE_SANDBOX_PIDS_LIMIT = 128
+    CODE_SANDBOX_WORK_MB = 256
+    CODE_SANDBOX_OUTPUT_MB = 64
+    CODE_SANDBOX_TMP_MB = 64
+    # Per-session host dirs bind-mounted read-only at /staging (code and incoming
+    # files); under the app dir, not /tmp: the service runs with PrivateTmp
+    CODE_SANDBOX_STAGING_DIR: Path = BASE_DIR / "data" / "sandbox-staging"
     # Conversation attachments execute_code may copy into /work/attachments/
     # per call (each also capped at MAX_FILE_SIZE_BYTES)
     CODE_SANDBOX_MAX_ATTACHMENTS: int = int(os.getenv("CODE_SANDBOX_MAX_ATTACHMENTS", "5"))

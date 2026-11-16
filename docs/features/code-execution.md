@@ -1,6 +1,6 @@
 # Code Execution Sandbox
 
-The app can execute Python code in a secure Docker sandbox using [llm-sandbox](https://github.com/vndee/llm-sandbox).
+The app can execute Python code in a Docker sandbox: one container per conversation session, driven over docker-py by [docker_sandbox.py](../../src/agent/tools/docker_sandbox.py) (llm-sandbox until Nov 16 2026).
 
 ## How it works
 
@@ -8,7 +8,7 @@ The app can execute Python code in a secure Docker sandbox using [llm-sandbox](h
 2. **Docker sandbox**: Code runs in an isolated container with no network access
 3. **Custom image**: Uses a pre-built Docker image with fonts and libraries pre-installed for faster execution
 4. **File output**: Code saves files to `/output/` directory, which are extracted and returned
-5. **Automatic plots**: Matplotlib plots are captured automatically via llm-sandbox
+5. **Plots**: saved with `plt.savefig` into `/output/` like any other file (llm-sandbox's plot capture was never on - its console session has none - and was removed Nov 16 2026)
 6. **Pre-installed libraries**: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz
 
 ## Custom Docker Image
@@ -36,7 +36,22 @@ This builds `moneypenny-sandbox:local` with:
 
 ## Security Constraints
 
-- **No network**: Containers run with `--network none` (default in llm-sandbox)
+- **No network**: containers run with networking disabled
+- **Non-root, capped** (Nov 16 2026, [spec](../superpowers/specs/2026-11-16-agent-safety-design.md)):
+  code runs as uid 10001 (`sandbox` in the image), `cap_drop` ALL with only KILL
+  added (the Stop kill runs as root), `no-new-privileges`, `pids_limit`
+  `CODE_SANDBOX_PIDS_LIMIT` (128: a fork bomb stops at ~124).
+- **Disk cap**: the root filesystem is read-only; `/work` (`CODE_SANDBOX_WORK_MB`,
+  256), `/output` (64m) and `/tmp` (64m) are tmpfs, whose pages count against the
+  512 MB memory limit - a full disk fails inside the sandbox (ENOSPC; the result's
+  stderr gains a "sandbox disk is full" note), never on the host (ext4 there cannot
+  quota a container). `/work` is therefore lost when a container is recreated.
+- **Moving files**: Docker's copy can neither see tmpfs nor write a read-only root.
+  The app writes code (`code-<n>.py`) and incoming files into a per-session host dir
+  (`CODE_SANDBOX_STAGING_DIR`, `data/sandbox-staging/<pid>-<id>`, not `/tmp`: the
+  service runs with PrivateTmp) bind-mounted **read-only** at `/staging`; it runs
+  `python /staging/code-<n>.py` in `/work`, and an exec as the sandbox user copies
+  attachments into `/work/attachments`. Files come out through `exec cat`.
 - **No host access**: Code cannot access files outside the container
 - **Resource limits**: Configurable timeout (30s default), memory limit (512MB default)
 - **Per-conversation sessions**: Containers are reused across `execute_code`
@@ -49,7 +64,8 @@ This builds `moneypenny-sandbox:local` with:
 - **Orphan reaping**: Pooled containers are otherwise closed only by `atexit`,
   which a killed process (SIGTERM/SIGKILL of a test run, dev server or worker)
   skips. Every container is labelled `moneypenny.owner_pid`; when the pool
-  starts it removes containers whose owner process is gone. Tests close the
+  starts it removes containers whose owner process is gone, and staging dirs whose
+  `<pid>` prefix is dead. Tests close the
   pool after each test (`close_pooled_sandbox_sessions` in `tests/conftest.py`).
 
 ## Configuration
@@ -80,7 +96,7 @@ told about, or wastes a round on an import that fails).
 
 ## Stop
 
-Pressing Stop while `execute_code` runs kills the user's program (SIGKILL to the `/sandbox/*.py` process, found by scanning `/proc` from Python as root - the slim image has no `pkill`) through a cancel callback registered around `session.run`. The session container and `/work` survive, so later calls in the conversation still see saved files. See [Agent Graph - Stop Checkpoints](../architecture/agent-graph.md#stop-checkpoints).
+Pressing Stop while `execute_code` runs kills the user's program (SIGKILL to every process but PID 1 and the keep-alive `tail`, found by scanning `/proc` from Python as root - the slim image has no `pkill`) through a cancel callback registered around `session.run`; the run's own timeout (`CODE_SANDBOX_TIMEOUT_SECONDS`) uses the same kill. The session container and `/work` survive, so later calls in the conversation still see saved files. When no exec can start (a fork bomb holding every pid), the kill falls back to `docker kill` and the pool drops the session. See [Agent Graph - Stop Checkpoints](../architecture/agent-graph.md#stop-checkpoints).
 
 ## Office Files
 
@@ -188,7 +204,8 @@ The tool uses the same `_full_result` pattern as `generate_image` to avoid sendi
 ## Key Files
 
 - [code_execution.py](../../src/agent/tools/code_execution.py) - `execute_code()` tool, `is_code_sandbox_available()`, `_check_docker_available()`
-- [code_execution_output.py](../../src/agent/tools/code_execution_output.py) - the wrapper/output protocol: `wrap_user_code()`, the `/output` file marker, plots, the response with `_full_result`
+- [code_execution_output.py](../../src/agent/tools/code_execution_output.py) - the wrapper/output protocol: `wrap_user_code()`, the `/output` file marker, the response with `_full_result`
+- [docker_sandbox.py](../../src/agent/tools/docker_sandbox.py) - `DockerSandbox` (container, staging, run, files in/out, kill) and `sandbox_container_config()` (every constraint)
 - [Dockerfile](../../docker/code-sandbox/Dockerfile) - Custom Docker image with pre-installed fonts and libraries
 - [Makefile](../../Makefile) - `sandbox-image` target for building custom image
 - [images.py](../../src/utils/images.py) - `extract_code_output_files_from_tool_results()` for file extraction
@@ -205,10 +222,12 @@ docker info
 
 # Test the sandbox manually
 python -c "
-from llm_sandbox import SandboxSession
-with SandboxSession(lang='python') as s:
-    result = s.run('print(1+1)')
-    print(result.stdout)
+from src.agent.tools.sandbox_sessions import make_sandbox_session
+s = make_sandbox_session(); s.open()
+try:
+    print(s.run('import os; print(os.getuid(), 1+1)', timeout_s=30).stdout)
+finally:
+    s.close()
 "
 ```
 
@@ -216,7 +235,7 @@ with SandboxSession(lang='python') as s:
 
 - Unit: [test_sandbox_sessions.py](../../tests/unit/test_sandbox_sessions.py), `execute_code` cases in [test_code_execution.py](../../tests/unit/test_code_execution.py)
 - Unit: `TestSandboxLibraryListsMatchImage` in [test_code_execution.py](../../tests/unit/test_code_execution.py) keeps the prompt and docstring package lists equal to the Dockerfile
-- Integration: [test_code_sandbox_isolation.py](../../tests/integration/test_code_sandbox_isolation.py) (needs Docker), [test_code_sandbox_office_files.py](../../tests/integration/test_code_sandbox_office_files.py) (writes real `.docx`/`.pptx`/`.xlsx` in the sandbox; skips without Docker or the image)
+- Integration: [test_sandbox_docker.py](../../tests/integration/test_sandbox_docker.py) (non-root, read-only root, ENOSPC, fork bomb, long scripts, files in/out, Stop, cleanup), [test_code_sandbox_isolation.py](../../tests/integration/test_code_sandbox_isolation.py) (needs Docker), [test_code_sandbox_office_files.py](../../tests/integration/test_code_sandbox_office_files.py) (writes real `.docx`/`.pptx`/`.xlsx` in the sandbox; skips without Docker or the image)
 
 ## See Also
 

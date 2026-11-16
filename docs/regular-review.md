@@ -181,6 +181,10 @@ The review itself changes nothing in production and edits nothing but
   against all checklist artifacts, and the "Artifact read" lines with
   `checklist_items > 0` - do people tick items, and does the agent read them
   when asked what is left?
+- Agent safety (Nov 16 2026): "kv write refused" lines (any from a scheduled
+  agent or a coach is a bug - it should write only its own namespace),
+  `work_bytes` on the "Code execution" lines against the 256 MB `/work` cap,
+  and "Sandbox kill exec failed" (a fork bomb forced `docker kill`).
 - Past-chat search: the "Conversation search via tool" lines - the share with
   `results` 0 (no keyword hit; 11 of 12 before the Nov 16 2026 fallback), the
   `mode` mix (`any` = the fallback found what strict matching missed) and the

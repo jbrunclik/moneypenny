@@ -6,7 +6,6 @@ for that marker and its plots collected, and the tool's response built
 (file data under _full_result, which the server strips before the LLM).
 """
 
-import base64
 import contextlib
 import json
 import mimetypes
@@ -85,48 +84,14 @@ def parse_output_files_from_stdout(stdout: str) -> tuple[list[str], str]:
     return output_files, "\n".join(clean_lines).rstrip()
 
 
-def extract_plots(result: Any) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
-    """Extract matplotlib plots from sandbox execution result.
-
-    Args:
-        result: The execution result from SandboxSession.run()
-
-    Returns:
-        Tuple of (full_plots_list, metadata_list).
-        full_plots_list contains base64 data for server storage.
-        metadata_list contains only format/name for the LLM.
-    """
-    full_plots: list[dict[str, Any]] = []
-    metadata: list[dict[str, str]] = []
-
-    if not hasattr(result, "plots") or not result.plots:
-        return full_plots, metadata
-
-    for i, plot in enumerate(result.plots):
-        plot_format = plot.format.value if hasattr(plot.format, "value") else str(plot.format)
-        plot_name = f"plot_{i + 1}.{plot_format}"
-
-        # Full data for server-side extraction
-        full_plots.append(
-            {
-                "name": plot_name,
-                "mime_type": f"image/{plot_format}",
-                "data": plot.content_base64,
-                "size": len(base64.b64decode(plot.content_base64)) if plot.content_base64 else 0,
-            }
-        )
-
-        # Metadata for LLM
-        metadata.append({"format": plot_format, "name": plot_name})
-
-    return full_plots, metadata
+# A write past the memory-backed folders' size (Nov 16 2026)
+_DISK_FULL = "No space left on device"
 
 
 def build_execution_response(
     result: Any,
     clean_stdout: str,
     file_metadata: list[dict[str, Any]],
-    plot_metadata: list[dict[str, str]],
     full_result_files: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Build the final response dictionary for code execution.
@@ -135,16 +100,21 @@ def build_execution_response(
     full file data from _full_result for storage and display.
 
     Args:
-        result: The execution result from SandboxSession.run()
+        result: The finished run (docker_sandbox.ExecResult)
         clean_stdout: Stdout with marker lines removed
         file_metadata: Metadata for files (no base64) - shown to LLM
-        plot_metadata: Metadata for plots - shown to LLM
         full_result_files: Full file data (with base64) - extracted server-side
 
     Returns:
         Response dictionary ready for JSON serialization
     """
     stderr = result.stderr or ""
+    if _DISK_FULL in stderr:
+        stderr += (
+            f"\n[The sandbox disk is full: /work holds {Config.CODE_SANDBOX_WORK_MB} MB,"
+            f" /output {Config.CODE_SANDBOX_OUTPUT_MB} MB. Delete files in /work or"
+            " write less.]"
+        )
 
     # Cap output sizes - both land verbatim in LLM context (a print(df) on a
     # large DataFrame would otherwise be unbounded)
@@ -169,10 +139,6 @@ def build_execution_response(
             + ", ".join(f["name"] for f in file_metadata)
             + ". Files will be displayed to the user."
         )
-
-    # Add plot metadata for LLM
-    if plot_metadata:
-        response["plots"] = plot_metadata
 
     # Store full file data in _full_result (stripped before sending to LLM)
     if full_result_files:

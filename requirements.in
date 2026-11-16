@@ -26,8 +26,8 @@ trafilatura>=2.3.1
 ddgs>=9.16.0
 playwright>=1.65.0
 
-# Code execution sandbox
-llm-sandbox[docker]>=0.3.45
+# Code execution sandbox (our own session over docker-py since Nov 16 2026)
+docker>=7.2,<8
 
 # Language detection
 langdetect>=1.0.9

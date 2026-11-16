@@ -1,12 +1,10 @@
 """Code execution tool using Docker sandbox."""
 
 import base64
-import contextlib
 import json
 import os as local_os
 import re
 import subprocess
-import tempfile
 import threading
 import time
 from typing import Any, Protocol
@@ -16,7 +14,6 @@ from langchain_core.tools import tool
 from src.agent.cancellation import TurnCancelled, on_cancel, raise_if_cancelled
 from src.agent.tools.code_execution_output import (
     build_execution_response,
-    extract_plots,
     get_mime_type,
     parse_output_files_from_stdout,
     wrap_user_code,
@@ -29,7 +26,7 @@ from src.agent.tools.conversation_files import (
 )
 from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
-from src.agent.tools.sandbox_sessions import OWNER_PID_LABEL, get_sandbox_pool
+from src.agent.tools.sandbox_sessions import get_sandbox_pool, make_sandbox_session
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -54,38 +51,6 @@ _RECHECK_UNAVAILABLE_SECONDS = 60.0
 
 def _now() -> float:
     return time.monotonic()
-
-
-# Session settings shared by the availability probe and execute_code (S4):
-# probing with different settings than real executions can pass while
-# executions fail (or vice versa).
-# - network_disabled: generated code must not have network access; llm-sandbox
-#   does NOT disable networking by default (verified on 0.3.31)
-# - skip_environment_setup: every library is pre-installed in the custom image
-#   (make sandbox-image); the default setup runs an in-container pip upgrade,
-#   which needs the network we just disabled
-# - execution_timeout: llm-sandbox's own default is 60 s, and the model is told
-#   CODE_SANDBOX_TIMEOUT_SECONDS (it was never passed; Nov 15 2026 audit)
-SANDBOX_SESSION_KWARGS: dict[str, Any] = {
-    "lang": "python",
-    "verbose": False,
-    "skip_environment_setup": True,
-    "execution_timeout": Config.CODE_SANDBOX_TIMEOUT_SECONDS,
-}
-
-
-def sandbox_runtime_configs() -> dict[str, Any]:
-    return {
-        "network_disabled": True,
-        "mem_limit": Config.CODE_SANDBOX_MEMORY_LIMIT,
-        "nano_cpus": int(Config.CODE_SANDBOX_CPU_LIMIT * 1_000_000_000),
-        # Run an init (tini) as PID 1. Without it, the sandbox's PID 1 ignores
-        # SIGTERM, so container teardown waits the full ~10s docker-stop grace
-        # before SIGKILL - on EVERY execute_code call. With init, SIGTERM is
-        # handled and teardown drops from ~10s to ~0.1s (measured).
-        "init": True,
-        "labels": {OWNER_PID_LABEL: str(local_os.getpid())},
-    }
 
 
 def _check_docker_available() -> bool:
@@ -148,21 +113,23 @@ def _probe_docker_available() -> bool:
             )
             return _docker_available
 
-        # Verify Docker connectivity with a quick test, using the SAME
-        # session settings as execute_code
-        from llm_sandbox import SandboxSession  # noqa: PLC0415 - docker client kept off startup
-
-        with SandboxSession(
-            image=Config.CODE_SANDBOX_IMAGE,
-            runtime_configs=sandbox_runtime_configs(),
-            **SANDBOX_SESSION_KWARGS,
-        ) as session:
-            result = session.run("print('ok')")
-            _docker_available = result.exit_code == 0
-            if _docker_available:
-                logger.info("Docker sandbox available for code execution")
-            else:
-                logger.warning("Docker sandbox test failed", extra={"exit_code": result.exit_code})
+        # Verify Docker connectivity with a quick run under the SAME
+        # constraints as execute_code (a probe with other settings can pass
+        # while executions fail)
+        session = make_sandbox_session()
+        try:
+            session.open()
+            probe = session.run("print('ok')", timeout_s=Config.CODE_SANDBOX_TIMEOUT_SECONDS)
+        finally:
+            session.close()
+        _docker_available = probe.exit_code == 0
+        if _docker_available:
+            logger.info("Docker sandbox available for code execution")
+        else:
+            logger.warning(
+                "Docker sandbox test failed",
+                extra={"exit_code": probe.exit_code, "stderr": probe.stderr[:300]},
+            )
     except subprocess.TimeoutExpired:
         _docker_available = False
         logger.warning("Docker command timed out", extra={"note": "Ensure Docker is running"})
@@ -180,34 +147,6 @@ def _probe_docker_available() -> bool:
     return _docker_available
 
 
-# Kills the user's program inside a live session container without touching
-# the container: /work must survive a Stop. Spares PID 1 (docker-init), its
-# oldest child (the container's keep-alive command) and itself; everything
-# else is user code - exec'd programs, their children (whatever their argv)
-# and orphans re-parented to PID 1. No procps in the slim image, so scan
-# /proc from Python (always present in the image).
-_KILL_USER_CODE = (
-    "import os\n"
-    "me = os.getpid()\n"
-    "procs = {}\n"
-    "for p in filter(str.isdigit, os.listdir('/proc')):\n"
-    "    try:\n"
-    "        stat = open(f'/proc/{p}/stat').read().rsplit(')', 1)[1].split()\n"
-    "        procs[int(p)] = (int(stat[1]), int(stat[19]))\n"
-    "    except OSError:\n"
-    "        pass\n"
-    "init_children = [p for p, (ppid, _) in procs.items() if ppid == 1]\n"
-    "keep = {1, me}\n"
-    "if init_children:\n"
-    "    keep.add(min(init_children, key=lambda p: procs[p][1]))\n"
-    "for p in procs.keys() - keep:\n"
-    "    try:\n"
-    "        os.kill(p, 9)\n"
-    "    except OSError:\n"
-    "        pass\n"
-)
-
-
 def _kill_user_code(session: Any) -> None:
     """Cancel callback: SIGKILL the running user program (Stop pressed).
 
@@ -218,7 +157,7 @@ def _kill_user_code(session: Any) -> None:
 
     def _kill() -> None:
         try:
-            session.container.exec_run(["python", "-c", _KILL_USER_CODE], user="root")
+            session.kill_user_code()
         except Exception:
             logger.warning("Sandbox kill on Stop failed", exc_info=True)
 
@@ -238,7 +177,7 @@ def _extract_file_from_sandbox(
     """Extract a single file from the sandbox and return metadata and full data.
 
     Args:
-        session: The SandboxSession instance
+        session: The DockerSandbox
         filename: Name of the file to extract from /output/
 
     Returns:
@@ -246,17 +185,8 @@ def _extract_file_from_sandbox(
         full_file_data contains the base64 encoded data for server storage.
         file_metadata contains only name, type, size for the LLM.
     """
-    # Create a temp file to receive the data
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp_path = tmp.name
-
     try:
-        # Copy file from sandbox
-        session.copy_from_runtime(f"/output/{filename}", tmp_path)
-
-        # Read and encode the file
-        with open(tmp_path, "rb") as f:
-            file_data = f.read()
+        file_data = session.read_file(f"/output/{filename}")
 
         mime_type = get_mime_type(filename)
         file_size = len(file_data)
@@ -285,10 +215,6 @@ def _extract_file_from_sandbox(
             exc_info=True,
         )
         return None, None
-    finally:
-        # Always remove the host temp file - error paths leaked it before
-        with contextlib.suppress(OSError):
-            local_os.unlink(tmp_path)
 
 
 def _extract_output_files(
@@ -297,7 +223,7 @@ def _extract_output_files(
     """Extract all output files from the sandbox.
 
     Args:
-        session: The SandboxSession instance
+        session: The DockerSandbox
         filenames: List of filenames to extract from /output/
 
     Returns:
@@ -339,25 +265,17 @@ def _collect_execution_response(session: Any, result: Any) -> dict[str, Any]:
                 },
             )
 
-    # Extract matplotlib plots
-    plot_full_data, plot_metadata = extract_plots(result)
-    full_result_files.extend(plot_full_data)
-    if plot_metadata:
-        logger.info("Code execution captured plots", extra={"plot_count": len(plot_metadata)})
-
-    return build_execution_response(
-        result, clean_stdout, file_metadata, plot_metadata, full_result_files
-    )
+    return build_execution_response(result, clean_stdout, file_metadata, full_result_files)
 
 
-def _log_execution_result(result: Any, response: dict[str, Any]) -> None:
+def _log_execution_result(result: Any, response: dict[str, Any], work_bytes: int | None) -> None:
     if result.exit_code == 0:
         logger.info(
             "Code execution succeeded",
             extra={
                 "stdout_length": len(response["stdout"]),
                 "has_files": bool(response.get("files")),
-                "has_plots": bool(response.get("plots")),
+                "work_bytes": work_bytes,
             },
         )
     else:
@@ -366,6 +284,7 @@ def _log_execution_result(result: Any, response: dict[str, Any]) -> None:
             extra={
                 "exit_code": result.exit_code,
                 "stderr_preview": (result.stderr or "")[:500],
+                "work_bytes": work_bytes,
             },
         )
 
@@ -374,9 +293,9 @@ ATTACHMENTS_DIR = "/work/attachments"
 
 
 class _CopyTarget(Protocol):
-    """The sandbox session's copy-in method (llm-sandbox)."""
+    """The sandbox session's copy-in method (DockerSandbox)."""
 
-    def copy_to_runtime(self, _src: str, _dest: str, /) -> None: ...
+    def put_file(self, data: bytes, dest: str, /) -> None: ...
 
 
 def _attachment_path(name: str, taken: set[str]) -> str:
@@ -433,30 +352,15 @@ def _copy_attachments(
     copied: list[dict[str, object]] = []
     for file in files:
         path = _attachment_path(file.name, taken)
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp.write(file.data)
-        try:
-            session.copy_to_runtime(tmp.name, path)
-        finally:
-            with contextlib.suppress(OSError):
-                local_os.unlink(tmp.name)
+        session.put_file(file.data, path)
         copied.append(
             {"file_id": file.file_id, "path": path, "name": file.name, "size": len(file.data)}
         )
     return copied
 
 
-def _is_sandbox_timeout(error: Exception) -> bool:
-    """llm-sandbox raises its own SandboxTimeoutError, not a TimeoutError."""
-    from llm_sandbox.exceptions import SandboxTimeoutError  # noqa: PLC0415 - kept off startup
-
-    return isinstance(error, SandboxTimeoutError)
-
-
 def _execution_error(error: Exception) -> str:
     """The tool result for a failed execution, with a hint for common causes."""
-    if _is_sandbox_timeout(error):
-        return _timed_out()
     error_msg = str(error)
     logger.error("Code execution error", extra={"error": error_msg}, exc_info=error)
     if "docker" in error_msg.lower() or "connection" in error_msg.lower():
@@ -539,10 +443,10 @@ def execute_code(code: str, files: list[str] | None = None) -> str:
     try:
         wrapped_code = wrap_user_code(code)
 
-        # Sessions come from the per-conversation pool (security constraints
-        # unchanged: networking disabled + resource limits, shared settings
-        # with the availability probe - see SANDBOX_SESSION_KWARGS). Without
-        # a conversation context the session is ephemeral, as before.
+        # Sessions come from the per-conversation pool (the constraints in
+        # docker_sandbox.sandbox_container_config, shared with the
+        # availability probe). Without a conversation context the session is
+        # ephemeral.
         conversation_id, _user_id = get_conversation_context()
         with get_sandbox_pool().session(conversation_id) as session:
             logger.debug(
@@ -556,12 +460,12 @@ def execute_code(code: str, files: list[str] | None = None) -> str:
             copied = _copy_attachments(session, attachments)
             raise_if_cancelled()
             with on_cancel(lambda: _kill_user_code(session)):
-                result = session.run(wrapped_code)
+                result = session.run(wrapped_code, timeout_s=Config.CODE_SANDBOX_TIMEOUT_SECONDS)
 
             response = _collect_execution_response(session, result)
             if files:
                 response["attachments"] = copied
-            _log_execution_result(result, response)
+            _log_execution_result(result, response, session.work_bytes())
             return json.dumps(response)
 
     except TurnCancelled:

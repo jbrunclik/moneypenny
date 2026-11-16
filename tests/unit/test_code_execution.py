@@ -13,6 +13,13 @@ from src.agent.tools.code_execution_output import get_mime_type
 from src.config import Config
 
 
+def pool_of(session: object) -> object:
+    """A real session pool whose every session is ``session`` (a mock)."""
+    from src.agent.tools.sandbox_sessions import SandboxSessionPool
+
+    return SandboxSessionPool(factory=lambda: session, max_sessions=2, ttl_seconds=100)
+
+
 class TestGetMimeType:
     """Tests for get_mime_type helper function."""
 
@@ -67,7 +74,6 @@ class TestExecuteCode:
         mock_result.exit_code = 0
         mock_result.stdout = "1\n"
         mock_result.stderr = ""
-        mock_result.plots = []
 
         fake_session = MagicMock()
         fake_session.run.return_value = mock_result
@@ -128,7 +134,7 @@ class TestExecuteCode:
 
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
     @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
-    @patch("llm_sandbox.SandboxSession")
+    @patch("src.agent.tools.code_execution.get_sandbox_pool")
     def test_successful_execution(
         self, mock_session_class: MagicMock, mock_check: MagicMock
     ) -> None:
@@ -138,13 +144,12 @@ class TestExecuteCode:
         mock_result.exit_code = 0
         mock_result.stdout = "Hello, World!\n"
         mock_result.stderr = ""
-        mock_result.plots = []
 
         mock_session = MagicMock()
         mock_session.__enter__ = MagicMock(return_value=mock_session)
         mock_session.__exit__ = MagicMock(return_value=False)
         mock_session.run.return_value = mock_result
-        mock_session_class.return_value = mock_session
+        mock_session_class.return_value = pool_of(mock_session)
 
         result = execute_code.invoke({"code": "print('Hello, World!')"})
         parsed = json.loads(result)
@@ -155,56 +160,19 @@ class TestExecuteCode:
 
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
     @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
-    @patch("llm_sandbox.SandboxSession")
-    def test_sandbox_network_disabled_and_limited(
-        self, mock_session_class: MagicMock, mock_check: MagicMock
-    ) -> None:
-        """The sandbox container must be created with networking disabled and
-        resource limits applied (S4) - llm-sandbox does NOT do this by default."""
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_result.stdout = ""
-        mock_result.stderr = ""
-        mock_result.plots = []
-
-        mock_session = MagicMock()
-        mock_session.__enter__ = MagicMock(return_value=mock_session)
-        mock_session.__exit__ = MagicMock(return_value=False)
-        mock_session.run.return_value = mock_result
-        mock_session_class.return_value = mock_session
-
-        execute_code.invoke({"code": "print('hi')"})
-
-        kwargs = mock_session_class.call_args.kwargs
-        assert kwargs["runtime_configs"]["network_disabled"] is True
-        assert kwargs["runtime_configs"]["mem_limit"]
-        assert kwargs["runtime_configs"]["nano_cpus"] > 0
-        # init (tini) as PID 1 so SIGTERM is handled - without it container
-        # teardown waits the full ~10s docker-stop grace on every call
-        assert kwargs["runtime_configs"]["init"] is True
-        # Setup is skipped: libraries are baked into the image, and the
-        # default setup's pip upgrade would need the disabled network
-        assert kwargs["skip_environment_setup"] is True
-        # No libraries arg: install() raises with skip_environment_setup=True
-        assert mock_session.run.call_args.kwargs.get("libraries") is None
-        assert len(mock_session.run.call_args.args) == 1
-
-    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
-    @patch("llm_sandbox.SandboxSession")
+    @patch("src.agent.tools.code_execution.get_sandbox_pool")
     def test_captures_stderr(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
         """Should capture stderr from execution."""
         mock_result = MagicMock()
         mock_result.exit_code = 1
         mock_result.stdout = ""
         mock_result.stderr = "NameError: name 'undefined_var' is not defined"
-        mock_result.plots = []
 
         mock_session = MagicMock()
         mock_session.__enter__ = MagicMock(return_value=mock_session)
         mock_session.__exit__ = MagicMock(return_value=False)
         mock_session.run.return_value = mock_result
-        mock_session_class.return_value = mock_session
+        mock_session_class.return_value = pool_of(mock_session)
 
         result = execute_code.invoke({"code": "print(undefined_var)"})
         parsed = json.loads(result)
@@ -215,49 +183,7 @@ class TestExecuteCode:
 
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
     @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
-    @patch("llm_sandbox.SandboxSession")
-    def test_captures_plots(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
-        """Should capture matplotlib plots with metadata in response and data in _full_result."""
-        mock_plot = MagicMock()
-        mock_plot.format = MagicMock()
-        mock_plot.format.value = "png"
-        mock_plot.content_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
-
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_result.stdout = ""
-        mock_result.stderr = ""
-        mock_result.plots = [mock_plot]
-
-        mock_session = MagicMock()
-        mock_session.__enter__ = MagicMock(return_value=mock_session)
-        mock_session.__exit__ = MagicMock(return_value=False)
-        mock_session.run.return_value = mock_result
-        mock_session_class.return_value = mock_session
-
-        result = execute_code.invoke(
-            {"code": "import matplotlib.pyplot as plt; plt.plot([1,2,3]); plt.show()"}
-        )
-        parsed = json.loads(result)
-
-        assert parsed["success"] is True
-        # LLM sees only metadata (no base64 data)
-        assert "plots" in parsed
-        assert len(parsed["plots"]) == 1
-        assert parsed["plots"][0]["format"] == "png"
-        assert parsed["plots"][0]["name"] == "plot_1.png"
-        assert "data" not in parsed["plots"][0]  # Data is in _full_result
-
-        # Full data is in _full_result for server-side extraction
-        assert "_full_result" in parsed
-        assert "files" in parsed["_full_result"]
-        assert len(parsed["_full_result"]["files"]) == 1
-        assert parsed["_full_result"]["files"][0]["name"] == "plot_1.png"
-        assert parsed["_full_result"]["files"][0]["data"] == mock_plot.content_base64
-
-    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
-    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
-    @patch("llm_sandbox.SandboxSession")
+    @patch("src.agent.tools.code_execution.get_sandbox_pool")
     def test_output_files_uses_full_result_pattern(
         self, mock_session_class: MagicMock, mock_check: MagicMock
     ) -> None:
@@ -266,7 +192,6 @@ class TestExecuteCode:
         mock_result.exit_code = 0
         mock_result.stdout = '__OUTPUT_FILES__:["report.pdf"]\n'
         mock_result.stderr = ""
-        mock_result.plots = []
 
         mock_session = MagicMock()
         mock_session.__enter__ = MagicMock(return_value=mock_session)
@@ -274,12 +199,11 @@ class TestExecuteCode:
         mock_session.run.return_value = mock_result
 
         # Mock file extraction from sandbox
-        def copy_from_runtime(src: str, dest: str) -> None:
-            with open(dest, "wb") as f:
-                f.write(b"PDF content here")
+        def read_file(path: str) -> bytes:
+            return b"PDF content here"
 
-        mock_session.copy_from_runtime = copy_from_runtime
-        mock_session_class.return_value = mock_session
+        mock_session.read_file = read_file
+        mock_session_class.return_value = pool_of(mock_session)
 
         result = execute_code.invoke({"code": "generate_pdf()"})
         parsed = json.loads(result)
@@ -307,7 +231,7 @@ class TestExecuteCode:
 
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
     @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
-    @patch("llm_sandbox.SandboxSession")
+    @patch("src.agent.tools.code_execution.get_sandbox_pool")
     def test_unreadable_output_file_is_skipped(
         self, mock_session_class: MagicMock, mock_check: MagicMock
     ) -> None:
@@ -316,21 +240,19 @@ class TestExecuteCode:
         mock_result.exit_code = 0
         mock_result.stdout = '__OUTPUT_FILES__:["broken.pdf", "report.pdf"]\n'
         mock_result.stderr = ""
-        mock_result.plots = []
 
         mock_session = MagicMock()
         mock_session.__enter__ = MagicMock(return_value=mock_session)
         mock_session.__exit__ = MagicMock(return_value=False)
         mock_session.run.return_value = mock_result
 
-        def copy_from_runtime(src: str, dest: str) -> None:
-            if src.endswith("broken.pdf"):
-                raise RuntimeError("copy failed")
-            with open(dest, "wb") as f:
-                f.write(b"PDF content here")
+        def read_file(path: str) -> bytes:
+            if path.endswith("broken.pdf"):
+                raise FileNotFoundError("copy failed")
+            return b"PDF content here"
 
-        mock_session.copy_from_runtime = copy_from_runtime
-        mock_session_class.return_value = mock_session
+        mock_session.read_file = read_file
+        mock_session_class.return_value = pool_of(mock_session)
 
         parsed = json.loads(execute_code.invoke({"code": "generate_pdfs()"}))
 
@@ -339,14 +261,14 @@ class TestExecuteCode:
 
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
     @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
-    @patch("llm_sandbox.SandboxSession")
+    @patch("src.agent.tools.code_execution.get_sandbox_pool")
     def test_handles_timeout(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
         """Should handle execution timeout."""
         mock_session = MagicMock()
         mock_session.__enter__ = MagicMock(return_value=mock_session)
         mock_session.__exit__ = MagicMock(return_value=False)
         mock_session.run.side_effect = TimeoutError("Execution timed out")
-        mock_session_class.return_value = mock_session
+        mock_session_class.return_value = pool_of(mock_session)
 
         result = execute_code.invoke({"code": "while True: pass"})
         parsed = json.loads(result)
@@ -356,19 +278,18 @@ class TestExecuteCode:
 
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
     @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
-    @patch("llm_sandbox.SandboxSession")
+    @patch("src.agent.tools.code_execution.get_sandbox_pool")
     def test_the_sandbox_libraries_timeout_is_reported_as_one(
         self, mock_session_class: MagicMock, mock_check: MagicMock
     ) -> None:
-        """llm-sandbox raises its own SandboxTimeoutError, not TimeoutError
-        (Nov 15 2026 audit)."""
-        from llm_sandbox.exceptions import SandboxTimeoutError
+        """The sandbox's own timeout is reported with the configured limit."""
+        from src.agent.tools.docker_sandbox import SandboxTimeoutError
 
         mock_session = MagicMock()
         mock_session.__enter__ = MagicMock(return_value=mock_session)
         mock_session.__exit__ = MagicMock(return_value=False)
-        mock_session.run.side_effect = SandboxTimeoutError("took too long", 30)
-        mock_session_class.return_value = mock_session
+        mock_session.run.side_effect = SandboxTimeoutError("timed out after 30 s")
+        mock_session_class.return_value = pool_of(mock_session)
 
         parsed = json.loads(execute_code.invoke({"code": "while True: pass"}))
 
@@ -376,16 +297,23 @@ class TestExecuteCode:
             f"Code execution timed out after {Config.CODE_SANDBOX_TIMEOUT_SECONDS} seconds."
         )
 
-    def test_the_session_uses_the_configured_timeout(self) -> None:
-        """llm-sandbox's own default is 60 s; the model is told 30 (audit)."""
-        from src.agent.tools.code_execution import SANDBOX_SESSION_KWARGS
-
-        assert SANDBOX_SESSION_KWARGS["execution_timeout"] == Config.CODE_SANDBOX_TIMEOUT_SECONDS
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
+    @patch("src.agent.tools.code_execution.get_sandbox_pool")
+    def test_the_session_uses_the_configured_timeout(
+        self, mock_get_pool: MagicMock, mock_check: MagicMock
+    ) -> None:
+        """The model is told CODE_SANDBOX_TIMEOUT_SECONDS; the run enforces it."""
+        session = MagicMock()
+        session.run.return_value = MagicMock(exit_code=0, stdout="", stderr="")
+        mock_get_pool.return_value = pool_of(session)
+        execute_code.invoke({"code": "print(1)"})
+        assert session.run.call_args.kwargs == {"timeout_s": Config.CODE_SANDBOX_TIMEOUT_SECONDS}
         assert f"{Config.CODE_SANDBOX_TIMEOUT_SECONDS} s timeout" in execute_code.description
 
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
     @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
-    @patch("llm_sandbox.SandboxSession")
+    @patch("src.agent.tools.code_execution.get_sandbox_pool")
     def test_handles_docker_error(
         self, mock_session_class: MagicMock, mock_check: MagicMock
     ) -> None:
@@ -452,6 +380,8 @@ class TestSandboxLibraryListsMatchImage:
 
 class TestCancelKillsUserCode:
     def test_cancel_during_run_kills_the_user_process(self) -> None:
+        import time
+
         from src.agent import cancellation
         from src.agent.tool_results import set_current_request_id
 
@@ -459,7 +389,7 @@ class TestCancelKillsUserCode:
         token = cancellation.register_token("req-code")
         session = MagicMock()
 
-        def run(_code: str) -> MagicMock:
+        def run(_code: str, timeout_s: float) -> MagicMock:
             token.cancel()  # Stop pressed while the code runs
             return MagicMock(exit_code=137, stdout="", stderr="")
 
@@ -478,8 +408,11 @@ class TestCancelKillsUserCode:
             cancellation.unregister_token("req-code")
             set_current_request_id(None)
 
-        kill_call = session.container.exec_run.call_args
-        assert kill_call.kwargs["user"] == "root"
+        # The kill runs on its own thread
+        deadline = time.monotonic() + 1
+        while not session.kill_user_code.called and time.monotonic() < deadline:
+            time.sleep(0.01)  # polls: the kill runs on its own daemon thread
+        session.kill_user_code.assert_called_once_with()
 
 
 class TestExecuteCodeStop:
@@ -535,10 +468,10 @@ class TestKillUserCode:
         set_current_request_id("req-code-kill")
         token = cancellation.register_token("req-code-kill")
         session = MagicMock()
-        session.container.exec_run.side_effect = slow_exec
+        session.kill_user_code.side_effect = slow_exec
         cancel_took: list[float] = []
 
-        def run(_code: str) -> MagicMock:
+        def run(_code: str, timeout_s: float) -> MagicMock:
             started = time.monotonic()
             token.cancel()  # Stop pressed while the code runs
             cancel_took.append(time.monotonic() - started)
@@ -569,7 +502,7 @@ class TestExecuteCodeAttachments:
 
     @staticmethod
     def _pool(session: MagicMock) -> MagicMock:
-        result = MagicMock(exit_code=0, stdout="ok\n", stderr="", plots=[])
+        result = MagicMock(exit_code=0, stdout="ok\n", stderr="")
         session.run.return_value = result
         pool = MagicMock()
         pool.session.return_value.__enter__ = MagicMock(return_value=session)
@@ -605,9 +538,9 @@ class TestExecuteCodeAttachments:
     def test_files_are_copied_before_the_code_runs(self) -> None:
         session = MagicMock()
         order: list[str] = []
-        session.copy_to_runtime.side_effect = lambda src, dest: order.append(f"copy {dest}")
-        session.run.side_effect = lambda code: (
-            order.append("run") or MagicMock(exit_code=0, stdout="ok\n", stderr="", plots=[])
+        session.put_file.side_effect = lambda data, dest: order.append(f"copy {dest}")
+        session.run.side_effect = lambda code, timeout_s: (
+            order.append("run") or MagicMock(exit_code=0, stdout="ok\n", stderr="")
         )
 
         result = self._invoke(session, self._file(), files=["m1:0"])
@@ -641,7 +574,7 @@ class TestExecuteCodeAttachments:
         result = self._invoke(session, self._file(), files=[f"m{i}:0" for i in range(6)])
 
         assert "5" in result["error"]
-        session.copy_to_runtime.assert_not_called()
+        session.put_file.assert_not_called()
 
     def test_files_over_the_size_limit_are_refused(self) -> None:
         from src.config import Config
@@ -652,14 +585,14 @@ class TestExecuteCodeAttachments:
         result = self._invoke(session, self._file(data=big), files=["m1:0"])
 
         assert "error" in result
-        session.copy_to_runtime.assert_not_called()
+        session.put_file.assert_not_called()
 
     def test_without_files_nothing_changes(self) -> None:
         session = MagicMock()
 
         result = self._invoke(session, self._file())
 
-        session.copy_to_runtime.assert_not_called()
+        session.put_file.assert_not_called()
         assert "attachments" not in result
 
     def test_attachment_paths_are_safe_and_distinct(self) -> None:
@@ -721,13 +654,13 @@ class TestDockerProbe:
         now = [0.0]
         self._reset(monkeypatch, now)
         session = MagicMock()
-        session.__enter__.return_value.run.return_value = MagicMock(exit_code=0)
+        session.run.return_value = MagicMock(exit_code=0, stderr="")
         with (
             patch(
                 "src.agent.tools.code_execution.subprocess.run",
                 side_effect=[self._images(""), self._images("abc123\n")],
             ) as run,
-            patch("llm_sandbox.SandboxSession", return_value=session),
+            patch("src.agent.tools.code_execution.make_sandbox_session", return_value=session),
         ):
             assert code_execution._check_docker_available() is False
             assert code_execution._check_docker_available() is False  # within the interval
@@ -743,15 +676,34 @@ class TestDockerProbe:
         now = [0.0]
         self._reset(monkeypatch, now)
         session = MagicMock()
-        session.__enter__.return_value.run.return_value = MagicMock(exit_code=0)
+        session.run.return_value = MagicMock(exit_code=0, stderr="")
         with (
             patch(
                 "src.agent.tools.code_execution.subprocess.run",
                 return_value=self._images("abc123\n"),
             ) as run,
-            patch("llm_sandbox.SandboxSession", return_value=session),
+            patch("src.agent.tools.code_execution.make_sandbox_session", return_value=session),
         ):
             assert code_execution._check_docker_available() is True
             now[0] += 10_000
             assert code_execution._check_docker_available() is True
             assert run.call_count == 1
+
+
+def test_the_probe_runs_under_the_execution_constraints_and_cleans_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The probe opens a real-settings session, runs, and always closes it."""
+    from src.agent.tools import code_execution
+
+    monkeypatch.setattr(code_execution, "_docker_available", None)
+    session = MagicMock()
+    session.run.side_effect = RuntimeError("boom")
+    images = MagicMock(returncode=0, stdout="abc\n", stderr="")
+    with (
+        patch("src.agent.tools.code_execution.subprocess.run", return_value=images),
+        patch("src.agent.tools.code_execution.make_sandbox_session", return_value=session),
+    ):
+        assert code_execution._probe_docker_available() is False
+    session.open.assert_called_once_with()
+    session.close.assert_called_once_with()

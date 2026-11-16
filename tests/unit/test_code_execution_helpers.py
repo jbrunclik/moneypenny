@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 
 from src.agent.tools.code_execution_output import (
     build_execution_response,
-    extract_plots,
     parse_output_files_from_stdout,
     wrap_user_code,
 )
@@ -79,85 +78,6 @@ class TestParseOutputFilesFromStdout:
         assert clean == ""
 
 
-class TestExtractPlots:
-    """Tests for extract_plots helper function."""
-
-    def test_extracts_single_plot(self) -> None:
-        """Should extract a single matplotlib plot."""
-        mock_plot = MagicMock()
-        mock_plot.format = MagicMock()
-        mock_plot.format.value = "png"
-        mock_plot.content_base64 = "iVBORw0KGgo="
-
-        mock_result = MagicMock()
-        mock_result.plots = [mock_plot]
-
-        full_plots, metadata = extract_plots(mock_result)
-
-        assert len(full_plots) == 1
-        assert full_plots[0]["name"] == "plot_1.png"
-        assert full_plots[0]["data"] == "iVBORw0KGgo="
-        assert full_plots[0]["mime_type"] == "image/png"
-
-        assert len(metadata) == 1
-        assert metadata[0]["name"] == "plot_1.png"
-        assert metadata[0]["format"] == "png"
-
-    def test_extracts_multiple_plots(self) -> None:
-        """Should extract multiple plots with sequential names."""
-        mock_plot1 = MagicMock()
-        mock_plot1.format = MagicMock()
-        mock_plot1.format.value = "png"
-        mock_plot1.content_base64 = "aGVsbG8="  # Valid base64 for "hello"
-
-        mock_plot2 = MagicMock()
-        mock_plot2.format = MagicMock()
-        mock_plot2.format.value = "jpeg"
-        mock_plot2.content_base64 = "d29ybGQ="  # Valid base64 for "world"
-
-        mock_result = MagicMock()
-        mock_result.plots = [mock_plot1, mock_plot2]
-
-        full_plots, _metadata = extract_plots(mock_result)
-
-        assert len(full_plots) == 2
-        assert full_plots[0]["name"] == "plot_1.png"
-        assert full_plots[1]["name"] == "plot_2.jpeg"
-
-    def test_handles_no_plots(self) -> None:
-        """Should handle result with no plots."""
-        mock_result = MagicMock()
-        mock_result.plots = []
-
-        full_plots, metadata = extract_plots(mock_result)
-
-        assert full_plots == []
-        assert metadata == []
-
-    def test_handles_missing_plots_attribute(self) -> None:
-        """Should handle result without plots attribute."""
-        mock_result = MagicMock(spec=[])  # No attributes
-
-        full_plots, metadata = extract_plots(mock_result)
-
-        assert full_plots == []
-        assert metadata == []
-
-    def test_handles_string_format(self) -> None:
-        """Should handle format as string instead of enum."""
-        mock_plot = MagicMock()
-        mock_plot.format = "svg"  # String, not enum
-        mock_plot.content_base64 = "c3ZnX2RhdGE="  # Valid base64 for "svg_data"
-
-        mock_result = MagicMock()
-        mock_result.plots = [mock_plot]
-
-        full_plots, _metadata = extract_plots(mock_result)
-
-        assert full_plots[0]["name"] == "plot_1.svg"
-        assert full_plots[0]["mime_type"] == "image/svg"
-
-
 class TestBuildExecutionResponse:
     """Tests for build_execution_response helper function."""
 
@@ -171,7 +91,6 @@ class TestBuildExecutionResponse:
             result=mock_result,
             clean_stdout="Hello World",
             file_metadata=[],
-            plot_metadata=[],
             full_result_files=[],
         )
 
@@ -190,7 +109,6 @@ class TestBuildExecutionResponse:
             result=mock_result,
             clean_stdout="",
             file_metadata=[],
-            plot_metadata=[],
             full_result_files=[],
         )
 
@@ -212,7 +130,6 @@ class TestBuildExecutionResponse:
             result=mock_result,
             clean_stdout="",
             file_metadata=file_metadata,
-            plot_metadata=[],
             full_result_files=[],
         )
 
@@ -220,25 +137,6 @@ class TestBuildExecutionResponse:
         assert response["files"] == file_metadata
         assert "message" in response
         assert "report.pdf" in response["message"]
-
-    def test_includes_plot_metadata(self) -> None:
-        """Should include plot metadata in response."""
-        mock_result = MagicMock()
-        mock_result.exit_code = 0
-        mock_result.stderr = ""
-
-        plot_metadata = [{"format": "png", "name": "plot_1.png"}]
-
-        response = build_execution_response(
-            result=mock_result,
-            clean_stdout="",
-            file_metadata=[],
-            plot_metadata=plot_metadata,
-            full_result_files=[],
-        )
-
-        assert "plots" in response
-        assert response["plots"] == plot_metadata
 
     def test_includes_full_result_files(self) -> None:
         """Should include _full_result with file data."""
@@ -252,7 +150,6 @@ class TestBuildExecutionResponse:
             result=mock_result,
             clean_stdout="",
             file_metadata=[],
-            plot_metadata=[],
             full_result_files=full_files,
         )
 
@@ -260,7 +157,7 @@ class TestBuildExecutionResponse:
         assert response["_full_result"]["files"] == full_files
 
     def test_omits_empty_sections(self) -> None:
-        """Should not include files/plots keys when empty."""
+        """Should not include files keys when empty."""
         mock_result = MagicMock()
         mock_result.exit_code = 0
         mock_result.stderr = ""
@@ -269,12 +166,10 @@ class TestBuildExecutionResponse:
             result=mock_result,
             clean_stdout="output",
             file_metadata=[],
-            plot_metadata=[],
             full_result_files=[],
         )
 
         assert "files" not in response
-        assert "plots" not in response
         assert "_full_result" not in response
         assert "message" not in response
 
@@ -288,8 +183,17 @@ class TestBuildExecutionResponse:
             result=mock_result,
             clean_stdout="",
             file_metadata=[],
-            plot_metadata=[],
             full_result_files=[],
         )
 
         assert response["stderr"] == ""
+
+
+class TestDiskFull:
+    def test_a_full_sandbox_disk_is_explained(self) -> None:
+        """/work is memory-backed and capped (Nov 16 2026): say so on ENOSPC."""
+        result = MagicMock(exit_code=1, stderr="OSError: [Errno 28] No space left on device")
+        response = build_execution_response(
+            result=result, clean_stdout="", file_metadata=[], full_result_files=[]
+        )
+        assert "The sandbox disk is full: /work holds 256 MB, /output 64 MB" in response["stderr"]

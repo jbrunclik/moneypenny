@@ -39,6 +39,17 @@ RUN pip install --no-cache-dir \
 COPY sandbox_helpers.py /opt/helpers/sandbox_helpers.py
 ENV PYTHONPATH=/opt/helpers
 
+# Code runs as this user, never root (Nov 16 2026). The uid matches
+# SANDBOX_UID in src/agent/tools/docker_sandbox.py; /work, /output and /tmp
+# are memory-backed mounts owned by it, the root filesystem is read-only.
+# HOME and MPLCONFIGDIR point at writable places: matplotlib and friends
+# write caches on import.
+RUN groupadd --gid 10001 sandbox && \
+    useradd --uid 10001 --gid 10001 --no-create-home --home-dir /work sandbox
+ENV HOME=/work MPLCONFIGDIR=/tmp/matplotlib XDG_CACHE_HOME=/tmp/cache
+USER 10001:10001
+WORKDIR /work
+
 # Add labels to identify our custom image and enable cleanup of old versions
 LABEL moneypenny.sandbox=true \
-      moneypenny.version=1.2
+      moneypenny.version=1.3

@@ -11,5 +11,7 @@ known_first_party = ["src", "evals", "tests", "scripts"]
 extend_exclude = ["docker"]
 
 [tool.deptry.per_rule_ignores]
-# Run by the systemd unit (gunicorn src.app:...), never imported
-DEP002 = ["gunicorn"]
+# gunicorn: run by the systemd unit (gunicorn src.app:...), never imported.
+# docker: imported by name (importlib) in src/agent/tools/docker_sandbox.py -
+# a plain `import docker` resolves to the repo's docker/ directory in mypy
+DEP002 = ["gunicorn", "docker"]

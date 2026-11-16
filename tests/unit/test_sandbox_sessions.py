@@ -1,6 +1,7 @@
 """Tests for the per-conversation sandbox session pool."""
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -79,6 +80,17 @@ class TestSandboxSessionPool:
             pass
         assert s2 is not s1
 
+    def test_a_docker_killed_session_is_replaced(self) -> None:
+        """A fork bomb blocks every exec, so the kill falls back to docker kill
+        and marks the session dead: the next call gets a fresh container."""
+        pool = make_pool()
+        with pool.session("conv-1") as s1:
+            s1.alive = False
+        with pool.session("conv-1") as s2:
+            pass
+        assert s1.closed
+        assert s2 is not s1
+
     def test_ttl_cleanup(self) -> None:
         pool = make_pool()
         with pool.session("a") as sa:
@@ -124,11 +136,18 @@ class TestOrphanReaping:
     """A killed process (SIGTERM/SIGKILL skip atexit) strands its pooled
     containers; the next pool start removes those whose owner is gone."""
 
-    def test_containers_are_labelled_with_owner_pid(self) -> None:
-        from src.agent.tools.code_execution import sandbox_runtime_configs
+    def test_containers_are_labelled_with_owner_pid(self, tmp_path: Path) -> None:
+        from types import SimpleNamespace
 
-        labels = sandbox_runtime_configs()["labels"]
-        assert labels[OWNER_PID_LABEL] == str(os.getpid())
+        from src.agent.tools.docker_sandbox import DockerSandbox
+
+        runs: list[dict[str, object]] = []
+        client = SimpleNamespace(
+            containers=SimpleNamespace(run=lambda *args, **kwargs: runs.append(kwargs))
+        )
+        DockerSandbox(client, "img", tmp_path).open()
+        [kwargs] = runs
+        assert kwargs["labels"] == {OWNER_PID_LABEL: str(os.getpid())}
 
     def test_removes_containers_whose_owner_died(self) -> None:
         dead = FakeContainer("dead", "111")

@@ -19,6 +19,12 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
+from src.agent.tools.docker_sandbox import (
+    OWNER_PID_LABEL,
+    DockerSandbox,
+    docker_client,
+    reap_staging_dirs,
+)
 from src.config import Config
 from src.utils.lazy import Lazy
 from src.utils.logging import get_logger
@@ -30,7 +36,6 @@ _CLEANUP_INTERVAL_SECONDS = 60
 # Every sandbox container carries its creator's PID. atexit (close_all) never
 # runs when the process is killed - SIGTERM/SIGKILL of a test run, dev server
 # or worker - so the next pool start reaps containers whose owner is gone.
-OWNER_PID_LABEL = "moneypenny.owner_pid"
 
 
 @dataclass
@@ -83,6 +88,10 @@ class SandboxSessionPool:
 
         with self._pool_lock:
             entry = self._entries.pop(key, None)
+            if entry is not None and not getattr(entry.session, "alive", True):
+                # docker-killed (a fork bomb held every pid): its /work is gone
+                self._close_quietly(entry.session)
+                entry = None
             if entry is None:
                 entry = _Entry(session=self._open_session(), last_used=time.monotonic())
             self._entries[key] = entry  # re-insert = move to MRU position
@@ -134,16 +143,10 @@ class SandboxSessionPool:
 # ============ Module Singleton ============
 
 
-def _make_docker_session() -> Any:
-    """Factory for real Docker sandbox sessions (shared settings with execute_code)."""
-    from llm_sandbox import SandboxSession  # noqa: PLC0415 - docker client kept off startup
-
-    from src.agent.tools.code_execution import SANDBOX_SESSION_KWARGS, sandbox_runtime_configs  # noqa: PLC0415 - cycle: code_execution imports this module
-
-    return SandboxSession(
-        image=Config.CODE_SANDBOX_IMAGE,
-        runtime_configs=sandbox_runtime_configs(),
-        **SANDBOX_SESSION_KWARGS,
+def make_sandbox_session() -> DockerSandbox:
+    """A real Docker sandbox session (not yet opened)."""
+    return DockerSandbox(
+        docker_client(), Config.CODE_SANDBOX_IMAGE, Config.CODE_SANDBOX_STAGING_DIR
     )
 
 
@@ -176,11 +179,14 @@ def reap_orphaned_containers(client: Any, pid_alive: Callable[[int], bool] = _pi
 
 def _reap_orphans_quietly() -> None:
     try:
-        # An unopened session holds a ready Docker client (no container yet);
-        # importing `docker` here would resolve to the repo's docker/ dir in mypy
-        reap_orphaned_containers(_make_docker_session().client)
+        reap_orphaned_containers(docker_client())
     except Exception:
         logger.warning("Orphaned sandbox container cleanup failed", exc_info=True)
+    try:
+        if removed := reap_staging_dirs(Config.CODE_SANDBOX_STAGING_DIR, _pid_alive):
+            logger.info("Removed orphaned sandbox staging dirs", extra={"count": removed})
+    except Exception:
+        logger.warning("Orphaned sandbox staging cleanup failed", exc_info=True)
 
 
 def _cleanup_loop(pool: SandboxSessionPool) -> None:
@@ -195,7 +201,7 @@ def _cleanup_loop(pool: SandboxSessionPool) -> None:
 
 def _new_pool() -> SandboxSessionPool:
     pool = SandboxSessionPool(
-        factory=_make_docker_session,
+        factory=make_sandbox_session,
         max_sessions=Config.CODE_SANDBOX_MAX_SESSIONS,
         ttl_seconds=Config.CODE_SANDBOX_SESSION_TTL_SECONDS,
     )
