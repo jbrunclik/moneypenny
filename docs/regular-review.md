@@ -130,7 +130,8 @@ The review itself changes nothing in production and edits nothing but
 - Where reply time goes (from Nov 15 2026; `message_costs.turn_timing`, JSON): median
   and p90 of `json_extract(turn_timing, '$.first_token_ms')` for streamed turns, and of
   `gate_ms`, `lookup_ms` (when `gate_lookup`), `model_ms` and `model_calls`, split by
-  `thinking`; `finish_reason` other than `STOP` (MAX_TOKENS, SAFETY) is a finding.
+  `thinking`; the gate's early start saves `gate_call_ms - gate_ms` (from Nov 16 2026:
+  median and the share of turns where it saves over 0.3 s); `finish_reason` other than `STOP` (MAX_TOKENS, SAFETY) is a finding.
   `max_silence_ms` (from Nov 15 2026; streamed turns only): the longest stretch inside a
   model call with no chunk - it includes the model's thinking before its first thought
   summary, so judge outliers against `thinking`; silences far beyond the healthy turns'

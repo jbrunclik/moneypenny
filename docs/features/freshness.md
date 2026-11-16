@@ -46,6 +46,18 @@ So every measure below rides on code or on tool results.
    from memory - the case passes about a third of the time and stays a
    baseline target. Such a claim is now flagged when its only support is an old
    article (the grounding age rule) or no page at all.
+   The chat routes start the gate as soon as the turn is accepted
+   (`build_turn_context` -> `freshness.start_gate`, Nov 16 2026), so it runs
+   while the standing context loads, the history is compacted and the prompt
+   is built; the agent then waits only for what is left
+   (`decide_freshness(messages, pending)`, the cap counted from the start).
+   From the route the gate sees the agent's text (with its guidance notes), the
+   previous reply and the attachment count (images, PDFs, media) - not the
+   text extracted from attached office documents. Not started for the planner
+   or a deep-research run; scheduled jobs start it in the agent as before.
+   `turn_timing.gate_call_ms` is the call's own time, `gate_ms` what the turn
+   waited. First local turns saved under 0.1 s (preparation is short without
+   attachments or compaction).
 2. A yes comes with 1-3 queries, each anchored in time (month and year, or the
    year). `prefetch_messages()` runs `research` with them and appends the call
    and its result to the turn, so the chat model starts from current pages and

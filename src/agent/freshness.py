@@ -24,8 +24,9 @@ thinking, never a failed turn.
 import contextvars
 import json
 import re
+import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass, field
 from datetime import date
@@ -82,6 +83,22 @@ class FreshnessDecision:
     # The gate's thinking level for the turn; None (no answer: failed, timed
     # out, off) runs the model's own default
     thinking: ThinkingChoice | None = None
+    # The gate call's own duration; the turn waited less when it was started
+    # early (turn_timing gate_call_ms against gate_ms)
+    call_ms: int | None = None
+
+
+_GateAnswer = tuple[GateVerdict | None, dict[str, object] | None, int]
+
+
+@dataclass
+class PendingGate:
+    """A gate call already running: the route starts it when the turn is
+    accepted, so it runs while history, compaction and the prompt are built
+    (Nov 16 2026: in series it added a median 943 ms before every turn)."""
+
+    future: Future[_GateAnswer]
+    started: float  # time.monotonic() at submission
 
 
 def _today() -> date:
@@ -158,17 +175,41 @@ def _ask_gate(
     return (parsed if isinstance(parsed, GateVerdict) else None), _usage(out.get("raw"))
 
 
-def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
-    """Whether this turn's answer needs a fresh lookup first. Fails open."""
-    user, previous = latest_exchange(messages)
+def _timed_ask(user: str, previous: str, attachments: int) -> _GateAnswer:
+    started = time.monotonic()
+    verdict, usage = _ask_gate(user, previous, attachments)
+    return verdict, usage, round((time.monotonic() - started) * 1000)
+
+
+def start_gate(user: str, previous: str, attachments: int) -> PendingGate | None:
+    """Start the gate call for a turn's latest exchange; None when the gate is
+    off or the message has no text."""
+    user, previous = _text(user), _text(previous)
     if not Config.FRESHNESS_GATE_ENABLED or not user:
-        return FreshnessDecision(lookup=False)
-    # The gate runs before every regular turn: past its cap the turn goes on
-    # without it (the call finishes in the background and is dropped)
+        return None
     context = contextvars.copy_context()
-    future = _GATE_POOL.submit(context.run, _ask_gate, user, previous, _attachments(messages))
+    future = _GATE_POOL.submit(context.run, _timed_ask, user, previous, attachments)
+    return PendingGate(future=future, started=time.monotonic())
+
+
+def decide_freshness(
+    messages: list[BaseMessage], pending: PendingGate | None = None
+) -> FreshnessDecision:
+    """Whether this turn's answer needs a fresh lookup first. Fails open.
+
+    ``pending``: the gate the route already started for this turn; without
+    one it starts here, from the built messages.
+    """
+    if pending is None:
+        user, previous = latest_exchange(messages)
+        pending = start_gate(user, previous, _attachments(messages))
+    if pending is None:
+        return FreshnessDecision(lookup=False)
+    # The gate runs before every regular turn: past its cap (counted from its
+    # start) the turn goes on without it (the call finishes and is dropped)
+    remaining = pending.started + Config.FRESHNESS_GATE_TIMEOUT_SECONDS - time.monotonic()
     try:
-        verdict, usage = future.result(timeout=Config.FRESHNESS_GATE_TIMEOUT_SECONDS)
+        verdict, usage, call_ms = pending.future.result(timeout=max(0.0, remaining))
     except FutureTimeout:
         logger.warning(
             "Freshness gate timed out",
@@ -194,6 +235,7 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
             "reason": reason,
             "disputed": disputed,
             "thinking": thinking,
+            "call_ms": call_ms,
         },
     )
     return FreshnessDecision(
@@ -203,6 +245,7 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
         usage=usage,
         disputed=disputed and lookup,
         thinking=thinking,
+        call_ms=call_ms,
     )
 
 

@@ -9,7 +9,7 @@ import base64
 import binascii
 import json
 import time
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
@@ -114,6 +114,17 @@ def _file_block(file: dict[str, Any]) -> dict[Any, Any] | None:
         "type": "text",
         "text": f"\n--- Content of {file_name} ---\n{decoded}\n--- End of {file_name} ---\n",
     }
+
+
+def attachment_count(files: Sequence[Mapping[str, object]] | None) -> int:
+    """The attachments the model receives as images, PDFs or media - not as text."""
+    return sum(
+        1
+        for f in files or []
+        if (mime := str(f.get("type", ""))).startswith("image/")
+        or mime == "application/pdf"
+        or is_media_mime(mime)
+    )
 
 
 def build_message_content(

@@ -71,10 +71,12 @@ def test_the_turns_timing() -> None:
     clock.gate_ms = 900
     clock.lookup_ms = 2500
     clock.model.calls, clock.model.ms, clock.model.finish_reason = 2, 6400, "STOP"
-    decision = SimpleNamespace(lookup=True, thinking="high")
+    # The gate ran 1300 ms, started early: the turn waited 900 of them
+    decision = SimpleNamespace(lookup=True, thinking="high", call_ms=1300)
     assert clock.timing(first_token_at=104.25, decision=decision) == {
         "first_token_ms": 4250,
         "gate_ms": 900,
+        "gate_call_ms": 1300,
         "lookup_ms": 2500,
         "model_ms": 6400,
         "model_calls": 2,

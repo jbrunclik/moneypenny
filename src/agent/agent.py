@@ -20,7 +20,7 @@ from src.agent.context_cache import (
     get_cached_content_name,
     supports_explicit_cache,
 )
-from src.agent.freshness import FreshnessDecision, freshness_tool_event
+from src.agent.freshness import FreshnessDecision, PendingGate, freshness_tool_event
 from src.agent.graph import get_graph_config
 from src.agent.graph_cache import get_compiled_graph
 from src.agent.message_content import build_message_content, history_to_messages
@@ -208,11 +208,13 @@ class ChatAgent:
             else None
         )
 
-    def _freshness_decision(self, messages: list[BaseMessage]) -> FreshnessDecision | None:
+    def _freshness_decision(
+        self, messages: list[BaseMessage], pending: PendingGate | None
+    ) -> FreshnessDecision | None:
         """The gate's decision for this turn, or None where the gate does not run."""
         if not getattr(self, "freshness_gate", False):
             return None
-        return freshness.decide_freshness(messages)
+        return freshness.decide_freshness(messages, pending)
 
     def _turn_graph(self, decision: FreshnessDecision | None) -> Any:
         """The graph for the gate's thinking level: light for low, deep for
@@ -359,6 +361,7 @@ class ChatAgent:
         conversation_id: str | None = None,
         conversation_title: str | None = None,
         conversation_facts: list[ConversationFact] | None = None,
+        freshness_gate: PendingGate | None = None,
     ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]:
         """
         Send a message and get a response (non-streaming).
@@ -407,7 +410,7 @@ class ChatAgent:
         # Run the graph
         config = with_model_timing(get_graph_config(), clock.model)
         turn_started = time.monotonic()
-        decision = self._freshness_decision(messages)
+        decision = self._freshness_decision(messages, freshness_gate)
         clock.gate_done(turn_started)
         if decision and decision.lookup:
             lookup_started = time.monotonic()
@@ -457,6 +460,7 @@ class ChatAgent:
         conversation_id: str | None = None,
         conversation_title: str | None = None,
         conversation_facts: list[ConversationFact] | None = None,
+        freshness_gate: PendingGate | None = None,
     ) -> Generator[dict[str, Any]]:
         """Stream response events including thinking, tool calls, and tokens.
 
@@ -496,7 +500,7 @@ class ChatAgent:
             conversation_facts=conversation_facts,
         )
         gate_started = time.monotonic()
-        decision = self._freshness_decision(messages)
+        decision = self._freshness_decision(messages, freshness_gate)
         clock.gate_done(gate_started)
         if decision and decision.lookup:
             # Shown like any tool call while it runs (it takes seconds)

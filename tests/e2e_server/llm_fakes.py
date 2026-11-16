@@ -239,6 +239,7 @@ def create_mock_stream_chat_events() -> Any:
         conversation_id: str | None = None,
         conversation_title: str | None = None,
         conversation_facts: list[Any] | None = None,
+        freshness_gate: object = None,
     ) -> Generator[dict[str, Any]]:
         """Mock streaming that yields structured events."""
         response_text = _mock_response_text(text)

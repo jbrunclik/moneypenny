@@ -168,6 +168,8 @@ class _GateDecision(Protocol):
     def lookup(self) -> bool: ...
     @property
     def thinking(self) -> str | None: ...
+    @property
+    def call_ms(self) -> int | None: ...
 
 
 @dataclass
@@ -211,6 +213,9 @@ class TurnClock:
         if decision is not None:
             timing["gate_lookup"] = bool(decision.lookup)
             timing["thinking"] = decision.thinking
+            # The call's own time; gate_ms is what the turn waited for it
+            # (less when the route started it early, Nov 16 2026)
+            timing["gate_call_ms"] = decision.call_ms
         return {k: v for k, v in timing.items() if v is not None}
 
 

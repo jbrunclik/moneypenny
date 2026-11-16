@@ -280,3 +280,58 @@ class TestDisputes:
         with patch.object(freshness, "_run_research", return_value=body):
             _call, result = freshness.prefetch_messages(decision, "q")
         assert "_dispute" not in str(result.content)
+
+
+class TestStartedEarly:
+    """The route starts the gate as soon as the turn is accepted, so it runs
+    while history, compaction and the prompt are built (Nov 16 2026: the gate
+    took a median 943 ms in series before every turn)."""
+
+    def test_a_started_gate_is_waited_on_not_asked_again(self) -> None:
+        verdict = freshness.GateVerdict(lookup=False, thinking="low")
+        with patch.object(freshness, "_ask_gate", return_value=(verdict, None)) as ask:
+            pending = freshness.start_gate("Jaký externí modely maj?", "Siri AI…", 0)
+            decision = freshness.decide_freshness(_TURN, pending=pending)
+        ask.assert_called_once_with("Jaký externí modely maj?", "Siri AI…", 0)
+        assert decision.thinking == "low"
+
+    def test_the_cap_counts_from_the_start(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import time
+
+        monkeypatch.setattr(Config, "FRESHNESS_GATE_TIMEOUT_SECONDS", 0.3)
+
+        def slow(*_args: Any) -> Any:
+            time.sleep(2)  # a gate call slower than its cap; nothing to poll
+            return freshness.GateVerdict(lookup=True, queries=["q"]), None
+
+        with patch.object(freshness, "_ask_gate", side_effect=slow):
+            pending = freshness.start_gate("q", "", 0)
+            time.sleep(0.25)  # the turn's preparation
+            waited = time.monotonic()
+            decision = freshness.decide_freshness(_TURN, pending=pending)
+        assert decision.lookup is False
+        assert time.monotonic() - waited < 0.2
+
+    def test_the_call_time_is_kept_apart_from_the_wait(self) -> None:
+        import time
+
+        def answer(*_args: Any) -> Any:
+            time.sleep(0.05)  # the call's own duration, to be measured
+            return freshness.GateVerdict(lookup=False), None
+
+        with patch.object(freshness, "_ask_gate", side_effect=answer):
+            pending = freshness.start_gate("q", "", 0)
+            time.sleep(0.1)  # the gate is done before the turn asks
+            decision = freshness.decide_freshness(_TURN, pending=pending)
+        assert decision.call_ms is not None and decision.call_ms >= 40
+
+    def test_disabled_starts_nothing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Config, "FRESHNESS_GATE_ENABLED", False)
+        with patch.object(freshness, "_ask_gate") as ask:
+            assert freshness.start_gate("q", "", 0) is None
+        ask.assert_not_called()
+
+    def test_an_empty_message_starts_nothing(self) -> None:
+        with patch.object(freshness, "_ask_gate") as ask:
+            assert freshness.start_gate("  ", "", 0) is None
+        ask.assert_not_called()

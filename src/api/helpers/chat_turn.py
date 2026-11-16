@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
+from src.agent import freshness
 from src.agent.agent import ChatAgent, planner_dashboard_context
 from src.agent.conversation_compaction import build_compacted_history
 from src.agent.deep_research.offer import PlanError
@@ -32,7 +33,7 @@ from src.agent.gemini_files import attach_gemini_file_uris
 from src.agent.guidance import with_guidance
 from src.agent.history import enrich_history
 from src.agent.interjection import clear_interjection
-from src.agent.message_content import annotate_history_file_ids
+from src.agent.message_content import annotate_history_file_ids, attachment_count
 from src.agent.proposals import answers_only_runs, start_turn
 from src.agent.standing import StandingContext
 from src.agent.standing_context import load_standing_context
@@ -379,6 +380,8 @@ class TurnContext:
     answered_proposals: list[Proposal] = field(default_factory=list)
     # None where the conversation keeps no facts list (conversation_facts.py)
     conversation_facts: list[ConversationFact] | None = None
+    # The freshness gate, started when the turn was accepted (None: not started)
+    freshness_gate: freshness.PendingGate | None = None
 
     @property
     def timeout_seconds(self) -> int:
@@ -445,6 +448,7 @@ class TurnContext:
             "conversation_id": self.conv_id,
             "conversation_title": self.conversation_title,
             "conversation_facts": self.conversation_facts,
+            "freshness_gate": self.freshness_gate,
         }
 
 
@@ -463,8 +467,23 @@ def _turn_model(user: User, conv: Conversation) -> str:
     return model
 
 
+def _start_freshness_gate(turn: PreparedTurn) -> freshness.PendingGate | None:
+    """The turn's freshness gate, started now so it runs while the context is
+    loaded, the history compacted and the prompt built (Nov 16 2026: in series
+    it added a median 943 ms before every turn). None where the agent runs no
+    gate: the planner and deep-research runs."""
+    if turn.deep_research is not None or turn.conv.is_planning:
+        return None
+    text = with_guidance(turn.message_text, [turn.lost_actions_note, turn.proposal_note])
+    previous = next(
+        (str(m["content"]) for m in reversed(turn.history) if m.get("role") == "assistant"), ""
+    )
+    return freshness.start_gate(text, previous, attachment_count(turn.files))
+
+
 def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnContext:
     """Load program/agent context and compact history for this turn."""
+    gate = _start_freshness_gate(turn)
     conv = turn.conv
     model = _turn_model(user, conv)
     ctx = TurnContext(
@@ -488,6 +507,7 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
         conversation_facts=load_turn_facts(conv, turn.anonymous_mode),
         is_planning=conv.is_planning,
         standing=load_standing_context(conv, user),
+        freshness_gate=gate,
     )
     if conv.is_planning:
         ctx.dashboard_data = _load_planner_dashboard(user)
