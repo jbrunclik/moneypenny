@@ -111,9 +111,14 @@ class TestSearchConversations:
 
         assert "Their chat" not in result
 
-    def test_empty_query_is_rejected(self, search_context: tuple[Database, User]) -> None:
-        """Should ask for a query rather than dumping everything."""
-        assert "required" in str(search_conversations.invoke({"query": "   "}))
+    def test_empty_query_lists_recent_chats(self, search_context: tuple[Database, User]) -> None:
+        """An empty query lists the most recent chats (not the current one)."""
+        database, user = search_context
+        _conversation_with_message(database, user, "Older chat", "first question")
+        _conversation_with_message(database, user, "Newer chat", "second question")
+        result = str(search_conversations.invoke({"query": "   "}))
+        assert result.index("Newer chat") < result.index("Older chat")
+        assert "first question" in result
 
     def test_limit_is_clamped(
         self, search_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
@@ -222,7 +227,7 @@ class TestSemanticConversationSearch:
         result = str(search_conversations.invoke({"query": "what does my dog enjoy"}))
 
         assert "Pet chat" in result
-        assert "semantic match" in result
+        assert "(meaning)" in result
 
     def test_embed_failure_degrades_to_fts_only(
         self, search_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
@@ -341,3 +346,140 @@ class TestSearchAdditions:
         )
 
         assert "not in this conversation" in result
+
+
+# --- Nov 16 2026: one ranked list, dates, the listing ----------------------
+# (docs/superpowers/specs/2026-11-16-past-chat-search-design.md)
+
+
+def _at(database: Database, conv: Conversation, when: str) -> None:
+    """Move every message of a conversation to an ISO UTC instant."""
+    with database._pool.get_connection() as conn:
+        conn.execute(
+            "UPDATE messages SET created_at = ? WHERE conversation_id = ?", (when, conv.id)
+        )
+        conn.commit()
+
+
+@pytest.fixture
+def embedded(
+    search_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+) -> tuple[Database, User]:
+    """Semantic search on, the query embedding fixed at [1, 0]."""
+    import src.agent.tools.conversation_search as module
+
+    monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
+    monkeypatch.setattr(
+        "src.db.models.embeddings.EmbeddingsMixin.embed_and_store_async", lambda *args: None
+    )
+    monkeypatch.setattr(module, "embed_text", lambda text: [1.0, 0.0])
+    return search_context
+
+
+def _embed_first(database: Database, user: User, conv: Conversation, vec: list[float]) -> None:
+    from src.utils.embeddings import pack_vector
+
+    message = database.get_messages(conv.id)[0]
+    database.upsert_embedding(user.id, "message", message.id, "test-model", 2, pack_vector(vec))
+
+
+class TestFusedSearch:
+    def test_hits_from_both_passes_rank_first_and_say_how(
+        self, embedded: tuple[Database, User]
+    ) -> None:
+        database, user = embedded
+        both = _conversation_with_message(database, user, "Both chat", "kitchen tiles grout")
+        words = _conversation_with_message(database, user, "Words chat", "tiles for the hallway")
+        meaning = _conversation_with_message(database, user, "Meaning chat", "ceramic floor")
+        _embed_first(database, user, both, [1.0, 0.0])
+        _embed_first(database, user, meaning, [0.9, 0.1])
+        del words
+
+        result = str(search_conversations.invoke({"query": "tiles"}))
+
+        assert result.index("Both chat") < result.index("Words chat")
+        assert result.index("Both chat") < result.index("Meaning chat")
+        assert result.count("Both chat") == 1
+        assert "Both chat (conversation_id=" in result
+        line = next(line for line in result.splitlines() if "Both chat" in line)
+        assert line.endswith("(words + meaning)")
+        assert next(ln for ln in result.splitlines() if "Words chat" in ln).endswith("(words)")
+        assert next(ln for ln in result.splitlines() if "Meaning chat" in ln).endswith("(meaning)")
+
+    def test_one_line_per_conversation(self, search_context: tuple[Database, User]) -> None:
+        database, user = search_context
+        conv = _conversation_with_message(database, user, "Tiles", "hexagonal tiles decision")
+        database.add_message(conv.id, "assistant", "hexagonal tiles it is")
+        result = str(search_conversations.invoke({"query": "hexagonal tiles"}))
+        assert result.count("\n- [") == 1
+
+
+class TestDateBounds:
+    def test_after_and_before_filter_both_passes(self, embedded: tuple[Database, User]) -> None:
+        database, user = embedded
+        conv = _conversation_with_message(database, user, "Bike chat", "bike service")
+        _embed_first(database, user, conv, [1.0, 0.0])
+        _at(database, conv, "2026-11-10T12:00:00.000000Z")
+
+        late = str(search_conversations.invoke({"query": "bike", "after": "2026-11-12"}))
+        early = str(search_conversations.invoke({"query": "bike", "before": "2026-11-11"}))
+        same_day = str(search_conversations.invoke({"query": "bike", "before": "2026-11-10"}))
+
+        assert "Bike chat" not in late
+        assert "Bike chat" in early
+        assert "Bike chat" in same_day  # before is inclusive of its day
+
+    def test_empty_query_with_dates_lists_the_range(
+        self, search_context: tuple[Database, User]
+    ) -> None:
+        database, user = search_context
+        old = _conversation_with_message(database, user, "Old chat", "old question")
+        new = _conversation_with_message(database, user, "Yesterday chat", "what to cook")
+        _at(database, old, "2026-11-01T12:00:00.000000Z")
+        _at(database, new, "2026-11-15T12:00:00.000000Z")
+
+        result = str(search_conversations.invoke({"after": "2026-11-15", "before": "2026-11-15"}))
+
+        assert "Yesterday chat" in result
+        assert "what to cook" in result
+        assert f"conversation_id={new.id}" in result
+        assert "Old chat" not in result
+
+    @pytest.mark.parametrize(
+        ("after", "before"), [("2026-11-14", "2026-11-12"), ("yesterday", None), (None, "15.11.")]
+    )
+    def test_bad_dates_are_a_retriable_error(
+        self, search_context: tuple[Database, User], after: str | None, before: str | None
+    ) -> None:
+        import json
+
+        args = (
+            {"query": "x"}
+            | ({"after": after} if after else {})
+            | ({"before": before} if before else {})
+        )
+        payload = json.loads(str(search_conversations.invoke(args)))
+        assert payload["error"]
+        assert payload.get("retriable", True) is True
+
+
+class TestSearchLog:
+    def test_log_line_carries_mode_dates_and_time(
+        self, search_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import src.agent.tools.conversation_search as module
+
+        database, user = search_context
+        _conversation_with_message(database, user, "Škola", "Matematické olympiády")
+        calls: list[dict[str, object]] = []
+        monkeypatch.setattr(
+            module.logger, "info", lambda msg, extra=None, **kw: calls.append(extra or {})
+        )
+
+        search_conversations.invoke({"query": "Matematická olympiáda", "after": "2026-01-01"})
+
+        [extra] = calls
+        assert extra["mode"] == "any"
+        assert extra["after"] == "2026-01-01"
+        assert extra["before"] is None
+        assert isinstance(extra["ms"], int)

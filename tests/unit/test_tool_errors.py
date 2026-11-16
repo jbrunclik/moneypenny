@@ -54,13 +54,16 @@ def test_kv_store_failures_are_recognised() -> None:
 
 
 def test_search_failures_are_recognised() -> None:
-    for tool, module in (
-        (search_memory, "src.agent.tools.memory"),
-        (search_conversations, "src.agent.tools.conversation_search"),
+    with patch("src.agent.tools.memory.get_conversation_context", return_value=("c1", "u1")):
+        result = search_memory.invoke({"query": "  "})
+    assert _recognised(result) == ("'query' is required.", True)
+    # A blank query lists recent chats (Nov 16 2026); a bad date is the failure
+    with patch(
+        "src.agent.tools.conversation_search.get_conversation_context",
+        return_value=("c1", "u1"),
     ):
-        with patch(f"{module}.get_conversation_context", return_value=("c1", "u1")):
-            result = tool.invoke({"query": "  "})
-        assert _recognised(result) == ("'query' is required.", True), tool.name
+        result = search_conversations.invoke({"query": "x", "after": "yesterday"})
+    assert _recognised(result) == ("'after' and 'before' must be dates as YYYY-MM-DD.", True)
 
 
 def test_trigger_agent_outside_an_agent_is_a_permanent_failure() -> None:

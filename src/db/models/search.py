@@ -6,10 +6,13 @@ Contains full-text search functionality using FTS5.
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import replace
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from src.db.models.dataclasses import SearchResult
-from src.db.models.timestamps import from_db_or_none
+from src.config import Config
+from src.db.models.dataclasses import RecentConversation, SearchResult
+from src.db.models.timestamps import from_db, from_db_or_none, to_db
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -38,101 +41,179 @@ class SearchMixin:
         query: str,
         limit: int = 20,
         offset: int = 0,
+        after: datetime | None = None,
+        before: datetime | None = None,
     ) -> tuple[list[SearchResult], int]:
-        """Search conversations and messages using FTS5 full-text search.
+        """Search conversation titles and messages (FTS5, BM25 ranked).
 
-        Uses BM25 ranking algorithm for relevance scoring. Searches both
-        conversation titles and message content. Results are ordered by
-        relevance (best matches first).
+        Every word is a prefix and all must match. When that finds fewer than
+        ``CONVERSATION_SEARCH_FALLBACK_MIN_RESULTS``, an any-word query with
+        Czech endings trimmed runs too and its new hits follow the strict ones
+        (``match_mode="any"``) - one inflected or wrong word no longer empties
+        the result. ``after`` (inclusive) and ``before`` (exclusive) bound the
+        message time (a title match: any of the conversation's messages).
 
-        The query supports prefix matching - each word is automatically
-        treated as a prefix (e.g., "hel wor" matches "hello world").
-
-        Args:
-            user_id: The user ID (only searches this user's data)
-            query: Search query text
-            limit: Maximum number of results to return (default: 20)
-            offset: Number of results to skip for pagination (default: 0)
-
-        Returns:
-            Tuple of:
-            - List of SearchResult objects ordered by relevance
-            - Total count of matching results (for pagination UI)
+        Returns the page of results and the total after deduplication.
         """
-        # Clean and validate query
         query = query.strip()
-        fts_query = _fts_query(query)
-        if not fts_query:
+        strict = fts_query(query)
+        if not strict:
             return [], 0
 
         with self._pool.get_connection() as conn:
-            # Get ranked results with conversation titles
-            # bm25() returns negative scores where more negative = better match
-            # snippet() returns text with highlight markers around matches
-            #
-            # Note: We fetch ALL matching results and deduplicate in Python because:
-            # 1. FTS5's bm25() and snippet() functions don't work with GROUP BY
-            # 2. The search index may have duplicate entries for the same message
-            # 3. We need accurate total counts after deduplication
+            unique_results = _unique_results(self._match_rows(conn, user_id, strict, after, before))
+            if len(unique_results) < Config.CONVERSATION_SEARCH_FALLBACK_MIN_RESULTS:
+                any_query = fts_query(query, any_words=True)
+                if any_query != strict:
+                    seen = {r.message_id or r.conversation_id for r in unique_results}
+                    unique_results += [
+                        replace(r, match_mode="any")
+                        for r in _unique_results(
+                            self._match_rows(conn, user_id, any_query, after, before)
+                        )
+                        if (r.message_id or r.conversation_id) not in seen
+                    ]
+
+        total_count = len(unique_results)
+        paginated_results = unique_results[offset : offset + limit]
+        logger.debug(
+            "Search completed",
+            extra={
+                "user_id": user_id,
+                "query": query,
+                "results": len(paginated_results),
+                "total": total_count,
+            },
+        )
+        return paginated_results, total_count
+
+    def _match_rows(
+        self,
+        conn: sqlite3.Connection,
+        user_id: str,
+        match: str,
+        after: datetime | None,
+        before: datetime | None,
+    ) -> list[sqlite3.Row]:
+        """The ranked FTS rows for one MATCH expression ([] if FTS rejects it).
+
+        bm25() is negative, more negative = better; it and snippet() don't
+        work with GROUP BY, so duplicates are dropped in Python.
+        """
+        after_db = to_db(after) if after else None
+        before_db = to_db(before) if before else None
+        bounds = (after_db, after_db, before_db, before_db)
+        try:
+            return list(
+                self._execute_with_timing(
+                    conn,
+                    """
+                    SELECT
+                        si.conversation_id,
+                        c.title as conversation_title,
+                        si.message_id,
+                        CASE
+                            WHEN si.type = 'message' THEN snippet(
+                                search_index, 5, '[[HIGHLIGHT]]', '[[/HIGHLIGHT]]', '...', 32
+                            )
+                            ELSE NULL
+                        END as message_snippet,
+                        si.type as match_type,
+                        bm25(search_index) as rank,
+                        m.created_at as message_created_at
+                    FROM search_index si
+                    JOIN conversations c ON c.id = si.conversation_id
+                    LEFT JOIN messages m ON m.id = si.message_id
+                    WHERE si.user_id = ? AND search_index MATCH ?
+                      AND c.deleted_at IS NULL
+                      AND (
+                        (? IS NULL AND ? IS NULL)
+                        OR (m.id IS NOT NULL
+                            AND (? IS NULL OR m.created_at >= ?)
+                            AND (? IS NULL OR m.created_at < ?))
+                        OR (m.id IS NULL AND EXISTS (
+                            SELECT 1 FROM messages mm WHERE mm.conversation_id = c.id
+                              AND (? IS NULL OR mm.created_at >= ?)
+                              AND (? IS NULL OR mm.created_at < ?)))
+                      )
+                    ORDER BY rank ASC, message_created_at DESC NULLS LAST
+                    """,
+                    (user_id, match, after_db, before_db, *bounds, *bounds),
+                ).fetchall()
+            )
+        except sqlite3.OperationalError as exc:
+            # A query the FTS5 grammar still rejects after escaping: no hits
+            logger.warning("Search query rejected", extra={"error": str(exc)})
+            return []
+
+    def recent_conversations(
+        self,
+        user_id: str,
+        after: datetime | None,
+        before: datetime | None,
+        limit: int,
+    ) -> list[RecentConversation]:
+        """Conversations with a message in ``[after, before)``, newest activity first.
+
+        Each comes with its first user message (cut to 200 chars) so a list
+        answers "what did we talk about yesterday"; trashed ones are left out.
+        """
+        after_db = to_db(after) if after else None
+        before_db = to_db(before) if before else None
+        with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 """
-                SELECT
-                    si.conversation_id,
-                    c.title as conversation_title,
-                    si.message_id,
-                    CASE
-                        WHEN si.type = 'message' THEN snippet(
-                            search_index, 5, '[[HIGHLIGHT]]', '[[/HIGHLIGHT]]', '...', 32
-                        )
-                        ELSE NULL
-                    END as message_snippet,
-                    si.type as match_type,
-                    bm25(search_index) as rank,
-                    m.created_at as message_created_at
-                FROM search_index si
-                JOIN conversations c ON c.id = si.conversation_id
-                LEFT JOIN messages m ON m.id = si.message_id
-                WHERE si.user_id = ? AND search_index MATCH ? AND c.deleted_at IS NULL
-                ORDER BY rank ASC, message_created_at DESC NULLS LAST
+                SELECT c.id, c.title, MAX(m.created_at) AS last_at,
+                       (SELECT u.content FROM messages u
+                         WHERE u.conversation_id = c.id AND u.role = 'user'
+                         ORDER BY u.created_at LIMIT 1) AS first_user
+                FROM conversations c
+                JOIN messages m ON m.conversation_id = c.id
+                WHERE c.user_id = ? AND c.deleted_at IS NULL
+                  AND (? IS NULL OR m.created_at >= ?)
+                  AND (? IS NULL OR m.created_at < ?)
+                GROUP BY c.id
+                ORDER BY last_at DESC
+                LIMIT ?
                 """,
-                (user_id, fts_query),
+                (user_id, after_db, after_db, before_db, before_db, limit),
             ).fetchall()
-
-            if not rows:
-                return [], 0
-
-            unique_results = _unique_results(rows)
-
-            # Total count is the number of unique results
-            total_count = len(unique_results)
-
-            # Apply pagination after deduplication
-            paginated_results = unique_results[offset : offset + limit]
-
-            logger.debug(
-                "Search completed",
-                extra={
-                    "user_id": user_id,
-                    "query": query,
-                    "results": len(paginated_results),
-                    "total": total_count,
-                },
+        return [
+            RecentConversation(
+                conversation_id=row[0],
+                title=row[1],
+                last_message_at=from_db(row[2]),
+                first_user_message=(row[3] or "")[:_FIRST_MESSAGE_CHARS],
             )
+            for row in rows
+        ]
 
-            return paginated_results, total_count
+
+# The recent-chats listing shows this much of each chat's first user message
+_FIRST_MESSAGE_CHARS = 200
+
+# The any-word fallback: words shorter than this are dropped (unless no word
+# is left), longer ones from _TRIM_FROM lose _TRIM_CHARS as a crude Czech
+# ending trim ("olympiáda" -> "olympiá*" also matches "olympiády")
+_ANY_MIN_WORD = 3
+_TRIM_FROM = 6
+_TRIM_CHARS = 2
 
 
-def _fts_query(query: str) -> str:
-    """The FTS5 MATCH expression for a stripped query ("" when it has no words)."""
-    # Escape FTS5 special characters to prevent query syntax errors
-    # FTS5 special chars: " * ( ) : ^ -
-    escaped_query = query.replace('"', '""')
+def fts_query(query: str, any_words: bool = False) -> str:
+    """The FTS5 MATCH expression for a stripped query ("" when it has no words).
 
-    # Build prefix-matching query: "hello world" -> "hello"* "world"*
-    # This provides better type-ahead search experience
-    words = escaped_query.split()
-    return " ".join(f'"{word}"*' for word in words if word)
+    Default: every word a prefix, all required ("hel wor" matches "hello
+    world"). ``any_words``: the words ORed, short ones dropped, long ones
+    trimmed. Quotes are doubled after trimming so no escape is cut in half.
+    """
+    words = [word for word in query.split() if word]
+    if any_words:
+        kept = [word for word in words if len(word) >= _ANY_MIN_WORD] or words
+        words = [word[:-_TRIM_CHARS] if len(word) >= _TRIM_FROM else word for word in kept]
+    quoted = [f'"{word.replace(chr(34), chr(34) * 2)}"*' for word in words]
+    return (" OR " if any_words else " ").join(quoted)
 
 
 def _unique_results(rows: list[sqlite3.Row]) -> list[SearchResult]:

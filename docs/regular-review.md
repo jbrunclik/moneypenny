@@ -181,6 +181,10 @@ The review itself changes nothing in production and edits nothing but
   against all checklist artifacts, and the "Artifact read" lines with
   `checklist_items > 0` - do people tick items, and does the agent read them
   when asked what is left?
+- Past-chat search: the "Conversation search via tool" lines - the share with
+  `results` 0 (no keyword hit; 11 of 12 before the Nov 16 2026 fallback), the
+  `mode` mix (`any` = the fallback found what strict matching missed) and the
+  median `ms`.
 - When a change to the agent is pending or quality looks worse: `make eval`
   (costs money - report the cost; the full suite is about $8 on Hydrogen, so
   run the affected cases with `--only` first).

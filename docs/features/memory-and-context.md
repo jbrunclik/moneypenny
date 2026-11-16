@@ -177,14 +177,24 @@ Additional guards:
 Memory holds a small set of curated facts. Everything else that was ever discussed is
 reachable through search instead, which is what keeps the bank small:
 
-- `search_conversations(query, limit)` - FTS5 keyword search over the user's own history,
-  excluding the current conversation (already in context), **merged with semantic
-  matches** (embedding cosine over stored message vectors, labelled `(semantic match)`,
-  one per conversation) so paraphrases of past discussions are findable. Each hit names its
-  `message_id`. Scheduled agents' runs are not in the keyword index but their messages are
-  embedded: in the results they rank after the family's own chats and are labelled
-  `(scheduled agent)` (Nov 2026). The description says to search before asking the user to
-  repeat something
+- `search_conversations(query="", limit=10, after=None, before=None)` - search over the
+  user's own history, excluding the current conversation (already in context). Keyword
+  (FTS5) and semantic hits (embedding cosine over stored message vectors) are **fused by
+  reciprocal rank** (`1/(60 + rank)` per list, Nov 16 2026) into one list, one line per
+  conversation, each tagged `(words)`, `(meaning)` or `(words + meaning)` and naming its
+  `message_id`. When every-word matching finds fewer than
+  `CONVERSATION_SEARCH_FALLBACK_MIN_RESULTS` (3), an any-word query runs too, with words
+  under 3 letters dropped and words of 6+ letters trimmed by 2 as a crude Czech ending
+  trim ("olympiáda" -> `olympiá*`); its hits follow the strict ones. Before this, 11 of
+  12 agent searches found nothing by keyword (Nov 13-16 journal). `after`/`before` are
+  `YYYY-MM-DD`, both inclusive in the app's timezone, and bound both passes; a bad or
+  reversed date is a retriable error. **No query** lists conversations by latest activity
+  (date, title, first user message) - "what did we talk about yesterday". Scheduled
+  agents' runs are not in the keyword index but their messages are embedded: they rank
+  after the family's own chats and are labelled `(scheduled agent)`. The "Conversation
+  search via tool" line carries `mode` (`all`/`any`/`list`), `results` (conversations
+  with a keyword hit), `semantic` (meaning only), `after`, `before`, `ms`. The
+  description says to search before asking the user to repeat something
 - `read_conversation(conversation_id, max_messages, around_message_id=None)` - read the
   exchange behind a match; with a hit's `message_id` it returns a window centred on it
   (`get_messages_around`, as the UI's search jump) instead of the latest messages, which in

@@ -728,6 +728,10 @@ class Config:
     # Episodic recall: searching/reading past conversations. These bound how much
     # history one tool call can pull into the context window.
     CONVERSATION_SEARCH_MAX_RESULTS: int = int(os.getenv("CONVERSATION_SEARCH_MAX_RESULTS", "25"))
+    # Fewer strict (every word) hits than this and past-chat search also runs
+    # an any-word query with Czech endings trimmed (Nov 16 2026: 11 of 12
+    # agent searches found nothing by keyword)
+    CONVERSATION_SEARCH_FALLBACK_MIN_RESULTS: int = 3
     CONVERSATION_READ_MAX_MESSAGES: int = int(os.getenv("CONVERSATION_READ_MAX_MESSAGES", "100"))
     CONVERSATION_READ_MAX_CHARS_PER_MESSAGE: int = int(
         os.getenv("CONVERSATION_READ_MAX_CHARS_PER_MESSAGE", "2000")

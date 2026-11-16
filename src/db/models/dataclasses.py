@@ -264,6 +264,17 @@ class SearchResult:
     match_type: str  # "conversation" or "message"
     rank: float  # BM25 relevance score (lower is better)
     created_at: datetime | None  # Message timestamp (None for title matches)
+    match_mode: str = "all"  # "all": every word matched; "any": the any-word fallback
+
+
+@dataclass
+class RecentConversation:
+    """A conversation active in a date range (the past-chat listing)."""
+
+    conversation_id: str
+    title: str | None
+    last_message_at: datetime
+    first_user_message: str
 
 
 # ============ Job Dataclasses ============

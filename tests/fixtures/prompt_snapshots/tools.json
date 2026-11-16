@@ -935,7 +935,7 @@
     }
   },
   {
-    "description": "Search the user's past conversations for something previously discussed.\n\nUse this when the user refers to an earlier discussion (\"what did we decide\nabout...\", \"the recipe you gave me\", \"that error from last month\") or when\nyou need context that is not in the current conversation and not in your\nstored memories. It also covers the earlier part of THIS conversation once\nit has been condensed into a summary - search it when you need an exact\ndetail (number, name, wording) the summary left out. Do NOT use it for\ngeneral knowledge questions - it only searches this user's own chat history.\nBefore asking the user to repeat something they told you in an earlier\nconversation, search for it.\n\nArgs:\n    query: Words or a short phrase. Matches both keywords and meaning\n        (semantic), so a paraphrase of what was discussed also works.\n    limit: Maximum number of results to return (1-25, default 10).\n\nReturns:\n    Matching conversations with dates, titles and matching snippets.",
+    "description": "Search the user's past conversations for something previously discussed.\n\nUse this when the user refers to an earlier discussion (\"what did we decide\nabout...\", \"the recipe you gave me\", \"that error from last month\") or when\nyou need context that is not in the current conversation and not in your\nstored memories. It also covers the earlier part of THIS conversation once\nit has been condensed into a summary - search it when you need an exact\ndetail (number, name, wording) the summary left out. Do NOT use it for\ngeneral knowledge questions - it only searches this user's own chat history.\nBefore asking the user to repeat something they told you in an earlier\nconversation, search for it. With no query it lists conversations by most\nrecent activity - with `after`/`before` that answers \"what did we talk\nabout yesterday / last week\".\n\nArgs:\n    query: Words or a short phrase. Matches both keywords and meaning\n        (semantic), so a paraphrase or another word form also works.\n        Empty: list conversations instead of searching.\n    limit: Maximum number of results to return (1-25, default 10).\n    after: Only conversations from this date on (YYYY-MM-DD, inclusive).\n    before: Only conversations up to this date (YYYY-MM-DD, inclusive).\n\nReturns:\n    Matching conversations with dates, titles, snippets and how each\n    matched (words, meaning or both), best first.",
     "name": "search_conversations",
     "parameters": {
       "properties": {
@@ -944,11 +944,17 @@
         },
         "limit": {
           "type": "INTEGER"
+        },
+        "after": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "before": {
+          "nullable": true,
+          "type": "STRING"
         }
       },
-      "required": [
-        "query"
-      ],
+      "required": [],
       "title": "search_conversations",
       "type": "OBJECT"
     }

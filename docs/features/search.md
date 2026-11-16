@@ -71,6 +71,25 @@ Moving a conversation to the [trash](ui-conversations.md#trash) does not touch t
 - Clicked result is highlighted with `.active` class
 - Active result tracked by index (not message ID) to handle duplicates
 
+### Any-word fallback (Nov 16 2026)
+
+`Database.search` requires every word (each a prefix). When that finds fewer than
+`CONVERSATION_SEARCH_FALLBACK_MIN_RESULTS` (3) results, it also runs an any-word query
+(`fts_query(query, any_words=True)`: words ORed, words under 3 letters dropped unless
+none remain, words of 6+ letters trimmed by 2 so Czech inflections match) and appends its
+new hits (`match_mode="any"`). The index uses an English (porter) stemmer, so Czech word
+forms otherwise only match by prefix. The app's search box and the agent's
+`search_conversations` both use it; `after`/`before` (UTC instants) bound message hits by
+their time and title hits by any of the conversation's messages. A query FTS5 still
+rejects after escaping returns no results and logs "Search query rejected".
+
+### Embeddings follow their message
+
+Migration 0095 (Nov 16 2026) purged 26.1k message embeddings of deleted messages and added
+a trigger deleting a message's embedding whenever the message is deleted (every path:
+one message, a truncation, a conversation, the trash purge). Trashed conversations keep
+theirs until the purge, so a restored chat is found by meaning again.
+
 ### Deduplication
 
 The search index could contain duplicate entries due to trigger timing (migration 0067 removed them and keys each message to one row; titles are re-keyed on rename). Deduplication is handled in Python after fetching from the database because FTS5's `bm25()` and `snippet()` functions don't work with `GROUP BY`.

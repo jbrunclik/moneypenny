@@ -260,3 +260,131 @@ class TestSearchSnippets:
             # The full message is ~300+ chars, snippet should be shorter
             # Account for [[HIGHLIGHT]] markers which add ~40 chars per match
             assert len(snippet) < 400
+
+
+# --- Nov 16 2026: Czech fallback, date bounds, recent-chats listing --------
+# (docs/superpowers/specs/2026-11-16-past-chat-search-design.md)
+
+from datetime import UTC, datetime  # noqa: E402
+
+from src.db.models.search import fts_query  # noqa: E402
+from src.db.models.timestamps import to_db  # noqa: E402
+
+
+def _user(db: Database, email: str = "cz@example.com") -> str:
+    return db.get_or_create_user(email=email, name="CZ").id
+
+
+def _chat(db: Database, user_id: str, title: str, *texts: str, at: datetime | None = None) -> str:
+    conv = db.create_conversation(user_id=user_id, title=title, model="test-model")
+    for i, text in enumerate(texts):
+        msg = db.add_message(
+            conversation_id=conv.id, role="user" if i % 2 == 0 else "assistant", content=text
+        )
+        if at is not None:
+            with db._pool.get_connection() as conn:
+                conn.execute("UPDATE messages SET created_at = ? WHERE id = ?", (to_db(at), msg.id))
+                conn.execute(
+                    "UPDATE conversations SET updated_at = ? WHERE id = ?", (to_db(at), conv.id)
+                )
+                conn.commit()
+    return conv.id
+
+
+class TestFtsQueryModes:
+    def test_any_mode_trims_czech_endings_and_ors(self) -> None:
+        assert fts_query("Matematická olympiáda", any_words=True) == ('"Matematic"* OR "olympiá"*')
+
+    def test_any_mode_drops_short_words(self) -> None:
+        assert fts_query("a je kolo", any_words=True) == '"kolo"*'
+
+    def test_any_mode_keeps_short_words_when_nothing_else(self) -> None:
+        assert fts_query("a je", any_words=True) == '"a"* OR "je"*'
+
+    def test_default_mode_unchanged(self) -> None:
+        assert fts_query("Matematická olympiáda") == '"Matematická"* "olympiáda"*'
+
+
+class TestCzechFallback:
+    def test_inflected_words_are_found_by_the_fallback(self, test_database: Database) -> None:
+        uid = _user(test_database)
+        _chat(test_database, uid, "Škola", "Matematické olympiády se letos účastní")
+        results, total = test_database.search(uid, "Matematická olympiáda")
+        assert total == 1
+        assert results[0].match_mode == "any"
+
+    def test_one_absent_word_still_finds_the_chat(self, test_database: Database) -> None:
+        uid = _user(test_database)
+        _chat(test_database, uid, "Dílna", "Rybníček chce nový regál do garáže")
+        results, _ = test_database.search(uid, "Rybníček Regál Hornbach")
+        assert [r.match_type for r in results] == ["message"]
+
+    def test_enough_strict_hits_add_no_fallback(self, test_database: Database) -> None:
+        uid = _user(test_database)
+        for i in range(3):
+            _chat(test_database, uid, f"Kolo {i}", f"servis kola číslo {i}")
+        _chat(test_database, uid, "Jiné", "servis auta")
+        results, _ = test_database.search(uid, "servis kola")
+        assert len(results) == 3
+        assert all(r.match_mode == "all" for r in results)
+
+    def test_strict_hits_come_before_fallback_hits(self, test_database: Database) -> None:
+        uid = _user(test_database)
+        _chat(test_database, uid, "A", "servis kola v sobotu")
+        _chat(test_database, uid, "B", "kola na zimu")
+        results, total = test_database.search(uid, "servis kola")
+        assert total == 2
+        assert [r.match_mode for r in results] == ["all", "any"]
+
+    @pytest.mark.parametrize("query", ['"10.80"', "pull-ups", "C++", "(x)", "a:b", "^x", "*"])
+    def test_fts_syntax_never_raises(self, test_database: Database, query: str) -> None:
+        uid = _user(test_database)
+        _chat(test_database, uid, "Syntax", "pull-ups and C++ at 10.80 (x) a:b")
+        test_database.search(uid, query)  # no raise
+
+
+class TestDateBounds:
+    def test_bounds_filter_message_hits(self, test_database: Database) -> None:
+        uid = _user(test_database)
+        _chat(test_database, uid, "Kolo", "servis kola", at=datetime(2026, 11, 10, 12, tzinfo=UTC))
+        after = datetime(2026, 11, 12, tzinfo=UTC)
+        before = datetime(2026, 11, 11, tzinfo=UTC)
+        assert test_database.search(uid, "servis", after=after) == ([], 0)
+        _, total = test_database.search(uid, "servis", before=before)
+        assert total == 1
+
+
+class TestRecentConversations:
+    def test_lists_newest_first_within_bounds(self, test_database: Database) -> None:
+        uid = _user(test_database)
+        old = _chat(
+            test_database,
+            uid,
+            "Starý",
+            "první otázka",
+            "odpověď",
+            at=datetime(2026, 11, 1, tzinfo=UTC),
+        )
+        mid = _chat(test_database, uid, "Střední", "x" * 300, at=datetime(2026, 11, 10, tzinfo=UTC))
+        new = _chat(
+            test_database, uid, "Nový", "dnešní otázka", at=datetime(2026, 11, 15, tzinfo=UTC)
+        )
+        listed = test_database.recent_conversations(uid, None, None, 10)
+        assert [c.conversation_id for c in listed] == [new, mid, old]
+        assert listed[2].first_user_message == "první otázka"
+        assert len(listed[1].first_user_message) == 200
+        bounded = test_database.recent_conversations(
+            uid, datetime(2026, 11, 5, tzinfo=UTC), datetime(2026, 11, 12, tzinfo=UTC), 10
+        )
+        assert [c.conversation_id for c in bounded] == [mid]
+
+    def test_excludes_other_users_and_trash(self, test_database: Database) -> None:
+        uid = _user(test_database)
+        other = _user(test_database, "other@example.com")
+        _chat(test_database, other, "Cizí", "cizí chat")
+        trashed = _chat(test_database, uid, "Koš", "smazaný chat")
+        test_database.trash_conversation(trashed, uid)
+        mine = _chat(test_database, uid, "Můj", "můj chat")
+        assert [
+            c.conversation_id for c in test_database.recent_conversations(uid, None, None, 10)
+        ] == [mine]
