@@ -51,6 +51,27 @@ function navigationMarks(): Pick<ClientTimingReport['marks'], 'response_end_ms' 
   };
 }
 
+function stageMarks(): ClientTimingReport['marks'] {
+  return {
+    ...navigationMarks(),
+    script_ms: marks.script ?? null,
+    auth_ms: marks.auth ?? null,
+    data_ms: marks.data ?? null,
+    route_ms: marks.route ?? null,
+    ready_ms: marks.ready ?? null,
+  };
+}
+
+function device(): Pick<ClientTimingReport, 'standalone' | 'viewport' | 'connection' | 'app_version'> {
+  const connection = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection;
+  return {
+    standalone: window.matchMedia?.('(display-mode: standalone)').matches ?? false,
+    viewport: window.innerWidth < MOBILE_BREAKPOINT_PX ? 'mobile' : 'desktop',
+    connection: connection?.effectiveType?.slice(0, 16) ?? null,
+    app_version: document.getElementById('app')?.dataset.version ?? null,
+  };
+}
+
 /** Send this load's report (once; the app is ready and signed in). */
 export function reportBootTiming(route: InitialRoute | null | undefined): void {
   // Only a load that was signed in at boot: after a sign-in, the time spent
@@ -58,22 +79,7 @@ export function reportBootTiming(route: InitialRoute | null | undefined): void {
   if (reported || marks.auth === undefined) return;
   reported = true;
   markBootStage('ready');
-  const connection = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection;
-  const report: ClientTimingReport = {
-    marks: {
-      ...navigationMarks(),
-      script_ms: marks.script ?? null,
-      auth_ms: marks.auth ?? null,
-      data_ms: marks.data ?? null,
-      route_ms: marks.route ?? null,
-      ready_ms: marks.ready ?? null,
-    },
-    standalone: window.matchMedia?.('(display-mode: standalone)').matches ?? false,
-    viewport: window.innerWidth < MOBILE_BREAKPOINT_PX ? 'mobile' : 'desktop',
-    connection: connection?.effectiveType?.slice(0, 16) ?? null,
-    app_version: document.getElementById('app')?.dataset.version ?? null,
-    route: routeLabel(route),
-  };
+  const report: ClientTimingReport = { marks: stageMarks(), ...device(), route: routeLabel(route) };
   // Telemetry: a lost report is acceptable, a retried one would double-count
   clientTiming.report(report).catch(() => {});
 }

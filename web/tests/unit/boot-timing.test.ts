@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const report = vi.fn(() => Promise.resolve());
+const report = vi.fn((_body: unknown) => Promise.resolve());
 vi.mock('@/api/client-timing', () => ({ clientTiming: { report: (b: unknown) => report(b) } }));
 
 const { markBootStage, reportBootTiming, routeLabel, _resetBootTiming } = await import(
@@ -40,7 +40,7 @@ describe('reportBootTiming', () => {
     reportBootTiming(route);
     reportBootTiming(route);
     expect(report).toHaveBeenCalledTimes(1);
-    const body = report.mock.calls[0]?.[0] as Record<string, unknown> & {
+    const body = report.mock.calls[0]?.[0] as unknown as Record<string, unknown> & {
       marks: Record<string, number | null>;
     };
     expect(body.marks.script_ms).toBe(124);

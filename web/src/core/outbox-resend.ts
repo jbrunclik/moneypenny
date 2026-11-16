@@ -52,7 +52,7 @@ export async function resendFailedSends(trigger: ResendTrigger): Promise<number>
 }
 
 /** Resend after OUTBOX_RESEND_DELAY_MS (the checks run again then). */
-export function scheduleResend(trigger: ResendTrigger): void {
+function scheduleResend(trigger: ResendTrigger): void {
   setTimeout(() => void resendFailedSends(trigger), OUTBOX_RESEND_DELAY_MS);
 }
 

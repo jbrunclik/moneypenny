@@ -68,7 +68,7 @@
       "name": "Client errors"
     },
     {
-      "name": "Client errors"
+      "name": "Client timing"
     }
   ],
   "paths": {
@@ -1345,7 +1345,7 @@
           }
         },
         "tags": [
-          "Client errors"
+          "Client timing"
         ],
         "summary": "Record how long this page load's startup stages took.",
         "requestBody": {

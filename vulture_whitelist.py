@@ -230,3 +230,10 @@ action_id  # src/services/program_setup.py SetupChange key, read as change.get("
 declined_at  # src/services/program_setup.py DeclinedEntry key, read as e["declined_at"]
 httpStatusCode  # src/services/page_extract.py Exa reply key, read with .get("httpStatusCode")
 costDollars  # src/services/page_extract.py Exa reply key, read with .get("costDollars")
+response_end_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
+dom_content_loaded_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
+script_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
+auth_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
+data_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
+route_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
+ready_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py

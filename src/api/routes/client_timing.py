@@ -7,7 +7,7 @@ from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
 
-api = APIBlueprint("client_timing", __name__, url_prefix="/api", tag="Client errors")
+api = APIBlueprint("client_timing", __name__, url_prefix="/api", tag="Client timing")
 
 
 @api.route("/client-timing", methods=["POST"])

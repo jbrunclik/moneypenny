@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from src.config import Config
 from src.db.models.timestamps import to_db
@@ -46,7 +46,7 @@ class ClientBootTimingsMixin:
     _pool: ConnectionPool
 
     def _execute_with_timing(
-        self, conn: sqlite3.Connection, query: str, params: tuple[Any, ...] = ()
+        self, conn: sqlite3.Connection, query: str, params: tuple[object, ...] = ()
     ) -> sqlite3.Cursor:
         raise NotImplementedError
 
@@ -61,7 +61,7 @@ class ClientBootTimingsMixin:
                 f"""INSERT INTO client_boot_timings
                     (user_id, created_at, {", ".join(BOOT_MARKS)},
                      standalone, viewport, connection, app_version, route)
-                    VALUES ({", ".join("?" * (len(BOOT_MARKS) + 7))})""",  # noqa: S608 - fixed column names
+                    VALUES ({", ".join("?" * (len(BOOT_MARKS) + 7))})""",
                 (
                     user_id,
                     to_db(now),
