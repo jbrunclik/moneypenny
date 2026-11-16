@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const ui = vi.hoisted(() => ({
   updateStreamingMessage: vi.fn(),
   scheduleStreamingUpdate: vi.fn(),
+  flushStreamingUpdate: vi.fn(),
   updateStreamingThinking: vi.fn(),
   updateStreamingToolStart: vi.fn(),
   updateStreamingToolDetail: vi.fn(),
@@ -69,6 +70,15 @@ describe('processStreamEvent', () => {
     expect(state.thinkingState.isThinking).toBe(false);
     // Drawn on the next frame, with the latest text (Nov 16 2026)
     expect(ui.scheduleStreamingUpdate).toHaveBeenLastCalledWith(state.messageEl, 'Hello');
+  });
+
+  it('a trace event draws pending text first (review: tool lines collapsed)', () => {
+    processStreamEvent({ type: 'token', text: 'Hel' }, state, 'c1', 'temp-1');
+    processStreamEvent({ type: 'tool_start', tool: 'search' }, state, 'c1', 'temp-1');
+    expect(ui.flushStreamingUpdate).toHaveBeenCalledWith(state.messageEl);
+    const flushOrder = vi.mocked(ui.flushStreamingUpdate).mock.invocationCallOrder[0] ?? 0;
+    const toolOrder = vi.mocked(ui.updateStreamingToolStart).mock.invocationCallOrder[0] ?? 0;
+    expect(flushOrder).toBeLessThan(toolOrder);
   });
 
   it('keeps tokens off the DOM for a background conversation', () => {

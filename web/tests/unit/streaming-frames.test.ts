@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as markdown from '@/utils/markdown';
 import {
   scheduleStreamingUpdate,
+  flushStreamingUpdate,
   updateStreamingMessage,
   finalizeStreamingMessage,
 } from '@/components/messages/streaming';
@@ -62,11 +63,23 @@ describe('scheduleStreamingUpdate', () => {
     expect(el.querySelector('.message-content')?.textContent).not.toContain('partial');
   });
 
-  it('a finalized message draws no pending frame', () => {
+  it('finalizing draws the text still waiting for a frame (review: lost endings)', () => {
+    // done's content equals the streamed text, so nothing else redraws it;
+    // a hidden tab never runs frames at all
     const el = bubble();
-    updateStreamingMessage(el, 'done text');
-    scheduleStreamingUpdate(el, 'done text plus stale');
+    scheduleStreamingUpdate(el, 'the whole reply, last words');
     finalizeStreamingMessage(el, 'm1');
+    expect(el.querySelector('.message-content')?.textContent).toContain('last words');
+    const render = vi.spyOn(markdown, 'renderMarkdown');
+    runFrames();
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it('flushStreamingUpdate draws the pending text now, once', () => {
+    const el = bubble();
+    scheduleStreamingUpdate(el, 'early text');
+    flushStreamingUpdate(el);
+    expect(el.querySelector('.message-content')?.textContent).toContain('early text');
     const render = vi.spyOn(markdown, 'renderMarkdown');
     runFrames();
     expect(render).not.toHaveBeenCalled();

@@ -10,6 +10,7 @@ import { createLogger } from '../utils/logger';
 import { ApiError } from '../api/http';
 import {
   scheduleStreamingUpdate,
+  flushStreamingUpdate,
   updateStreamingThinking,
   updateStreamingToolStart,
   updateStreamingToolDetail,
@@ -242,6 +243,12 @@ export function processStreamEvent(
   const currentMessageEl = getStreamingMessageElement(convId);
   if (currentMessageEl) {
     state.messageEl = currentMessageEl;
+  }
+
+  // Any other event draws the text still waiting for a frame first: a
+  // token's redraw after a tool line opened collapsed that line (review)
+  if (event.type !== 'token' && isCurrentConversation) {
+    flushStreamingUpdate(state.messageEl);
   }
 
   if (TRACE_EVENT_TYPES.has(event.type)) {

@@ -8,17 +8,27 @@ import {
   addOutboxEntry,
   markOutboxFailed,
   failedEntries,
+  removeOutboxEntry,
   _clearOutboxMemoryCache,
 } from '@/core/outbox';
-import { OUTBOX_RESEND_MAX_AGE_MS, OUTBOX_STORAGE_KEY, OUTBOX_TABS_STORAGE_KEY } from '@/config';
+import {
+  OUTBOX_RESEND_BACKOFF_MS,
+  OUTBOX_RESEND_MAX_AGE_MS,
+  OUTBOX_STORAGE_KEY,
+  OUTBOX_TABS_STORAGE_KEY,
+} from '@/config';
 import { useStore } from '@/state/store';
 
 const sent: string[] = [];
 let release: (() => void) | null = null;
 
+const stillFails = new Set<string>();
+
 vi.mock('@/core/rerun', () => ({
-  resendOutboxEntry: vi.fn(async (_convId: string, id: string) => {
+  resendOutboxEntry: vi.fn(async (convId: string, id: string) => {
     sent.push(id);
+    // A send that lands is confirmed (gone from the outbox); a failing one stays failed
+    if (!stillFails.has(id)) removeOutboxEntry(convId, id);
     if (release === null) return;
     await new Promise<void>((resolve) => {
       release = resolve;
@@ -29,9 +39,10 @@ vi.mock('@/core/rerun', () => ({
 const info = vi.fn();
 vi.mock('@/components/Toast', () => ({ toast: { info: (m: string) => info(m) } }));
 
-const { resendFailedSends } = await import('@/core/outbox-resend');
+const { resendFailedSends, _resetResendBackoff } = await import('@/core/outbox-resend');
 
 const CONV = 'conv-1';
+const NO_PAGES = { older_cursor: null, has_older: false, newer_cursor: null, has_newer: false, total_count: 0 } as never;
 
 function failed(id: string, createdAt: string, convId = CONV): void {
   addOutboxEntry({
@@ -56,6 +67,10 @@ beforeEach(() => {
   localStorage.clear();
   _clearOutboxMemoryCache();
   sent.length = 0;
+  stillFails.clear();
+  _resetResendBackoff();
+  vi.restoreAllMocks();
+  useStore.getState().setMessages(CONV, [] as never, NO_PAGES);
   release = null;
   info.mockClear();
   openConversation(CONV);
@@ -114,6 +129,51 @@ describe('resendFailedSends', () => {
     failed('fresh', new Date().toISOString());
     await resendFailedSends('open');
     expect(sent).toEqual(['fresh']);
+  });
+
+  it('counts only sends that went through (review)', async () => {
+    failed('ok', new Date(Date.now() - 2000).toISOString());
+    failed('bad', new Date(Date.now() - 1000).toISOString());
+    stillFails.add('bad');
+    expect(await resendFailedSends('online')).toBe(1);
+    expect(info).toHaveBeenCalledWith('Resent 1 message.');
+  });
+
+  it('backs off per message: an unreachable server is not hammered', async () => {
+    failed('m1', new Date(Date.now() - 2000).toISOString());
+    stillFails.add('m1');
+    await resendFailedSends('visible');
+    await resendFailedSends('visible'); // the next app switch, seconds later
+    expect(sent).toEqual(['m1']);
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + OUTBOX_RESEND_BACKOFF_MS[0]! + 1000);
+    await resendFailedSends('visible');
+    expect(sent).toEqual(['m1', 'm1']);
+  });
+
+  it('gives up after the last backoff step', async () => {
+    failed('m1', new Date(Date.now() - 2000).toISOString());
+    stillFails.add('m1');
+    let now = Date.now();
+    for (let i = 0; i < OUTBOX_RESEND_BACKOFF_MS.length + 3; i++) {
+      vi.spyOn(Date, 'now').mockReturnValue(now);
+      await resendFailedSends('online');
+      now += 60 * 60 * 1000;
+    }
+    expect(sent).toHaveLength(OUTBOX_RESEND_BACKOFF_MS.length + 1);
+  });
+
+  it('leaves a failure alone once a newer message exists (review: order)', async () => {
+    failed('old', new Date(Date.now() - 5000).toISOString());
+    useStore.getState().setMessages(
+      CONV,
+      [
+        { id: 'old', role: 'user', content: 'old', created_at: new Date(Date.now() - 5000).toISOString() },
+        { id: 'new', role: 'user', content: 'new', created_at: new Date(Date.now() - 1000).toISOString() },
+      ] as never,
+      NO_PAGES
+    );
+    expect(await resendFailedSends('online')).toBe(0);
+    expect(sent).toEqual([]);
   });
 
   it('says nothing when nothing failed', async () => {

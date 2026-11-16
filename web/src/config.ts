@@ -105,6 +105,13 @@ export const KATEX_CACHE_MAX_ENTRIES = 500;
 export const OUTBOX_RESEND_MAX_AGE_MS = 24 * 60 * 60 * MS_PER_SECOND;
 
 /**
+ * Waits between one message's automatic resends; after the last it waits for
+ * Retry. The device can be online with the server unreachable (a deploy, Wi-Fi
+ * without internet), and every iPhone app switch fires a trigger (review)
+ */
+export const OUTBOX_RESEND_BACKOFF_MS = [5 * 60 * MS_PER_SECOND, 15 * 60 * MS_PER_SECOND] as const;
+
+/**
  * Refetch schedule after a send's 409 ("already received"): the first attempt
  * landed and its turn may still be running, so keep looking for the reply
  * (about 3 min in total) instead of refetching once and leaving the message

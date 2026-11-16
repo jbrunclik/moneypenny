@@ -246,7 +246,17 @@ export function scheduleStreamingUpdate(messageEl: HTMLElement, content: string)
   pendingFrames.set(messageEl, { content, frame });
 }
 
-/** Drop a bubble's pending redraw (a direct render or the final one supersedes it). */
+/**
+ * Draw a bubble's pending text now (before another event changes the bubble,
+ * and when it is finalized: done's content usually equals the streamed text,
+ * so nothing else redraws it, and a hidden tab never runs frames).
+ */
+export function flushStreamingUpdate(messageEl: HTMLElement): void {
+  const pending = pendingFrames.get(messageEl);
+  if (pending) updateStreamingMessage(messageEl, pending.content);
+}
+
+/** Drop a bubble's pending redraw (a direct render supersedes it). */
 function cancelStreamingUpdate(messageEl: HTMLElement): void {
   const pending = pendingFrames.get(messageEl);
   if (!pending) return;
@@ -315,7 +325,9 @@ export function finalizeStreamingMessage(
   role: 'user' | 'assistant' = 'assistant',
   language?: string | null
 ): boolean {
-  cancelStreamingUpdate(messageEl);
+  // The text still waiting for a frame is drawn, never dropped (review: the
+  // end of a reply was lost)
+  flushStreamingUpdate(messageEl);
   markMessageFinal(messageEl, messageId);
 
   clearStreamingRetryStatus();
