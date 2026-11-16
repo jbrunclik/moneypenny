@@ -52,6 +52,21 @@ describe('reportBootTiming', () => {
     expect(body.route).toBe('conversation');
   });
 
+  it('a load that went to the background before it was ready says so', () => {
+    markBootStage('auth');
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    reportBootTiming(route);
+    expect((report.mock.calls[0]?.[0] as { hidden: boolean }).hidden).toBe(true);
+  });
+
+  it('a load that stayed in view is not flagged', () => {
+    markBootStage('auth');
+    reportBootTiming(route);
+    expect((report.mock.calls[0]?.[0] as { hidden: boolean }).hidden).toBe(false);
+  });
+
   it('sends nothing for a load that was not signed in at boot', () => {
     markBootStage('script');
     reportBootTiming(route);

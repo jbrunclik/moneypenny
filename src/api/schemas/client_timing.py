@@ -8,8 +8,9 @@ from pydantic import ConfigDict, Field
 
 from src.api.schemas.base import RequestModel
 
-# A stage mark: ms since navigation start; ten minutes is beyond any real start
-_Mark = Annotated[int, Field(ge=0, le=600_000)] | None
+# A stage mark: ms since navigation start. A day bounds a phone that went to
+# the background mid-start (such loads come flagged `hidden`)
+_Mark = Annotated[int, Field(ge=0, le=86_400_000)] | None
 
 
 class BootMarks(RequestModel):
@@ -37,3 +38,4 @@ class ClientTimingReport(RequestModel):
     connection: str | None = Field(None, max_length=16, description="effectiveType, e.g. 4g")
     app_version: str | None = Field(None, max_length=64)
     route: str = Field(..., min_length=1, max_length=24, description="The initial route type")
+    hidden: bool = Field(False, description="The page went to the background before it was ready")

@@ -1,7 +1,9 @@
 """Startup timing reports from the browser: one row per page load.
 
-Recording also prunes rows older than CLIENT_BOOT_TIMINGS_RETENTION_DAYS, so
-the table stays small without a scheduled job (as client_errors does).
+Recording also prunes rows older than CLIENT_BOOT_TIMINGS_RETENTION_DAYS and
+beyond a user's newest CLIENT_BOOT_TIMINGS_MAX_ROWS_PER_USER, so the table
+stays small without a scheduled job, even for a runaway client (as
+client_errors does).
 """
 
 from __future__ import annotations
@@ -38,6 +40,7 @@ class BootTiming(TypedDict):
     connection: str | None
     app_version: str | None
     route: str
+    hidden: bool
 
 
 class ClientBootTimingsMixin:
@@ -60,8 +63,8 @@ class ClientBootTimingsMixin:
                 conn,
                 f"""INSERT INTO client_boot_timings
                     (user_id, created_at, {", ".join(BOOT_MARKS)},
-                     standalone, viewport, connection, app_version, route)
-                    VALUES ({", ".join("?" * (len(BOOT_MARKS) + 7))})""",
+                     standalone, viewport, connection, app_version, route, hidden)
+                    VALUES ({", ".join("?" * (len(BOOT_MARKS) + 8))})""",
                 (
                     user_id,
                     to_db(now),
@@ -71,9 +74,17 @@ class ClientBootTimingsMixin:
                     timing["connection"],
                     timing["app_version"],
                     timing["route"],
+                    int(timing["hidden"]),
                 ),
             )
             self._execute_with_timing(
                 conn, "DELETE FROM client_boot_timings WHERE created_at < ?", (cutoff,)
+            )
+            self._execute_with_timing(
+                conn,
+                """DELETE FROM client_boot_timings WHERE user_id = ? AND id NOT IN (
+                       SELECT id FROM client_boot_timings WHERE user_id = ?
+                       ORDER BY id DESC LIMIT ?)""",
+                (user_id, user_id, Config.CLIENT_BOOT_TIMINGS_MAX_ROWS_PER_USER),
             )
             conn.commit()

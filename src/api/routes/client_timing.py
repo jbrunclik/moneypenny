@@ -25,6 +25,7 @@ def report_client_timing(user: User, data: ClientTimingReport) -> tuple[str, int
             "connection": data.connection,
             "app_version": data.app_version,
             "route": data.route,
+            "hidden": data.hidden,
         },
     )
     return "", 204

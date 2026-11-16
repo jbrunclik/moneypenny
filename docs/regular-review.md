@@ -183,7 +183,8 @@ The review itself changes nothing in production and edits nothing but
   when asked what is left?
 - Startup speed (Nov 16 2026): `client_boot_timings` - median and p90
   `ready_ms` by `standalone` x `viewport` (home-screen app vs tab, mobile vs
-  desktop), and which stage (`auth_ms` -> `data_ms` -> `route_ms`) grew.
+  desktop) over `hidden = 0` rows (a load backgrounded mid-start is flagged
+  `hidden` and reports minutes), and which stage (`auth_ms` -> `data_ms` -> `route_ms`) grew.
 - Agent safety (Nov 16 2026): "kv write refused" lines (any from a scheduled
   agent or a coach is a bug - it should write only its own namespace),
   `work_bytes` on the "Code execution" lines against the 256 MB `/work` cap,

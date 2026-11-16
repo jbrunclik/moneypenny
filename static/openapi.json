@@ -11084,7 +11084,7 @@
           "response_end_ms": {
             "anyOf": [
               {
-                "maximum": 600000,
+                "maximum": 86400000,
                 "minimum": 0,
                 "type": "integer"
               },
@@ -11098,7 +11098,7 @@
           "dom_content_loaded_ms": {
             "anyOf": [
               {
-                "maximum": 600000,
+                "maximum": 86400000,
                 "minimum": 0,
                 "type": "integer"
               },
@@ -11112,7 +11112,7 @@
           "script_ms": {
             "anyOf": [
               {
-                "maximum": 600000,
+                "maximum": 86400000,
                 "minimum": 0,
                 "type": "integer"
               },
@@ -11126,7 +11126,7 @@
           "auth_ms": {
             "anyOf": [
               {
-                "maximum": 600000,
+                "maximum": 86400000,
                 "minimum": 0,
                 "type": "integer"
               },
@@ -11140,7 +11140,7 @@
           "data_ms": {
             "anyOf": [
               {
-                "maximum": 600000,
+                "maximum": 86400000,
                 "minimum": 0,
                 "type": "integer"
               },
@@ -11154,7 +11154,7 @@
           "route_ms": {
             "anyOf": [
               {
-                "maximum": 600000,
+                "maximum": 86400000,
                 "minimum": 0,
                 "type": "integer"
               },
@@ -11168,7 +11168,7 @@
           "ready_ms": {
             "anyOf": [
               {
-                "maximum": 600000,
+                "maximum": 86400000,
                 "minimum": 0,
                 "type": "integer"
               },
@@ -11237,6 +11237,12 @@
             "minLength": 1,
             "title": "Route",
             "type": "string"
+          },
+          "hidden": {
+            "default": false,
+            "description": "The page went to the background before it was ready",
+            "title": "Hidden",
+            "type": "boolean"
           }
         },
         "required": [

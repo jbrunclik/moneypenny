@@ -10253,6 +10253,12 @@ export interface components {
              * @description The initial route type
              */
             route: string;
+            /**
+             * Hidden
+             * @description The page went to the background before it was ready
+             * @default false
+             */
+            hidden?: boolean;
         };
         /**
          * GarminStatusResponse

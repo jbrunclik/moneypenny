@@ -60,12 +60,14 @@ error-level entries to it through `setErrorSink` (utils cannot call the API).
 **Startup timing** (Nov 16 2026). Each page load that was signed in at boot
 reports once, when ready, how long its stages took
 (`web/src/core/startup/boot-timing.ts` -> `POST /api/client-timing` ->
-`client_boot_timings`, pruned after `CLIENT_BOOT_TIMINGS_RETENTION_DAYS` = 90
-on insert): `response_end_ms` and `dom_content_loaded_ms` from navigation
+`client_boot_timings`, pruned on insert after `CLIENT_BOOT_TIMINGS_RETENTION_DAYS` = 90
+and beyond a user's newest `CLIENT_BOOT_TIMINGS_MAX_ROWS_PER_USER` = 3000): `response_end_ms` and `dom_content_loaded_ms` from navigation
 timing, then `script_ms` (main.ts runs), `auth_ms` (signed in), `data_ms` (the
 initial data stored), `route_ms` (the initial route open) and `ready_ms`, all ms
 since navigation start; plus `standalone`, `viewport` (mobile under 768 px),
-`connection` (effectiveType), `app_version` and the initial `route`. No admin
+`connection` (effectiveType), `app_version`, the initial `route`, and
+`hidden`: the page went to the background before it was ready (marks then run
+up to a day; leave those rows out of medians). No admin
 view yet: the regular review queries it.
 
 The server cuts the message to 300 characters and the stack to 2,000, and

@@ -14,16 +14,31 @@ type Stage = 'script' | 'auth' | 'data' | 'route' | 'ready';
 const marks: Partial<Record<Stage, number>> = {};
 // UI-local (F2): whether this load already sent its report
 let reported = false;
+// UI-local (F2): the page went to the background before it was ready (a
+// backgrounded phone reports minutes; such rows are left out of medians)
+let hidden = false;
+// UI-local (F2): the visibility listener is in place
+let watching = false;
+
+function noteHidden(): void {
+  if (document.visibilityState === 'hidden' && !reported) hidden = true;
+}
 
 /** Record that startup reached a stage (the first time only). */
 export function markBootStage(stage: Stage): void {
   marks[stage] ??= Math.round(performance.now());
+  noteHidden();
+  if (!watching) {
+    watching = true;
+    document.addEventListener('visibilitychange', noteHidden);
+  }
 }
 
 /** Test hook: a fresh page load. */
 export function _resetBootTiming(): void {
   for (const stage of Object.keys(marks) as Stage[]) delete marks[stage];
   reported = false;
+  hidden = false;
 }
 
 /** The initial route as a short label ("conversation", "planner", "home"...). */
@@ -79,7 +94,12 @@ export function reportBootTiming(route: InitialRoute | null | undefined): void {
   if (reported || marks.auth === undefined) return;
   reported = true;
   markBootStage('ready');
-  const report: ClientTimingReport = { marks: stageMarks(), ...device(), route: routeLabel(route) };
+  const report: ClientTimingReport = {
+    marks: stageMarks(),
+    ...device(),
+    route: routeLabel(route),
+    hidden,
+  };
   // Telemetry: a lost report is acceptable, a retried one would double-count
   clientTiming.report(report).catch(() => {});
 }

@@ -191,11 +191,35 @@ async function retryFailedMessage(messageId: string): Promise<void> {
   await resendOutboxEntry(convId, messageId);
 }
 
+// UI-local (F2): messages this page is resending right now
+const resending = new Set<string>();
+
 /**
  * Send a failed outbox entry again (Retry, and the automatic resend on
  * reconnect in outbox-resend.ts). Resolves when the send settled.
  */
 export async function resendOutboxEntry(convId: string, messageId: string): Promise<void> {
+  // One resend per message at a time: a Retry tapped while the attachments
+  // still load (no request registered yet), or another tab's resend at the
+  // same moment (the server's duplicate check reads before it inserts)
+  if (resending.has(messageId)) return;
+  resending.add(messageId);
+  try {
+    await withMessageLock(messageId, () => resendNow(convId, messageId));
+  } finally {
+    resending.delete(messageId);
+  }
+}
+
+/** Run `fn` holding this message's lock across tabs; skip it when another tab holds it. */
+async function withMessageLock(messageId: string, fn: () => Promise<void>): Promise<void> {
+  if (!('locks' in navigator) || !navigator.locks) return fn();
+  await navigator.locks.request(`outbox-send:${messageId}`, { ifAvailable: true }, async (lock) => {
+    if (lock) await fn();
+  });
+}
+
+async function resendNow(convId: string, messageId: string): Promise<void> {
   // Attachments too big for localStorage come back from IndexedDB
   const entry = await restoreOutboxEntry(convId, messageId);
   if (!entry) return;

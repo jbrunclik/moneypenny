@@ -57,6 +57,7 @@ def test_a_report_is_stored(
     assert (row["ready_ms"], row["auth_ms"], row["script_ms"]) == (1900, 650, 310)
     assert (row["standalone"], row["viewport"], row["connection"]) == (1, "mobile", "4g")
     assert (row["app_version"], row["route"]) == ("1.2.3", "conversation")
+    assert row["hidden"] == 0
 
 
 def test_missing_marks_are_stored_as_null(
@@ -78,7 +79,7 @@ def test_auth_is_required(client: FlaskClient, test_database: Database) -> None:
     "bad",
     [
         {"marks": {"ready_ms": -5}},
-        {"marks": {"ready_ms": 600_001}},
+        {"marks": {"ready_ms": 86_400_001}},
         {"marks": {"ready_ms": 10, "surprise_ms": 3}},
         {"viewport": "tablet"},
         {"connection": "x" * 17},
@@ -112,3 +113,27 @@ def test_old_reports_are_pruned_on_insert(
         conn.commit()
     client.post(URL, json=_report(route="home"), headers=auth_headers)
     assert [row["route"] for row in _rows(test_database)] == ["home"]
+
+
+def test_a_load_that_went_to_the_background_is_kept_and_flagged(
+    client: FlaskClient, auth_headers: dict[str, str], test_database: Database
+) -> None:
+    # A phone backgrounded mid-start can take far longer than ten minutes;
+    # the row is kept (it happened) and flagged so medians can leave it out
+    report = _report(hidden=True)
+    report["marks"] = {"ready_ms": 1_500_000}
+    assert client.post(URL, json=report, headers=auth_headers).status_code == 204
+    [row] = _rows(test_database)
+    assert (row["ready_ms"], row["hidden"]) == (1_500_000, 1)
+
+
+def test_a_runaway_client_keeps_only_its_newest_rows(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(Config, "CLIENT_BOOT_TIMINGS_MAX_ROWS_PER_USER", 3)
+    for route in ["a", "b", "c", "d", "e"]:
+        client.post(URL, json=_report(route=route), headers=auth_headers)
+    assert sorted(row["route"] for row in _rows(test_database)) == ["c", "d", "e"]

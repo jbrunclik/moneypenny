@@ -70,6 +70,8 @@ class Config:
     CLIENT_ERROR_RETENTION_DAYS: int = int(os.getenv("CLIENT_ERROR_RETENTION_DAYS", "30"))
     # Startup timing reports (one per page load) kept this long (Nov 16 2026)
     CLIENT_BOOT_TIMINGS_RETENTION_DAYS = 90
+    # A user's newest rows kept (~30 loads a day for the retention): a runaway client's cap
+    CLIENT_BOOT_TIMINGS_MAX_ROWS_PER_USER = 3000
     CLIENT_ERROR_MAX_ROWS_PER_USER: int = int(os.getenv("CLIENT_ERROR_MAX_ROWS_PER_USER", "200"))
 
     # Server
