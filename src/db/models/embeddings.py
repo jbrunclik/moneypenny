@@ -110,6 +110,28 @@ class EmbeddingsMixin:
             )
             return [(row[0], row[1], row[2]) for row in cursor.fetchall()]
 
+    def get_message_embeddings(
+        self, user_id: str, after: datetime | None, before: datetime | None
+    ) -> list[tuple[str, int, bytes]]:
+        """The user's message (ref_id, dim, vector) rows from ``[after, before)``.
+
+        A dated past-chat search ranks within the period: ranking all time and
+        filtering afterwards left older, closer chats holding every slot.
+        """
+        after_db = to_db(after) if after else None
+        before_db = to_db(before) if before else None
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """SELECT e.ref_id, e.dim, e.vector FROM embeddings e
+                   JOIN messages m ON m.id = e.ref_id
+                   WHERE e.user_id = ? AND e.kind = 'message'
+                     AND (? IS NULL OR m.created_at >= ?)
+                     AND (? IS NULL OR m.created_at < ?)""",
+                (user_id, after_db, after_db, before_db, before_db),
+            )
+            return [(row[0], row[1], row[2]) for row in cursor.fetchall()]
+
     def get_message_rows_for_ids(
         self,
         user_id: str,

@@ -206,9 +206,12 @@ def _semantic_matches(
     if query_vec is None:
         return []
 
-    candidates = [
-        (ref_id, vector) for ref_id, _dim, vector in db.get_embeddings(user_id, "message")
-    ]
+    stored = (
+        db.get_message_embeddings(user_id, after, before)
+        if after or before
+        else db.get_embeddings(user_id, "message")
+    )
+    candidates = [(ref_id, vector) for ref_id, _dim, vector in stored]
     ranked = [
         ref_id
         for ref_id, score in top_k_similar(query_vec, candidates, limit * 3)
@@ -264,10 +267,15 @@ def _search(
     # compaction replaced with a summary, which stays searchable
     summarized = summarized_message_ids(user_id, conversation_id) if conversation_id else set()
     # Over-fetch: several hits of one conversation collapse into one line
-    results, _total = db.search(user_id, query, limit=limit * 3 + 5, after=after, before=before)
-    results = [
-        r for r in results if r.conversation_id != conversation_id or r.message_id in summarized
-    ]
+    results, _total = db.search(
+        user_id,
+        query,
+        limit=limit * 3 + 5,
+        after=after,
+        before=before,
+        exclude_conversation_id=conversation_id,
+        keep_message_ids=summarized,
+    )
     mode = "any" if any(r.match_mode == "any" for r in results) else "all"
     current = {conversation_id} if conversation_id else set()
     semantic = _semantic_matches(

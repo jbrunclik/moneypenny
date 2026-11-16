@@ -43,6 +43,8 @@ class SearchMixin:
         offset: int = 0,
         after: datetime | None = None,
         before: datetime | None = None,
+        exclude_conversation_id: str | None = None,
+        keep_message_ids: set[str] | None = None,
     ) -> tuple[list[SearchResult], int]:
         """Search conversation titles and messages (FTS5, BM25 ranked).
 
@@ -52,6 +54,9 @@ class SearchMixin:
         (``match_mode="any"``) - one inflected or wrong word no longer empties
         the result. ``after`` (inclusive) and ``before`` (exclusive) bound the
         message time (a title match: any of the conversation's messages).
+        ``exclude_conversation_id`` (the chat already in the agent's context)
+        is dropped before the fallback threshold, except ``keep_message_ids``
+        (its summarized part) - its hits must not stop the fallback.
 
         Returns the page of results and the total after deduplication.
         """
@@ -60,16 +65,29 @@ class SearchMixin:
         if not strict:
             return [], 0
 
+        keep = keep_message_ids or set()
+
+        def wanted(results: list[SearchResult]) -> list[SearchResult]:
+            return [
+                r
+                for r in results
+                if r.conversation_id != exclude_conversation_id or r.message_id in keep
+            ]
+
         with self._pool.get_connection() as conn:
-            unique_results = _unique_results(self._match_rows(conn, user_id, strict, after, before))
+            unique_results = wanted(
+                _unique_results(self._match_rows(conn, user_id, strict, after, before))
+            )
             if len(unique_results) < Config.CONVERSATION_SEARCH_FALLBACK_MIN_RESULTS:
                 any_query = fts_query(query, any_words=True)
                 if any_query != strict:
                     seen = {r.message_id or r.conversation_id for r in unique_results}
                     unique_results += [
                         replace(r, match_mode="any")
-                        for r in _unique_results(
-                            self._match_rows(conn, user_id, any_query, after, before)
+                        for r in wanted(
+                            _unique_results(
+                                self._match_rows(conn, user_id, any_query, after, before)
+                            )
                         )
                         if (r.message_id or r.conversation_id) not in seen
                     ]

@@ -483,3 +483,40 @@ class TestSearchLog:
         assert extra["after"] == "2026-01-01"
         assert extra["before"] is None
         assert isinstance(extra["ms"], int)
+
+
+class TestReviewFixes:
+    """Final review, Nov 16 2026."""
+
+    def test_current_chat_hits_do_not_suppress_the_fallback(
+        self, search_context: tuple[Database, User]
+    ) -> None:
+        database, user = search_context
+        current = database.create_conversation(user.id, "Current")
+        for text in ("olympiáda zítra", "olympiáda výsledky", "olympiáda body"):
+            database.add_message(current.id, "user", text)
+        older = _conversation_with_message(database, user, "Older", "olympiády se účastní")
+        from src.agent.tools.context import set_conversation_context
+
+        set_conversation_context(current.id, user.id)
+        result = str(search_conversations.invoke({"query": "olympiáda"}))
+        assert f"conversation_id={older.id}" in result
+
+    def test_dated_meaning_search_ranks_within_the_period(
+        self, embedded: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        database, user = embedded
+        monkeypatch.setattr(Config, "CONVERSATION_SEARCH_MAX_RESULTS", 1)
+        # Older chats closer in meaning fill the all-time top candidates
+        for i in range(5):
+            old = _conversation_with_message(database, user, f"Old {i}", f"zzz old {i}")
+            _embed_first(database, user, old, [1.0, 0.0])
+            _at(database, old, "2026-10-01T12:00:00.000000Z")
+        recent = _conversation_with_message(database, user, "Bike last week", "servis")
+        _embed_first(database, user, recent, [0.8, 0.2])
+        _at(database, recent, "2026-11-10T12:00:00.000000Z")
+
+        result = str(
+            search_conversations.invoke({"query": "qqq", "limit": 1, "after": "2026-11-09"})
+        )
+        assert "Bike last week" in result

@@ -185,9 +185,12 @@ reachable through search instead, which is what keeps the bank small:
   `message_id`. When every-word matching finds fewer than
   `CONVERSATION_SEARCH_FALLBACK_MIN_RESULTS` (3), an any-word query runs too, with words
   under 3 letters dropped and words of 6+ letters trimmed by 2 as a crude Czech ending
-  trim ("olympiáda" -> `olympiá*`); its hits follow the strict ones. Before this, 11 of
+  trim ("olympiáda" -> `olympiá*`); its hits follow the strict ones. The current chat's
+  hits are dropped inside `db.search`, before that threshold, so a long chat on the same
+  topic cannot suppress the fallback. Before this, 11 of
   12 agent searches found nothing by keyword (Nov 13-16 journal). `after`/`before` are
-  `YYYY-MM-DD`, both inclusive in the app's timezone, and bound both passes; a bad or
+  `YYYY-MM-DD`, both inclusive in the app's timezone, and bound both passes (the meaning
+  pass ranks only that period's vectors, `get_message_embeddings`); a bad or
   reversed date is a retriable error. **No query** lists conversations by latest activity
   (date, title, first user message) - "what did we talk about yesterday". Scheduled
   agents' runs are not in the keyword index but their messages are embedded: they rank
