@@ -19,6 +19,8 @@ from src.utils.embeddings import embed_text, pack_vector
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from src.utils.connection_pool import ConnectionPool
 
 logger = get_logger(__name__)
@@ -109,17 +111,25 @@ class EmbeddingsMixin:
             return [(row[0], row[1], row[2]) for row in cursor.fetchall()]
 
     def get_message_rows_for_ids(
-        self, user_id: str, message_ids: list[str]
+        self,
+        user_id: str,
+        message_ids: list[str],
+        after: datetime | None = None,
+        before: datetime | None = None,
     ) -> list[tuple[str, str, str, str, str]]:
         """Resolve message ids to (message_id, conversation_id, content,
         created_at, conversation_title), scoped to the user's conversations.
 
         Used to render semantic search hits; ids whose message or conversation
-        no longer exists simply drop out (embeddings may outlive their rows).
+        no longer exists simply drop out (a trashed conversation keeps its
+        embeddings until the purge), and so do messages outside
+        ``[after, before)``.
         """
         if not message_ids:
             return []
         placeholders = ",".join("?" for _ in message_ids)
+        after_db = to_db(after) if after else None
+        before_db = to_db(before) if before else None
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
@@ -127,8 +137,10 @@ class EmbeddingsMixin:
                     FROM messages m
                     JOIN conversations c ON c.id = m.conversation_id
                     WHERE c.user_id = ? AND c.deleted_at IS NULL
+                      AND (? IS NULL OR m.created_at >= ?)
+                      AND (? IS NULL OR m.created_at < ?)
                       AND m.id IN ({placeholders})""",  # placeholders only
-                (user_id, *message_ids),
+                (user_id, after_db, after_db, before_db, before_db, *message_ids),
             )
             rows = cursor.fetchall()
         by_id = {row[0]: (row[0], row[1], row[2], row[3], row[4]) for row in rows}
