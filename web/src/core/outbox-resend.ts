@@ -100,9 +100,24 @@ export async function resendFailedSends(trigger: ResendTrigger): Promise<number>
   return count;
 }
 
-/** Resend after OUTBOX_RESEND_DELAY_MS (the checks run again then). */
-function scheduleResend(trigger: ResendTrigger): void {
-  setTimeout(() => void resendFailedSends(trigger), OUTBOX_RESEND_DELAY_MS);
+// A trigger blocked by a running request (a reply, a recovery poll) checks
+// again this many times, OUTBOX_RESEND_DELAY_MS apart, before it lapses
+const BLOCKED_RECHECKS = 30;
+
+/**
+ * Resend after OUTBOX_RESEND_DELAY_MS; while the open chat has a request
+ * running, check again (a stream error's recovery can hold it for seconds,
+ * and the trigger would otherwise be lost until the next one).
+ */
+function scheduleResend(trigger: ResendTrigger, rechecks = BLOCKED_RECHECKS): void {
+  setTimeout(() => {
+    const convId = useStore.getState().currentConversation?.id;
+    if (convId && useStore.getState().getActiveRequest(convId) && rechecks > 0) {
+      scheduleResend(trigger, rechecks - 1);
+      return;
+    }
+    void resendFailedSends(trigger);
+  }, OUTBOX_RESEND_DELAY_MS);
 }
 
 /** Wire the triggers (once, from startup); `conversation:opened` comes from switchToConversation. */

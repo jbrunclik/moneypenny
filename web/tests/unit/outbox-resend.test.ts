@@ -13,6 +13,7 @@ import {
 } from '@/core/outbox';
 import {
   OUTBOX_RESEND_BACKOFF_MS,
+  OUTBOX_RESEND_DELAY_MS,
   OUTBOX_RESEND_MAX_AGE_MS,
   OUTBOX_STORAGE_KEY,
   OUTBOX_TABS_STORAGE_KEY,
@@ -39,7 +40,10 @@ vi.mock('@/core/rerun', () => ({
 const info = vi.fn();
 vi.mock('@/components/Toast', () => ({ toast: { info: (m: string) => info(m) } }));
 
-const { resendFailedSends, _resetResendBackoff } = await import('@/core/outbox-resend');
+const { resendFailedSends, _resetResendBackoff, initOutboxResend } = await import(
+  '@/core/outbox-resend'
+);
+initOutboxResend();
 
 const CONV = 'conv-1';
 const NO_PAGES = { older_cursor: null, has_older: false, newer_cursor: null, has_newer: false, total_count: 0 } as never;
@@ -179,6 +183,25 @@ describe('resendFailedSends', () => {
   it('says nothing when nothing failed', async () => {
     expect(await resendFailedSends('open')).toBe(0);
     expect(info).not.toHaveBeenCalled();
+  });
+});
+
+describe('triggers', () => {
+  it('a trigger blocked by a running request checks again until it is done', async () => {
+    vi.useFakeTimers();
+    try {
+      failed('m1', new Date(Date.now() - 2000).toISOString());
+      const active = vi.spyOn(useStore.getState(), 'getActiveRequest');
+      active.mockReturnValue({} as never); // a recovery poll still holds the chat
+      window.dispatchEvent(new Event('online'));
+      await vi.advanceTimersByTimeAsync(OUTBOX_RESEND_DELAY_MS * 3);
+      expect(sent).toEqual([]);
+      active.mockReturnValue(null as never);
+      await vi.advanceTimersByTimeAsync(OUTBOX_RESEND_DELAY_MS * 2);
+      expect(sent).toEqual(['m1']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
