@@ -100,7 +100,9 @@ The review itself changes nothing in production and edits nothing but
 - Side costs (from Nov 15 2026; [cost-tracking.md](features/cost-tracking.md)):
   `side_costs` per `feature` and `model` per week (sum of `cost_usd`, count) next to
   the chat turns' total; the nightly `memory_defrag` on Carbon from Dec 1 2026 (its
-  price rises).
+  price rises). `ai_assist` cost per call should sit well under its pre-Nov 16
+  2026 level (low thinking since then); the two reviews run at high on purpose
+  (cost-tracking.md, "Thinking level").
 - Web reading (from Nov 15 2026; [agent-tools.md](features/agent-tools.md#tool-security)):
   the share of research page fetches that fail ("research completed"
   `fetch_failures` against `fetched_ok`; baseline 27%, 937 of 3,475 in the 30 days to

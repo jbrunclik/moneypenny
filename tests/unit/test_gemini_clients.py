@@ -6,6 +6,7 @@ call waited for a full garbage collection that busy workers almost never ran
 (Oct 16 2026: the freshness gate alone builds one on every regular turn).
 """
 
+import json
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -16,7 +17,16 @@ import httpx2
 import pytest
 from google import genai
 
-from src.agent import compaction, freshness, gemini_clients, grounding_check, title
+from src.agent import (
+    compaction,
+    freshness,
+    gemini_clients,
+    grounding_check,
+    instructions_review,
+    program_review,
+    title,
+)
+from src.agent.deep_research import writer
 from src.config import Config
 
 _REPLY = {
@@ -77,3 +87,65 @@ def test_repeated_calls_build_one_client(call: Callable[[], object]) -> None:
         for _ in range(3):
             call()
     assert len(built) <= 1
+
+
+@contextmanager
+def _request_bodies() -> Iterator[list[dict[str, Any]]]:
+    """The JSON bodies sent to Gemini while it is answered locally."""
+    bodies: list[dict[str, Any]] = []
+
+    def answer(_transport: httpx.HTTPTransport, request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.read() or b"{}"))
+        return httpx.Response(200, json=_REPLY, request=request)
+
+    def answer2(_transport: httpx2.HTTPTransport, request: httpx2.Request) -> httpx2.Response:
+        bodies.append(json.loads(request.read() or b"{}"))
+        return httpx2.Response(200, json=_REPLY, request=request)
+
+    with (
+        patch.object(httpx.HTTPTransport, "handle_request", answer),
+        patch.object(httpx2.HTTPTransport, "handle_request", answer2),
+        patch.object(Config, "GEMINI_API_KEY", "test-key"),
+    ):
+        yield bodies
+
+
+def _thinking_level(body: dict[str, Any]) -> str | None:
+    thinking = body.get("generationConfig", {}).get("thinkingConfig", {})
+    level = thinking.get("thinkingLevel") or thinking.get("thinking_level")
+    return str(level).lower() if level else None
+
+
+# Side calls on Hydrogen ran at the API default (high) thinking until Nov 16
+# 2026; each now sends its own configured level
+@pytest.mark.parametrize(
+    ("call", "setting"),
+    [
+        pytest.param(
+            lambda: program_review._invoke("Review."),
+            "PROGRAM_REVIEW_THINKING_LEVEL",
+            id="program-review",
+        ),
+        pytest.param(
+            lambda: instructions_review._invoke("Review."),
+            "INSTRUCTIONS_REVIEW_THINKING_LEVEL",
+            id="instructions-review",
+        ),
+        pytest.param(
+            lambda: writer.extract_followups("A report."),
+            "DEEP_RESEARCH_FOLLOWUP_THINKING_LEVEL",
+            id="deep-research-followups",
+        ),
+    ],
+)
+def test_side_calls_send_their_thinking_level(call: Callable[[], object], setting: str) -> None:
+    with _request_bodies() as bodies, patch.object(Config, setting, "low"):
+        call()
+    assert bodies
+    assert _thinking_level(bodies[-1]) == "low"
+
+
+def test_chat_model_without_a_level_sends_none() -> None:
+    with _request_bodies() as bodies:
+        gemini_clients.chat_model("gemini-4-hydrogen").invoke("Hi")
+    assert _thinking_level(bodies[-1]) is None

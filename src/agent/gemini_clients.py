@@ -17,7 +17,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.config import Config
 
-# Distinct (model, temperature, timeout, retries) settings in use; a few each
+# Distinct (model, temperature, timeout, retries, thinking) settings in use; a few each
 _MAX_CACHED_MODELS = 32
 
 
@@ -37,11 +37,17 @@ def chat_model(
     temperature: float | None = None,
     timeout: float | None = None,
     max_retries: int | None = None,
+    thinking_level: str | None = None,
 ) -> ChatGoogleGenerativeAI:
     """One LangChain chat model per setting. Unset arguments keep the
-    library defaults (e.g. no temperature at all for Gemini 3); the timeout
-    defaults to GEMINI_REQUEST_TIMEOUT_SECONDS."""
-    optional = {"temperature": temperature, "max_retries": max_retries}
+    library defaults (e.g. no temperature at all for Gemini 3, the API's own
+    thinking level - high on Gemini 4); the timeout defaults to
+    GEMINI_REQUEST_TIMEOUT_SECONDS."""
+    optional = {
+        "temperature": temperature,
+        "max_retries": max_retries,
+        "thinking_level": thinking_level,
+    }
     return ChatGoogleGenerativeAI(
         model=model,
         google_api_key=Config.GEMINI_API_KEY,

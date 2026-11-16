@@ -122,6 +122,7 @@ def extract_followups(report: str) -> tuple[list[str], dict[str, int]]:
             Config.DEEP_RESEARCH_SUBAGENT_MODEL,
             temperature=0,
             max_retries=Config.AGENT_MODEL_SDK_MAX_RETRIES,
+            thinking_level=Config.DEEP_RESEARCH_FOLLOWUP_THINKING_LEVEL,
         )
         out = llm.with_structured_output(FollowUps, include_raw=True).invoke(
             FOLLOWUP_PROMPT.format(report=report)

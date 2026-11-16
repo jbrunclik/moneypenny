@@ -150,7 +150,11 @@ def _prompt(user_id: str, ref: ProgramRef) -> str:
 
 def _invoke(prompt: str) -> tuple[ReviewOutput | None, dict[str, int]]:
     """The one model call: the parsed suggestions (None: unreadable) and the token usage."""
-    model = chat_model(Config.PROGRAM_REVIEW_MODEL, timeout=Config.PROGRAM_REVIEW_TIMEOUT_SECONDS)
+    model = chat_model(
+        Config.PROGRAM_REVIEW_MODEL,
+        timeout=Config.PROGRAM_REVIEW_TIMEOUT_SECONDS,
+        thinking_level=Config.PROGRAM_REVIEW_THINKING_LEVEL,
+    )
     out = model.with_structured_output(ReviewOutput, include_raw=True).invoke(prompt)
     parsed = out.get("parsed") if isinstance(out, dict) else None
     raw = out.get("raw") if isinstance(out, dict) else None

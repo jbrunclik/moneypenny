@@ -436,6 +436,9 @@ class Config:
 
     # AI assist settings (cron parsing, prompt enhancement)
     AI_ASSIST_MODEL = "gemini-4-hydrogen"
+    # The agent editor's schedule parsing and prompt enhancement on DEFAULT_MODEL;
+    # Hydrogen's API default is high thinking, which these short tasks don't need
+    AI_ASSIST_THINKING_LEVEL = "low"
 
     # LLM settings
     GEMINI_DEFAULT_TEMPERATURE = 0.7
@@ -593,6 +596,8 @@ class Config:
     DEEP_RESEARCH_ENABLED: bool = os.getenv("DEEP_RESEARCH_ENABLED", "true").lower() == "true"
     DEEP_RESEARCH_WRITER_MODEL: str = os.getenv("DEEP_RESEARCH_WRITER_MODEL") or "gemini-4-carbon"
     DEEP_RESEARCH_SUBAGENT_MODEL: str = os.getenv("DEEP_RESEARCH_SUBAGENT_MODEL") or DEFAULT_MODEL
+    # The 2-4 follow-up questions read off a finished report (not the API's high)
+    DEEP_RESEARCH_FOLLOWUP_THINKING_LEVEL = "low"
     DEEP_RESEARCH_PARALLELISM: int = int(os.getenv("DEEP_RESEARCH_PARALLELISM", "4"))
     DEEP_RESEARCH_MAX_SUB_QUESTIONS: int = int(os.getenv("DEEP_RESEARCH_MAX_SUB_QUESTIONS", "8"))
     DEEP_RESEARCH_MAX_ITEM_CHARS: int = int(os.getenv("DEEP_RESEARCH_MAX_ITEM_CHARS", "300"))
@@ -933,6 +938,11 @@ class Config:
     PROGRAM_REVIEW_MESSAGE_CHARS: int = int(os.getenv("PROGRAM_REVIEW_MESSAGE_CHARS", "600"))
     PROGRAM_REVIEW_MAX_SUGGESTIONS: int = int(os.getenv("PROGRAM_REVIEW_MAX_SUGGESTIONS", "8"))
     PROGRAM_REVIEW_TIMEOUT_SECONDS: float = float(os.getenv("PROGRAM_REVIEW_TIMEOUT_SECONDS", "60"))
+    # High on purpose (Hydrogen's API default): on Nov 16 2026 the instructions
+    # review at low left out the new text its suggestion needs in 5 of 6 runs (each
+    # then dropped as invalid), medium was no faster or cheaper; this review shares
+    # that schema of optional per-kind fields
+    PROGRAM_REVIEW_THINKING_LEVEL = "high"
 
     # Custom instructions (Settings -> AI Instructions): the longest text a user
     # may keep; it rides in every chat's system prompt
@@ -942,6 +952,7 @@ class Config:
     # the memory bank and the user's latest messages in ordinary chats (each with
     # an excerpt of the reply it answered), at most this many suggestions
     INSTRUCTIONS_REVIEW_MODEL: str = os.getenv("INSTRUCTIONS_REVIEW_MODEL") or "gemini-4-hydrogen"
+    INSTRUCTIONS_REVIEW_THINKING_LEVEL = "high"  # not lower: see PROGRAM_REVIEW_THINKING_LEVEL
     INSTRUCTIONS_REVIEW_MESSAGES: int = int(os.getenv("INSTRUCTIONS_REVIEW_MESSAGES", "60"))
     INSTRUCTIONS_REVIEW_MESSAGE_CHARS: int = int(
         os.getenv("INSTRUCTIONS_REVIEW_MESSAGE_CHARS", "600")

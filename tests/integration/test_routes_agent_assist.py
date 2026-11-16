@@ -8,6 +8,8 @@ from unittest.mock import MagicMock, patch
 from flask.testing import FlaskClient
 from langchain_core.messages import AIMessage
 
+from src.config import Config
+
 _MODEL = "src.api.routes.agent_assist.chat_model"
 
 
@@ -28,11 +30,13 @@ class TestParseSchedule:
 
     def test_returns_a_valid_cron(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         reply = '```json\n{"cron": "0 9 * * 1-5", "explanation": "Weekdays at 9:00"}\n```'
-        with patch(_MODEL, return_value=_model_saying(reply)):
+        with patch(_MODEL, return_value=_model_saying(reply)) as factory:
             data = client.post(
                 self.URL, json={"natural_language": "weekdays at 9"}, headers=auth_headers
             ).get_json()
         assert data == {"cron": "0 9 * * 1-5", "explanation": "Weekdays at 9:00", "error": None}
+        # Not Hydrogen's API default (high) for a one-line conversion
+        assert factory.call_args.kwargs["thinking_level"] == Config.AI_ASSIST_THINKING_LEVEL
 
     def test_rejects_an_invalid_cron(
         self, client: FlaskClient, auth_headers: dict[str, str]
@@ -70,11 +74,12 @@ class TestEnhancePrompt:
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
         reply = '{"enhanced_prompt": "Summarize the news every morning.", "error": null}'
-        with patch(_MODEL, return_value=_model_saying(reply)):
+        with patch(_MODEL, return_value=_model_saying(reply)) as factory:
             data = client.post(
                 self.URL, json={"prompt": "news", "agent_name": "News"}, headers=auth_headers
             ).get_json()
         assert data == {"enhanced_prompt": "Summarize the news every morning.", "error": None}
+        assert factory.call_args.kwargs["thinking_level"] == Config.AI_ASSIST_THINKING_LEVEL
 
     def test_a_model_failure_does_not_leak_its_message(
         self, client: FlaskClient, auth_headers: dict[str, str]

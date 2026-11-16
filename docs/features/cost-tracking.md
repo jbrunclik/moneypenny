@@ -73,6 +73,19 @@ and the grounding check are part of the turn's cost already. Embeddings are not
 recorded yet (priced per character, a few cents a month). The admin page does
 not show side costs yet; the regular review reads the table.
 
+Thinking level: side calls go through `chat_model()`
+([gemini_clients.py](../../src/agent/gemini_clients.py)), which sends no
+thinking level unless asked - and Gemini 4 Hydrogen's API default is high. Each
+Hydrogen side call names its own (Nov 16 2026, measured live on the same
+prompts): `AI_ASSIST_THINKING_LEVEL` and `DEEP_RESEARCH_FOLLOWUP_THINKING_LEVEL`
+are `low` (same crons, prompts and follow-up questions, 1.5-2x faster, ~60%
+fewer output tokens); `PROGRAM_REVIEW_THINKING_LEVEL` and
+`INSTRUCTIONS_REVIEW_THINKING_LEVEL` stay `high` - at low the instructions review
+left out the new text a `move_to_instructions` suggestion needs in 5 of 6 runs,
+so the suggestion was dropped, and medium was no faster or cheaper than high.
+Compaction and the memory review set low through the google-genai SDK directly;
+titles, the gate and the grounding check run on Flash-Lite.
+
 ## UI Display
 
 ### Conversation Cost

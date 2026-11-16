@@ -172,7 +172,9 @@ def parse_schedule(user: User, data: ParseScheduleRequest) -> dict[str, Any]:
     try:
         # Use direct LLM call without system prompt overhead
         # This is a simple task that doesn't need tools or memory
-        model = chat_model(Config.DEFAULT_MODEL, temperature=0.1)  # consistent parsing
+        model = chat_model(  # consistent parsing
+            Config.DEFAULT_MODEL, temperature=0.1, thinking_level=Config.AI_ASSIST_THINKING_LEVEL
+        )
 
         prompt = f"""Convert this natural language schedule description to a cron expression.
 
@@ -241,7 +243,9 @@ def enhance_prompt(user: User, data: EnhancePromptRequest) -> dict[str, Any]:
     try:
         # Use direct LLM call without system prompt overhead
         # This is a simple task that doesn't need tools or memory
-        model = chat_model(Config.DEFAULT_MODEL, temperature=0.7)  # creative improvement
+        model = chat_model(  # creative improvement
+            Config.DEFAULT_MODEL, temperature=0.7, thinking_level=Config.AI_ASSIST_THINKING_LEVEL
+        )
 
         tool_section = _format_tool_prompt_section(user, data.tool_permissions)
         tool_section_text = (
