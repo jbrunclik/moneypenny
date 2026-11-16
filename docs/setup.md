@@ -277,7 +277,7 @@ Before setting up, understand these important WhatsApp Business API concepts:
 
 5. **Register your phone number** (required before sending):
    ```bash
-   curl -X POST "https://graph.facebook.com/v18.0/$WHATSAPP_PHONE_NUMBER_ID/register" \
+   curl -X POST "https://graph.facebook.com/v25.0/$WHATSAPP_PHONE_NUMBER_ID/register" \
      -H "Authorization: Bearer $WHATSAPP_ACCESS_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"messaging_product": "whatsapp", "pin": "123456"}'
@@ -335,7 +335,7 @@ The agent will only send WhatsApp messages when explicitly instructed in its goa
 
 For testing within the 24-hour window (after user messages you):
 ```bash
-curl -X POST "https://graph.facebook.com/v18.0/$WHATSAPP_PHONE_NUMBER_ID/messages" \
+curl -X POST "https://graph.facebook.com/v25.0/$WHATSAPP_PHONE_NUMBER_ID/messages" \
   -H "Authorization: Bearer $WHATSAPP_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -348,7 +348,7 @@ curl -X POST "https://graph.facebook.com/v18.0/$WHATSAPP_PHONE_NUMBER_ID/message
 
 For business-initiated messages (using template with two parameters):
 ```bash
-curl -X POST "https://graph.facebook.com/v18.0/$WHATSAPP_PHONE_NUMBER_ID/messages" \
+curl -X POST "https://graph.facebook.com/v25.0/$WHATSAPP_PHONE_NUMBER_ID/messages" \
   -H "Authorization: Bearer $WHATSAPP_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{

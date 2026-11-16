@@ -460,6 +460,8 @@ def test_standing_job_records_an_execution(
 
     [execution] = db.get_job_runs(job.id)
     assert (execution.status, execution.trigger_type) == ("completed", "manual")
+    # The run prompt names how it started (it said "scheduled" for every run)
+    assert fake_llm.instances[0].init_kwargs["agent_context"]["trigger_type"] == "manual"
 
 
 def test_standing_job_push_names_the_chat(

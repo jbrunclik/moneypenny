@@ -415,7 +415,7 @@ def execute_code(code: str, files: list[str] | None = None) -> str:
         files: Optional ids of conversation files ("message_id:file_index")
             to copy into /work/attachments/ first (at most 5 per call).
     """
-    # Check permission for autonomous agents (always requires approval)
+    # Unattended runs: blocked unless the job grants it
     check_autonomous_permission("execute_code", {"code": code})
 
     # Check if sandbox is available

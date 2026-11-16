@@ -104,22 +104,24 @@ class TestRunHistory:
         with patch(
             "src.agent.run_context.build_compacted_history", side_effect=lambda u, c, h: h[-4:]
         ) as compact:
-            history = run_history(agent.job, conv_id, keep_last=True)
+            history = run_history(agent.job, conv_id)
 
         assert compact.call_args.args[:2] == (user.id, conv_id)
         assert len(history) == 4
         assert history[-1]["content"] == "Report 29"
         assert len(db.get_messages(conv_id)) == 60
 
-    def test_drops_the_just_saved_trigger_unless_kept(self, db: Database, user: User) -> None:
+    def test_keeps_the_newest_message(self, db: Database, user: User) -> None:
+        """A run saves no trigger message, so the newest message (here the
+        user's own) is history the run must see."""
         agent = _agent(db, user, fresh_context=False)
         conv_id = agent.conversation_id or ""
         db.add_message(conv_id, MessageRole.ASSISTANT, "Old report")
-        db.add_message(conv_id, MessageRole.USER, "[Action approved: X]")
+        db.add_message(conv_id, MessageRole.USER, "Skip Fridays from now on")
 
         contents = [h["content"] for h in run_history(agent.job, conv_id)]
 
-        assert contents == ["Old report"]
+        assert contents == ["Old report", "Skip Fridays from now on"]
 
     def test_fresh_context_run_has_no_history(self, db: Database, user: User) -> None:
         agent = _agent(db, user, fresh_context=True)

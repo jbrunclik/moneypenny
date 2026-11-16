@@ -79,7 +79,7 @@ def generate_image(
     Returns:
         JSON with the prompt used and base64 image data, or an error message
     """
-    # Check permission for autonomous agents (always requires approval - costs money)
+    # Unattended runs: blocked unless the job grants it
     check_autonomous_permission("generate_image", {"prompt": prompt})
 
     normalized = _normalized_request(prompt, aspect_ratio, image_size)

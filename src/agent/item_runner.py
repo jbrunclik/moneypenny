@@ -164,8 +164,6 @@ def _remembers(item: ScheduledItem) -> bool:
 
 
 def _run_message(item: ScheduledItem, trigger: str, message: str | None) -> str:
-    if item.standing and trigger == "manual" and message:
-        return message  # an approval's outcome resuming the run
     if item.standing:
         return build_trigger_message(trigger, message)
     previous = item.last_result or NO_PREVIOUS_RESULT
@@ -207,7 +205,7 @@ def _chat(
             "timezone": setup.timezone,
             "goals": setup.goals,
             "tools": [t.name for t in tools],
-            "trigger_type": "scheduled",
+            "trigger_type": trigger,
             "fresh_context": setup.fresh_context,
         },
         tools=tools,
@@ -215,14 +213,7 @@ def _chat(
         # of the user context (language, saved places) always
         include_memories=_remembers(item),
     )
-    # A resumed run's message was saved into the chat already (the approval
-    # route): it is the run message, so it must not repeat in the history
-    resumed = trigger == "manual" and message is not None
-    history = (
-        []
-        if setup.fresh_context
-        else run_history(item, item.conversation_id, keep_last=not resumed)
-    )
+    history = [] if setup.fresh_context else run_history(item, item.conversation_id)
     raw, _, usage, result_messages = chat_agent.chat_batch(
         text=_run_message(item, trigger, message),
         files=None,

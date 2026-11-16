@@ -98,10 +98,9 @@ def build_trigger_message(trigger_type: str, extra_message: str | None = None) -
     return message
 
 
-def run_history(
-    item: ScheduledItem, conversation_id: str, *, keep_last: bool = False
-) -> list[dict[str, Any]]:
-    """The conversation history sent with the run (excluding the trigger message).
+def run_history(item: ScheduledItem, conversation_id: str) -> list[dict[str, Any]]:
+    """The conversation history sent with the run (the run saves no trigger
+    message, so every message is real history).
 
     Fresh-context agents run every turn from a clean slate (prior runs stay
     readable in the chat but aren't sent - right for report-style agents like
@@ -112,10 +111,7 @@ def run_history(
     if item.fresh_context:
         return []
     messages = db.get_messages(conversation_id)
-    # An agent run just saved its trigger message (sent separately); a job run
-    # saves none, so its newest message is real history (keep_last)
-    kept = messages if keep_last else messages[:-1]
-    return build_compacted_history(item.user_id, conversation_id, enrich_history(kept))
+    return build_compacted_history(item.user_id, conversation_id, enrich_history(messages))
 
 
 def record_approval_request(

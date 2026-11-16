@@ -9,7 +9,7 @@ The app can execute Python code in a Docker sandbox: one container per conversat
 3. **Custom image**: Uses a pre-built Docker image with fonts and libraries pre-installed for faster execution
 4. **File output**: Code saves files to `/output/` directory, which are extracted and returned
 5. **Plots**: saved with `plt.savefig` into `/output/` like any other file (llm-sandbox's plot capture was never on - its console session has none - and was removed Nov 16 2026)
-6. **Pre-installed libraries**: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz
+6. **Pre-installed libraries**: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz, pypdf, pdfplumber
 
 ## Custom Docker Image
 
@@ -116,8 +116,8 @@ Pressing Stop while `execute_code` runs kills the user's program (SIGKILL to eve
 
 ## Office Files
 
-The image ships python-docx, python-pptx and openpyxl (image label
-`moneypenny.version=1.1`), so the agent can return real Word, PowerPoint and
+The image ships python-docx, python-pptx and openpyxl (since image label
+`moneypenny.version=1.1`; the current image is 1.3), so the agent can return real Word, PowerPoint and
 Excel files rather than a PDF or markdown. The Code Execution prompt section
 keeps only one-line pointers; the recipes live in the `office-documents` and
 `pdf-documents` [skills](agent-tools.md#skills), loaded on demand. The

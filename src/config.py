@@ -434,7 +434,8 @@ class Config:
     TITLE_CONTEXT_MAX_LENGTH = 500  # Max chars of context to send for title generation
     TITLE_FALLBACK_LENGTH = 50  # Length for fallback title from user message
 
-    # AI assist settings (cron parsing, prompt enhancement)
+    # Conversation compaction and the background memory review (despite the
+    # name: AI assist itself runs on DEFAULT_MODEL, below)
     AI_ASSIST_MODEL = "gemini-4-hydrogen"
     # The agent editor's schedule parsing and prompt enhancement on DEFAULT_MODEL;
     # Hydrogen's API default is high thinking, which these short tasks don't need
@@ -711,8 +712,8 @@ class Config:
     MEMORY_ENTRY_NEAR_LIMIT_RATIO = 0.8
 
     # Conversation facts (docs/features/conversation-facts.md): settled facts
-    # per conversation, sent with every turn of it. Off until the retention
-    # eval passes and ordinary turns are shown not slower or costlier
+    # per conversation, sent with every turn of it. Off by default; on in
+    # production since Nov 1 2026 (measured and kept Nov 14 2026)
     CONVERSATION_FACTS_ENABLED: bool = (
         os.getenv("CONVERSATION_FACTS_ENABLED", "false").lower() == "true"
     )
@@ -1118,7 +1119,8 @@ class Config:
     WHATSAPP_MAX_MESSAGE_LENGTH: int = int(
         os.getenv("WHATSAPP_MAX_MESSAGE_LENGTH", "1024")
     )  # WhatsApp template body variable limit (1024 chars per variable)
-    WHATSAPP_API_VERSION: str = "v18.0"
+    # Graph API versions expire ~2 years after release (v18.0 ended Jan 26 2026)
+    WHATSAPP_API_VERSION: str = "v25.0"
     WHATSAPP_API_BASE_URL: str = "https://graph.facebook.com"
 
     # Garmin Connect Integration (no API keys needed — uses garth session tokens)

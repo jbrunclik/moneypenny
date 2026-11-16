@@ -47,15 +47,24 @@ Costs are stored in the `message_costs` table:
 ```sql
 CREATE TABLE message_costs (
     id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    conversation_id TEXT NOT NULL,
     message_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
     model TEXT NOT NULL,
-    input_tokens INTEGER NOT NULL,
-    output_tokens INTEGER NOT NULL,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
     cost_usd REAL NOT NULL,
-    image_generation_cost_usd REAL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    image_generation_cost_usd REAL DEFAULT 0.0,
+    cached_input_tokens INTEGER NOT NULL DEFAULT 0,  -- subset of input_tokens
+    tool_rounds INTEGER NOT NULL DEFAULT 0,
+    tool_call_count INTEGER NOT NULL DEFAULT 0,
+    duration_ms INTEGER,
+    tool_errors INTEGER NOT NULL DEFAULT 0,
+    tools_used TEXT,       -- JSON list
+    job_id TEXT,           -- the standing job that ran the turn, if any
+    stopped_by TEXT,       -- the turn budget that stopped it, if any
+    turn_timing TEXT       -- JSON phase timings (freshness gate, model calls)
 );
 ```
 
@@ -132,7 +141,12 @@ Calculated from `usage_metadata` with three rates: prompt tokens at the input ra
 
 ### Other Tools
 
-Web search and URL fetching are free (no cost tracking).
+Web search runs on provider free tiers (Brave, Exa, Linkup, Tavily, then
+ddgs), counted against monthly quotas (`SEARCH_QUOTA_*_MONTHLY`) rather than
+priced per turn. Pages read through the Exa fallback (403/429, PDFs) bill
+about $0.001 each into Exa's counter, logged as "Page read via fallback" with
+`cost_usd` ([web-reading spec](../superpowers/specs/2026-11-15-web-reading-design.md)).
+None of this is in `message_costs`.
 
 ## Prompt Caching & Known Limitations
 
@@ -162,9 +176,9 @@ caching affects tracked cost:
   once per LLM call (not per chunk), so summing usage across streamed chunks and
   across messages in a turn is correct and does not double-count.
 - **Fixed per-round overhead.** Each tool round re-sends the system prompt plus the
-  full tool-schema declarations. Unless that prefix is served from the explicit
-  cache, a turn with N sequential tool rounds pays this fixed overhead N times —
-  the main reason multi-round tool turns dominate cost.
+  full tool-schema declarations. Even at the implicit-cache rate, a turn with N
+  sequential tool rounds pays this fixed overhead N times — the main reason
+  multi-round tool turns dominate cost.
 
 ## Currency Rate Updates
 
