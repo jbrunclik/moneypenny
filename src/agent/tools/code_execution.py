@@ -235,6 +235,12 @@ def _extract_output_files(
     metadata: list[dict[str, Any]] = []
 
     for filename in filenames:
+        # The list is parsed from stdout, which user code can forge: plain
+        # names only (read_file also refuses anything outside /output)
+        if not isinstance(filename, str) or not filename or "/" in filename:
+            continue
+        if filename in {".", ".."}:
+            continue
         full_data, meta = _extract_file_from_sandbox(session, filename)
         if full_data and meta:
             full_files.append(full_data)

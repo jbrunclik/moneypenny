@@ -707,3 +707,23 @@ def test_the_probe_runs_under_the_execution_constraints_and_cleans_up(
         assert code_execution._probe_docker_available() is False
     session.open.assert_called_once_with()
     session.close.assert_called_once_with()
+
+
+@pytest.mark.parametrize(
+    "names", [["../etc/passwd"], ["a/b.txt"], [".."], [""], ["report.pdf", "../x"]]
+)
+def test_output_names_from_stdout_must_be_plain_names(names: list[str]) -> None:
+    """A user program can print its own __OUTPUT_FILES__ marker (review)."""
+    session = MagicMock()
+    session.read_file.return_value = b"x"
+    session.run.return_value = MagicMock(
+        exit_code=0, stdout=f"__OUTPUT_FILES__:{json.dumps(names)}\n", stderr=""
+    )
+    with (
+        patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True),
+        patch("src.agent.tools.code_execution._check_docker_available", return_value=True),
+        patch("src.agent.tools.code_execution.get_sandbox_pool", return_value=pool_of(session)),
+    ):
+        execute_code.invoke({"code": "print(1)"})
+    read = [call.args[0] for call in session.read_file.call_args_list]
+    assert read == [f"/output/{n}" for n in names if n == "report.pdf"]

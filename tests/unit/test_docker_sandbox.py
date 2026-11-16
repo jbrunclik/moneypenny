@@ -159,12 +159,12 @@ def test_put_file_raises_when_the_copy_fails(sandbox: DockerSandbox) -> None:
 
 
 def test_read_file_returns_the_bytes(sandbox: DockerSandbox) -> None:
-    _container(sandbox).outputs["cat"] = (0, b"\x00\x01binary", b"")
+    _container(sandbox).outputs["sh"] = (0, b"\x00\x01binary", b"")
     assert sandbox.read_file("/output/x.bin") == b"\x00\x01binary"
 
 
 def test_read_file_of_a_missing_file_raises(sandbox: DockerSandbox) -> None:
-    _container(sandbox).outputs["cat"] = (1, b"", b"No such file")
+    _container(sandbox).outputs["sh"] = (2, b"", b"not a regular file")
     with pytest.raises(FileNotFoundError):
         sandbox.read_file("/output/missing")
 
@@ -183,3 +183,25 @@ def test_reap_removes_staging_dirs_of_dead_owners(tmp_path: Path) -> None:
     removed = reap_staging_dirs(tmp_path, pid_alive=lambda pid: pid == 222)
     assert removed == 1
     assert sorted(p.name for p in tmp_path.iterdir()) == ["222-bbbb", "unrelated"]
+
+
+def test_the_root_kill_cannot_load_code_the_sandbox_planted(sandbox: DockerSandbox) -> None:
+    """HOME is /work and `python -c` puts the cwd first on sys.path: a planted
+    /work/os.py or user site-package would run as root. Isolated mode (-I: no
+    PYTHON* env, no user site, no cwd on the path), no site, cwd /, HOME /root
+    (security review, Nov 16 2026)."""
+    sandbox.kill_user_code()
+    [call] = _container(sandbox).execs
+    assert call["user"] == "root"
+    assert call["cmd"][:4] == ["python", "-I", "-S", "-c"]
+    assert call["workdir"] == "/"
+    assert call["environment"] == {"HOME": "/root"}
+
+
+@pytest.mark.parametrize(
+    "path", ["/etc/passwd", "/output/../etc/passwd", "/output/a/b", "/output/"]
+)
+def test_read_file_refuses_paths_outside_output(sandbox: DockerSandbox, path: str) -> None:
+    with pytest.raises(FileNotFoundError):
+        sandbox.read_file(path)
+    assert _container(sandbox).execs == []

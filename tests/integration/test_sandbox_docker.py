@@ -136,3 +136,47 @@ def test_close_leaves_no_container_or_staging(tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == []
     ids = [c.id for c in docker_client().containers.list(all=True)]
     assert container_id not in ids
+
+
+def test_the_root_kill_does_not_run_planted_modules(box: DockerSandbox) -> None:
+    """Sandbox code plants /work/os.py, /work/json.py and a usercustomize in the
+    user site (HOME is /work) that would leave /tmp/ran-<uid> if imported by the
+    root kill (security review, Nov 16 2026). Per-uid files: root holds no
+    DAC capability, so it could not append to a file the sandbox user owns."""
+    marker = "open(f\"/tmp/ran-{__import__('posix').getuid()}\", 'w').write('x')\n"
+    _run(
+        box,
+        "import os, site\n"
+        f"open('/work/os.py', 'w').write({marker!r})\n"
+        f"open('/work/json.py', 'w').write({marker!r})\n"
+        "p = site.getusersitepackages(); os.makedirs(p, exist_ok=True)\n"
+        f"open(p + '/usercustomize.py', 'w').write({marker!r})\n",
+    )
+    box.kill_user_code()
+    assert _run(box, "import os; print(os.path.exists('/tmp/ran-0'))").strip() == "False"
+
+
+@pytest.mark.parametrize("name", ["../etc/passwd", "../dev/urandom", "fifo", "link"])
+def test_reading_outputs_refuses_anything_but_a_small_regular_file(
+    box: DockerSandbox, name: str
+) -> None:
+    """Output names come from stdout, which user code controls (review, Nov 16
+    2026): a path outside /output, a device, a FIFO or a symlink must fail fast,
+    never stream into the app worker or block it."""
+    _run(
+        box,
+        "import os\nos.mkfifo('/output/fifo')\nos.symlink('/dev/urandom', '/output/link')\n",
+    )
+    started = time.monotonic()
+    with pytest.raises(FileNotFoundError):
+        box.read_file(f"/output/{name}")
+    assert time.monotonic() - started < 15
+
+
+def test_an_output_over_the_size_limit_is_refused(
+    box: DockerSandbox, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Config, "MAX_FILE_SIZE_BYTES", 1000)
+    _run(box, "open('/output/big.bin', 'wb').write(b'0' * 5000)")
+    with pytest.raises(FileNotFoundError, match="too large"):
+        box.read_file("/output/big.bin")

@@ -70,6 +70,18 @@ _KILL_USER_CODE = (
 )
 
 
+_OUTPUT_DIR = "/output/"
+_READ_TIMEOUT_SECONDS = 10
+# $1 path, $2 byte limit, $3 seconds: a regular file (not a symlink, FIFO or
+# device), within the limit, read under a timeout
+_READ_OUTPUT = (
+    'if [ -L "$1" ] || [ ! -f "$1" ]; then echo "not a regular file" >&2; exit 2; fi; '
+    'size=$(stat -c %s "$1"); '
+    'if [ "$size" -gt "$2" ]; then echo "too large: $size bytes" >&2; exit 3; fi; '
+    'exec timeout "$3" head -c "$2" "$1"'
+)
+
+
 class SandboxTimeoutError(TimeoutError):
     """The code ran past its time limit and was killed."""
 
@@ -216,8 +228,22 @@ class DockerSandbox:
             raise OSError(f"copy into the sandbox failed: {(stderr or b'').decode()[:200]}")
 
     def read_file(self, path: str) -> bytes:
-        """The bytes of a file in the sandbox (FileNotFoundError if unreadable)."""
-        result = self.container.exec_run(["cat", path], user=SANDBOX_USER, demux=True)
+        """The bytes of a regular file directly in /output (FileNotFoundError otherwise).
+
+        Output names come from stdout, which the user's code controls (review,
+        Nov 16 2026): a path outside /output, a symlink, a FIFO or a device
+        would stream into or block the app worker. Only a plain name, a regular
+        file up to MAX_FILE_SIZE_BYTES, read under a time limit.
+        """
+        name = path.removeprefix(_OUTPUT_DIR)
+        if path == name or not name or "/" in name or name in {".", ".."}:
+            raise FileNotFoundError(f"{path}: not a file directly in {_OUTPUT_DIR}")
+        limit = str(Config.MAX_FILE_SIZE_BYTES)
+        result = self.container.exec_run(
+            ["sh", "-c", _READ_OUTPUT, "sh", path, limit, str(_READ_TIMEOUT_SECONDS)],
+            user=SANDBOX_USER,
+            demux=True,
+        )
         stdout, stderr = result.output
         if result.exit_code != 0:
             raise FileNotFoundError(f"{path}: {(stderr or b'').decode()[:200]}")
@@ -234,7 +260,15 @@ class DockerSandbox:
     def kill_user_code(self) -> None:
         """SIGKILL the running program; ``docker kill`` when no exec can start."""
         try:
-            self.container.exec_run(["python", "-c", _KILL_USER_CODE], user="root")
+            # Isolated: HOME is /work and `python -c` puts the cwd first on
+            # sys.path, so a planted /work/os.py or user site-package would
+            # otherwise run as root (security review, Nov 16 2026)
+            self.container.exec_run(
+                ["python", "-I", "-S", "-c", _KILL_USER_CODE],
+                user="root",
+                workdir="/",
+                environment={"HOME": "/root"},
+            )
         except Exception:
             logger.warning("Sandbox kill exec failed - killing the container", exc_info=True)
             self.alive = False

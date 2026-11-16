@@ -51,7 +51,14 @@ This builds `moneypenny-sandbox:local` with:
   (`CODE_SANDBOX_STAGING_DIR`, `data/sandbox-staging/<pid>-<id>`, not `/tmp`: the
   service runs with PrivateTmp) bind-mounted **read-only** at `/staging`; it runs
   `python /staging/code-<n>.py` in `/work`, and an exec as the sandbox user copies
-  attachments into `/work/attachments`. Files come out through `exec cat`.
+  attachments into `/work/attachments`. Files come out through an exec that reads only
+  a regular file directly in `/output` (no symlink, FIFO or device), up to
+  `MAX_FILE_SIZE_BYTES`, under a 10 s `timeout`: the output list is parsed from stdout,
+  which user code can forge (a `../dev/urandom` entry streamed into the app worker in
+  review). Names with `/` or `..` are dropped before that.
+- **The root kill is isolated**: the image's `HOME` and working dir are `/work`, so a
+  root `python -c` would load a planted `/work/*.py` or user site-package; the kill runs
+  `python -I -S` in `/` with `HOME=/root` (a live test plants both).
 - **No host access**: Code cannot access files outside the container
 - **Resource limits**: Configurable timeout (30s default), memory limit (512MB default)
 - **Per-conversation sessions**: Containers are reused across `execute_code`
