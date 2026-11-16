@@ -48,6 +48,7 @@ vi.mock('@/components/messages', () => ({
   removeRenderedMessagesFrom: vi.fn(),
   addStreamingMessage: vi.fn(() => document.createElement('div')),
   updateStreamingMessage: vi.fn(),
+  scheduleStreamingUpdate: vi.fn(),
   finalizeStreamingMessage: vi.fn(() => false),
   updateStreamingThinking: vi.fn(),
   updateStreamingToolStart: vi.fn(),

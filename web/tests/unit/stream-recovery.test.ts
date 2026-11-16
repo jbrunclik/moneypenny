@@ -40,6 +40,7 @@ vi.mock('@/components/Toast', () => ({
 // Mock messages components
 vi.mock('@/components/messages', () => ({
   updateStreamingMessage: vi.fn(),
+  scheduleStreamingUpdate: vi.fn(),
   finalizeStreamingMessage: vi.fn(),
   getStreamingMessageElement: vi.fn(),
   cleanupStreamingContext: vi.fn(),

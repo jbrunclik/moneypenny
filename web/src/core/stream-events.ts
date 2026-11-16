@@ -9,7 +9,7 @@ import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { ApiError } from '../api/http';
 import {
-  updateStreamingMessage,
+  scheduleStreamingUpdate,
   updateStreamingThinking,
   updateStreamingToolStart,
   updateStreamingToolDetail,
@@ -146,7 +146,7 @@ function handleToken(
   }
   snapshotToStore(state, convId);
   if (isCurrentConversation) {
-    updateStreamingMessage(state.messageEl, state.fullContent);
+    scheduleStreamingUpdate(state.messageEl, state.fullContent);
   } else if (state.tokenCount === 1) {
     // Log when tokens are not rendered (helps diagnose streaming issues)
     log.warn('Token received but not current conversation', {

@@ -28,6 +28,7 @@ export {
 export {
   addStreamingMessage,
   updateStreamingMessage,
+  scheduleStreamingUpdate,
   finalizeStreamingMessage,
   restoreStreamingMessage,
 } from './streaming';

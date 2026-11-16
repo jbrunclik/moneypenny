@@ -1,6 +1,7 @@
 import { marked, type Tokens } from 'marked';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
+import { KATEX_CACHE_MAX_ENTRIES } from '../config';
 import hljs from 'highlight.js/lib/core';
 import { COPY_ICON } from './icons';
 import { escapeHtml, setSanitizedHtml, type SanitizedHtml } from './dom';
@@ -96,7 +97,34 @@ const copyButtonHtml = `<button class="inline-copy-btn" title="Copy">${COPY_ICON
 // - a closing $ followed by a digit does NOT end math, so "costs $5 and
 //   $10" stays plain text
 
+// Rendered formulas by mode + TeX: a streaming reply re-renders its whole
+// text every frame, and every formula went through KaTeX each time. A Map
+// keeps insertion order; a hit is re-inserted, so the oldest unused goes first
+const katexCache = new Map<string, string>();
+
+/** Test hook: start with an empty formula cache. */
+export function _clearKatexCache(): void {
+  katexCache.clear();
+}
+
 function renderKatex(tex: string, displayMode: boolean): string {
+  const key = `${displayMode ? 'D' : 'I'}${tex}`;
+  const cached = katexCache.get(key);
+  if (cached !== undefined) {
+    katexCache.delete(key);
+    katexCache.set(key, cached);
+    return cached;
+  }
+  const html = renderKatexUncached(tex, displayMode);
+  katexCache.set(key, html);
+  if (katexCache.size > KATEX_CACHE_MAX_ENTRIES) {
+    const oldest = katexCache.keys().next().value;
+    if (oldest !== undefined) katexCache.delete(oldest);
+  }
+  return html;
+}
+
+function renderKatexUncached(tex: string, displayMode: boolean): string {
   try {
     // output: 'html' renders the visual layer only - the default
     // htmlAndMathml duplicates the expression as a (supposedly hidden)

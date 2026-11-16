@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const ui = vi.hoisted(() => ({
   updateStreamingMessage: vi.fn(),
+  scheduleStreamingUpdate: vi.fn(),
   updateStreamingThinking: vi.fn(),
   updateStreamingToolStart: vi.fn(),
   updateStreamingToolDetail: vi.fn(),
@@ -66,14 +67,15 @@ describe('processStreamEvent', () => {
 
     expect(state.fullContent).toBe('Hello');
     expect(state.thinkingState.isThinking).toBe(false);
-    expect(ui.updateStreamingMessage).toHaveBeenLastCalledWith(state.messageEl, 'Hello');
+    // Drawn on the next frame, with the latest text (Nov 16 2026)
+    expect(ui.scheduleStreamingUpdate).toHaveBeenLastCalledWith(state.messageEl, 'Hello');
   });
 
   it('keeps tokens off the DOM for a background conversation', () => {
     processStreamEvent({ type: 'token', text: 'Hi' }, state, 'other', 'temp-1');
 
     expect(state.fullContent).toBe('Hi');
-    expect(ui.updateStreamingMessage).not.toHaveBeenCalled();
+    expect(ui.scheduleStreamingUpdate).not.toHaveBeenCalled();
   });
 
   it('routes trace and research events to their handlers', () => {

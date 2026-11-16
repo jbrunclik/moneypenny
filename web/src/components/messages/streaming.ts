@@ -223,13 +223,46 @@ function renderRestoredContent(messageEl: HTMLElement, thinkingIndicator: HTMLEl
   }
 }
 
+// UI-local (F2): a bubble's redraw waiting for the next frame, latest text wins
+const pendingFrames = new Map<HTMLElement, { content: string; frame: number }>();
+
 /**
- * Update streaming message content
+ * Redraw a streaming bubble on the next animation frame (coalesced: tokens
+ * arriving within one frame render once, with the latest text). Every token
+ * re-ran marked + DOMPurify + innerHTML + highlighting (Nov 16 2026).
+ */
+export function scheduleStreamingUpdate(messageEl: HTMLElement, content: string): void {
+  const pending = pendingFrames.get(messageEl);
+  if (pending) {
+    pending.content = content;
+    return;
+  }
+  const frame = requestAnimationFrame(() => {
+    const due = pendingFrames.get(messageEl);
+    pendingFrames.delete(messageEl);
+    // Gone (a conversation switch removed it) or superseded: draw nothing
+    if (due && messageEl.isConnected) updateStreamingMessage(messageEl, due.content);
+  });
+  pendingFrames.set(messageEl, { content, frame });
+}
+
+/** Drop a bubble's pending redraw (a direct render or the final one supersedes it). */
+function cancelStreamingUpdate(messageEl: HTMLElement): void {
+  const pending = pendingFrames.get(messageEl);
+  if (!pending) return;
+  cancelAnimationFrame(pending.frame);
+  pendingFrames.delete(messageEl);
+}
+
+/**
+ * Update streaming message content now (the final text, recovery); a pending
+ * frame for the bubble is dropped so it cannot redraw older text after this
  */
 export function updateStreamingMessage(
   messageEl: HTMLElement,
   content: string
 ): void {
+  cancelStreamingUpdate(messageEl);
   clearStreamingRetryStatus();
   const contentEl = messageEl.querySelector('.message-content');
   if (!contentEl) return;
@@ -282,6 +315,7 @@ export function finalizeStreamingMessage(
   role: 'user' | 'assistant' = 'assistant',
   language?: string | null
 ): boolean {
+  cancelStreamingUpdate(messageEl);
   markMessageFinal(messageEl, messageId);
 
   clearStreamingRetryStatus();

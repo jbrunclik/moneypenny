@@ -95,6 +95,9 @@ export const SEND_AUTO_RETRY_DELAY_MS = 2 * MS_PER_SECOND;
  */
 export const OUTBOX_RESEND_DELAY_MS = 1000;
 
+/** Rendered formulas kept (streaming re-renders a reply's math every frame) */
+export const KATEX_CACHE_MAX_ENTRIES = 500;
+
 /**
  * Only sends younger than this go again on their own: an old failed request
  * ("turn the heating off", typed offline last week) waits for the user's Retry
