@@ -105,6 +105,8 @@ test.describe('Chat - Send Failure Handling', () => {
     await page.fill('#message-input', 'Hello first');
     await page.click('#send-btn');
     await expect(page.locator('.message.assistant')).toContainText('mock response', { timeout: 20000 });
+    // The reply's text shows before its stream ends: send only once the button is Send again
+    await expect(page.locator('#send-btn')).toHaveClass(/btn-send/, { timeout: 20000 });
 
     await context.setOffline(true);
     await page.fill('#message-input', 'Sent from a tunnel');
@@ -167,5 +169,36 @@ test.describe('Chat - Send Auto-Retry', () => {
     });
     await expect(page.locator('.message--send-failed')).toHaveCount(0);
     await expect(page.locator('.message.user')).toHaveCount(1);
+  });
+});
+
+test.describe('Chat - Send Failure Handling on a phone', () => {
+  // The resend matters most on an iPhone (the connection drops in tunnels and
+  // in the background): same flow at a phone viewport, under the 768 px
+  // breakpoint (set after New chat, which lives in the closed sidebar there)
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await appReady(page);
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+  });
+
+  test('a send that failed offline goes once the connection returns', async ({ page, context }) => {
+    await page.fill('#message-input', 'Hello first');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).toContainText('mock response', { timeout: 20000 });
+    // The reply's text shows before its stream ends: send only once the button is Send again
+    await expect(page.locator('#send-btn')).toHaveClass(/btn-send/, { timeout: 20000 });
+
+    await context.setOffline(true);
+    await page.fill('#message-input', 'Sent from a tunnel');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.user.message--send-failed')).toBeVisible({ timeout: 20000 });
+
+    await context.setOffline(false);
+    await expect(page.locator('.message.assistant')).toHaveCount(2, { timeout: 20000 });
+    await expect(page.locator('.message--send-failed')).toHaveCount(0);
+    await expect(page.locator('.toast-info')).toContainText('Resent 1 message.');
   });
 });
