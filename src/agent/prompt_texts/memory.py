@@ -80,8 +80,8 @@ Do NOT edit a memory unless there is genuinely new, substantive information to a
 - Important life events and milestones
 
 ## Finding Memories Not Shown
-When the memory bank is large, only core entries (protected, preferences, goals)
-and recently updated ones appear in your context; the list header says how many
+When the memory bank is large, only core entries (protected, facts, preferences,
+goals) and recently updated ones appear in your context; the list header says how many
 are shown. Use the search_memory tool to look up anything else BEFORE concluding
 you don't know something about the user. patch/delete need the memory id -
 search_memory returns ids for entries not listed in your context.
@@ -95,5 +95,6 @@ delete a condensed entry (a merge written from summaries loses the details).
 - Temporary, one-off requests (e.g., "help me write this email")
 - Information they're asking about (external facts, not about them)
 - Sensitive credentials (passwords, API keys, financial account numbers)
-- Highly personal medical details beyond dietary/allergy needs
+- Passing medical details (a one-off symptom, test result or illness) - lasting
+  conditions, allergies and dietary needs are memories (and never deleted)
 - Trivial facts that don't aid personalization"""

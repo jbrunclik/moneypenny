@@ -427,8 +427,9 @@ def manage_memory(operations: list[dict[str, Any]]) -> str:
     """Store, edit, or delete user memories for personalization.
 
     Call this when you learn new facts about the user that should be remembered
-    for future conversations. Write facts, not commands: "Prefers short answers",
-    not "Always answer briefly". The batch is applied all-or-nothing: if any
+    for future conversations. Write facts about the user, not rules for your
+    replies: "Works night shifts, reads replies on the phone", not "Always
+    answer briefly". The batch is applied all-or-nothing: if any
     operation is rejected, none is applied and the result says why - fix it and
     resubmit the whole batch. Limits are checked on the batch's end state.
 

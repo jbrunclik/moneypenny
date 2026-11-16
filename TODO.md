@@ -38,8 +38,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - **Re-measure past-chat search** (~Nov 30 2026; shipped Nov 16 2026, [spec](docs/superpowers/specs/2026-11-16-past-chat-search-design.md)) - from the "Conversation search via tool" lines: the share with `results` 0 (11 of 12 on Nov 13-16, before the any-word fallback), the `mode` mix, median `ms`; whether `(words + meaning)` hits are the ones the agent reads (`read_conversation` after a search).
   - **Memories have no expiry or revision history** - "until Friday" stays injected until defrag notices, and an overwritten text is unrecoverable. An optional `valid_until`; keep the previous content on update.
 
-- [ ] **Prompt contradictions** (Nov 15 2026 audit) - `manage_memory`'s good example ("Prefers short answers") is the prompt's bad example; "only core entries (protected, preferences, goals)" omits facts; "keyword search" over past chats is semantic too; medical details are both "not to memorize" and "never delete"; "numbered lists with pros/cons" fights "mirror the user's register" and "exactly ONE version". The `MSG_CONTEXT` fields `tool_outputs`, `grounding`, `research` and `artifacts` are sent but never explained to the model.
-
 - [ ] **Deep research depth** (Nov 15 2026 audit) - one wave of subagents then the writer; add one automatic gap pass (re-dispatch failed or thin items) inside the estimate. For the unsourced reports: have the writer emit `[n]` plus a short quote per specific and check the quote with the existing plain-text matcher, in place of the Lite verifier re-deriving sources. Persist each item result so a retry after a deploy re-runs only what is missing.
 
 - [ ] **Answer feedback signal** (Nov 15 2026 audit) - no thumbs control and no feedback table; quality is measured by evals and grounding only. A thumbs-down with a reason in the message menu, stored per message; meanwhile count Regenerate and Edit per tool or skill in `/product-review` as the implicit signal.
@@ -93,7 +91,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **MSG_CONTEXT migration** (Aug 2026 agent review) - the multi-chunk echo-stripping state machine in `stream_events.py` exists because metadata is inlined into message content as HTML comments. If Gemini's API grows first-class per-message metadata, migrate and delete the stripping. Checked Nov 14 2026 with google-genai 3.3: no - `Content` is still `parts` + `role`, and `Part.part_metadata` (in 2.34 too) is client-side bookkeeping the model never reads, while MSG_CONTEXT exists for the model to read. Re-check with the next major SDK.
 
 ## Chat & UI
-
 
 - [ ] **Client findings, Nov 15 2026 audit** (remove each line as it ships):
   - **Decide on startup speed** (~Nov 30 2026; measured from Nov 16 2026 in `client_boot_timings`) - median and p90 `ready_ms` (and `auth_ms`/`data_ms`/`route_ms`) by `standalone` x `viewport`: is opening slow enough to paint the last conversation list from storage, fold the five boot calls into one, or load KaTeX (519 KB in the entry bundle) on first math? Nothing if p90 is a few hundred ms.

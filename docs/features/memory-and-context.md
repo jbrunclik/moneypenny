@@ -107,7 +107,8 @@ REJECTED (patch): old_text not found in id=6f2c.... Its current text is: "..." -
 
 A successful batch reports `added id=... (7/200 used)`, `patched id=..., now: "..."` and
 `deleted id=...`. The tool description and prompt also ask for facts, not commands
-("Prefers short answers", not "Always answer briefly").
+("Works night shifts, reads replies on the phone", not "Always answer briefly" - a
+rule for replies goes to custom instructions, not memory).
 
 ### Bounds and Safety
 
