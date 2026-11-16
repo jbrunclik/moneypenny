@@ -32,6 +32,7 @@ from src.db.models import db
 from src.db.models.memory import MemoryWrite, MemoryWriteConflictError
 from src.utils.embeddings import embed_text, top_k_similar
 from src.utils.logging import get_logger
+from src.utils.memory_ids import matching_memory_ids
 from src.utils.threat_patterns import find_injection
 
 logger = get_logger(__name__)
@@ -116,6 +117,13 @@ class _BatchState:
     contents: dict[str, str] = field(default_factory=dict)
     protected: set[str] = field(default_factory=set)
     deleted: set[str] = field(default_factory=set)
+    known_ids: list[str] | None = None
+
+    def full_ids(self, ref: str) -> list[str]:
+        """The full ids a model-given id names (it may be the list's short id)."""
+        if self.known_ids is None:
+            self.known_ids = [memory.id for memory in db.list_memories(self.user_id)]
+        return matching_memory_ids(ref, self.known_ids) or [ref]
 
     def content_of(self, memory_id: str) -> str | None:
         """The memory's text as of this point in the batch, None if gone."""
@@ -129,6 +137,22 @@ class _BatchState:
             if memory.protected:
                 self.protected.add(memory_id)
         return self.contents[memory_id]
+
+
+def _memory_id(action: str, op: MemoryOp, state: _BatchState) -> tuple[str, str | None]:
+    """The op's full memory id, and a rejection when it is missing or names
+    more than one memory."""
+    ref = str(op.get("id") or "").strip()
+    if not ref:
+        return ref, _reject(action, "missing 'id'")
+    found = state.full_ids(ref)
+    if len(found) > 1:
+        return ref, _reject(
+            action,
+            f"id={ref} matches {len(found)} memories ({', '.join(found)}); "
+            "use the full id of the one you mean.",
+        )
+    return found[0], None
 
 
 def _unknown_id(action: str, memory_id: str) -> str:
@@ -176,9 +200,9 @@ def _patched_text(op: MemoryOp, memory_id: str, content: str) -> str:
 
 def _plan_patch(op: MemoryOp, state: _BatchState) -> _Planned | str:
     """Replace one unique span of a memory (and/or change its category)."""
-    memory_id = str(op.get("id") or "").strip()
-    if not memory_id:
-        return _reject("patch", "missing 'id'")
+    memory_id, rejection = _memory_id("patch", op, state)
+    if rejection:
+        return rejection
     category = op.get("category")
     if rejection := _bad_category("patch", category):
         return rejection
@@ -212,9 +236,9 @@ def _plan_patch(op: MemoryOp, state: _BatchState) -> _Planned | str:
 
 
 def _plan_delete(op: MemoryOp, state: _BatchState) -> _Planned | str:
-    memory_id = str(op.get("id") or "").strip()
-    if not memory_id:
-        return _reject("delete", "missing 'id'")
+    memory_id, rejection = _memory_id("delete", op, state)
+    if rejection:
+        return rejection
     if state.content_of(memory_id) is None:
         return _unknown_id("delete", memory_id)
     if memory_id in state.protected:
@@ -481,9 +505,10 @@ def search_memory(query: str) -> str:
     memories = db.list_memories(user_id)
     by_id = {mem.id: mem for mem in memories}
     as_id = query.removeprefix("id=").strip("'\" ")
-    if as_id in by_id:  # a condensed memory's full text (also as id=... or quoted)
+    named = matching_memory_ids(as_id, by_id)
+    if len(named) == 1:  # a condensed memory's full text (also short, id=... or quoted)
         record_tool_call("memory_fetch")
-        mem = by_id[as_id]
+        mem = by_id[named[0]]
         logger.info("Memory fetched by id", extra={"user_id": user_id, "memory_id": mem.id})
         return f"- id={mem.id} [{mem.category or 'uncategorized'}] {mem.content}"
 

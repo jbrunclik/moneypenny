@@ -55,3 +55,8 @@ TRAFILATURA_LOCK_WAIT_SECONDS = 10.0
 # The Gemini API rejects a request deadline below this (400 INVALID_ARGUMENT,
 # "Minimum allowed deadline is 10s")
 GEMINI_MIN_REQUEST_DEADLINE_SECONDS = 10
+
+# The per-turn memory list shows each memory id's first this-many characters
+# (a UUID prefix: a clash in one bank of 200 is ~1 in 200,000); the memory tools
+# take that prefix or the full id
+MEMORY_SHORT_ID_CHARS = 8

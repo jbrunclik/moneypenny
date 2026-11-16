@@ -4,7 +4,6 @@ memory, the full text a search_memory id lookup away
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -155,16 +154,15 @@ def test_the_list_shows_the_summary_of_a_long_memory(database: Database, test_us
     _set_summary(database, long_id, "Canyon Endurace CF 7, SRAM Rival AXS.")
 
     listing = get_user_memories_list_prompt(test_user.id)
-    entries = json.loads(listing.split("```json\n")[1].split("\n```")[0])
-    by_content = {e["content"]: e for e in entries}
-    assert by_content["Canyon Endurace CF 7, SRAM Rival AXS."]["full_chars"] == len(_LONG)
-    assert "full_chars" not in by_content["Short fact."]
+    lines = {line.rsplit(" | ", 1)[-1]: line for line in listing.splitlines() if " | " in line}
+    assert f"Canyon Endurace CF 7, SRAM Rival AXS. (condensed from {len(_LONG)} chars)" in lines
+    assert "Short fact." in lines
     assert _LONG not in listing
 
 
 def test_an_unsummarised_long_memory_is_shown_whole(database: Database, test_user: User) -> None:
     _add(database, test_user, _LONG)
-    assert _LONG in get_user_memories_list_prompt(test_user.id)
+    assert " ".join(_LONG.split()) in get_user_memories_list_prompt(test_user.id)
 
 
 def test_search_by_id_returns_the_full_text_and_counts_a_fetch(
@@ -281,21 +279,23 @@ def test_an_empty_reply_is_not_retried_every_pass(database: Database, test_user:
         memory_summaries.summarize_pending()
         memory_summaries.summarize_pending()
     assert factory.return_value.invoke.call_count == 1
-    assert _LONG in get_user_memories_list_prompt(test_user.id)  # shown whole
+    assert " ".join(_LONG.split()) in get_user_memories_list_prompt(test_user.id)  # shown whole
     listing = get_user_memories_list_prompt(test_user.id)
-    assert "full_chars" not in listing
-    assert memory_id in listing
+    assert "condensed" not in listing
+    assert memory_id[:8] in listing
 
 
-@pytest.mark.parametrize("form", ["id={}", "'{}'", '"{}"', " {} "])
+@pytest.mark.parametrize("form", ["id={}", "'{}'", '"{}"', " {} ", "SHORT"])
 def test_a_quoted_or_prefixed_id_still_finds_the_memory(
     database: Database, test_user: User, form: str
 ) -> None:
     memory_id = _add(database, test_user, _LONG)
+    # SHORT: the 8-character id the injected list shows (Nov 16 2026)
+    query = memory_id[:8] if form == "SHORT" else form.format(memory_id)
     with patch(
         "src.agent.tools.memory.get_conversation_context", return_value=(None, test_user.id)
     ):
-        result = search_memory.invoke({"query": form.format(memory_id)})
+        result = search_memory.invoke({"query": query})
     assert _LONG.strip() in result
 
 

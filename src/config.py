@@ -698,7 +698,7 @@ class Config:
     MEMORY_MAX_ENTRY_CHARS: int = int(os.getenv("MEMORY_MAX_ENTRY_CHARS", "1000"))
     # Condensed memories in the per-turn context (Nov 15 2026): a memory longer
     # than this shows its summary (Flash-Lite, written by the scheduler pass)
-    # with "full_chars"; search_memory with its id returns the full text
+    # marked "(condensed from N chars)"; search_memory with its id returns the full text
     MEMORY_SUMMARY_MAX_CHARS = 150
     MEMORY_SUMMARY_MODEL = "gemini-3.5-flash-lite"
     MEMORY_SUMMARIES_PER_PASS = 20

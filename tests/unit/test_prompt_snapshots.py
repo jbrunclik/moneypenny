@@ -1,4 +1,5 @@
-"""Prompt snapshots: the static prompt per profile and every tool declaration.
+"""Prompt snapshots: the static prompt per profile, every tool declaration, and
+the per-turn dynamic context for a fixed example user.
 
 Each prompt or tool change shows up in review as a diff of the committed files
 in tests/fixtures/prompt_snapshots/, with its size in sizes.txt (the static
@@ -10,23 +11,30 @@ so everything environment-dependent is pinned: every tool is declared (not
 only the configured integrations), Mapy is treated as configured, and the
 memory tunables the prompt quotes take their code defaults. A new
 environment-dependent piece makes laptop and CI disagree - pin it here.
+
+The dynamic context ([CONTEXT], sent uncached before each user message; Nov 16
+2026) is built for an example user whose clock, language, places and memories
+are pinned, so its format and size change only when the code does.
 """
 
 from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from langchain_core.tools import BaseTool
 from langchain_google_genai._function_utils import convert_to_genai_function_declarations
 
+import src.agent.prompt_memory as prompt_memory_module
 import src.agent.prompts as prompts_module
 import src.agent.tools as tools_module
 from src.agent.context_cache import CacheProfile
-from src.agent.prompts import get_static_prompt_for_profile
+from src.agent.prompts import get_dynamic_prompt_parts, get_static_prompt_for_profile
 from src.config import Config
+from src.db.models.dataclasses import Memory
 
 SNAPSHOT_DIR = Path(__file__).parents[1] / "fixtures" / "prompt_snapshots"
 UPDATE_ENV_VAR = "UPDATE_PROMPT_SNAPSHOTS"
@@ -35,11 +43,67 @@ UPDATE_ENV_VAR = "UPDATE_PROMPT_SNAPSHOTS"
 _PINNED_CONFIG = {"MEMORY_WARNING_THRESHOLD": 160, "MEMORY_MAX_OPS_PER_CALL": 10}
 
 
+_NOW = datetime(2026, 11, 16, 8, 30, tzinfo=UTC)
+
+
+def _example_memory(
+    n: int, category: str, content: str, *, protected: bool = False, summary: str | None = None
+) -> Memory:
+    return Memory(
+        id=f"{n:08x}-0000-4000-8000-000000000000",
+        user_id="example-user",
+        content=content,
+        category=category,
+        created_at=datetime(2026, 3, n, tzinfo=UTC),
+        updated_at=datetime(2026, 3 + n % 2, n, tzinfo=UTC),
+        protected=protected,
+        summary=summary,
+    )
+
+
+_EXAMPLE_MEMORIES = [
+    _example_memory(
+        1, "fact", "Name is Jana; husband Petr, kids Ema (9) and Tom (6)", protected=True
+    ),
+    _example_memory(2, "preference", "Prefers short answers without tables on the phone"),
+    _example_memory(3, "goal", "Running a half marathon in April 2027, 3 runs a week"),
+    _example_memory(4, "context", "Planning a family trip to Lake Garda\nin July 2027"),
+    _example_memory(
+        5,
+        "fact",
+        "Ema: ballet Mon/Wed 16:00 at ZUŠ Jižní Město, piano Thu 17:00; " + "details " * 20,
+        summary="Ema: ballet Mon/Wed 16:00, piano Thu 17:00",
+    ),
+]
+
+
 @pytest.fixture
 def pinned_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(prompts_module, "is_mapy_configured", lambda: True)
     for name, value in _PINNED_CONFIG.items():
         monkeypatch.setattr(Config, name, value)
+    # The dynamic context's example user
+    monkeypatch.setattr(Config, "APP_TIMEZONE", "Europe/Prague")
+    monkeypatch.setattr(Config, "USER_LOCATION", "")
+    monkeypatch.setattr(prompts_module, "utc_now", lambda: _NOW)
+    monkeypatch.setattr(prompts_module, "get_location_context", lambda: None)
+    monkeypatch.setattr(prompts_module, "_get_preferred_language", lambda _user_id: "Czech")
+    monkeypatch.setattr(
+        prompts_module, "_get_saved_places_lines", lambda _user_id: ["- Home: Praha 11"]
+    )
+    monkeypatch.setattr(
+        prompt_memory_module.db, "list_memories", lambda _user_id: list(_EXAMPLE_MEMORIES)
+    )
+
+
+def _dynamic_context() -> str:
+    return get_dynamic_prompt_parts(
+        user_name="Jana",
+        user_id="example-user",
+        custom_instructions="Answer in Czech. Keep it brief.",
+        conversation_title="Lake Garda trip",
+        conversation_facts=[],
+    )
 
 
 def _all_tools() -> list[BaseTool]:
@@ -57,13 +121,15 @@ def _declarations() -> list[dict[str, object]]:
     return declarations
 
 
-def _sizes(prompts: dict[str, str], declarations: list[dict[str, object]]) -> str:
+def _sizes(prompts: dict[str, str], declarations: list[dict[str, object]], dynamic: str) -> str:
     tool_sizes = {str(d["name"]): len(json.dumps(d, ensure_ascii=False)) for d in declarations}
     lines = [
         "# Characters sent on every turn. Regenerate: make prompt-snapshots",
         "",
         "static prompt",
         *(f"  {profile:<12} {len(text):>7}" for profile, text in prompts.items()),
+        "",
+        f"dynamic context (example user, {len(_EXAMPLE_MEMORIES)} memories) {len(dynamic):>7}",
         "",
         f"tool declarations ({len(tool_sizes)} tools, {sum(tool_sizes.values())} chars)",
         *(f"  {name:<26} {size:>7}" for name, size in tool_sizes.items()),
@@ -76,7 +142,9 @@ def _build_snapshots() -> dict[str, str]:
     declarations = _declarations()
     files = {f"static-{profile}.txt": text for profile, text in prompts.items()}
     files["tools.json"] = json.dumps(declarations, indent=2, ensure_ascii=False) + "\n"
-    files["sizes.txt"] = _sizes(prompts, declarations)
+    dynamic = _dynamic_context()
+    files["dynamic-standard.txt"] = dynamic + "\n"
+    files["sizes.txt"] = _sizes(prompts, declarations, dynamic)
     return files
 
 

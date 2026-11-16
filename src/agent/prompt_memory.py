@@ -3,12 +3,12 @@
 Split out of prompts.py (Sep 2026); prompts.py assembles the final prompts.
 """
 
-import json
-
 from src.agent.prompt_texts.memory import MEMORY_SYSTEM_PROMPT
 from src.config import Config
 from src.db.models import db
+from src.db.models.dataclasses import Memory
 from src.utils.clock import to_local
+from src.utils.memory_ids import short_memory_id
 
 
 def get_memory_instructions_prompt() -> str:
@@ -26,6 +26,28 @@ def get_memory_instructions_prompt() -> str:
 
 # Memory categories injected even when the bank exceeds MEMORY_INJECT_FULL_MAX
 _ALWAYS_INJECTED_MEMORY_CATEGORIES = frozenset({"preference", "goal", "fact"})
+
+
+def _memory_line(mem: Memory) -> str:
+    """One memory as the list shows it: short id, category, dates, flags, text.
+
+    One line each (Nov 16 2026): indented JSON with full UUIDs was about twice
+    the tokens, sent on every model call. Text is whitespace-folded so a
+    multi-line memory cannot break the list.
+    """
+    created = to_local(mem.created_at).strftime("%Y-%m-%d")
+    updated = to_local(mem.updated_at).strftime("%Y-%m-%d")
+    dates = created if updated == created else f"{created}, upd {updated}"
+    fields = [f"- {short_memory_id(mem.id)}", mem.category or "fact", dates]
+    if mem.protected:
+        fields.append("protected")
+    # "" marks a memory Flash-Lite would not summarise: shown whole
+    condensed = bool(mem.summary) and len(mem.content) > Config.MEMORY_SUMMARY_MAX_CHARS
+    text = " ".join((mem.summary if condensed and mem.summary else mem.content).split())
+    if condensed:
+        # The full text is a search_memory id lookup away (Nov 15 2026)
+        text += f" (condensed from {len(mem.content)} chars)"
+    return " | ".join([*fields, text])
 
 
 def get_user_memories_list_prompt(user_id: str) -> str:
@@ -81,30 +103,8 @@ def get_user_memories_list_prompt(user_id: str) -> str:
         )
 
     if shown:
-        memory_list = []
-        for mem in shown:
-            # "" marks a memory Flash-Lite would not summarise: shown whole
-            condensed = bool(mem.summary) and len(mem.content) > Config.MEMORY_SUMMARY_MAX_CHARS
-            entry: dict[str, str | int] = {
-                "id": mem.id,
-                "category": mem.category or "",
-                "content": mem.summary if condensed and mem.summary else mem.content,
-                "created": to_local(mem.created_at).strftime("%Y-%m-%d"),
-            }
-            if condensed:
-                # The full text is a search_memory id lookup away (Nov 15 2026)
-                entry["full_chars"] = len(mem.content)
-            updated_date = to_local(mem.updated_at).strftime("%Y-%m-%d")
-            if updated_date != entry["created"]:
-                entry["updated"] = updated_date
-            if mem.protected:
-                entry["protected"] = "true"
-            memory_list.append(entry)
-        # ensure_ascii=False: the model copies what it sees, so \uXXXX-escaped
-        # Czech text round-trips into STORED memories via update/consolidation
-        prompt_parts.append(
-            "\n```json\n" + json.dumps(memory_list, indent=2, ensure_ascii=False) + "\n```"
-        )
+        prompt_parts.append("(id | category | created[, upd updated] | [protected |] text)")
+        prompt_parts.extend(_memory_line(mem) for mem in shown)
     else:
         prompt_parts.append("\nNo memories stored yet.")
 

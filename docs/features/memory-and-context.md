@@ -60,8 +60,15 @@ The LLM can learn and remember facts about the user across conversations for per
 ### How It Works
 
 1. **Instructions**: `MEMORY_SYSTEM_PROMPT` is static, so it lives in the cached prompt prefix
-2. **Injection**: the current memory list (with IDs, dates and protection flags) is added to
-   the per-request dynamic context
+2. **Injection**: the current memory list is added to the per-request dynamic
+   context, one line per memory: `- <short id> | <category> | <created>[, upd
+   <updated>] | [protected |] <text>` (Nov 16 2026; it was indented JSON with full
+   UUIDs, about twice the tokens - 1,379 -> 729 on a 12-memory bank). The short id
+   is the UUID's first `MEMORY_SHORT_ID_CHARS` (8) characters; `manage_memory` and
+   `search_memory` take it or the full id ([memory_ids.py](../../src/utils/memory_ids.py)),
+   and refuse a prefix two memories share, naming both. Text is
+   whitespace-folded onto its line. The format and size for a pinned example user
+   are in `tests/fixtures/prompt_snapshots/dynamic-standard.txt` and `sizes.txt`
 3. **Writes**: the model calls `manage_memory`, which validates the whole batch, writes it
    in one transaction, and reports the outcome so the model can correct course
 4. **Management**: users view/delete/protect memories on the **Data page**
@@ -139,7 +146,7 @@ a bank approaching the 200-entry cap.
 The memory list is re-sent every turn in the uncached per-turn context, and
 memories run long (6-14k characters per user, 235-470 on average). A memory
 longer than `MEMORY_SUMMARY_MAX_CHARS` (150) shows its `summary` there, with
-`"full_chars": N`; `search_memory` with the entry's id returns the full text
+`(condensed from N chars)`; `search_memory` with the entry's id returns the full text
 (counted as a `memory_fetch`, `turn_timing.memory_fetches`), and the guidance
 says to fetch it when a detail matters and always before patching such an
 entry. Summaries are written by Flash-Lite (`MEMORY_SUMMARY_MODEL`) in the

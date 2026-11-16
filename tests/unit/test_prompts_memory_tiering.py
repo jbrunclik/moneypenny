@@ -122,3 +122,43 @@ class TestDecodeEscapes:
 
         clean = "stříbrné hodinky, C:\\Users\\path is not an escape"
         assert decode_escapes(clean) == clean
+
+
+class TestMemoryListFormat:
+    """One line per memory with a short id (Nov 16 2026): indented JSON with
+    full UUIDs was about twice the tokens, on every model call."""
+
+    @patch("src.agent.prompt_memory.db")
+    def test_one_line_per_memory_with_a_short_id(self, mock_db) -> None:
+        memory = _memory(1, category="goal")
+        memory.id = "6f1dbac8-1111-4222-8333-444455556666"
+        mock_db.list_memories.return_value = [memory]
+
+        prompt = get_user_memories_list_prompt("user-1")
+
+        created = memory.created_at.astimezone().strftime("%Y-%m-%d")
+        assert "\n- 6f1dbac8 | goal | " in prompt
+        assert prompt.rstrip().endswith("| memory content 1")
+        assert memory.id not in prompt
+        assert "```" not in prompt
+        assert created[:4] in prompt
+
+    @patch("src.agent.prompt_memory.db")
+    def test_marks_protected_and_updated(self, mock_db) -> None:
+        memory = _memory(1, protected=True, updated_days_ago=3)
+        mock_db.list_memories.return_value = [memory]
+
+        line = get_user_memories_list_prompt("user-1").splitlines()[-1]
+
+        assert "upd " in line
+        assert "protected" in line
+
+    @patch("src.agent.prompt_memory.db")
+    def test_a_multiline_memory_stays_on_one_line(self, mock_db) -> None:
+        memory = _memory(1)
+        memory.content = "Kids:\n- Ema\n- Tom"
+        mock_db.list_memories.return_value = [memory]
+
+        prompt = get_user_memories_list_prompt("user-1")
+
+        assert prompt.splitlines()[-1].endswith("| Kids: - Ema - Tom")

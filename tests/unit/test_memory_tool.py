@@ -735,3 +735,64 @@ class TestInjectionScan:
         )
 
         assert result.startswith("added id=")
+
+
+class TestShortIds:
+    """The injected list shows each memory's first 8 id characters (Nov 16
+    2026); patch and delete accept them like the full id."""
+
+    def test_patch_by_short_id(self, memory_context: tuple[Database, User]) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Drinks oat milk lattes", "preference")
+
+        result = _invoke(
+            [{"action": "patch", "id": memory.id[:8], "old_text": "oat", "new_text": "soy"}]
+        )
+
+        assert result.startswith(f"patched id={memory.id}")
+        assert database.list_memories(user.id)[0].content == "Drinks soy milk lattes"
+
+    def test_delete_by_short_id(self, memory_context: tuple[Database, User]) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Old context", "context")
+
+        result = _invoke([{"action": "delete", "id": memory.id[:8]}])
+
+        assert f"deleted id={memory.id}" in result
+        assert database.list_memories(user.id) == []
+
+    def test_a_prefix_shared_by_two_memories_is_refused(
+        self, memory_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        database, user = memory_context
+        first = database.add_memory(user.id, "First", "fact")
+        second = database.add_memory(user.id, "Second", "fact")
+        import src.agent.tools.memory as memory_module
+
+        real = database.list_memories
+        twins = {first.id: "abcdef12-aaaa", second.id: "abcdef12-bbbb"}
+
+        def renamed(user_id: str) -> list:
+            memories = real(user_id)
+            for memory in memories:
+                memory.id = twins.get(memory.id, memory.id)
+            return memories
+
+        monkeypatch.setattr(memory_module.db, "list_memories", renamed)
+
+        result = _invoke([{"action": "delete", "id": "abcdef12"}])
+
+        assert "abcdef12-aaaa" in result and "abcdef12-bbbb" in result
+        assert len(real(user.id)) == 2
+
+    def test_a_short_id_of_another_users_memory_is_unknown(
+        self, memory_context: tuple[Database, User]
+    ) -> None:
+        database, _user = memory_context
+        other = database.get_or_create_user("other@example.com", "Other")
+        theirs = database.add_memory(other.id, "Not yours", "fact")
+
+        result = _invoke([{"action": "delete", "id": theirs.id[:8]}])
+
+        assert "no memory with id" in result
+        assert len(database.list_memories(other.id)) == 1
