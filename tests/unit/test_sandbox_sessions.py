@@ -80,6 +80,28 @@ class TestSandboxSessionPool:
             pass
         assert s2 is not s1
 
+    def test_a_timed_out_session_keeps_its_work_dir(self) -> None:
+        """The kill ended the program and the container lives: /work stays
+        (it was discarded with the session on every timeout; review)."""
+        pool = make_pool()
+        with pytest.raises(TimeoutError), pool.session("conv-1") as s1:
+            s1.alive = True
+            raise TimeoutError("timed out after 30 s")
+        with pool.session("conv-1") as s2:
+            pass
+        assert s2 is s1
+        assert not s1.closed
+
+    def test_a_timeout_that_needed_docker_kill_replaces_the_session(self) -> None:
+        pool = make_pool()
+        with pytest.raises(TimeoutError), pool.session("conv-1") as s1:
+            s1.alive = False
+            raise TimeoutError("timed out after 30 s")
+        with pool.session("conv-1") as s2:
+            pass
+        assert s2 is not s1
+        assert s1.closed
+
     def test_a_docker_killed_session_is_replaced(self) -> None:
         """A fork bomb blocks every exec, so the kill falls back to docker kill
         and marks the session dead: the next call gets a fresh container."""

@@ -21,6 +21,7 @@ from __future__ import annotations
 import contextlib
 import itertools
 import os
+import secrets
 import shutil
 import threading
 import uuid
@@ -39,8 +40,15 @@ SANDBOX_USER = f"{SANDBOX_UID}:{SANDBOX_UID}"
 STAGING_MOUNT = "/staging"
 OWNER_PID_LABEL = "moneypenny.owner_pid"  # the reaper finds a dead worker's containers
 
-# Seconds the Stop kill and the exec it ends get before docker kill
-_KILL_GRACE_SECONDS = 5.0
+# Seconds each step of a timed-out run's kill gets (the kill exec, then docker
+# kill, then the exec ending): a wedged Docker otherwise held a turn ~3 min on
+# docker-py's 60 s timeouts (review, Nov 16 2026)
+KILL_GRACE_SECONDS = 5.0
+# What close() waits for the container removal; the rest runs in the background
+_CLOSE_WAIT_SECONDS = 0.25
+# Each of stdout and stderr keeps this much; the rest is read and dropped, so a
+# print loop cannot fill the app worker's memory in its 30 s
+OUTPUT_CAP_BYTES = 1_000_000
 
 # Kills the user's program inside a live session container without touching
 # the container: /work must survive a Stop. Spares PID 1 (docker-init), its
@@ -140,26 +148,35 @@ class DockerSandbox:
         self.alive = False
 
     def open(self) -> None:
-        self.staging_dir.mkdir(parents=True, mode=0o755)
-        self.staging_dir.chmod(0o755)  # mkdir's mode is masked by the umask
-        self.container = self._client.containers.run(
-            self._image,
-            ["tail", "-f", "/dev/null"],  # keep-alive (the kill spares it)
-            detach=True,
-            labels={OWNER_PID_LABEL: str(os.getpid())},
-            **sandbox_container_config(str(self.staging_dir)),
-        )
+        # 0711: the sandbox user (another uid) reads files whose names it is
+        # given; other host users cannot list the staged code (review)
+        self.staging_dir.mkdir(parents=True, mode=0o711)
+        self.staging_dir.chmod(0o711)  # mkdir's mode is masked by the umask
+        try:
+            self.container = self._client.containers.run(
+                self._image,
+                ["tail", "-f", "/dev/null"],  # keep-alive (the kill spares it)
+                detach=True,
+                labels={OWNER_PID_LABEL: str(os.getpid())},
+                **sandbox_container_config(str(self.staging_dir)),
+            )
+        except Exception:
+            shutil.rmtree(self.staging_dir, ignore_errors=True)
+            raise
         self.alive = True
 
     def close(self) -> None:
+        """Remove the container (in the background past a short wait: a wedged
+        Docker must not hold the turn) and the staging dir."""
         self.alive = False
         if self.container is not None:
-            with contextlib.suppress(Exception):
-                self.container.remove(force=True)
+            container = self.container
+            _bounded(lambda: container.remove(force=True), _CLOSE_WAIT_SECONDS)
         shutil.rmtree(self.staging_dir, ignore_errors=True)
 
-    def _stage(self, prefix: str, data: bytes) -> Path:
-        path = self.staging_dir / f"{prefix}-{next(self._names)}"
+    def _stage(self, prefix: str, data: bytes, suffix: str = "") -> Path:
+        token = secrets.token_hex(8)  # unguessable: the dir is not listable
+        path = self.staging_dir / f"{prefix}-{next(self._names)}-{token}{suffix}"
         path.write_bytes(data)
         path.chmod(0o644)
         return path
@@ -167,21 +184,26 @@ class DockerSandbox:
     def run(self, code: str, timeout_s: float) -> ExecResult:
         """Run a Python script as the sandbox user in /work.
 
-        Raises SandboxTimeoutError after ``timeout_s`` (the program is killed).
+        Output streams in and is capped (OUTPUT_CAP_BYTES per stream). Raises
+        SandboxTimeoutError after ``timeout_s`` (the program is killed).
         """
-        script = self._stage("code", code.encode())
-        outcome: list[Any] = []
+        script = self._stage("code", code.encode(), suffix=".py")
+        output = _CappedOutput()
+        outcome: list[int | Exception] = []
+        api = self._client.api
 
         def _exec() -> None:
             try:
-                outcome.append(
-                    self.container.exec_run(
-                        ["python", f"{STAGING_MOUNT}/{script.name}"],
-                        user=SANDBOX_USER,
-                        workdir="/work",
-                        demux=True,
-                    )
-                )
+                exec_id = api.exec_create(
+                    self.container.id,
+                    ["python", f"{STAGING_MOUNT}/{script.name}"],
+                    user=SANDBOX_USER,
+                    workdir="/work",
+                )["Id"]
+                for stdout, stderr in api.exec_start(exec_id, stream=True, demux=True):
+                    output.add(stdout, stderr)
+                exit_code = api.exec_inspect(exec_id)["ExitCode"]
+                outcome.append(-1 if exit_code is None else int(exit_code))
             except Exception as exc:  # noqa: BLE001 - re-raised on the caller's thread
                 outcome.append(exc)
 
@@ -190,20 +212,24 @@ class DockerSandbox:
             worker.start()
             worker.join(timeout_s)
             if worker.is_alive():
-                self.kill_user_code()
-                worker.join(_KILL_GRACE_SECONDS)
+                self._kill_within_grace()
+                worker.join(KILL_GRACE_SECONDS)
                 raise SandboxTimeoutError(f"timed out after {timeout_s:g} s")
         finally:
             script.unlink(missing_ok=True)
         [result] = outcome
         if isinstance(result, Exception):
             raise result
-        stdout, stderr = result.output
-        return ExecResult(
-            exit_code=int(result.exit_code),
-            stdout=(stdout or b"").decode("utf-8", errors="replace"),
-            stderr=(stderr or b"").decode("utf-8", errors="replace"),
-        )
+        return ExecResult(exit_code=result, stdout=output.stdout(), stderr=output.stderr())
+
+    def _kill_within_grace(self) -> None:
+        """The timeout's kill, each step bounded: the kill exec, then docker kill."""
+        if _bounded(self.kill_user_code, KILL_GRACE_SECONDS):
+            return
+        logger.warning("Sandbox kill exec hung - killing the container")
+        self.alive = False
+        container = self.container
+        _bounded(container.kill, KILL_GRACE_SECONDS)
 
     def put_file(self, data: bytes, dest: str) -> None:
         """Copy bytes into the sandbox at ``dest`` (owned by the sandbox user)."""
@@ -274,6 +300,52 @@ class DockerSandbox:
             self.alive = False
             with contextlib.suppress(Exception):
                 self.container.kill()
+
+
+def _bounded(action: Callable[[], object], seconds: float) -> bool:
+    """Run ``action`` on a daemon thread; whether it finished within ``seconds``
+    (a failure counts as finished; it is logged)."""
+
+    def _quietly() -> None:
+        try:
+            action()
+        except Exception:
+            logger.warning("Sandbox Docker call failed", exc_info=True)
+
+    thread = threading.Thread(target=_quietly, daemon=True, name="sandbox-docker-call")
+    thread.start()
+    thread.join(seconds)
+    return not thread.is_alive()
+
+
+class _CappedOutput:
+    """A run's stdout and stderr, each kept up to OUTPUT_CAP_BYTES."""
+
+    def __init__(self) -> None:
+        self._streams = (bytearray(), bytearray())
+        self._dropped = [False, False]
+
+    def add(self, stdout: bytes | None, stderr: bytes | None) -> None:
+        for index, chunk in enumerate((stdout, stderr)):
+            if not chunk:
+                continue
+            kept = self._streams[index]
+            room = OUTPUT_CAP_BYTES - len(kept)
+            kept += chunk[: max(room, 0)]
+            if len(chunk) > room:
+                self._dropped[index] = True
+
+    def _text(self, index: int) -> str:
+        text = self._streams[index].decode("utf-8", errors="replace")
+        if self._dropped[index]:
+            text += f"\n[output past {OUTPUT_CAP_BYTES} bytes dropped]"
+        return text
+
+    def stdout(self) -> str:
+        return self._text(0)
+
+    def stderr(self) -> str:
+        return self._text(1)
 
 
 def reap_staging_dirs(staging_root: Path, pid_alive: Callable[[int], bool]) -> int:

@@ -9,7 +9,9 @@ runs the real thing.
 
 from __future__ import annotations
 
+import re
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -28,45 +30,84 @@ from src.config import Config
 
 class FakeContainer:
     def __init__(self) -> None:
+        self.id = "c1"
         self.execs: list[dict[str, Any]] = []
         self.removed = False
         self.killed = False
-        self.block = threading.Event()
-        self.hang = False
         self.exec_fails_for_root = False
+        self.root_exec_hangs = False
+        self.kill_hangs = False
+        self.remove_hangs = False
+        self.release = threading.Event()
         self.outputs: dict[str, tuple[int, bytes, bytes]] = {}
 
     def exec_run(self, cmd: list[str], **kwargs: Any) -> SimpleNamespace:
         self.execs.append({"cmd": cmd, **kwargs})
         if kwargs.get("user") == "root" and self.exec_fails_for_root:
             raise RuntimeError("OCI runtime exec failed: Resource temporarily unavailable")
-        if cmd[0] == "python" and cmd[1].startswith("/staging/") and self.hang:
-            self.block.wait(5)
+        if kwargs.get("user") == "root" and self.root_exec_hangs:
+            self.release.wait(10)
         code, out, err = self.outputs.get(cmd[0], (0, b"ok\n", b""))
         return SimpleNamespace(exit_code=code, output=(out, err))
 
     def kill(self) -> None:
+        if self.kill_hangs:
+            self.release.wait(10)
         self.killed = True
-        self.block.set()
 
     def remove(self, force: bool = False) -> None:
+        if self.remove_hangs:
+            self.release.wait(10)
         self.removed = True
+
+
+class FakeApi:
+    """docker-py's low-level exec API: the run streams its output."""
+
+    def __init__(self) -> None:
+        self.created: list[dict[str, Any]] = []
+        self.chunks: list[tuple[bytes | None, bytes | None]] = [(b"ok\n", None)]
+        self.exit_code = 0
+        self.hang = threading.Event()
+        self.hangs = False
+
+    def exec_create(self, container: str, cmd: list[str], **kwargs: Any) -> dict[str, str]:
+        self.created.append({"container": container, "cmd": cmd, **kwargs})
+        return {"Id": f"e{len(self.created)}"}
+
+    def exec_start(self, exec_id: str, stream: bool, demux: bool) -> Any:
+        assert stream and demux
+        if self.hangs:
+            self.hang.wait(10)
+        yield from self.chunks
+
+    def exec_inspect(self, exec_id: str) -> dict[str, Any]:
+        return {"ExitCode": self.exit_code}
 
 
 class FakeClient:
     def __init__(self) -> None:
         self.container = FakeContainer()
+        self.api = FakeApi()
         self.run_kwargs: dict[str, Any] = {}
+        self.fail_run = False
         self.containers = SimpleNamespace(run=self._run)
 
     def _run(self, image: str, command: list[str], **kwargs: Any) -> FakeContainer:
+        if self.fail_run:
+            raise RuntimeError("No such image")
         self.run_kwargs = {"image": image, "command": command, **kwargs}
         return self.container
 
 
 @pytest.fixture
-def sandbox(tmp_path: Path) -> DockerSandbox:
-    box = DockerSandbox(FakeClient(), "img:test", tmp_path)
+def client() -> FakeClient:
+    return FakeClient()
+
+
+@pytest.fixture
+def sandbox(tmp_path: Path, client: FakeClient) -> DockerSandbox:
+    box = DockerSandbox(client, "img:test", tmp_path)
     box.open()
     return box
 
@@ -96,43 +137,81 @@ def test_the_container_carries_every_constraint(tmp_path: Path) -> None:
     assert config["volumes"] == {str(tmp_path / "s1"): {"bind": "/staging", "mode": "ro"}}
 
 
-def test_run_execs_the_staged_code_as_the_sandbox_user(sandbox: DockerSandbox) -> None:
+def test_run_execs_the_staged_code_as_the_sandbox_user(
+    sandbox: DockerSandbox, client: FakeClient
+) -> None:
+    client.api.exit_code = 3
     result = sandbox.run("print('hi')", timeout_s=5)
-    [call] = _container(sandbox).execs
+    [call] = client.api.created
+    assert call["container"] == "c1"
     assert call["cmd"][0] == "python"
     assert call["cmd"][1].startswith("/staging/code-")
     assert call["user"] == SANDBOX_USER
     assert call["workdir"] == "/work"
-    assert call["demux"] is True
-    assert (result.exit_code, result.stdout) == (0, "ok\n")
+    assert (result.exit_code, result.stdout) == (3, "ok\n")
     assert list(sandbox.staging_dir.iterdir()) == []  # the code file is removed
 
 
-def test_the_staged_code_file_is_readable_by_the_sandbox_user(
-    sandbox: DockerSandbox, monkeypatch: pytest.MonkeyPatch
+def test_the_staged_code_is_readable_but_its_dir_unlistable(
+    sandbox: DockerSandbox, client: FakeClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    seen: list[int] = []
-    container = _container(sandbox)
-    original = container.exec_run
+    """Other host users cannot list staging, and names carry a random token
+    (review: staged code was world-readable on the host)."""
+    seen: list[tuple[str, int, str]] = []
+    original = client.api.exec_create
 
-    def spy(cmd: list[str], **kwargs: Any) -> SimpleNamespace:
+    def spy(container: str, cmd: list[str], **kwargs: Any) -> dict[str, str]:
         path = sandbox.staging_dir / Path(cmd[1]).name
-        seen.append(path.stat().st_mode & 0o777)
-        assert path.read_text() == "print('hi')"
-        return original(cmd, **kwargs)
+        seen.append((path.name, path.stat().st_mode & 0o777, path.read_text()))
+        return original(container, cmd, **kwargs)
 
-    monkeypatch.setattr(container, "exec_run", spy)
+    monkeypatch.setattr(client.api, "exec_create", spy)
     sandbox.run("print('hi')", timeout_s=5)
-    assert seen == [0o644]
-    assert sandbox.staging_dir.stat().st_mode & 0o777 == 0o755
+    [(name, mode, text)] = seen
+    assert (mode, text) == (0o644, "print('hi')")
+    assert re.fullmatch(r"code-1-[0-9a-f]{16}\.py", name)
+    assert sandbox.staging_dir.stat().st_mode & 0o777 == 0o711
 
 
-def test_a_timeout_kills_the_user_code(sandbox: DockerSandbox) -> None:
-    container = _container(sandbox)
-    container.hang = True
+def test_output_past_the_cap_is_dropped_not_buffered(
+    sandbox: DockerSandbox, client: FakeClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import src.agent.tools.docker_sandbox as module
+
+    monkeypatch.setattr(module, "OUTPUT_CAP_BYTES", 10)
+    client.api.chunks = [(b"a" * 8, None), (b"b" * 8, b"e" * 4), (b"c" * 100, None)]
+    result = sandbox.run("spam()", timeout_s=5)
+    assert result.stdout.startswith("a" * 8 + "bb")
+    assert "[output past 10 bytes dropped]" in result.stdout
+    assert result.stderr == "eeee"
+
+
+def test_a_timeout_kills_the_user_code(sandbox: DockerSandbox, client: FakeClient) -> None:
+    client.api.hangs = True
     with pytest.raises(SandboxTimeoutError):
         sandbox.run("while True: pass", timeout_s=0.2)
-    assert any(call.get("user") == "root" for call in container.execs)
+    assert any(call.get("user") == "root" for call in _container(sandbox).execs)
+
+
+def test_a_wedged_docker_bounds_the_timeout(
+    sandbox: DockerSandbox, client: FakeClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exec, kill exec and docker kill all hanging (review: up to ~3 min on
+    docker-py's 60 s timeouts) - the run still gives up within its grace."""
+    import src.agent.tools.docker_sandbox as module
+
+    monkeypatch.setattr(module, "KILL_GRACE_SECONDS", 0.2)
+    client.api.hangs = True
+    container = _container(sandbox)
+    container.root_exec_hangs = True
+    container.kill_hangs = True
+    started = time.monotonic()
+    with pytest.raises(SandboxTimeoutError):
+        sandbox.run("while True: pass", timeout_s=0.2)
+    assert time.monotonic() - started < 1.5
+    assert not sandbox.alive
+    container.release.set()
+    client.api.hang.set()
 
 
 def test_a_kill_that_cannot_start_kills_the_container(sandbox: DockerSandbox) -> None:
@@ -141,6 +220,26 @@ def test_a_kill_that_cannot_start_kills_the_container(sandbox: DockerSandbox) ->
     sandbox.kill_user_code()
     assert container.killed
     assert not sandbox.alive
+
+
+def test_a_failed_open_leaves_no_staging_dir(tmp_path: Path) -> None:
+    client = FakeClient()
+    client.fail_run = True
+    box = DockerSandbox(client, "img:test", tmp_path)
+    with pytest.raises(RuntimeError):
+        box.open()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_close_does_not_wait_for_a_wedged_docker(sandbox: DockerSandbox) -> None:
+    container = _container(sandbox)
+    container.remove_hangs = True
+    staging = sandbox.staging_dir
+    started = time.monotonic()
+    sandbox.close()
+    assert time.monotonic() - started < 0.5
+    assert not staging.exists()
+    container.release.set()
 
 
 def test_put_file_copies_through_staging_as_the_sandbox_user(sandbox: DockerSandbox) -> None:

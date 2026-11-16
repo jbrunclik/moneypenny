@@ -154,12 +154,13 @@ all agree — the first two are the obvious ones, the third is easy to miss:
   about high-impact actions driven solely by fetched content. This is a
   mitigation, not a guarantee. Since Nov 16 2026 the tool node also frames the
   results of `todoist`, `google_calendar`, `retrieve_file`, `search_conversations`
-  and `read_conversation` (`_FRAMED_TOOLS` in `tool_node.py`: `[UNTRUSTED TODOIST DATA
+  and `read_conversation` (`FRAMED_TOOL_KINDS` in `web_content.py`: `[UNTRUSTED TODOIST DATA
   ...]`, `CALENDAR DATA`, `FILE CONTENT`, `PAST CHAT TEXT`) - a stranger's invite, a
   shared project or pasted text is someone else's writing too. It frames after the
   result is stored (server-side extraction reads it bare), never an error (the round
-  check reads its JSON envelope), and `tool_outputs` digests strip the frame
-  (`strip_untrusted_frame`). Evals: `injection_todoist_task`, `injection_past_chat`.
+  check reads its JSON envelope); text containing `[END UNTRUSTED` is escaped so it
+  cannot close its frame early; `tool_outputs` digests strip the frame and keep a short
+  `[untrusted <kind>]` label instead (they ride along in later turns' context). Evals: `injection_todoist_task`, `injection_past_chat`.
 - **Grounding directive**: `GROUNDING_DIRECTIVE` in
   [web.py](../../src/agent/tools/web.py) ("only state specifics that appear in
   these results; say you could not verify the rest") rides on the results

@@ -19,7 +19,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
 from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES
-from src.agent.tools.web_content import strip_untrusted_frame
+from src.agent.tools.web_content import FRAMED_TOOL_KINDS, strip_untrusted_frame
 
 # Tools whose outputs are NOT digested:
 # - web/page tools: already covered by the sources digest
@@ -74,6 +74,13 @@ def _compact_json(value: Any) -> str:
     return json.dumps(value, separators=(",", ":"), ensure_ascii=False, default=str)
 
 
+def _labelled(tool: str, result: str) -> str:
+    """A framed tool's digest keeps a short untrusted label: digests ride along
+    in later turns' context, without the frame (review, Nov 16 2026)."""
+    kind = FRAMED_TOOL_KINDS.get(tool)
+    return f"[untrusted {kind}] {result}" if kind else result
+
+
 def _compact_result(content: Any) -> str:
     if not isinstance(content, str):
         return "[non-text result]"
@@ -119,7 +126,7 @@ def build_tool_outputs(
             {
                 "tool": name,
                 "args": _truncate(_compact_json(call.get("args", {})), _ARGS_MAX_CHARS),
-                "result": _truncate(_compact_result(msg.content), result_max),
+                "result": _truncate(_labelled(name, _compact_result(msg.content)), result_max),
             }
         )
     return _bounded(candidates, total_max)

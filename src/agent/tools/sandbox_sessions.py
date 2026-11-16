@@ -101,12 +101,23 @@ class SandboxSessionPool:
             try:
                 yield entry.session
                 entry.last_used = time.monotonic()
-            except Exception:
-                with self._pool_lock:
-                    if self._entries.get(key) is entry:
-                        del self._entries[key]
-                self._close_quietly(entry.session)
+            except TimeoutError:
+                # The timeout's kill ended the program: the container and its
+                # /work live on unless the kill needed docker kill
+                entry.last_used = time.monotonic()
+                if not getattr(entry.session, "alive", False):
+                    self._drop(key, entry)
                 raise
+            except Exception:
+                self._drop(key, entry)
+                raise
+
+    def _drop(self, key: str, entry: _Entry) -> None:
+        """Remove a broken entry from the pool and close its session."""
+        with self._pool_lock:
+            if self._entries.get(key) is entry:
+                del self._entries[key]
+        self._close_quietly(entry.session)
 
     def _evict_over_capacity_locked(self) -> None:
         """Close least-recently-used entries beyond capacity (callers hold the lock)."""

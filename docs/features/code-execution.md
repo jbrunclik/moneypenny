@@ -49,13 +49,22 @@ This builds `moneypenny-sandbox:local` with:
 - **Moving files**: Docker's copy can neither see tmpfs nor write a read-only root.
   The app writes code (`code-<n>.py`) and incoming files into a per-session host dir
   (`CODE_SANDBOX_STAGING_DIR`, `data/sandbox-staging/<pid>-<id>`, not `/tmp`: the
-  service runs with PrivateTmp) bind-mounted **read-only** at `/staging`; it runs
+  service runs with PrivateTmp; mode 0711 and names with a random token, so other host
+  users can neither list nor guess staged code) bind-mounted **read-only** at `/staging`;
+  it runs
   `python /staging/code-<n>.py` in `/work`, and an exec as the sandbox user copies
   attachments into `/work/attachments`. Files come out through an exec that reads only
   a regular file directly in `/output` (no symlink, FIFO or device), up to
   `MAX_FILE_SIZE_BYTES`, under a 10 s `timeout`: the output list is parsed from stdout,
   which user code can forge (a `../dev/urandom` entry streamed into the app worker in
   review). Names with `/` or `..` are dropped before that.
+- **Bounded output and waits**: stdout and stderr stream in and keep 1 MB each
+  (`OUTPUT_CAP_BYTES`; the rest is read and dropped, with a note), so a print loop cannot
+  fill the worker's memory. A timed-out run's kill gives each step `KILL_GRACE_SECONDS`
+  (5: the kill exec, then `docker kill`), and `close()` waits 0.25 s for the removal
+  before leaving it to the background - a wedged Docker no longer holds a turn minutes
+  past the 30 s limit. A timeout keeps the session and its `/work` when the kill exec
+  worked; only a `docker kill` replaces it.
 - **The root kill is isolated**: the image's `HOME` and working dir are `/work`, so a
   root `python -c` would load a planted `/work/*.py` or user site-package; the kill runs
   `python -I -S` in `/` with `HOME=/root` (a live test plants both).
