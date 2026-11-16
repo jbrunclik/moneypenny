@@ -78,7 +78,6 @@ def delegate_task(task: str, expected_output: str = "") -> str:
             model_name=Config.DELEGATE_MODEL,
             with_tools=True,
             tools=[research, web_search, fetch_url],
-            enable_context_cache=False,
             system_prompt_override=DELEGATE_SYSTEM_PROMPT,
         )
         response_text, _tool_results, usage_info, result_messages = subagent.chat_batch(text=prompt)

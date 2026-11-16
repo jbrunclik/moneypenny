@@ -234,14 +234,15 @@ class TestAudioBlocks:
 
 
 class TestBuildMessagesConversationTitle:
-    """conversation_title must reach the prompt in both cached and uncached modes."""
+    """conversation_title must reach the prompt with and without a static prefix."""
 
     @staticmethod
-    def _agent(cached: bool):
+    def _agent(split: bool):
         from src.agent.agent import ChatAgent
+        from src.agent.prompts import CacheProfile
 
         agent = ChatAgent.__new__(ChatAgent)
-        agent._cached_content_name = "cache/x" if cached else None
+        agent._static_prefix_profile = CacheProfile.STANDARD if split else None
         agent.system_prompt_override = None
         agent.with_tools = True
         agent.anonymous_mode = False
@@ -251,15 +252,15 @@ class TestBuildMessagesConversationTitle:
         agent.include_memories = True
         return agent
 
-    def test_uncached_system_prompt_contains_title(self) -> None:
-        messages = self._agent(cached=False)._build_messages(
+    def test_single_system_prompt_contains_title(self) -> None:
+        messages = self._agent(split=False)._build_messages(
             "hi", conversation_title="🐍 Python List Sorting"
         )
         system_content = str(messages[0].content)
         assert "🐍 Python List Sorting" in system_content
 
-    def test_cached_dynamic_context_contains_title(self) -> None:
-        messages = self._agent(cached=True)._build_messages(
+    def test_split_dynamic_context_contains_title(self) -> None:
+        messages = self._agent(split=True)._build_messages(
             "hi", conversation_title="🐍 Python List Sorting"
         )
         combined = "".join(str(m.content) for m in messages)
@@ -267,17 +268,13 @@ class TestBuildMessagesConversationTitle:
 
 
 class TestBuildMessagesImplicitCacheLayout:
-    """Implicit-only models (Gemini 4) keep the explicit cache's split layout:
-    the static prompt leads as the SystemMessage and the per-turn [CONTEXT]
-    sits just before the user message, so the request prefix stays stable."""
+    """The split layout: the static prompt leads as the SystemMessage and the
+    per-turn [CONTEXT] sits just before the user message, so the request
+    prefix stays stable for Gemini's implicit cache."""
 
     @staticmethod
     def _agent():
-        from src.agent.context_cache import CacheProfile
-
-        agent = TestBuildMessagesConversationTitle._agent(cached=False)
-        agent._static_prefix_profile = CacheProfile.STANDARD
-        return agent
+        return TestBuildMessagesConversationTitle._agent(split=True)
 
     def test_static_prompt_leads_and_context_sits_at_the_tail(self) -> None:
         from langchain_core.messages import HumanMessage, SystemMessage

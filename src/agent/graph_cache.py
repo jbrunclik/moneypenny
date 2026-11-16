@@ -19,13 +19,6 @@ from src.config import Config
 _compiled_graph_cache: OrderedDict[tuple[Any, ...], Any] = OrderedDict()
 _compiled_graph_lock = threading.Lock()
 
-# Context-cache names kept per otherwise-identical signature. The name rotates
-# whenever a Gemini cache lapses or is recreated, so without this cap every dead
-# name stays compiled until the global LRU evicts it (~2.5 MB per graph). Three
-# covers the live set: the uncached fallback (None), the live cache name and
-# its successor while a lapsed cache is recreated.
-_MAX_CACHE_NAMES_PER_SIGNATURE = 3
-
 
 def _graph_signature(
     model_name: str,
@@ -34,12 +27,10 @@ def _graph_signature(
     include_thoughts: bool,
     tools: list[Any],
     is_autonomous: bool,
-    cached_content: str | None,
     thinking_level: str | None,
 ) -> tuple[Any, ...]:
     """Everything the compiled graph depends on. Tool names are sorted so the
-    key is order-independent (the tool set, not its ordering, matters).
-    cached_content stays last: the per-signature name cap slices it off."""
+    key is order-independent (the tool set, not its ordering, matters)."""
     tool_sig = tuple(sorted(t.name for t in tools)) if tools else ()
     return (
         model_name,
@@ -48,7 +39,6 @@ def _graph_signature(
         tool_sig,
         is_autonomous,
         thinking_level,
-        cached_content,
     )
 
 
@@ -59,15 +49,10 @@ def clear_graph_cache() -> None:
 
 
 def _store(key: tuple[Any, ...], compiled: Any) -> None:
-    """Memoize a compiled graph, evicting dead cache names and the LRU tail."""
+    """Memoize a compiled graph, evicting the LRU tail."""
     with _compiled_graph_lock:
         _compiled_graph_cache[key] = compiled
         _compiled_graph_cache.move_to_end(key)
-        # cached_content is the last signature element; drop this signature's
-        # least-recently-used names beyond the cap (dead rotated caches)
-        same_signature = [k for k in _compiled_graph_cache if k[:-1] == key[:-1]]
-        for stale in same_signature[:-_MAX_CACHE_NAMES_PER_SIGNATURE]:
-            del _compiled_graph_cache[stale]
         max_size = Config.AGENT_GRAPH_CACHE_SIZE
         while max_size > 0 and len(_compiled_graph_cache) > max_size:
             _compiled_graph_cache.popitem(last=False)  # evict least-recently-used
@@ -79,7 +64,6 @@ def get_compiled_graph(
     include_thoughts: bool = False,
     tools: list[Any] | None = None,
     is_autonomous: bool = False,
-    cached_content: str | None = None,
     memoize: bool = True,
     thinking_level: str | None = None,
 ) -> Any:
@@ -90,8 +74,7 @@ def get_compiled_graph(
     signature knows only tool names, so a memoized graph would run an earlier
     run's tools.
 
-    Bounded LRU (Config.AGENT_GRAPH_CACHE_SIZE): the cached_content name rotates
-    hourly, so stale entries are evicted rather than accumulating unbounded.
+    Bounded LRU (Config.AGENT_GRAPH_CACHE_SIZE).
     """
     active_tools = tools if tools is not None else get_available_tools()
     build_args: dict[str, Any] = {
@@ -99,7 +82,6 @@ def get_compiled_graph(
         "include_thoughts": include_thoughts,
         "tools": active_tools,
         "is_autonomous": is_autonomous,
-        "cached_content": cached_content,
         "thinking_level": thinking_level,
     }
     if not memoize:

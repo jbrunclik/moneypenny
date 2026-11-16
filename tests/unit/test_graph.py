@@ -5,7 +5,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.graph import END, StateGraph
 
@@ -13,7 +13,6 @@ from src.agent.graph import (
     compile_graph,
     create_chat_graph,
     get_graph_config,
-    guidance_as_human,
     should_continue,
 )
 from src.agent.graph_state import AgentState
@@ -221,7 +220,7 @@ class TestInterjectionInjection:
 
         pop.assert_called_once_with("user-1", "conv-1")
         guidance = result["messages"][0]
-        assert isinstance(guidance, SystemMessage)
+        assert isinstance(guidance, HumanMessage)
         assert "USER INTERJECTION" in guidance.content
         assert "2025 model" in guidance.content
         assert result["tool_rounds"] == 1
@@ -256,7 +255,7 @@ class TestInterjectionInjection:
 
         assert result.get("messages", []) == []
 
-    def test_cached_mode_uses_human_message_with_wrapper(self) -> None:
+    def test_guidance_is_a_wrapped_human_message(self) -> None:
         with (
             patch(
                 "src.agent.tool_round_check.get_conversation_context",
@@ -264,26 +263,11 @@ class TestInterjectionInjection:
             ),
             patch("src.agent.interjection.pop_interjection", return_value="steer"),
         ):
-            result = check_tool_results(self._state_with_clean_round(), use_cache=True)
+            result = check_tool_results(self._state_with_clean_round())
 
         guidance = result["messages"][0]
         assert isinstance(guidance, HumanMessage)
         assert guidance.content.startswith("[SYSTEM GUIDANCE]")
-
-
-class TestGuidanceAsHuman:
-    """Mid-turn guidance is a HumanMessage wherever a SystemMessage would break
-    the cached prefix: under an explicit cache, and on implicit-only models
-    (Gemini 4), where it would be merged into the leading systemInstruction."""
-
-    def test_explicit_cache(self) -> None:
-        assert guidance_as_human("gemini-3.8-flash", "cachedContents/x")
-
-    def test_uncached_gemini_3(self) -> None:
-        assert not guidance_as_human("gemini-3.8-flash", None)
-
-    def test_implicit_only_model(self) -> None:
-        assert guidance_as_human("gemini-4-hydrogen", None)
 
 
 class TestCheckToolResults:
@@ -304,7 +288,7 @@ class TestCheckToolResults:
         assert result["tool_retries"] == 1
         assert "messages" in result
         guidance = result["messages"][0]
-        assert isinstance(guidance, SystemMessage)
+        assert isinstance(guidance, HumanMessage)
         assert "failed" in guidance.content.lower()
         assert "different approach" in guidance.content.lower()
 
@@ -385,7 +369,7 @@ class TestCheckToolResults:
         assert result["tool_retries"] == 3
         assert "messages" in result
         guidance = result["messages"][0]
-        assert isinstance(guidance, SystemMessage)
+        assert isinstance(guidance, HumanMessage)
         assert "failed after multiple retries" in guidance.content.lower()
 
     def test_scans_only_latest_tool_messages(self) -> None:
@@ -436,7 +420,7 @@ class TestToolRoundCap:
         assert (result["tool_rounds"], result["tool_retries"]) == (3, 0)
         assert result["final_answer"] == "rounds"
         guidance = result["messages"][0]
-        assert isinstance(guidance, SystemMessage)
+        assert isinstance(guidance, HumanMessage)
         assert "tools are off" in guidance.content.lower()
 
     def test_stop_overrides_error_guidance(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -454,10 +438,10 @@ class TestToolRoundCap:
         assert "tools are off" in result["messages"][0].content.lower()
         assert "different approach" not in result["messages"][0].content.lower()
 
-    def test_cached_mode_uses_human_message(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """In cached mode guidance is a HumanMessage (SystemMessages get dropped)."""
+    def test_guidance_is_a_human_message(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Guidance is a HumanMessage: a SystemMessage would change the prefix."""
         monkeypatch.setattr(Config, "TURN_MAX_TOOL_ROUNDS", 3)
-        result = check_tool_results(self._success_state(2), use_cache=True)
+        result = check_tool_results(self._success_state(2))
         guidance = result["messages"][0]
         assert isinstance(guidance, HumanMessage)
         assert "[SYSTEM GUIDANCE]" in guidance.content
@@ -624,50 +608,11 @@ class TestThinkingLevel:
         assert mock_llm_class.call_args[1]["thinking_level"] == "low"
 
 
-class TestCachedModelCreation:
-    """Tests for create_chat_model with cached_content."""
+class TestModelToolBinding:
+    """create_chat_model binds the turn's tools."""
 
     @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
-    def test_cached_content_passed_to_model(self, mock_llm_class: MagicMock) -> None:
-        """cached_content should be passed as kwarg to ChatGoogleGenerativeAI."""
-        from src.agent.chat_model import create_chat_model
-
-        mock_instance = MagicMock()
-        mock_llm_class.return_value = mock_instance
-
-        create_chat_model(
-            "test-model",
-            with_tools=True,
-            cached_content="cachedContents/abc123",
-        )
-
-        # Should be called with cached_content kwarg
-        call_kwargs = mock_llm_class.call_args[1]
-        assert call_kwargs["cached_content"] == "cachedContents/abc123"
-
-    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
-    def test_cached_mode_does_not_bind_tools(self, mock_llm_class: MagicMock) -> None:
-        """When cached_content is provided, bind_tools should NOT be called."""
-        from src.agent.chat_model import create_chat_model
-
-        mock_instance = MagicMock()
-        mock_llm_class.return_value = mock_instance
-
-        result = create_chat_model(
-            "test-model",
-            with_tools=True,
-            tools=[MagicMock(name="test_tool")],
-            cached_content="cachedContents/abc123",
-        )
-
-        # bind_tools should not be called
-        mock_instance.bind_tools.assert_not_called()
-        # Should return the model directly
-        assert result == mock_instance
-
-    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
-    def test_uncached_mode_binds_tools(self, mock_llm_class: MagicMock) -> None:
-        """Without cached_content, tools should be bound normally."""
+    def test_binds_tools(self, mock_llm_class: MagicMock) -> None:
         from src.agent.chat_model import create_chat_model
 
         mock_instance = MagicMock()
@@ -682,43 +627,6 @@ class TestCachedModelCreation:
 
         # bind_tools should be called
         mock_instance.bind_tools.assert_called_once_with([mock_tool])
-
-
-# ============ Cached check_tool_results Tests ============
-
-
-class TestCachedCheckToolResults:
-    """Tests for check_tool_results with use_cache=True."""
-
-    def test_cached_mode_uses_human_message_for_guidance(self) -> None:
-        """In cached mode, error guidance should use HumanMessage."""
-        state: AgentState = {
-            "messages": [
-                AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
-                ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
-            ],
-            "tool_retries": 0,
-        }
-        result = check_tool_results(state, use_cache=True)
-        assert result["tool_retries"] == 1
-        guidance = result["messages"][0]
-        assert isinstance(guidance, HumanMessage)
-        assert "[SYSTEM GUIDANCE]" in guidance.content
-
-    def test_uncached_mode_uses_system_message_for_guidance(self) -> None:
-        """In uncached mode, error guidance should use SystemMessage."""
-        state: AgentState = {
-            "messages": [
-                AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "1"}]),
-                ToolMessage(content='{"error": "API returned 500"}', tool_call_id="1"),
-            ],
-            "tool_retries": 0,
-        }
-        result = check_tool_results(state, use_cache=False)
-        assert result["tool_retries"] == 1
-        guidance = result["messages"][0]
-        assert isinstance(guidance, SystemMessage)
-        assert "[SYSTEM GUIDANCE]" not in guidance.content
 
 
 # ============ Tool Result Aging Tests ============
@@ -1176,24 +1084,11 @@ class TestCompiledGraphCache:
         from src.agent.graph_cache import get_compiled_graph
 
         tools = [self._tool("web_search")]
-        g1 = get_compiled_graph("m", tools=tools, cached_content="c1")
-        g2 = get_compiled_graph("m", tools=tools, cached_content="c1")
+        g1 = get_compiled_graph("m", tools=tools)
+        g2 = get_compiled_graph("m", tools=tools)
         assert g1 is g2
         assert mock_create.call_count == 1
         assert mock_compile.call_count == 1
-
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
-    def test_different_cached_content_rebuilds(
-        self, mock_create: MagicMock, mock_compile: MagicMock
-    ) -> None:
-        from src.agent.graph_cache import get_compiled_graph
-
-        tools = [self._tool("web_search")]
-        g1 = get_compiled_graph("m", tools=tools, cached_content="c1")
-        g2 = get_compiled_graph("m", tools=tools, cached_content="c2")
-        assert g1 is not g2
-        assert mock_compile.call_count == 2
 
     @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
     @patch("src.agent.graph_cache.create_chat_graph")
@@ -1202,8 +1097,8 @@ class TestCompiledGraphCache:
     ) -> None:
         from src.agent.graph_cache import get_compiled_graph
 
-        g1 = get_compiled_graph("m", tools=[self._tool("web_search")], cached_content="c1")
-        g2 = get_compiled_graph("m", tools=[self._tool("fetch_url")], cached_content="c1")
+        g1 = get_compiled_graph("m", tools=[self._tool("web_search")])
+        g2 = get_compiled_graph("m", tools=[self._tool("fetch_url")])
         assert g1 is not g2
 
     @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
@@ -1214,8 +1109,8 @@ class TestCompiledGraphCache:
         from src.agent.graph_cache import get_compiled_graph
 
         a, b = self._tool("a"), self._tool("b")
-        g1 = get_compiled_graph("m", tools=[a, b], cached_content="c1")
-        g2 = get_compiled_graph("m", tools=[b, a], cached_content="c1")
+        g1 = get_compiled_graph("m", tools=[a, b])
+        g2 = get_compiled_graph("m", tools=[b, a])
         assert g1 is g2  # signature is order-independent (sorted names)
 
     @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
@@ -1226,11 +1121,11 @@ class TestCompiledGraphCache:
         from src.agent.graph_cache import get_compiled_graph
 
         tools = [self._tool("web_search")]
-        full = get_compiled_graph("m", tools=tools, cached_content="c1")
-        light = get_compiled_graph("m", tools=tools, cached_content="c1", thinking_level="low")
+        full = get_compiled_graph("m", tools=tools)
+        light = get_compiled_graph("m", tools=tools, thinking_level="low")
         assert light is not full
         assert mock_create.call_args.kwargs["thinking_level"] == "low"
-        assert get_compiled_graph("m", tools=tools, cached_content="c1") is full
+        assert get_compiled_graph("m", tools=tools) is full
 
     @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
     @patch("src.agent.graph_cache.create_chat_graph")
@@ -1241,62 +1136,10 @@ class TestCompiledGraphCache:
 
         monkeypatch.setattr(Config, "AGENT_GRAPH_CACHE_SIZE", 2)
         tools = [self._tool("web_search")]
-        first = get_compiled_graph("m", tools=tools, cached_content="c1")
-        get_compiled_graph("m", tools=tools, cached_content="c2")
-        get_compiled_graph("m", tools=tools, cached_content="c3")  # evicts c1
+        first = get_compiled_graph("m1", tools=tools)
+        get_compiled_graph("m2", tools=tools)
+        get_compiled_graph("m3", tools=tools)  # evicts m1
         builds_before = mock_compile.call_count
-        again = get_compiled_graph("m", tools=tools, cached_content="c1")
-        assert again is not first  # c1 was evicted and rebuilt fresh
+        again = get_compiled_graph("m1", tools=tools)
+        assert again is not first  # m1 was evicted and rebuilt fresh
         assert mock_compile.call_count == builds_before + 1
-
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
-    def test_rotated_cache_names_do_not_accumulate(
-        self, mock_create: MagicMock, mock_compile: MagicMock
-    ) -> None:
-        """The context-cache name rotates on renewal; dead names for the same
-        signature must not fill the LRU (~2.5 MB per compiled graph in prod)."""
-        from src.agent.graph_cache import get_compiled_graph
-
-        tools = [self._tool("web_search")]
-        for i in range(10):
-            get_compiled_graph("m", tools=tools, cached_content=f"c{i}")
-        builds = mock_compile.call_count
-        # The newest three names are still cached...
-        for i in (7, 8, 9):
-            get_compiled_graph("m", tools=tools, cached_content=f"c{i}")
-        assert mock_compile.call_count == builds
-        # ...the older, dead ones were dropped, not kept filling the LRU
-        get_compiled_graph("m", tools=tools, cached_content="c6")
-        assert mock_compile.call_count == builds + 1
-
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
-    def test_live_cache_names_sharing_a_signature_stay_cached(
-        self, mock_create: MagicMock, mock_compile: MagicMock
-    ) -> None:
-        """SPORTS and LANGUAGE bind the same tools, so two live names (plus the
-        uncached fallback) share one signature - alternating must not rebuild."""
-        from src.agent.graph_cache import get_compiled_graph
-
-        tools = [self._tool("kv_store")]
-        for name in (None, "sports", "language"):
-            get_compiled_graph("m", tools=tools, cached_content=name)
-        builds = mock_compile.call_count
-        for name in ("sports", "language", None, "sports"):
-            get_compiled_graph("m", tools=tools, cached_content=name)
-        assert mock_compile.call_count == builds
-
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
-    def test_name_rotation_keeps_other_signatures(
-        self, mock_create: MagicMock, mock_compile: MagicMock
-    ) -> None:
-        from src.agent.graph_cache import get_compiled_graph
-
-        other = get_compiled_graph("pro", tools=[self._tool("web_search")], cached_content="p1")
-        tools = [self._tool("web_search")]
-        for i in range(10):
-            get_compiled_graph("m", tools=tools, cached_content=f"c{i}")
-        again = get_compiled_graph("pro", tools=[self._tool("web_search")], cached_content="p1")
-        assert again is other

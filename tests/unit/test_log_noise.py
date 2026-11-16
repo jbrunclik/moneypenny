@@ -3,7 +3,7 @@
 langchain-google-genai inlines a tool's `$ref`s and then logs "Key '$defs'
 is not supported in schema, ignoring" for the leftover key (586 times in 30
 days); the Nov 15 2026 audit read it as nested types being lost. They are
-not (test_context_cache.py::TestNestedToolSchemas pins it), so the line goes.
+not (test_prompt_profiles.py::TestNestedToolSchemas pins it), so the line goes.
 """
 
 from __future__ import annotations

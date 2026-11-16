@@ -4,7 +4,7 @@ Oct 2026 (two conversations about a September keynote and a Prague election):
 most follow-ups ran no tool at all and were answered from training data, and
 the agent only searched once the user pushed back. The prompt's "ALWAYS use web
 tools for recent events" was measured to be ignored, and the chat model cannot
-be forced to call a tool (tools and tool config live in its context cache). So
+be forced to call a tool (then its tools and tool config lived in a context cache). So
 a small model decides first whether the answer needs fresh facts; when it does,
 `research` runs with dated queries and its result joins the turn before the
 chat model starts - the answer begins from current pages, which the grounding

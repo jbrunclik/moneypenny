@@ -55,7 +55,7 @@ def _now() -> datetime:
 
 
 # check_tool_results (tool_round_check.py) sends its round nudges, retries and
-# interjections as HumanMessages in cached mode, wrapped in this marker
+# interjections as HumanMessages, wrapped in this marker
 _GUIDANCE_MARKER = "[SYSTEM GUIDANCE]"
 # The turn's dynamic context (memories, a program's saved data, conversation
 # facts) rides in a HumanMessage between these markers (agent._build_messages)

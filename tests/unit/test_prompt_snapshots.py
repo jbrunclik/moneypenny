@@ -31,8 +31,7 @@ from langchain_google_genai._function_utils import convert_to_genai_function_dec
 import src.agent.prompt_memory as prompt_memory_module
 import src.agent.prompts as prompts_module
 import src.agent.tools as tools_module
-from src.agent.context_cache import CacheProfile
-from src.agent.prompts import get_dynamic_prompt_parts, get_static_prompt_for_profile
+from src.agent.prompts import CacheProfile, get_dynamic_prompt_parts, get_static_prompt_for_profile
 from src.config import Config
 from src.db.models.dataclasses import Memory
 

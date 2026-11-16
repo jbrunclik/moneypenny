@@ -140,26 +140,17 @@ Long conversations (especially program conversations and multi-round tool turns)
 re-send a large stable prefix on every LLM call. A few durable facts govern how
 caching affects tracked cost:
 
-- **Gemini 4 caches implicitly only.** Its API rejects `caches.create` (400), so
-  `supports_explicit_cache` in [src/agent/context_cache.py](../../src/agent/context_cache.py)
-  skips the explicit cache for `gemini-4-*` models. Chats keep the same split
-  layout instead - the profile's static prompt as the leading SystemMessage, tools
-  bound, the per-turn `[CONTEXT]` just before the user message, mid-turn guidance
-  as a HumanMessage (`guidance_as_human` in `graph.py`) - so the prefix stays
-  stable and Gemini caches it implicitly at the `cached_input` rate. A Nov 12 2026
-  probe: two requests sharing a 32k-token prefix and differing at the end hit
-  30k cached tokens on all three Gemini 4 models.
-- **On Gemini 3, explicit context caching is what saved money.** The explicit
-  cache registers the stable prefix (system prompt + tool declarations) with
-  Gemini so it is billed at the discounted `cached_input` rate. Implicit caching
-  never hit on Gemini 3 (Nov 7 2026 probe: 0 of 7 requests differing at the end).
-- **Cache lifetime is sliding, not long.** Caches live `CONTEXT_CACHE_TTL_SECONDS`
-  (1 h). A cache used within `CONTEXT_CACHE_EXTEND_AHEAD_SECONDS` (10 min) before
-  its 5-min renewal buffer gets its TTL extended in the background
-  (`caches.update`), so an active session never lapses into a miss + rebuild (36%
-  of the Sep 2026 rebuilds were such mid-session lapses). Do **not** raise the TTL
-  itself: storage is billed per cache-hour, and caching through idle hours costs
-  more than the cold-start misses it would save.
+- **Gemini 4 caches implicitly only.** Its API rejects `caches.create` (400).
+  Chats use a split layout so the prefix stays stable - the profile's static
+  prompt (`CacheProfile` in [prompts.py](../../src/agent/prompts.py)) as the
+  leading SystemMessage, tools bound, the per-turn `[CONTEXT]` just before the
+  user message, mid-turn guidance as a wrapped HumanMessage
+  (`tool_round_check.py`) - and Gemini caches it implicitly at the
+  `cached_input` rate. A Nov 12 2026 probe: two requests sharing a 32k-token
+  prefix and differing at the end hit 30k cached tokens on all three Gemini 4
+  models. (On Gemini 3 implicit caching never hit - 0 of 7 requests in a Nov 7
+  2026 probe - and an explicit context cache did the saving; that code path was
+  removed in Nov 2026 once both chat models were Gemini 4.)
 - **Cached tokens are recorded and discounted.** Cache hits are read from
   `usage_metadata.input_token_details.cache_read`, aggregated as
   `cached_input_tokens` in `usage_info`, and billed at the model's `cached_input`

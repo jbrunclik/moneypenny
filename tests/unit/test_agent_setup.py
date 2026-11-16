@@ -2,28 +2,20 @@
 
 
 class TestChatAgentOverrides:
-    """enable_context_cache=False and system_prompt_override (delegate subagent)."""
+    """system_prompt_override (delegate subagent)."""
 
     @staticmethod
     def _construct(monkeypatch, **kwargs):
         import src.agent.agent as agent_mod
 
-        def fail_cache_lookup(*args, **kw):
-            raise AssertionError("cache lookup must not run")
-
-        monkeypatch.setattr(agent_mod, "get_cached_content_name", fail_cache_lookup)
         # ChatAgent now builds via the memoized get_compiled_graph; stub it so
         # construction skips real (slow) graph compilation.
         monkeypatch.setattr(agent_mod, "get_compiled_graph", lambda *a, **kw: object())
         return agent_mod.ChatAgent(model_name="gemini-test", **kwargs)
 
-    def test_cache_opt_out_skips_cache_lookup(self, monkeypatch) -> None:
-        agent = self._construct(monkeypatch, enable_context_cache=False)
-        assert agent._cached_content_name is None
-
-    def test_system_prompt_override_implies_no_cache(self, monkeypatch) -> None:
+    def test_system_prompt_override_has_no_static_prefix(self, monkeypatch) -> None:
         agent = self._construct(monkeypatch, system_prompt_override="You are a test.")
-        assert agent._cached_content_name is None
+        assert agent._static_prefix_profile is None
 
     def test_system_prompt_override_used_verbatim(self, monkeypatch) -> None:
         from langchain_core.messages import SystemMessage
@@ -61,7 +53,7 @@ class TestStandingChatToolWiring:
         assert {"kv_store", "schedule", "manage_memory"} <= names
 
     def test_freshness_gate_and_standing_cache(self, monkeypatch) -> None:
-        from src.agent.context_cache import CacheProfile
+        from src.agent.prompts import CacheProfile
 
         agent, names = self._agent(monkeypatch)
         assert agent.freshness_gate is ("research" in names)

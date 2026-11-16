@@ -230,7 +230,7 @@ against the previous commit (a worktree) before trusting one run.
   of the cached prefix.
 - **Body**: reaches the model only as the result of `load_skill(name)`
   ([tools/skills.py](../../src/agent/tools/skills.py)), i.e. after the cached
-  prefix, so loading never breaks the context cache. The tool is always bound
+  prefix, so loading never changes the cached prefix. The tool is always bound
   (chat and autonomous agents) and in `ALWAYS_SAFE_TOOLS`; an unknown name
   returns the list of valid ones.
 - **Built-in skills**: `office-documents`, `pdf-documents`, `browser-tactics`,
@@ -312,7 +312,7 @@ fails if a tool sends it again.
 > does work: langchain inlines each `$ref` before it drops `$defs`, so the log line
 > "Key '$defs' is not supported in schema, ignoring" is noise (filtered out of the log
 > since Nov 15 2026, `_DropIgnoredDefs` in `src/utils/logging.py`).
-> `tests/unit/test_context_cache.py::TestNestedToolSchemas` fails if an upgrade
+> `tests/unit/test_prompt_profiles.py::TestNestedToolSchemas` fails if an upgrade
 > stops inlining.
 
 ## K/V Store

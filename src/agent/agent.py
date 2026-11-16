@@ -15,16 +15,12 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, To
 from src.agent import freshness, grounding_check
 from src.agent.cancellation import STOP_REASON_USER, TurnCancelled, is_cancelled
 from src.agent.content import final_response_text
-from src.agent.context_cache import (
-    CacheProfile,
-    get_cached_content_name,
-    supports_explicit_cache,
-)
 from src.agent.freshness import FreshnessDecision, PendingGate, freshness_tool_event
 from src.agent.graph import get_graph_config
 from src.agent.graph_cache import get_compiled_graph
 from src.agent.message_content import build_message_content, history_to_messages
 from src.agent.prompts import (
+    CacheProfile,
     get_dynamic_prompt_parts,
     get_static_prompt_for_profile,
     get_system_prompt,
@@ -108,7 +104,6 @@ class ChatAgent:
         agent_context: dict[str, Any] | None = None,
         tools: list[Any] | None = None,
         standing: StandingContext | None = None,
-        enable_context_cache: bool = True,
         system_prompt_override: str | None = None,
         memoize_graph: bool = True,
         include_memories: bool = True,
@@ -127,8 +122,8 @@ class ChatAgent:
         # its standing instructions and data (src/agent/standing.py)
         self.standing = standing
         # A custom system prompt (delegate subagents) replaces the standard
-        # prompt assembly entirely and forces uncached mode - the shared cache
-        # profiles all embed the standard static prompt.
+        # prompt assembly entirely - the profiles all embed the standard
+        # static prompt.
         self.system_prompt_override = system_prompt_override
         # Use provided tools, or get filtered tools based on mode
         if tools is not None:
@@ -147,21 +142,12 @@ class ChatAgent:
             and any(t.name == "research" for t in active_tools)
         )
 
-        # Determine cache profile and get cached content name. Implicit-only
-        # models (Gemini 4) get no explicit cache but the same split layout:
-        # the profile's static prompt leads as the SystemMessage, so Gemini's
-        # implicit cache reuses the stable prefix (static prompt + tools).
-        self._cached_content_name: str | None = None
+        # The split layout: the profile's static prompt leads as the
+        # SystemMessage, so Gemini's implicit cache reuses the stable prefix
+        # (static prompt + tools); the dynamic context rides at the tail.
         self._static_prefix_profile: CacheProfile | None = None
-        if enable_context_cache and system_prompt_override is None:
-            cache_profile = self._get_cache_profile()
-            if cache_profile and with_tools and active_tools:
-                if supports_explicit_cache(model_name):
-                    self._cached_content_name = get_cached_content_name(
-                        cache_profile, model_name, active_tools
-                    )
-                else:
-                    self._static_prefix_profile = cache_profile
+        if system_prompt_override is None and active_tools:
+            self._static_prefix_profile = self._get_cache_profile()
 
         logger.debug(
             "Creating ChatAgent",
@@ -173,7 +159,6 @@ class ChatAgent:
                 "is_planning": is_planning,
                 "is_autonomous": is_autonomous,
                 "tool_names": [t.name for t in active_tools],
-                "cached": self._cached_content_name is not None,
                 "static_prefix": self._static_prefix_profile is not None,
             },
         )
@@ -186,7 +171,6 @@ class ChatAgent:
             "include_thoughts": include_thoughts,
             "tools": active_tools,
             "is_autonomous": is_autonomous,
-            "cached_content": self._cached_content_name,
             # False for per-run tool closures (deep research subagents)
             "memoize": memoize_graph,
         }
@@ -237,12 +221,12 @@ class ChatAgent:
             return []
 
     def _get_cache_profile(self) -> CacheProfile | None:
-        """Determine the cache profile based on agent mode.
+        """Determine the static prompt profile based on agent mode.
 
-        Returns None for modes incompatible with caching (autonomous agents,
-        no-tools mode).
+        Returns None for modes without a shared static prefix (autonomous
+        agents, no-tools mode).
         """
-        # No caching for autonomous agents (variable tools) or no-tools mode
+        # Autonomous agents (variable tools) and no-tools mode get one SystemMessage
         if self.is_autonomous or not self.with_tools:
             return None
         if self.standing is not None:
@@ -273,27 +257,22 @@ class ChatAgent:
         # Check for updated dashboard context from refresh_planner_dashboard tool
         refreshed_dashboard = planner_dashboard_context.get()
 
-        # In cached mode the static system prompt + tools live in the Gemini
-        # cache, so the per-request dynamic context goes as a HumanMessage. We
-        # defer it to the TAIL (just before the current user message) instead of
-        # the head: a volatile message at position 0 would change the request
-        # prefix every turn and prevent Gemini's implicit caching from reusing
-        # the (stable) conversation history that follows. Implicit-only models
-        # use the same split with the static prompt as the SystemMessage. In
-        # uncached mode the SystemMessage carries everything at position 0.
+        # Split layout: the profile's static prompt is the SystemMessage and the
+        # per-request dynamic context a HumanMessage at the TAIL (just before
+        # the current user message), not the head: a volatile message near
+        # position 0 would change the request prefix every turn and keep
+        # Gemini's implicit cache from reusing the (stable) conversation history
+        # that follows. Without a profile the SystemMessage carries everything.
         dynamic_context_msg: HumanMessage | None = None
         static_prefix_profile = getattr(self, "_static_prefix_profile", None)
         if self.system_prompt_override is not None:
             # Custom prompt (delegate subagents): used verbatim, no dynamic
             # context assembly
             messages.append(SystemMessage(content=self.system_prompt_override))
-        elif self._cached_content_name or static_prefix_profile:
-            if static_prefix_profile:
-                messages.append(
-                    SystemMessage(
-                        content=get_static_prompt_for_profile(static_prefix_profile.value)
-                    )
-                )
+        elif static_prefix_profile:
+            messages.append(
+                SystemMessage(content=get_static_prompt_for_profile(static_prefix_profile.value))
+            )
             dynamic = get_dynamic_prompt_parts(
                 force_tools=force_tools,
                 user_name=user_name,
@@ -310,7 +289,7 @@ class ChatAgent:
             )
             dynamic_context_msg = HumanMessage(content=f"[CONTEXT]\n{dynamic}\n[/CONTEXT]")
         else:
-            # Uncached mode: full SystemMessage with everything, at the head
+            # No shared prefix: full SystemMessage with everything, at the head
             messages.append(
                 SystemMessage(
                     content=get_system_prompt(
@@ -336,7 +315,7 @@ class ChatAgent:
         if history:
             messages.extend(history_to_messages(history))
 
-        # Append the deferred dynamic context (cached mode) right before the
+        # Append the deferred dynamic context (split layout) right before the
         # current user message, keeping the volatile content at the tail.
         if dynamic_context_msg is not None:
             messages.append(dynamic_context_msg)

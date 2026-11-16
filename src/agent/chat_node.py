@@ -139,8 +139,8 @@ def _answer_without_tools(
 ) -> AIMessage | None:
     """The final reply from a model that has no tools at all.
 
-    Gemini's context cache carries the tool declarations, so in cached mode
-    "tools are off" is only an instruction - and the Daily Briefing's final
+    The turn's model has the tools bound, so "tools are off" is only an
+    instruction - and the Daily Briefing's final
     round asked for one more tool, leaving the user an empty reply (Nov 11
     2026). The turn so far goes in as plain text: a model without tools can't
     take tool calls and results, and the system message carries the
@@ -160,7 +160,6 @@ def _answer_without_tools(
 def chat_node(
     state: AgentState,
     model: ChatGoogleGenerativeAI,
-    use_cache: bool = False,
     config: RunnableConfig | None = None,
     fallback: FallbackModel | None = None,
     model_name: str = "unknown",
@@ -169,10 +168,6 @@ def chat_node(
 
     model_name names the turn's model (the Gemini client has no attribute for
     it): the turn's cost is priced with it, or with the fallback that answered.
-
-    use_cache is unused here but kept in the signature for parity with
-    check_tool_results (both are bound via lambda in create_chat_graph and
-    the flag documents which mode the graph was built for).
     """
     # Server-side Stop: never start another model call once Stop was pressed
     raise_if_cancelled()

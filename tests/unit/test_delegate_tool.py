@@ -57,13 +57,12 @@ class TestDelegateTask:
         assert "bullet list" in sent_text
 
     @patch("src.agent.agent.ChatAgent")
-    def test_subagent_runs_uncached_with_override(self, mock_agent_class: MagicMock) -> None:
+    def test_subagent_runs_with_its_own_prompt(self, mock_agent_class: MagicMock) -> None:
         _mock_chat_agent(mock_agent_class)
 
         delegate_task.invoke({"task": "Find X"})
 
         kwargs = mock_agent_class.call_args.kwargs
-        assert kwargs["enable_context_cache"] is False
         assert kwargs["system_prompt_override"]
         tool_names = {t.name for t in kwargs["tools"]}
         assert "research" in tool_names

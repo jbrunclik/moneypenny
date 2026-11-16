@@ -10,7 +10,7 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
 from src.agent.graph_state import AgentState
 from src.agent.tool_round_check import check_tool_results
@@ -63,10 +63,8 @@ def _error(text: str, retriable: bool = True, call_id: str = "1") -> ToolMessage
     )
 
 
-def _guidance(text: str, use_cache: bool) -> BaseMessage:
-    if use_cache:
-        return HumanMessage(content=f"[SYSTEM GUIDANCE]\n{text}\n[/SYSTEM GUIDANCE]")
-    return SystemMessage(content=text)
+def _guidance(text: str) -> BaseMessage:
+    return HumanMessage(content=f"[SYSTEM GUIDANCE]\n{text}\n[/SYSTEM GUIDANCE]")
 
 
 # The loop detector's bookkeeping rides on every result (tested in test_tool_loops)
@@ -80,8 +78,8 @@ def _summary(result: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _expected(text: str, use_cache: bool, retries: int, rounds: int) -> dict[str, Any]:
-    message = _guidance(text, use_cache)
+def _expected(text: str, retries: int, rounds: int) -> dict[str, Any]:
+    message = _guidance(text)
     return {
         "tool_retries": retries,
         "tool_rounds": rounds,
@@ -89,10 +87,10 @@ def _expected(text: str, use_cache: bool, retries: int, rounds: int) -> dict[str
     }
 
 
-def _interjected(state: AgentState, use_cache: bool) -> dict[str, Any]:
+def _interjected(state: AgentState) -> dict[str, Any]:
     def run() -> dict[str, Any]:
         set_conversation_context("conv-1", "user-1")
-        return check_tool_results(state, use_cache=use_cache)
+        return check_tool_results(state)
 
     with patch("src.agent.interjection.pop_interjection", return_value="use 2025") as pop:
         result = contextvars.copy_context().run(run)
@@ -100,27 +98,26 @@ def _interjected(state: AgentState, use_cache: bool) -> dict[str, Any]:
     return result
 
 
-@pytest.mark.parametrize("use_cache", [False, True])
 class TestCheckToolResultsBranches:
-    def test_clean_round_resets_retries(self, use_cache: bool) -> None:
-        result = check_tool_results(_state([_ok()], retries=2), use_cache=use_cache)
+    def test_clean_round_resets_retries(self) -> None:
+        result = check_tool_results(_state([_ok()], retries=2))
         assert _summary(result) == {"tool_retries": 0, "tool_rounds": 1}
 
-    def test_interjection_keeps_retries(self, use_cache: bool) -> None:
-        result = _interjected(_state([_error("boom")], rounds=1, retries=1), use_cache)
-        assert _summary(result) == _expected(_INTERJECTION, use_cache, retries=1, rounds=2)
+    def test_interjection_keeps_retries(self) -> None:
+        result = _interjected(_state([_error("boom")], rounds=1, retries=1))
+        assert _summary(result) == _expected(_INTERJECTION, retries=1, rounds=2)
 
-    def test_interjection_rides_along_with_the_stop(self, use_cache: bool) -> None:
-        result = _interjected(_state([_error("boom")], rounds=9, retries=1), use_cache)
+    def test_interjection_rides_along_with_the_stop(self) -> None:
+        result = _interjected(_state([_error("boom")], rounds=9, retries=1))
         assert result["final_answer"] == "rounds"
         assert [m.content for m in result["messages"]] == [
-            _guidance(_INTERJECTION, use_cache).content,
-            _guidance(final_guidance(result["stop_facts"]), use_cache).content,
+            _guidance(_INTERJECTION).content,
+            _guidance(final_guidance(result["stop_facts"])).content,
         ]
 
-    def test_round_backstop_stops(self, use_cache: bool) -> None:
-        result = check_tool_results(_state([_error("boom")], rounds=5, retries=1), use_cache)
-        expected = _expected(final_guidance(result["stop_facts"]), use_cache, retries=0, rounds=6)
+    def test_round_backstop_stops(self) -> None:
+        result = check_tool_results(_state([_error("boom")], rounds=5, retries=1))
+        expected = _expected(final_guidance(result["stop_facts"]), retries=0, rounds=6)
         assert result["stop_facts"].startswith("the ")
         assert _summary(result) == {
             **expected,
@@ -128,38 +125,38 @@ class TestCheckToolResultsBranches:
             "stop_facts": result["stop_facts"],
         }
 
-    def test_retriable_error_asks_for_a_retry(self, use_cache: bool) -> None:
+    def test_retriable_error_asks_for_a_retry(self) -> None:
         errors = [_error("first", call_id="1"), _error("second", call_id="2")]
-        result = check_tool_results(_state(errors, retries=1), use_cache=use_cache)
+        result = check_tool_results(_state(errors, retries=1))
         retry = _RETRY.format(errors="second; first")
-        assert _summary(result) == _expected(retry, use_cache, retries=2, rounds=1)
+        assert _summary(result) == _expected(retry, retries=2, rounds=1)
 
-    def test_error_summary_keeps_three(self, use_cache: bool) -> None:
+    def test_error_summary_keeps_three(self) -> None:
         errors = [_error(f"e{i}", call_id=str(i)) for i in range(4)]
-        result = check_tool_results(_state(errors), use_cache=use_cache)
+        result = check_tool_results(_state(errors))
         retry = _RETRY.format(errors="e3; e2; e1")
-        assert _summary(result) == _expected(retry, use_cache, retries=1, rounds=1)
+        assert _summary(result) == _expected(retry, retries=1, rounds=1)
 
-    def test_status_error_counts_as_retriable(self, use_cache: bool) -> None:
+    def test_status_error_counts_as_retriable(self) -> None:
         failed = ToolMessage(content="Error: x" * 50, tool_call_id="1", status="error")
-        result = check_tool_results(_state([failed]), use_cache=use_cache)
+        result = check_tool_results(_state([failed]))
         retry = _RETRY.format(errors=("Error: x" * 50)[:200])
-        assert _summary(result) == _expected(retry, use_cache, retries=1, rounds=1)
+        assert _summary(result) == _expected(retry, retries=1, rounds=1)
 
-    def test_retries_exhausted_gives_up(self, use_cache: bool) -> None:
-        result = check_tool_results(_state([_error("boom")], retries=2), use_cache=use_cache)
-        assert _summary(result) == _expected(_GIVE_UP, use_cache, retries=3, rounds=1)
+    def test_retries_exhausted_gives_up(self) -> None:
+        result = check_tool_results(_state([_error("boom")], retries=2))
+        assert _summary(result) == _expected(_GIVE_UP, retries=3, rounds=1)
 
-    def test_permanent_error_gives_up_at_once(self, use_cache: bool) -> None:
+    def test_permanent_error_gives_up_at_once(self) -> None:
         state = _state([_error("not configured", retriable=False)])
-        result = check_tool_results(state, use_cache=use_cache)
-        assert _summary(result) == _expected(_GIVE_UP, use_cache, retries=3, rounds=1)
+        result = check_tool_results(state)
+        assert _summary(result) == _expected(_GIVE_UP, retries=3, rounds=1)
 
-    def test_one_retriable_error_keeps_retrying(self, use_cache: bool) -> None:
+    def test_one_retriable_error_keeps_retrying(self) -> None:
         errors = [_error("permanent", retriable=False, call_id="1"), _error("flaky", call_id="2")]
-        result = check_tool_results(_state(errors), use_cache=use_cache)
+        result = check_tool_results(_state(errors))
         retry = _RETRY.format(errors="flaky; permanent")
-        assert _summary(result) == _expected(retry, use_cache, retries=1, rounds=1)
+        assert _summary(result) == _expected(retry, retries=1, rounds=1)
 
 
 def test_a_zero_backstop_never_stops(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -4,7 +4,7 @@ Each skill is src/agent/skills/<name>/SKILL.md with agentskills.io-style
 frontmatter (name, description). The descriptions form an always-on index
 (skills_index_prompt, appended to the tools prompt); the body reaches the
 model only through the load_skill tool, as a tool result - after the cached
-prompt prefix, so loading never breaks the context cache. Files are parsed
+prompt prefix, so loading never changes the cached prefix. Files are parsed
 and validated once at import: a broken skill fails CI, not a chat turn.
 """
 

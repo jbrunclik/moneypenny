@@ -6,6 +6,7 @@ and memory-related prompt functions.
 
 import functools
 import json
+from enum import StrEnum
 from typing import Any
 
 from src.agent.prompt_agents import get_autonomous_agent_prompt
@@ -40,6 +41,20 @@ from src.utils.logging import get_logger
 from src.utils.mapy import MapyError, is_mapy_configured, mapy_rgeocode
 
 logger = get_logger(__name__)
+
+
+class CacheProfile(StrEnum):
+    """Which static prompt leads the request. Each profile's static prompt is
+    the SystemMessage, so with the tools it forms a stable prefix that
+    Gemini's implicit cache reuses across turns; the per-turn context rides
+    at the tail."""
+
+    STANDARD = "standard"
+    ANONYMOUS = "anonymous"
+    PLANNING = "planning"
+    # Standing chats (agent / sports / language): the standard static prompt,
+    # but a different tool set (+ kv_store)
+    STANDING = "standing"
 
 
 @functools.lru_cache(maxsize=256)
@@ -230,9 +245,9 @@ def _standing_prompt(standing: StandingContext | None) -> str:
 def get_static_prompt_for_profile(profile: str) -> str:
     """Return only the static (cacheable) portion of the system prompt for a given profile.
 
-    This is used by the context cache to create a cached prompt that doesn't change
-    across requests. Dynamic content (date, user context, memories, program KV data)
-    is added separately.
+    It leads every request unchanged, so Gemini's implicit cache reuses it.
+    Dynamic content (date, user context, memories, program KV data) is added
+    separately.
 
     Args:
         profile: One of "standard", "anonymous", "planning", "standing" (= standard)
@@ -294,7 +309,7 @@ def get_dynamic_prompt_parts(
 ) -> str:
     """Return only the dynamic (per-request) parts of the prompt.
 
-    Used in cached mode where the static prompt is in the cache
+    Used in the split layout, where the static prompt leads as the SystemMessage
     and dynamic content is passed as a HumanMessage with [CONTEXT] markers.
 
     Args:

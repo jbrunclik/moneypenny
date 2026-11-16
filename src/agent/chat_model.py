@@ -7,9 +7,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.agent.tools import get_available_tools
 from src.config import Config
-from src.utils.logging import get_logger
-
-logger = get_logger(__name__)
 
 FallbackModel = Callable[[], tuple[str, ChatGoogleGenerativeAI]]
 
@@ -20,13 +17,13 @@ def _model_kwargs(
     temperature: float | None,
     thinking_level: str | None,
 ) -> dict[str, Any]:
-    """ChatGoogleGenerativeAI arguments shared by the cached and uncached model."""
+    """ChatGoogleGenerativeAI arguments shared by the turn's model and its fallback."""
     # No convert_system_message_to_human: deprecated, and on langchain-google-genai
     # 4.x it folded the system prompt into the first HumanMessage instead of using
     # Gemini's native systemInstruction field (plus a DeprecationWarning per request).
     # Native handling: SystemMessage at position 0 becomes systemInstruction, and
-    # mid-conversation SystemMessages are merged into it (dropped only when there is
-    # no position-0 SystemMessage - hence the HumanMessage guidance in cached mode).
+    # mid-conversation SystemMessages are merged into it - which changes the request
+    # prefix, hence mid-turn guidance goes as a wrapped HumanMessage.
     kwargs: dict[str, Any] = {
         "model": model_name,
         "google_api_key": Config.GEMINI_API_KEY,
@@ -51,7 +48,6 @@ def create_chat_model(
     include_thoughts: bool = False,
     tools: list[Any] | None = None,
     temperature: float | None = None,
-    cached_content: str | None = None,
     thinking_level: str | None = None,
 ) -> ChatGoogleGenerativeAI:
     """Create a Gemini chat model, optionally with tools bound.
@@ -62,21 +58,10 @@ def create_chat_model(
         include_thoughts: Whether to include thinking/reasoning summaries in responses
         tools: Custom list of tools to bind (defaults to get_available_tools())
         temperature: Override for model temperature (defaults to Config.GEMINI_DEFAULT_TEMPERATURE)
-        cached_content: Gemini cached content name. When provided, tools are NOT bound
-            (they're already in the cache) and system_instruction is omitted.
         thinking_level: Overrides the model's configured thinking_level (the
             freshness gate runs easy turns lighter).
     """
     kwargs = _model_kwargs(model_name, include_thoughts, temperature, thinking_level)
-
-    if cached_content:
-        kwargs["cached_content"] = cached_content
-        # Do NOT bind_tools when using cached_content — tools are in the cache
-        logger.info(
-            "Creating model with cached content",
-            extra={"cached_content": cached_content, "model": model_name},
-        )
-        return ChatGoogleGenerativeAI(**kwargs, timeout=Config.GEMINI_REQUEST_TIMEOUT_SECONDS)
 
     model = ChatGoogleGenerativeAI(**kwargs, timeout=Config.GEMINI_REQUEST_TIMEOUT_SECONDS)
 
@@ -96,8 +81,7 @@ def other_model_tier(model_name: str) -> str | None:
 def fallback_model_factory(
     model_name: str, with_tools: bool, include_thoughts: bool, tools: list[Any]
 ) -> FallbackModel | None:
-    """Builds the other tier's model on first use: same tools, no context cache
-    (the cache is per (profile, model))."""
+    """Builds the other tier's model on first use, with the same tools."""
     other = other_model_tier(model_name)
     if other is None:
         return None

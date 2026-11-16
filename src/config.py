@@ -912,10 +912,9 @@ class Config:
     AGENT_RECURSION_LIMIT: int = int(os.getenv("AGENT_RECURSION_LIMIT", "50"))
 
     # Compiled-graph LRU cache: the chat graph is a pure function of its build
-    # signature (model, tools, cached_content, ...), so it is compiled once per
+    # signature (model, tools, thinking level, ...), so it is compiled once per
     # signature and reused instead of rebuilt on every request. The cache is
-    # bounded as a backstop; dead context-cache names are already dropped per
-    # signature in graph_cache.py (_MAX_CACHE_NAMES_PER_SIGNATURE).
+    # bounded as a backstop.
     AGENT_GRAPH_CACHE_SIZE: int = int(os.getenv("AGENT_GRAPH_CACHE_SIZE", "64"))
 
     # Graph self-correction: max consecutive tool error retries before giving up
@@ -1002,19 +1001,6 @@ class Config:
     # Gunicorn worker recycling: restart workers after N requests to prevent memory leaks
     GUNICORN_MAX_REQUESTS: int = int(os.getenv("GUNICORN_MAX_REQUESTS", "1000"))
     GUNICORN_MAX_REQUESTS_JITTER: int = int(os.getenv("GUNICORN_MAX_REQUESTS_JITTER", "50"))
-
-    # Context caching: cache static system prompt + tools via Gemini's Context Caching API
-    # Reduces input token costs by ~75% on cached tokens
-    CONTEXT_CACHE_ENABLED: bool = os.getenv("CONTEXT_CACHE_ENABLED", "true").lower() == "true"
-    CONTEXT_CACHE_TTL_SECONDS: int = int(os.getenv("CONTEXT_CACHE_TTL_SECONDS", "3600"))  # 1 hour
-    CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS: int = int(
-        os.getenv("CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS", "300")
-    )  # 5 min before expiry
-    # A cache used within this many seconds before its renewal buffer gets its
-    # TTL extended (sliding expiry) instead of lapsing into a miss + rebuild
-    CONTEXT_CACHE_EXTEND_AHEAD_SECONDS: int = int(
-        os.getenv("CONTEXT_CACHE_EXTEND_AHEAD_SECONDS", "600")
-    )
 
     # Transient failure retry settings
     # Maximum retries for transient failures (network errors, rate limits)

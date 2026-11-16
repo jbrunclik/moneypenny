@@ -7,7 +7,7 @@ the state tells the model how to go on.
 import json
 from typing import Any, cast
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
 from src.agent import interjection
 from src.agent.cancellation import raise_if_cancelled
@@ -60,18 +60,15 @@ def tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
     return None
 
 
-def _guidance(content: str, use_cache: bool) -> BaseMessage:
-    """Guidance for the model's next call.
-
-    In cached mode it is a wrapped HumanMessage: LangChain drops
-    mid-conversation SystemMessages there.
-    """
-    if use_cache:
-        return HumanMessage(content=f"[SYSTEM GUIDANCE]\n{content}\n[/SYSTEM GUIDANCE]")
-    return SystemMessage(content=content)
+def _guidance(content: str) -> BaseMessage:
+    """Guidance for the model's next call, as a wrapped HumanMessage: a
+    mid-conversation SystemMessage is merged into the leading
+    systemInstruction, which changes the request prefix and loses Gemini's
+    implicit cache hit."""
+    return HumanMessage(content=f"[SYSTEM GUIDANCE]\n{content}\n[/SYSTEM GUIDANCE]")
 
 
-def _interjection_update(state: AgentState, tool_rounds: int, use_cache: bool) -> Update | None:
+def _interjection_update(state: AgentState, tool_rounds: int) -> Update | None:
     """Mid-run steering the user sent while this turn was running, if any.
 
     Stored cross-worker in kv_store by the interject route. Popped before the
@@ -98,14 +95,13 @@ def _interjection_update(state: AgentState, tool_rounds: int, use_cache: bool) -
     return {
         "tool_rounds": tool_rounds,
         "tool_retries": state.get("tool_retries", 0),
-        "messages": [_guidance(steer_content, use_cache)],
+        "messages": [_guidance(steer_content)],
     }
 
 
 def _budget_update(
     state: AgentState,
     tool_rounds: int,
-    use_cache: bool,
     interjection: dict[str, object] | None,
 ) -> dict[str, object] | None:
     """Turn budgets: a stop (the final, tools-off answer comes next) or the one
@@ -121,7 +117,7 @@ def _budget_update(
     if stop := budget_stop(state, tool_rounds):
         log_stop(stop, state, tool_rounds)
         facts = stop_facts(stop, state, tool_rounds)
-        guidance = _guidance(final_guidance(facts), use_cache)
+        guidance = _guidance(final_guidance(facts))
         return {
             "tool_rounds": tool_rounds,
             "tool_retries": 0,
@@ -149,32 +145,30 @@ def _budget_update(
     return interjection
 
 
-def _with_budgets(
-    state: AgentState, tool_rounds: int, use_cache: bool, interjection: Update | None
-) -> Update:
+def _with_budgets(state: AgentState, tool_rounds: int, interjection: Update | None) -> Update:
     """The loop detector's state, then a stop, the wrap-up
     notice, steering or self-correction - with the loop state in every result."""
     loops, warning = loop_state(state)
     state = cast("AgentState", {**state, **loops})
-    result = _budget_update(state, tool_rounds, use_cache, interjection)
+    result = _budget_update(state, tool_rounds, interjection)
     if result is None:
-        result = _self_correction(state, tool_rounds, use_cache)
+        result = _self_correction(state, tool_rounds)
     messages = list(cast("list[BaseMessage]", result.get("messages", [])))
     if warning and "final_answer" not in result:
-        messages.append(_guidance(warning, use_cache))
+        messages.append(_guidance(warning))
     merged = {**loops, **result}
     if messages:
         merged["messages"] = messages
     return merged
 
 
-def _self_correction(state: AgentState, tool_rounds: int, use_cache: bool) -> Update:
+def _self_correction(state: AgentState, tool_rounds: int) -> Update:
     """Retry or give-up guidance for the latest round's failures (none: reset)."""
     error_details, any_retriable = _latest_tool_errors(state["messages"])
     if not error_details:
         return {"tool_retries": 0, "tool_rounds": tool_rounds}
     return _error_guidance_update(
-        state.get("tool_retries", 0), tool_rounds, error_details, any_retriable, use_cache
+        state.get("tool_retries", 0), tool_rounds, error_details, any_retriable
     )
 
 
@@ -201,7 +195,6 @@ def _error_guidance_update(
     tool_rounds: int,
     error_details: list[str],
     any_retriable: bool,
-    use_cache: bool,
 ) -> Update:
     """Retry guidance while retries are left, give-up guidance after."""
     max_retries = Config.AGENT_MAX_TOOL_RETRIES
@@ -233,14 +226,11 @@ def _error_guidance_update(
             "Respond to the user explaining what happened and offer alternatives. "
             "Do not attempt to call the same tool again."
         )
-    guidance = _guidance(content, use_cache)
+    guidance = _guidance(content)
     return {"tool_retries": new_retries, "tool_rounds": tool_rounds, "messages": [guidance]}
 
 
-def check_tool_results(
-    state: AgentState,
-    use_cache: bool = False,
-) -> Update:
+def check_tool_results(state: AgentState) -> Update:
     """After a tool round: steering, the turn budgets (src/agent/turn_budget.py)
     and the loop detector, then self-correction guidance if calls failed.
 
@@ -249,9 +239,6 @@ def check_tool_results(
     - If errors found and retries >= max: increment retries, add give-up guidance
     - If no errors: reset retries to 0
     Always routes back to "chat" - the LLM decides whether to retry or respond.
-
-    When use_cache is True, guidance is sent as HumanMessage (not SystemMessage)
-    because LangChain drops mid-conversation SystemMessages in cached mode.
     """
     # Server-side Stop: the round that just finished is the last one
     raise_if_cancelled()
@@ -261,5 +248,5 @@ def check_tool_results(
     # context, so unbounded rounds multiply input-token cost.
     tool_rounds = state.get("tool_rounds", 0) + 1
 
-    update = _interjection_update(state, tool_rounds, use_cache)
-    return _with_budgets(state, tool_rounds, use_cache, update)
+    update = _interjection_update(state, tool_rounds)
+    return _with_budgets(state, tool_rounds, update)

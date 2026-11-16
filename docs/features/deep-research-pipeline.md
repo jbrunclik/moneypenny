@@ -37,7 +37,7 @@ agent loop:
    [subagent.py](../../src/agent/deep_research/subagent.py)): one thread per
    item; each subagent is a `ChatAgent` on `DEEP_RESEARCH_SUBAGENT_MODEL`
    (Flash) with `DEEP_RESEARCH_SUBAGENT_PROMPT`, the wrapped `research`,
-   `web_search` and `fetch_url` plus `share_finding`, no context cache, and
+   `web_search` and `fetch_url` plus `share_finding`, its own system prompt, and
    `round_cap_override(DEEP_RESEARCH_SUBAGENT_MAX_ROUNDS)`
    ([round_cap.py](../../src/agent/round_cap.py), read by the graph through
    `tool_round_cap()`). `in_delegate` is set, so no `delegate_task` or

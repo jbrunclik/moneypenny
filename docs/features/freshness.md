@@ -85,9 +85,9 @@ So every measure below rides on code or on tool results.
    runs).
 
 Why before the turn and not after a draft: the chat model streams tokens to the
-client as it writes, and it runs on a Gemini context cache whose tools and tool
-config cannot be changed per request, so it can neither be forced to call a
-tool nor have a streamed draft taken back.
+client as it writes, and (when this was built) it ran on a Gemini context cache
+whose tools and tool config could not change per request, so it could neither
+be forced to call a tool nor have a streamed draft taken back.
 
 Where it runs: every chat (anonymous included) that has `research` bound -
 standing chats (the user writing in an agent, sports or language chat) too;

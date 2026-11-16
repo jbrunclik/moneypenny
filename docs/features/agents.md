@@ -9,7 +9,7 @@ Center lists them all.
 
 When the user writes in a standing chat, that is an ordinary chat turn (the normal chat
 prompt, the user's full chat tools, freshness gate - always at full thinking - the standing
-chats' context cache (the standard static prompt under its own key, since their tools add
+chats' static prompt profile (the standard static prompt; their tools add
 `kv_store`) and compaction) plus a `# This Chat: <name>` prompt section with the goals and
 schedule - see [Talking to a standing chat](#talking-to-a-standing-chat). Unattended
 **runs** keep the job's own grants, approvals and instructions.

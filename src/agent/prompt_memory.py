@@ -120,8 +120,8 @@ def get_user_memories_list_prompt(user_id: str) -> str:
 def get_user_memories_prompt(user_id: str) -> str:
     """Build the full memory section (instructions + current memories).
 
-    Used in uncached mode, where the SystemMessage carries everything. Cached
-    mode splits the two halves - see get_memory_instructions_prompt.
+    Used without a static prefix, where the SystemMessage carries everything.
+    The split layout separates the two halves - see get_memory_instructions_prompt.
 
     Args:
         user_id: The user ID to fetch memories for

@@ -25,7 +25,6 @@ from langgraph.graph import END, StateGraph
 from src.agent.chat_model import create_chat_model, fallback_model_factory
 from src.agent.chat_node import chat_node
 from src.agent.content import extract_text_content, strip_echoed_msg_context
-from src.agent.context_cache import supports_explicit_cache
 from src.agent.graph_state import AgentState
 from src.agent.round_cap import tool_round_cap
 from src.agent.tool_node import create_tool_node
@@ -72,14 +71,6 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
     return "end"
 
 
-def guidance_as_human(model_name: str, cached_content: str | None) -> bool:
-    """Whether mid-turn guidance goes as a wrapped HumanMessage. A
-    mid-conversation SystemMessage is dropped under an explicit cache and, on
-    implicit-only models, merged into the leading systemInstruction - which
-    changes the request prefix and loses the implicit cache hit."""
-    return cached_content is not None or not supports_explicit_cache(model_name)
-
-
 def _add_chat_node(
     graph: StateGraph[AgentState],
     model_name: str,
@@ -87,7 +78,6 @@ def _add_chat_node(
     with_tools: bool,
     include_thoughts: bool,
     tools: list[Any],
-    cached_content: str | None,
     thinking_level: str | None,
 ) -> None:
     """The chat node: the turn's model, with the other tier as its fallback."""
@@ -96,17 +86,14 @@ def _add_chat_node(
         with_tools=with_tools,
         include_thoughts=include_thoughts,
         tools=tools,
-        cached_content=cached_content,
         thinking_level=thinking_level,
     )
-    use_cache = cached_content is not None
     fallback = fallback_model_factory(model_name, with_tools, include_thoughts, tools)
     graph.add_node(
         "chat",
         lambda state, config: chat_node(
             state,
             model,
-            use_cache=use_cache,
             config=config,
             fallback=fallback,
             model_name=model_name,
@@ -114,19 +101,14 @@ def _add_chat_node(
     )
 
 
-def _add_tool_loop(
-    graph: StateGraph[AgentState], tools: list[Any], is_autonomous: bool, use_cache: bool
-) -> None:
+def _add_tool_loop(graph: StateGraph[AgentState], tools: list[Any], is_autonomous: bool) -> None:
     """chat -> should_continue -> tools -> check_tool_results -> chat."""
     # Add tool node with stripping of large results and error handling
     tool_node = create_tool_node(tools, is_autonomous=is_autonomous)
     graph.add_node("tools", tool_node)
 
     # Add self-correction node
-    graph.add_node(
-        "check_tool_results",
-        lambda state: check_tool_results(state, use_cache=use_cache),
-    )
+    graph.add_node("check_tool_results", check_tool_results)
 
     graph.set_entry_point("chat")
 
@@ -146,7 +128,6 @@ def create_chat_graph(
     include_thoughts: bool = False,
     tools: list[Any] | None = None,
     is_autonomous: bool = False,
-    cached_content: str | None = None,
     thinking_level: str | None = None,
 ) -> StateGraph[AgentState]:
     """Create a chat graph with optional tool support.
@@ -162,12 +143,9 @@ def create_chat_graph(
         include_thoughts: Whether to include thinking/reasoning summaries
         tools: Custom list of tools to use (defaults to get_available_tools())
         is_autonomous: If True, check permissions and require approval for dangerous operations
-        cached_content: Gemini cached content name (tools are in the cache, not bound)
         thinking_level: Overrides the model's configured thinking_level
     """
     active_tools = tools if tools is not None else get_available_tools()
-    # How nodes that inject guidance messages send them
-    use_cache = guidance_as_human(model_name, cached_content)
 
     graph: StateGraph[AgentState] = StateGraph(AgentState)
     _add_chat_node(
@@ -176,12 +154,11 @@ def create_chat_graph(
         with_tools=with_tools,
         include_thoughts=include_thoughts,
         tools=active_tools,
-        cached_content=cached_content,
         thinking_level=thinking_level,
     )
 
     if with_tools and active_tools:
-        _add_tool_loop(graph, active_tools, is_autonomous, use_cache)
+        _add_tool_loop(graph, active_tools, is_autonomous)
     else:
         # Simple graph without tools
         graph.set_entry_point("chat")

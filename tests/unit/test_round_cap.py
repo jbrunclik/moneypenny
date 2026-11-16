@@ -1,7 +1,7 @@
 """A per-run round backstop (deep-research subagents get fewer rounds)."""
 
 import pytest
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from src.agent.graph_state import AgentState
 from src.agent.round_cap import round_cap_override, tool_round_cap
@@ -32,5 +32,5 @@ def test_graph_stops_at_the_overridden_cap(monkeypatch: pytest.MonkeyPatch) -> N
     with round_cap_override(4):
         result = check_tool_results(_state(3))
     assert result["final_answer"] == "rounds"
-    assert isinstance(result["messages"][0], SystemMessage)
+    assert isinstance(result["messages"][0], HumanMessage)
     assert "tools are off" in result["messages"][0].content.lower()
