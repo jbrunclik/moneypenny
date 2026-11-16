@@ -149,6 +149,17 @@ const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
     'video/mp4',
     'video/quicktime',
     'video/webm',
+    'audio/mpeg',
+    'audio/mp4',
+    'audio/x-m4a',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/ogg',
+    'audio/flac',
+    'audio/aac',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   ],
 };
 

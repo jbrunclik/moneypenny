@@ -185,6 +185,11 @@ The review itself changes nothing in production and edits nothing but
   `ready_ms` by `standalone` x `viewport` (home-screen app vs tab, mobile vs
   desktop) over `hidden = 0` rows (a load backgrounded mid-start is flagged
   `hidden` and reports minutes), and which stage (`auth_ms` -> `data_ms` -> `route_ms`) grew.
+- Agent files (Nov 16 2026): "office text extracted" lines - any `error`
+  (a real document that could not be read is a bug), the `truncated` share
+  and `ms`; "Failed to prepare media for Gemini" with an `audio/` type; and
+  "conversation file: found" by `role` (assistant = the agent reopened its
+  own output).
 - Agent safety (Nov 16 2026): "kv write refused" lines (any from a scheduled
   agent or a coach is a bug - it should write only its own namespace),
   `work_bytes` on the "Code execution" lines against the 256 MB `/work` cap,

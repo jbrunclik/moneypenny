@@ -200,6 +200,39 @@ class TestBuildMessageContentVideo:
         assert any("could not be attached" in t for t in texts)
 
 
+class TestAudioBlocks:
+    """Audio rides the video path: the Gemini Files API, a media block."""
+
+    def test_voice_memo_becomes_media_block_with_a_type_gemini_knows(self) -> None:
+        from src.agent.message_content import build_message_content
+
+        files = [
+            {
+                "name": "memo.m4a",
+                "type": "audio/x-m4a",
+                "data": "aaaa",
+                "gemini_file_uri": "https://files.example/a1",
+            }
+        ]
+        blocks = build_message_content("what did I say?", files)
+        assert isinstance(blocks, list)
+        media = [b for b in blocks if isinstance(b, dict) and b.get("type") == "media"]
+        assert media == [
+            {"type": "media", "file_uri": "https://files.example/a1", "mime_type": "audio/mp4"}
+        ]
+
+    def test_audio_that_failed_to_upload_becomes_a_notice(self) -> None:
+        from src.agent.message_content import build_message_content
+
+        files = [
+            {"name": "memo.mp3", "type": "audio/mpeg", "data": "aaaa", "gemini_upload_error": "x"}
+        ]
+        blocks = build_message_content("what did I say?", files)
+        assert isinstance(blocks, list)
+        texts = [b["text"] for b in blocks if isinstance(b, dict) and b.get("type") == "text"]
+        assert any("Audio 'memo.mp3' could not be attached" in t for t in texts)
+
+
 class TestBuildMessagesConversationTitle:
     """conversation_title must reach the prompt in both cached and uncached modes."""
 

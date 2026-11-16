@@ -13,5 +13,7 @@ extend_exclude = ["docker"]
 [tool.deptry.per_rule_ignores]
 # gunicorn: run by the systemd unit (gunicorn src.app:...), never imported.
 # docker: imported by name (importlib) in src/agent/tools/docker_sandbox.py -
-# a plain `import docker` resolves to the repo's docker/ directory in mypy
-DEP002 = ["gunicorn", "docker"]
+# a plain `import docker` resolves to the repo's docker/ directory in mypy.
+# defusedxml: openpyxl parses through it when installed (Office uploads;
+# test_office_text pins that it does)
+DEP002 = ["gunicorn", "docker", "defusedxml"]

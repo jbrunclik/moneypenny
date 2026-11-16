@@ -48,6 +48,20 @@ describe('resolveFileType', () => {
     ).toBe('image/heif');
   });
 
+  it('resolves Office documents and audio by extension (Nov 16 2026)', () => {
+    expect(resolveFileType(new File([], 'Memo 12.m4a', { type: '' }))).toBe('audio/x-m4a');
+    expect(resolveFileType(new File([], 'song.mp3', { type: '' }))).toBe('audio/mpeg');
+    expect(resolveFileType(new File([], 'budget.xlsx', { type: 'application/octet-stream' }))).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    expect(resolveFileType(new File([], 'plan.docx', { type: '' }))).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
+    expect(resolveFileType(new File([], 'deck.pptx', { type: '' }))).toBe(
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    );
+  });
+
   it('is case-insensitive on the extension', () => {
     expect(resolveFileType(new File([], 'IMG_1234.HEIC', { type: '' }))).toBe('image/heic');
   });
@@ -64,5 +78,15 @@ describe('resolveFileType', () => {
     expect(
       resolveFileType(new File([], 'data.xyz', { type: 'application/octet-stream' }))
     ).toBe('application/octet-stream');
+  });
+});
+
+describe('file icons', () => {
+  it('audio and Office documents get their own icon, not the generic one', async () => {
+    const { getFileIcon } = await import('../../src/utils/icons');
+    const generic = String(getFileIcon('application/x-unknown'));
+    expect(String(getFileIcon('audio/mpeg'))).not.toBe(generic);
+    expect(String(getFileIcon('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))).not.toBe(generic);
+    expect(String(getFileIcon('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))).not.toBe(generic);
   });
 });

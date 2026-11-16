@@ -53,3 +53,8 @@ pyyaml>=6.0.3
 
 # HEIC/HEIF image uploads
 pillow-heif>=1.8.0
+# Office uploads read as text (Nov 2026); defusedxml makes openpyxl parse safely
+python-docx>=1.2.0,<2
+openpyxl>=3.1.5,<4
+python-pptx>=1.0.2,<2
+defusedxml>=0.7.1,<1

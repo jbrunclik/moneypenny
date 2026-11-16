@@ -128,7 +128,14 @@ function composer(): HTMLElement {
         type: 'file',
         id: 'file-input',
         multiple: '',
-        accept: 'image/*,video/mp4,video/quicktime,video/webm,application/pdf,text/plain,text/markdown,text/csv,application/json',
+        // Extensions too: iOS greys out a voice memo or an Office file unless
+        // the picker is told about it by name
+        accept:
+          'image/*,video/mp4,video/quicktime,video/webm,application/pdf,text/plain,text/markdown,text/csv,application/json,' +
+          'audio/*,.m4a,.mp3,.wav,.ogg,.flac,.aac,.docx,.xlsx,.pptx,' +
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document,' +
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,' +
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       }),
       el('div', { id: 'input-container', class: 'input-container' }, [
         el('div', { id: 'quick-actions-bar', class: 'quick-actions-bar hidden', role: 'toolbar', 'aria-label': 'Quick actions' }),

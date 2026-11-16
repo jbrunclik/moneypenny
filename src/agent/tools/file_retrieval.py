@@ -7,11 +7,14 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.gemini_files import GeminiFileError, ensure_gemini_file_uri
+from src.agent.message_content import office_text_for_model
 from src.agent.tools.conversation_files import load_conversation_file
 from src.agent.tools.errors import tool_error
 from src.config import Config
+from src.utils.files import gemini_mime_type, is_media_mime
 from src.utils.images import downscale_image_for_reference
 from src.utils.logging import get_logger
+from src.utils.office_text import OFFICE_KINDS
 
 logger = get_logger(__name__)
 
@@ -35,7 +38,8 @@ def retrieve_file(
     of calling this tool.
 
     The message_id and file_index can be found in the conversation history metadata.
-    Each user message with files includes a "files" array with "id" in format "message_id:file_index".
+    Each message with files (the user's uploads, and your own replies' generated images
+    and code outputs) includes a "files" array with "id" in format "message_id:file_index".
 
     Args:
         message_id: The message ID containing the file (from history metadata).
@@ -80,10 +84,10 @@ def _build_file_content(
     is_visual = mime_type.startswith("image/") or mime_type == "application/pdf"
     too_big_inline = len(binary_data) > Config.GEMINI_INLINE_FILE_MAX_BYTES
 
-    # Videos always, and oversized images/PDFs, go via the Gemini Files API;
-    # skip the base64 encoding - a 100MB video would be needlessly inflated
-    if mime_type.startswith("video/") or (is_visual and too_big_inline):
-        kind = "video" if mime_type.startswith("video/") else "file"
+    # Video and audio always, and oversized images/PDFs, go via the Gemini
+    # Files API; skip the base64 encoding - a 100MB video would be needlessly inflated
+    if is_media_mime(mime_type) or (is_visual and too_big_inline):
+        kind = mime_type.split("/")[0] if is_media_mime(mime_type) else "file"
         try:
             uri = ensure_gemini_file_uri(message_id, file_index, binary_data, mime_type)
         except GeminiFileError as e:
@@ -94,7 +98,7 @@ def _build_file_content(
         )
         return [
             {"type": "text", "text": header},
-            {"type": "media", "file_uri": uri, "mime_type": mime_type},
+            {"type": "media", "file_uri": uri, "mime_type": gemini_mime_type(mime_type)},
         ]
 
     if is_visual:
@@ -106,6 +110,10 @@ def _build_file_content(
                 "mime_type": mime_type,
             },
         ]
+
+    if mime_type in OFFICE_KINDS:
+        file_id = f"{message_id}:{file_index}"
+        return office_text_for_model(file_name, mime_type, binary_data, file_id)
 
     # For text files, decode and return as (capped) text
     if mime_type.startswith("text/") or mime_type in (

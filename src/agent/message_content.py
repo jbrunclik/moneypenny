@@ -8,12 +8,57 @@ history messages.
 import base64
 import binascii
 import json
+import time
 from collections.abc import Iterable, Mapping
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
-from src.utils.files import UploadedFile
+from src.utils.files import UploadedFile, gemini_mime_type, is_media_mime
+from src.utils.logging import get_logger
+from src.utils.office_text import OFFICE_KINDS, OfficeReadError, office_text
+
+logger = get_logger(__name__)
+
+
+def office_text_for_model(name: str, mime_type: str, data: bytes, file_id: str | None) -> str:
+    """An Office file's text for the model, or a notice saying why it cannot be read.
+
+    Never raises: an unreadable upload must not fail the turn.
+    """
+    started = time.monotonic()
+    kind = OFFICE_KINDS[mime_type]
+    open_in_code = f"execute_code(files=['{file_id}'])" if file_id else "execute_code"
+    try:
+        result = office_text(data, mime_type)
+    except OfficeReadError as e:
+        _log_office(mime_type, 0, truncated=False, started=started, error=str(e))
+        return (
+            f"[{name} could not be read as text: {e}. "
+            f"Its original can still be opened with {open_in_code}.]"
+        )
+    _log_office(mime_type, len(result.text), result.truncated, started)
+    cut = (
+        f"\n[... truncated at {len(result.text)} characters; open the whole file with {open_in_code}]"
+        if result.truncated
+        else ""
+    )
+    return f"\n--- Content of {name} ({kind}) ---\n{result.text}{cut}\n--- End of {name} ---\n"
+
+
+def _log_office(
+    mime_type: str, chars: int, truncated: bool, started: float, error: str | None = None
+) -> None:
+    logger.info(
+        "office text extracted",
+        extra={
+            "type": OFFICE_KINDS[mime_type],
+            "chars": chars,
+            "truncated": truncated,
+            "ms": round((time.monotonic() - started) * 1000),
+            "error": error,
+        },
+    )
 
 
 def _file_block(file: dict[str, Any]) -> dict[Any, Any] | None:
@@ -28,19 +73,20 @@ def _file_block(file: dict[str, Any]) -> dict[Any, Any] | None:
             "base64": data,
             "mime_type": mime_type,
         }
-    if mime_type.startswith("video/"):
-        # Videos go via the Gemini Files API (inline limit is ~20MB).
+    if is_media_mime(mime_type):
+        # Video and audio go via the Gemini Files API (inline limit is ~20MB).
         # The URI is attached by attach_gemini_file_uris() before the
         # agent runs; absence means the upload failed.
         uri = file.get("gemini_file_uri")
         if uri:
-            return {"type": "media", "file_uri": uri, "mime_type": mime_type}
+            return {"type": "media", "file_uri": uri, "mime_type": gemini_mime_type(mime_type)}
         error = file.get("gemini_upload_error", "processing failed")
-        name = file.get("name", "video")
+        kind = "Video" if mime_type.startswith("video/") else "Audio"
+        name = file.get("name", kind.lower())
         return {
             "type": "text",
-            "text": f"[Video '{name}' could not be attached: {error}. "
-            "Tell the user the video could not be processed.]",
+            "text": f"[{kind} '{name}' could not be attached: {error}. "
+            f"Tell the user the {kind.lower()} could not be processed.]",
         }
     if mime_type == "application/pdf":
         # PDF - Gemini supports inline PDFs
@@ -49,6 +95,14 @@ def _file_block(file: dict[str, Any]) -> dict[Any, Any] | None:
             "base64": data,
             "mime_type": mime_type,
         }
+    if mime_type in OFFICE_KINDS:
+        try:
+            raw = base64.b64decode(data)
+        except binascii.Error:
+            return None
+        name = file.get("name", "document")
+        text = office_text_for_model(name, mime_type, raw, file.get("history_file_id"))
+        return {"type": "text", "text": text}
     # Text files - include as text block
     try:
         decoded = base64.b64decode(data).decode("utf-8")
@@ -147,7 +201,7 @@ _ASSISTANT_CONTEXT_KEYS = (
 
 
 def _compact_files(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """User-message files in the compact form tools address them by."""
+    """A message's files (uploads, or the agent's own outputs) in the compact form tools address them by."""
     return [
         {
             "name": f["name"],
@@ -186,7 +240,7 @@ def format_message_with_metadata(msg: dict[str, Any]) -> str:
         if metadata.get(key):
             meta_dict[key] = metadata[key]
 
-    # Files (for user messages) - compact format for direct tool access
+    # Files (uploads, and a reply's own outputs) - compact format for direct tool access
     if metadata.get("files"):
         meta_dict["files"] = _compact_files(metadata["files"])
 

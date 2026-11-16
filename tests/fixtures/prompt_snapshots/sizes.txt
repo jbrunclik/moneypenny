@@ -6,7 +6,7 @@ static prompt
   planning       29195
   standing       26047
 
-tool declarations (41 tools, 55885 chars)
+tool declarations (41 tools, 56033 chars)
   ask_choice                     768
   browser                       2388
   create_artifact               1661
@@ -19,7 +19,7 @@ tool declarations (41 tools, 55885 chars)
   fetch_url                     1097
   garmin_connect                2302
   garmin_workout                1365
-  generate_image                2900
+  generate_image                2974
   get_route                      579
   google_calendar               2002
   kv_store                      1659
@@ -35,7 +35,7 @@ tool declarations (41 tools, 55885 chars)
   refresh_planner_dashboard     1019
   request_approval               932
   research                      1574
-  retrieve_file                 1670
+  retrieve_file                 1744
   rouvy_workout                 1035
   save_place                     650
   schedule                      2817

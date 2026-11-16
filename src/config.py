@@ -68,11 +68,11 @@ class Config:
     # Browser errors reported to the server (admin page, regular reviews):
     # rows unseen this long are pruned, and each user keeps at most this many
     CLIENT_ERROR_RETENTION_DAYS: int = int(os.getenv("CLIENT_ERROR_RETENTION_DAYS", "30"))
+    CLIENT_ERROR_MAX_ROWS_PER_USER: int = int(os.getenv("CLIENT_ERROR_MAX_ROWS_PER_USER", "200"))
     # Startup timing reports (one per page load) kept this long (Nov 16 2026)
     CLIENT_BOOT_TIMINGS_RETENTION_DAYS = 90
     # A user's newest rows kept (~30 loads a day for the retention): a runaway client's cap
     CLIENT_BOOT_TIMINGS_MAX_ROWS_PER_USER = 3000
-    CLIENT_ERROR_MAX_ROWS_PER_USER: int = int(os.getenv("CLIENT_ERROR_MAX_ROWS_PER_USER", "200"))
 
     # Server
     PORT: int = int(os.getenv("PORT", "8000"))
@@ -367,7 +367,11 @@ class Config:
     DEFAULT_ALLOWED_FILE_TYPES: str = (
         "image/png,image/jpeg,image/gif,image/webp,image/heic,image/heif,"
         "application/pdf,text/plain,text/markdown,application/json,text/csv,"
-        "video/mp4,video/quicktime,video/webm"
+        "video/mp4,video/quicktime,video/webm,"
+        "audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/x-wav,audio/ogg,audio/flac,audio/aac,"
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document,"
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,"
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     )
     ALLOWED_FILE_TYPES: ClassVar[set[str]] = set(
         os.getenv("ALLOWED_FILE_TYPES", DEFAULT_ALLOWED_FILE_TYPES).split(",")
@@ -391,6 +395,18 @@ class Config:
     GEMINI_INLINE_FILE_MAX_BYTES: int = int(
         os.getenv("GEMINI_INLINE_FILE_MAX_BYTES", str(8 * BYTES_PER_MB))
     )
+    # Office uploads (docx, xlsx, pptx) reach the model as text, cut at this
+    # many characters; the archive is refused when it unpacks to more than
+    # this (a zip bomb) - Nov 16 2026
+    OFFICE_TEXT_MAX_CHARS = 100_000
+    OFFICE_MAX_UNCOMPRESSED_BYTES = 100 * BYTES_PER_MB
+    # ...and when its XML alone (the text, not the pictures) unpacks to more
+    # than this; each file is read in a child process given this long and
+    # (Linux) this much address space - a crafted few-KB file stalled a worker
+    # for minutes before that (Nov 16 2026 review)
+    OFFICE_MAX_XML_BYTES = 30 * BYTES_PER_MB
+    OFFICE_TEXT_TIMEOUT_SECONDS = 15
+    OFFICE_MAX_MEMORY_BYTES = 768 * BYTES_PER_MB
     # Text files returned by retrieve_file are truncated to this many characters
     RETRIEVE_FILE_TEXT_MAX_CHARS: int = int(os.getenv("RETRIEVE_FILE_TEXT_MAX_CHARS", "200000"))
     THUMBNAIL_WORKER_THREADS: int = int(os.getenv("THUMBNAIL_WORKER_THREADS", "2"))

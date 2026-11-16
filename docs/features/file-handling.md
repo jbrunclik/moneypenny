@@ -298,3 +298,24 @@ FILE_RETENTION_DAYS=30
 - [API Design](../architecture/api-design.md#two-phase-file-validation) - file validation, magic bytes
 - [Database](../architecture/database.md#blob-storage) - Blob storage for files and thumbnails
 - [Composer](ui-composer.md) - Input toolbar, file upload UI
+
+## Audio and Office Uploads (Nov 16 2026)
+
+**Audio.** `audio/mpeg`, `audio/mp4`, `audio/x-m4a` (iPhone voice memos), `audio/wav`/`audio/x-wav`, `audio/ogg`, `audio/flac` and `audio/aac`, under the ordinary `MAX_FILE_SIZE_BYTES` (20 MB, about 40 minutes of a voice memo) and `FILE_RETENTION_DAYS`. They take the video path: `attach_gemini_file_uris` and `retrieve_file` upload them to the Gemini Files API (`is_media_mime` in [files.py](../../src/utils/files.py)) and send a `media` block. `gemini_mime_type` renames the browsers' `audio/x-m4a` and `audio/x-wav` to `audio/mp4` and `audio/wav` for Gemini. Magic aliases accept what older libmagic builds say for m4a (`video/mp4`, octet-stream).
+
+**Office.** docx, xlsx and pptx are zip containers Gemini cannot read, so the model gets their text ([office_text.py](../../src/utils/office_text.py)):
+- **Word:** headings as `#` lines, paragraphs, and tables as `| a | b |` rows in reading order.
+- **Excel:** `## Sheet: name`, then one row per line with cached values; where nothing computed a cell (a file written by a script), its formula.
+- **PowerPoint:** `## Slide n`, each shape's text, tables, and `Notes:`.
+
+Layout, charts and images are lost; the original still goes to the sandbox (`execute_code(files=[id])`) for edits.
+
+`office_text_for_model` ([message_content.py](../../src/agent/message_content.py)) frames the text as `--- Content of name (Excel spreadsheet) ---`, both for the message's own file block and for `retrieve_file`. It never raises:
+- **Caps:** the archive's declared unpacked size must stay under `OFFICE_MAX_UNCOMPRESSED_BYTES` (100 MB) and its XML under `OFFICE_MAX_XML_BYTES` (30 MB; zipfile never reads past an entry's declared size). Excel is read by its real extent (`reset_dimensions`: the declared range is the file's claim - too big stalled, too small dropped rows), at most `XLSX_MAX_COLUMNS` (200) columns and `XLSX_MAX_ROWS_SCANNED` (100 000) rows per sheet. The text stops at `OFFICE_TEXT_MAX_CHARS` (100 000), with a note naming the file's id for `execute_code`.
+- **A child process:** parsing runs in `python -m src.utils.office_text` under `OFFICE_TEXT_TIMEOUT_SECONDS` (15) and, on Linux, an `OFFICE_MAX_MEMORY_BYTES` (768 MB) address-space limit. Before that, the review's crafted files stalled a worker: a 4.8 KB sheet declaring the whole grid ran for minutes, and a 168 KB docx of millions of empty paragraphs took 103 s and 2.2 GB. It costs about 0.2 s per file.
+- **Failure:** a corrupt, password-protected or mislabelled file becomes "could not be read as text: <reason>", with its id.
+- **XML:** openpyxl parses through defusedxml (a test pins that it does).
+- **Log:** each conversion logs "office text extracted" (`type`, `chars`, `truncated`, `ms`, `error`).
+- **Validation:** the specific type or `application/zip` from libmagic is accepted (no octet-stream: unknown bytes must not pass as a document or an m4a); a zip claimed as a PDF is not. A password-protected file is an OLE container, so it is refused at upload as not matching its type.
+
+**The agent's own files** are listed in the history with ids like uploads (`_add_role_metadata` in [history.py](../../src/agent/history.py)), so "make that image darker" or "add a column to the xlsx you made" can point at them. The "conversation file: found" log line carries `role` (assistant = the agent reopened its own output).

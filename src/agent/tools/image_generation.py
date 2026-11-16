@@ -49,7 +49,8 @@ def generate_image(
 
     To use an image from earlier in the conversation, use history_image_message_id and
     history_image_file_index. The IDs can be found in the conversation history metadata
-    (each user message with files includes a "files" array with "id" in format "message_id:file_index").
+    (each message with files - the user's uploads and your own replies' generated images
+    or code outputs - includes a "files" array with "id" in format "message_id:file_index").
 
     Before the first generate_image call of a turn, call load_skill('image-generation'):
     how to write the prompt, what the image model cannot do, and keeping a person's likeness.

@@ -13,6 +13,7 @@ from src.config import Config
 from src.db.models.dataclasses import Message
 from src.services.file_retention import is_file_expired
 from src.utils.clock import to_local
+from src.utils.office_text import OFFICE_KINDS
 
 
 class FileMetadata(TypedDict):
@@ -109,6 +110,8 @@ def simplify_mime_type(mime_type: str) -> str:
         return "image"
     if mime_type.startswith("video/"):
         return "video"
+    if mime_type.startswith("audio/"):
+        return "audio"
     if mime_type == "application/pdf":
         return "PDF"
     if mime_type.startswith("text/"):
@@ -120,7 +123,7 @@ def simplify_mime_type(mime_type: str) -> str:
         return ext_map.get(mime_type, "text file")
     if mime_type == "application/json":
         return "JSON"
-    return "file"
+    return OFFICE_KINDS.get(mime_type, "file")
 
 
 def format_file_metadata(msg: Message) -> list[FileMetadata] | None:
@@ -307,11 +310,12 @@ def _add_tool_outputs(metadata: MessageMetadata, msg: Message, latest: bool) -> 
 
 def _add_role_metadata(metadata: MessageMetadata, msg: Message, latest: bool = False) -> None:
     """Add the metadata specific to the message's role."""
-    if msg.role.value == "user":
-        files = format_file_metadata(msg)
-        if files:
-            metadata["files"] = files
-    elif msg.role.value == "assistant":
+    # Uploads and the agent's own outputs (code files, generated images) alike:
+    # "make that image darker" needs the id of what the agent made
+    files = format_file_metadata(msg)
+    if files:
+        metadata["files"] = files
+    if msg.role.value == "assistant":
         _add_tool_usage(metadata, msg)
         _add_answer_context(metadata, msg)
         _add_tool_outputs(metadata, msg, latest)

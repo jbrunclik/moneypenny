@@ -23,6 +23,16 @@ export function maxSizeForType(config: UploadConfig, mimeType: string): number {
 const EXTENSION_MIME_FALLBACKS: Record<string, string> = {
   heic: 'image/heic',
   heif: 'image/heif',
+  // Audio and Office (Nov 16 2026): some pickers report these as empty or octet-stream
+  m4a: 'audio/x-m4a',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  flac: 'audio/flac',
+  aac: 'audio/aac',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 };
 
 /**

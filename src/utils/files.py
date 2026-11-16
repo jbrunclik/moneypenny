@@ -8,6 +8,7 @@ import magic
 
 from src.config import Config
 from src.utils.logging import get_logger
+from src.utils.office_text import DOCX, PPTX, XLSX
 
 logger = get_logger(__name__)
 
@@ -43,6 +44,12 @@ class StoredFile(TypedDict):
     thumbnail: NotRequired[str]
 
 
+# No octet-stream for either: every libmagic in use names these formats, and
+# an unknown-bytes allowance would let anything through as a memo or document
+_OFFICE_MAGIC = {"application/zip"}
+_M4A_MAGIC = {"audio/x-m4a", "audio/mp4", "video/mp4"}
+_WAV_MAGIC = {"audio/x-wav", "audio/wav", "audio/vnd.wave"}
+
 # Mapping of allowed MIME types to their expected magic-detected MIME types
 # Some MIME types may be detected differently by libmagic than what browsers send
 MIME_TYPE_ALIASES: dict[str, set[str]] = {
@@ -76,6 +83,21 @@ MIME_TYPE_ALIASES: dict[str, set[str]] = {
     "video/mp4": {"video/mp4", "video/x-m4v"},
     "video/quicktime": {"video/quicktime", "video/mp4"},
     "video/webm": {"video/webm", "video/x-matroska"},
+    # Audio (Nov 16 2026). m4a is AAC in an MP4 container: older libmagic
+    # builds read it as mp4 video
+    "audio/mpeg": {"audio/mpeg", "audio/mp3"},
+    "audio/mp4": _M4A_MAGIC,
+    "audio/x-m4a": _M4A_MAGIC,
+    "audio/wav": _WAV_MAGIC,
+    "audio/x-wav": _WAV_MAGIC,
+    "audio/ogg": {"audio/ogg", "application/ogg", "audio/x-vorbis+ogg"},
+    "audio/flac": {"audio/flac", "audio/x-flac"},
+    "audio/aac": {"audio/aac", "audio/x-aac", "audio/x-hx-aac-adts"},
+    # Office (Nov 16 2026): zip containers; libmagic names the type when it
+    # finds the part it knows, else a plain zip
+    DOCX: _OFFICE_MAGIC | {DOCX},
+    XLSX: _OFFICE_MAGIC | {XLSX},
+    PPTX: _OFFICE_MAGIC | {PPTX},
     # Text files - libmagic may detect various text subtypes
     "text/plain": {
         "text/plain",
@@ -227,6 +249,20 @@ def _matches_video_signature(file_data: bytes, claimed_mime_type: str) -> bool:
     if claimed_mime_type == "video/webm":
         return file_data.startswith(b"\x1a\x45\xdf\xa3")
     return False
+
+
+# Browsers' names for audio types Gemini knows by another (m4a is AAC in MP4)
+_GEMINI_MIME_NAMES = {"audio/x-m4a": "audio/mp4", "audio/x-wav": "audio/wav"}
+
+
+def is_media_mime(mime_type: str) -> bool:
+    """Video or audio: sent to the model through the Gemini Files API."""
+    return mime_type.startswith(("video/", "audio/"))
+
+
+def gemini_mime_type(mime_type: str) -> str:
+    """The MIME type to tell Gemini for an attachment."""
+    return _GEMINI_MIME_NAMES.get(mime_type, mime_type)
 
 
 def max_size_for_mime(mime_type: str) -> int:

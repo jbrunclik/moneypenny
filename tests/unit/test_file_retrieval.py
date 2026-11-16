@@ -260,6 +260,36 @@ class TestRetrieveFileVideo:
 
         set_conversation_context(None, None)
 
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
+    @patch("src.agent.tools.conversation_files.get_blob_store")
+    @patch("src.agent.tools.conversation_files.db")
+    def test_audio_returns_media_block(
+        self,
+        mock_db: MagicMock,
+        mock_get_blob_store: MagicMock,
+        mock_ensure: MagicMock,
+    ) -> None:
+        """A voice memo from earlier in the chat is heard again, not base64."""
+        set_conversation_context("conv-123", "user-456")
+        mock_db.get_conversation.return_value = MagicMock()
+        mock_db.get_message_by_id.return_value = self._video_message(
+            mime="audio/x-m4a", name="memo.m4a"
+        )
+        mock_blob_store = MagicMock()
+        mock_blob_store.get.return_value = (b"fake_audio", "audio/x-m4a")
+        mock_get_blob_store.return_value = mock_blob_store
+        mock_ensure.return_value = "https://files.example/a1"
+
+        result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
+
+        assert isinstance(result, list)
+        assert result[1] == {
+            "type": "media",
+            "file_uri": "https://files.example/a1",
+            "mime_type": "audio/mp4",
+        }
+        set_conversation_context(None, None)
+
     @patch("src.agent.tools.conversation_files.db")
     def test_expired_video_returns_cleanup_error(self, mock_db: MagicMock) -> None:
         """Should return a clear cleanup error for videos past retention."""

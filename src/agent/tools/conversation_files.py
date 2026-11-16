@@ -1,6 +1,7 @@
 """Files uploaded in the current conversation, resolved by their history id.
 
-The history metadata lists each user message's files as ``message_id:file_index``.
+The history metadata lists each message's files (uploads and the agent's own
+outputs) as ``message_id:file_index``.
 retrieve_file and execute_code(files=...) both load them here, with the same
 checks: a conversation context, the user owns the conversation, the message
 belongs to it, the index exists, and the attachment is within retention.
@@ -105,6 +106,11 @@ def load_conversation_file(message_id: str, file_index: int) -> ConversationFile
     file_meta = message.files[file_index]
     file_name = file_meta.get("name", f"file_{file_index}")
     mime_type = file_meta.get("type", "application/octet-stream")
+    # role=assistant: the agent reopened its own output (reviewed, A8)
+    logger.info(
+        "conversation file: found",
+        extra={"message_id": message_id, "role": message.role.value, "mime_type": mime_type},
+    )
 
     # Age-based retention gate: stays truthful even before the physical
     # sweep has deleted the blob (videos 7 days, images 30 days)

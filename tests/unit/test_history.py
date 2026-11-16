@@ -480,19 +480,34 @@ class TestEnrichHistory:
         assert result[0]["metadata"]["files"][0]["name"] == "doc.pdf"
         assert result[0]["metadata"]["files"][0]["message_id"] == "msg-1"
 
-    def test_no_file_metadata_for_assistant_messages(self) -> None:
-        """Should not include files metadata for assistant messages."""
+    def test_assistant_reply_lists_its_files(self) -> None:
+        """The agent's own outputs (code files, generated images) are listed with
+        ids like uploads: "make that image darker" or "add a column to the xlsx
+        you made" needs the id, and the tools already open them by it."""
         msg = self._make_message(
             "msg-1",
             MessageRole.ASSISTANT,
             "Here is the result",
-            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
+            datetime.now(UTC) - timedelta(hours=1),
             files=[{"name": "output.png", "type": "image/png", "data": "..."}],
         )
         result = enrich_history([msg])
 
-        # Assistant messages should not have files in metadata (they have them in content)
-        assert "files" not in result[0]["metadata"]
+        assert result[0]["metadata"]["files"] == [
+            {"name": "output.png", "type": "image", "message_id": "msg-1", "file_index": 0}
+        ]
+
+    def test_an_expired_assistant_file_is_marked(self) -> None:
+        msg = self._make_message(
+            "msg-1",
+            MessageRole.ASSISTANT,
+            "Here is the result",
+            datetime.now(UTC) - timedelta(days=400),
+            files=[{"name": "output.png", "type": "image/png", "data": "..."}],
+        )
+        result = enrich_history([msg])
+
+        assert result[0]["metadata"]["files"][0]["expired"] is True
 
     def test_tool_usage_for_assistant_messages(self) -> None:
         """Should include tool usage for assistant messages."""
@@ -700,6 +715,7 @@ class TestVideoHistoryMetadata:
         assert simplify_mime_type("video/mp4") == "video"
         assert simplify_mime_type("video/quicktime") == "video"
         assert simplify_mime_type("video/webm") == "video"
+        assert simplify_mime_type("audio/x-m4a") == "audio"
 
     def test_fresh_video_not_marked_expired(self) -> None:
         msg = self._make_message(

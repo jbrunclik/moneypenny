@@ -152,6 +152,14 @@ class TestCleanupExpiredMedia:
         cleanup_expired_files()
         assert db.kv_get("_system", "gemini_files", f"{msg_id}:0") is None
 
+    def test_deletes_gemini_uri_cache_for_audio(self, seeded_env) -> None:
+        """Audio rides the Files API too: its cached link goes with the blob."""
+        db, blob_store, conv_id = seeded_env
+        msg_id = _seed(db, blob_store, conv_id, "audio/x-m4a", days_old=31)
+        db.kv_set("_system", "gemini_files", f"{msg_id}:0", '{"uri": "x"}')
+        cleanup_expired_files()
+        assert db.kv_get("_system", "gemini_files", f"{msg_id}:0") is None
+
     def test_idempotent(self, seeded_env) -> None:
         db, blob_store, conv_id = seeded_env
         _seed(db, blob_store, conv_id, "video/mp4", days_old=8)

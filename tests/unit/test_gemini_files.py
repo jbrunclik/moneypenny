@@ -130,6 +130,17 @@ class TestAttachGeminiFileUris:
         assert "gemini_upload_error" in files[0]
 
 
+class TestAttachAudio:
+    def test_audio_is_uploaded_with_a_type_gemini_knows(self) -> None:
+        client = _mock_client(("ACTIVE",))
+        files = [{"name": "m.m4a", "type": "audio/x-m4a", "data": base64.b64encode(b"a").decode()}]
+        with patch("src.agent.gemini_files._get_client", return_value=client):
+            attach_gemini_file_uris("msg-9", files)
+        assert files[0]["gemini_file_uri"] == "https://files.example/f1"
+        config = client.files.upload.call_args.kwargs["config"]
+        assert config.mime_type == "audio/mp4"
+
+
 class TestDeleteCachedFileUri:
     def test_deletes_cache_entry(self, test_database) -> None:
         test_database.kv_set(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, "msg-8:0", '{"uri": "x"}')

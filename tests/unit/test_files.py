@@ -5,6 +5,7 @@ import io
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from PIL import Image
 
 from src.config import Config
@@ -526,3 +527,42 @@ class TestVideoValidation:
     def test_video_types_have_alias_mappings(self) -> None:
         for mime_type in ("video/mp4", "video/quicktime", "video/webm"):
             assert mime_type in MIME_TYPE_ALIASES, f"Missing mapping for {mime_type}"
+
+
+# =============================================================================
+# Tests for audio uploads (Nov 16 2026: voice memos and recordings were refused)
+# =============================================================================
+
+# ffmpeg-generated 0.1 s tones, with the MIME type a browser declares for each
+AUDIO_SAMPLES = [
+    ("tiny.mp3", "audio/mpeg"),
+    ("tiny.m4a", "audio/x-m4a"),
+    ("tiny.m4a", "audio/mp4"),
+    ("tiny.wav", "audio/wav"),
+    ("tiny.wav", "audio/x-wav"),
+    ("tiny.ogg", "audio/ogg"),
+    ("tiny.flac", "audio/flac"),
+    ("tiny.aac", "audio/aac"),
+]
+
+
+def _default_types() -> set[str]:
+    """The code's default list (a local .env may still set the old one)."""
+    return set(Config.DEFAULT_ALLOWED_FILE_TYPES.split(","))
+
+
+class TestAudioValidation:
+    @pytest.mark.parametrize(("fixture", "mime_type"), AUDIO_SAMPLES)
+    def test_audio_is_allowed(self, fixture: str, mime_type: str) -> None:
+        data = base64.b64encode((FIXTURES_DIR / fixture).read_bytes()).decode()
+        with patch.object(Config, "ALLOWED_FILE_TYPES", _default_types()):
+            is_valid, error = validate_files([{"name": fixture, "type": mime_type, "data": data}])
+        assert is_valid, error
+
+    def test_spoofed_audio_rejected(self) -> None:
+        data = base64.b64encode(create_png_bytes()).decode()
+        with patch.object(Config, "ALLOWED_FILE_TYPES", _default_types()):
+            is_valid, _ = validate_files(
+                [{"name": "memo.m4a", "type": "audio/x-m4a", "data": data}]
+            )
+        assert is_valid is False

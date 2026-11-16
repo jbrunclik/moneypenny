@@ -23,6 +23,7 @@ from src.db.models import make_blob_key
 from src.db.models.timestamps import from_db
 from src.services.gemini_file_cache import delete_cached_file_uri
 from src.utils.clock import to_api, utc_now
+from src.utils.files import is_media_mime
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -87,7 +88,8 @@ def cleanup_expired_files() -> dict[str, int]:
                     counts["images_deleted"] += 1
                 else:
                     counts["files_deleted"] += 1
-            if mime_type.startswith("video/"):
+            # Video and audio went to the Gemini Files API: drop the cached link
+            if is_media_mime(mime_type):
                 delete_cached_file_uri(msg.id, idx)
 
     # Trashed conversations past their retention window go for good

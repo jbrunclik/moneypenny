@@ -64,6 +64,12 @@ describe('mountAppShell', () => {
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
   });
 
+  it('lets the file picker offer audio and Office files (iOS greys out the rest)', () => {
+    mountAppShell(app);
+    const accept = document.getElementById('file-input')?.getAttribute('accept') ?? '';
+    for (const wanted of ['audio/*', '.m4a', '.docx', '.xlsx', '.pptx']) expect(accept).toContain(wanted);
+  });
+
   it('starts with sending disabled, streaming on and the login overlay hidden', () => {
     mountAppShell(app);
     expect(document.getElementById('send-btn')?.hasAttribute('disabled')).toBe(true);

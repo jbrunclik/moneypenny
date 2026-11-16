@@ -21,7 +21,7 @@ from src.db.models import db
 from src.db.models.timestamps import from_db
 from src.services.gemini_file_cache import GEMINI_FILES_NAMESPACE, SYSTEM_KV_USER_ID, cache_key
 from src.utils.clock import to_api, utc_now
-from src.utils.files import UploadedFile
+from src.utils.files import UploadedFile, gemini_mime_type, is_media_mime
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -83,7 +83,7 @@ def ensure_gemini_file_uri(message_id: str, file_index: int, data: bytes, mime_t
     try:
         gfile = client.files.upload(
             file=io.BytesIO(data),
-            config=genai_types.UploadFileConfig(mime_type=mime_type),
+            config=genai_types.UploadFileConfig(mime_type=gemini_mime_type(mime_type)),
         )
         deadline = time.monotonic() + PROCESSING_TIMEOUT_SECONDS
         while _state_name(gfile) == "PROCESSING":
@@ -115,14 +115,14 @@ def ensure_gemini_file_uri(message_id: str, file_index: int, data: bytes, mime_t
 
 
 def attach_gemini_file_uris(message_id: str, files: list[UploadedFile]) -> None:
-    """Upload video attachments to the Files API, annotating file dicts in place.
+    """Upload video and audio attachments to the Files API, annotating file dicts in place.
 
     Adds "gemini_file_uri" on success or "gemini_upload_error" on failure.
     Never raises — a failed video upload must not fail the whole chat request.
     """
     for idx, file in enumerate(files):
         mime_type = file.get("type", "")
-        if not mime_type.startswith("video/"):
+        if not is_media_mime(mime_type):
             continue
         try:
             data = base64.b64decode(file.get("data", ""))
@@ -132,7 +132,7 @@ def attach_gemini_file_uris(message_id: str, files: list[UploadedFile]) -> None:
             # client construction) must degrade to a text notice for the LLM,
             # never fail the whole chat request.
             logger.error(  # noqa: TRY400 - traceback only for unexpected errors (exc_info below)
-                "Failed to prepare video for Gemini",
+                "Failed to prepare media for Gemini",
                 extra={"message_id": message_id, "file_index": idx, "error": str(e)},
                 exc_info=not isinstance(e, (GeminiFileError, binascii.Error)),
             )
