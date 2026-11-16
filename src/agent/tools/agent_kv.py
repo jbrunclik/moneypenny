@@ -45,6 +45,8 @@ RESERVED_NAMESPACES = frozenset(
         "turn_owner",
     }
 )
+# Actions that change data: allowed only in the turn's own namespace
+_WRITE_ACTIONS = frozenset({"set", "merge", "delete"})
 _MAX_KEY_LENGTH = 256
 _MAX_VALUE_SIZE = 65536  # 64KB
 _MAX_KEYS_PER_NAMESPACE = 1000
@@ -77,8 +79,9 @@ def kv_store(
         action: One of 'get', 'set', 'merge', 'delete', 'list'
         key: The key to operate on (required for get/set/merge/delete, optional prefix for list)
         value: The value to store (required for set/merge, must be valid JSON, max 64KB)
-        namespace: Storage namespace. Auto-defaults to 'agent:<agent_id>' for autonomous agents.
-            Can be overridden to access shared namespaces.
+        namespace: Storage namespace. Defaults to your own ('agent:<agent_id>' for autonomous
+            agents, the chat's own in sports/language/agent chats). Other namespaces can be
+            read (get/list); writes (set/merge/delete) go only to your own.
 
     Returns:
         The result of the operation as a string
@@ -99,12 +102,25 @@ def kv_store(
             "kv_store is only available in agent runs and agent, sports or language chats.",
             retriable=False,
         )
-    if not namespace:
-        namespace = f"agent:{job_context.item.id}" if job_context else str(standing_namespace)
+    own = f"agent:{job_context.item.id}" if job_context else str(standing_namespace)
+    namespace = namespace or own
 
     if namespace in RESERVED_NAMESPACES:
         return tool_error(
             f"Namespace '{namespace}' is reserved for the app's own state.", retriable=False
+        )
+
+    if action in _WRITE_ACTIONS and namespace != own:
+        # Other namespaces are read-only: an instruction planted in a page
+        # must not overwrite sports, places or another agent's data
+        logger.warning(
+            "kv write refused",
+            extra={"user_id": user_id, "namespace": namespace, "own": own, "action": action},
+        )
+        return tool_error(
+            f"Namespace '{namespace}' is read-only here: writes go only to your own "
+            f"namespace '{own}'.",
+            retriable=False,
         )
 
     # Validate action

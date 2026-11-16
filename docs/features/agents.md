@@ -30,6 +30,12 @@ schedule. The default toolset (`web_search`, `fetch_url`, `kv_store`, auto-names
 agent) already covers "fetch, compare against remembered state, report". Before writing a
 bespoke tool for a recurring notifier, check whether a prompt-only agent can do it.
 
+`kv_store` writes (`set`, `merge`, `delete`) go only to the turn's own namespace - the run's
+`agent:<id>` or the standing chat's (`sports`, `language`, `agent:<id>`); other namespaces
+are read-only (the Daily Briefing reads `sports` and `places`), reserved ones closed. A
+refusal logs "kv write refused" (`namespace`, `own`, `action`) - Nov 16 2026, so a
+planted instruction cannot overwrite another agent's or the coaches' data.
+
 Prompt guidance for these agents:
 - Make **line 1 of the response a plain-text headline** — the push-notification body is the
   first line of the agent's response (truncated to ~160 chars). The Daily Briefing's first

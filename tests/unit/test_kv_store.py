@@ -596,7 +596,9 @@ class TestKVStoreTool:
             patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
-            result = _invoke_kv_store(action="set", key="new-key", value='"v"', namespace="ns")
+            result = _invoke_kv_store(
+                action="set", key="new-key", value='"v"', namespace="agent:agent-abc"
+            )
 
         assert "maximum" in result.lower()
         mock_db_for_tool.kv_set.assert_not_called()
@@ -617,7 +619,7 @@ class TestKVStoreTool:
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(
-                action="set", key="existing-key", value='"new-val"', namespace="ns"
+                action="set", key="existing-key", value='"new-val"', namespace="agent:agent-abc"
             )
 
         assert "Stored" in result
@@ -668,7 +670,9 @@ class TestKVStoreTool:
             patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
-            result = _invoke_kv_store(action="set", key="k", value="not json", namespace="ns")
+            result = _invoke_kv_store(
+                action="set", key="k", value="not json", namespace="agent:agent-abc"
+            )
 
         assert "must be valid JSON" in result
         mock_db_for_tool.kv_set.assert_not_called()
@@ -685,7 +689,7 @@ class TestKVStoreTool:
             patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
-            result = _invoke_kv_store(action="set", key="k", namespace="ns")
+            result = _invoke_kv_store(action="set", key="k", namespace="agent:agent-abc")
 
         assert "'value' is required" in result
 

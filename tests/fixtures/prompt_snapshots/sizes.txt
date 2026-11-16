@@ -6,7 +6,7 @@ static prompt
   planning       29025
   standing       25877
 
-tool declarations (41 tools, 55782 chars)
+tool declarations (41 tools, 55885 chars)
   ask_choice                     768
   browser                       2388
   create_artifact               1661
@@ -22,7 +22,7 @@ tool declarations (41 tools, 55782 chars)
   generate_image                2900
   get_route                      579
   google_calendar               2002
-  kv_store                      1556
+  kv_store                      1659
   list_places                    270
   load_skill                     479
   manage_memory                 1275
