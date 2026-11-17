@@ -287,6 +287,10 @@ half-price Flex tier since Nov 17 2026 - [cost-tracking.md](cost-tracking.md#fle
 rereads the turns since its last review and may add or patch up to `MEMORY_REVIEW_MAX_OPS`
 (3) memories. Design: [spec](../superpowers/specs/2026-11-08-background-memory-review-design.md).
 
+- **Waiting passes are capped**: a Flex pass can wait minutes, so a worker
+  runs at most `MEMORY_REVIEW_MAX_RUNNING` (4) at once; a pass over the cap is
+  skipped ("Memory review skipped: passes at the cap") and its turns are read
+  by the chat's next pass, since the cursor did not move.
 - **When**: `save_message_to_db` calls `note_turn`
   (`src/api/helpers/memory_review_trigger.py`). Per chat, kv namespace
   `memory_review` (reserved: the model cannot write it) keeps a turn counter

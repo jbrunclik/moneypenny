@@ -140,6 +140,14 @@ def _note_turn(
     with _running_lock:
         if conv_id in _running:
             return
+        # A Flex pass can wait minutes: bound the threads waiting at once. A
+        # skipped pass loses nothing - its cursor stays, so the next one reads it
+        if len(_running) >= Config.MEMORY_REVIEW_MAX_RUNNING:
+            logger.info(
+                "Memory review skipped: passes at the cap",
+                extra={"conversation_id": conv_id, "running": len(_running)},
+            )
+            return
         _running.add(conv_id)
     _start(lambda: _run_pass(conv_id, user_id, window))
 

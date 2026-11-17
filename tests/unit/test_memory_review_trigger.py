@@ -360,3 +360,24 @@ def test_trigger_failure_log_names_the_chat(
     [record] = [r for r in caplog.records if r.getMessage() == "Memory review trigger failed"]
     assert getattr(record, "conversation_id", None) == test_conversation.id
     assert getattr(record, "user_id", None) == test_conversation.user_id
+
+
+def test_passes_at_the_cap_are_skipped_and_reviewed_later(
+    reviewer: _Reviewer,
+    test_database: Database,
+    test_conversation: Conversation,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Flex pass can wait minutes, so threads waiting at once are capped; the
+    skipped window stays unreviewed (cursor unmoved) for the next pass."""
+    monkeypatch.setattr(Config, "MEMORY_REVIEW_MAX_RUNNING", 1)
+    monkeypatch.setattr(trigger, "_running", {"another-chat"})
+    for i in range(6):
+        _turn(test_database, test_conversation, i)
+    assert reviewer.calls == []
+
+    trigger._running.clear()
+    for i in range(6, 12):
+        _turn(test_database, test_conversation, i)
+    [reviewed] = reviewer.calls
+    assert next(m.content for m in reviewed if m.role == "user") == "question 0"

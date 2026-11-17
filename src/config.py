@@ -742,6 +742,9 @@ class Config:
     # The review waits on nobody, so it runs on Gemini's Flex tier at half price
     # (src/agent/flex.py), falling back to standard when Flex refuses
     MEMORY_REVIEW_FLEX = True
+    # Review passes waiting at once per worker (a Flex pass may wait up to
+    # FLEX_TIMEOUT_SECONDS, then retry on standard)
+    MEMORY_REVIEW_MAX_RUNNING = 4
     # Flex queues requests (48-84 s for a tiny Hydrogen call, Nov 17 2026);
     # Google advises a client timeout of 10 minutes or more
     FLEX_TIMEOUT_SECONDS = 600
