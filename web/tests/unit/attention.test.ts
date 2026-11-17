@@ -68,6 +68,15 @@ describe('attention signals', () => {
     expect(document.title).toBe('(1) Moneypenny');
   });
 
+  it('leaves an anonymous chat unnamed', () => {
+    useStore.setState({
+      currentConversation: { id: 'c2', title: 'Private matter' } as never,
+      anonymousModeByConversation: new Map([['c2', true]]),
+    });
+    expect(document.title).toBe('Moneypenny');
+    useStore.setState({ anonymousModeByConversation: new Map() });
+  });
+
   it('shows only the app name without a title', () => {
     expect(titleFor('  ')).toBe('Moneypenny');
     expect(titleFor(undefined)).toBe('Moneypenny');

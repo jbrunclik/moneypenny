@@ -62,12 +62,15 @@ function setBaseTitle(title: string): void {
 
 export function initAttention(): void {
   baseTitle = document.title;
-  // The open conversation names the window; other views show the app's name
-  setBaseTitle(titleFor(useStore.getState().currentConversation?.title));
-  useStore.subscribe(
-    (state) => state.currentConversation?.title,
-    (title) => setBaseTitle(titleFor(title))
-  );
+  // The open conversation names the window; other views show the app's name.
+  // An anonymous chat stays unnamed: the title would land in the browser's
+  // history and the system's window list
+  const shownTitle = (state: ReturnType<typeof useStore.getState>): string | undefined => {
+    const conv = state.currentConversation;
+    return conv && !state.anonymousModeByConversation.get(conv.id) ? conv.title : undefined;
+  };
+  setBaseTitle(titleFor(shownTitle(useStore.getState())));
+  useStore.subscribe(shownTitle, (title) => setBaseTitle(titleFor(title)));
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) clearAttention();
   });
