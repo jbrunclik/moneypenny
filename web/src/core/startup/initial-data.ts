@@ -26,6 +26,7 @@ import { openInitialRoute } from './initial-route';
 import { markAppReady } from './app-ready';
 import { startSync } from './sync';
 import { markBootStage, reportBootTiming } from './boot-timing';
+import { openSharedText } from '../share-link';
 
 const log = createLogger('init');
 
@@ -143,6 +144,7 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
 
     // After the store holds the conversation list: the views read it
     await openInitialRoute(initialRoute);
+    openSharedText(); // #/new?text=... (a home route to openInitialRoute)
     markBootStage('route');
 
     // Only after data is loaded AND the initial route is handled: sync

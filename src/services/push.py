@@ -73,6 +73,11 @@ def send_push_to_user_sync(
         payload["url"] = url
     if tag:
         payload["tag"] = tag
+    # The app-icon badge (sw.js): conversations with unread messages
+    try:
+        payload["badge"] = db.unread_conversation_count(user_id)
+    except Exception:  # a badge is never worth a lost notification
+        logger.warning("Push badge count failed", extra={"user_id": user_id}, exc_info=True)
 
     delivered = 0
     for sub in subscriptions:

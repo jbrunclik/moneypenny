@@ -84,6 +84,24 @@ window.__testVersionBanner()
 
 ---
 
+## Small conveniences (Nov 17 2026)
+
+- **`#/new?text=...`** ([share-link.ts](../../web/src/core/share-link.ts)): opens a
+  new chat with the text in the composer, unsent - iOS has no share target for a
+  home-screen app, so a Shortcut or bookmark can open it with selected text. The
+  router knows the route (`parseHash` type `new`) and leaves it to this module; the
+  hash is cleared so a reload does not repeat it. Works at startup and while open.
+- **Window title**: the open conversation's title, then the app's name
+  (`titleFor` in [attention.ts](../../web/src/core/attention.ts), which also keeps
+  the hidden-tab counter in front: "(1) Trip to Vienna · Moneypenny").
+- **Print** ([print.css](../../web/src/styles/print.css)): only the messages, in
+  the light palette and full width, flowing onto further pages.
+- **Text size** (Settings > Appearance; `TEXT_SIZES` in
+  [preferences.ts](../../web/src/utils/preferences.ts)): Default, Large (112.5%),
+  Larger (125%) on `html[data-text-size]`, per device. Every size is a rem, so the
+  whole interface scales. No smaller step: iOS zooms into a focused input under 16px.
+- **App-icon badge from a push**: see [push-notifications.md](push-notifications.md#app-icon-badge).
+
 ## Color Scheme
 
 The app supports three color scheme options: Light, Dark, and System (default).

@@ -70,3 +70,6 @@
 /* Liquid glass materials - imported last so it upgrades chrome surfaces
    (sidebar, header, composer, modals, menus) over their solid defaults */
 @import "./components/glass.css";
+
+/* Print: only the messages (last, so it overrides the screen chrome) */
+@import "./print.css";

@@ -3,7 +3,8 @@
  * PWA app badge when turns finish while the tab is hidden.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { initAttention, notifyTurnFinished, _resetAttention } from '@/core/attention';
+import { initAttention, notifyTurnFinished, titleFor, _resetAttention } from '@/core/attention';
+import { useStore } from '@/state/store';
 
 function setHidden(hidden: boolean): void {
   Object.defineProperty(document, 'hidden', { value: hidden, configurable: true });
@@ -15,6 +16,7 @@ describe('attention signals', () => {
 
   beforeEach(() => {
     _resetAttention();
+    useStore.setState({ currentConversation: null });
     document.title = 'Moneypenny';
     setHidden(false);
     setBadge = vi.fn().mockResolvedValue(undefined);
@@ -52,5 +54,22 @@ describe('attention signals', () => {
     document.dispatchEvent(new Event('visibilitychange'));
     expect(document.title).toBe('Moneypenny');
     expect(clearBadge).toHaveBeenCalled();
+  });
+
+  it('names the window after the open conversation, counter first', () => {
+    useStore.setState({ currentConversation: { id: 'c1', title: 'Trip to Vienna' } as never });
+    expect(document.title).toBe('Trip to Vienna · Moneypenny');
+
+    setHidden(true);
+    notifyTurnFinished();
+    expect(document.title).toBe('(1) Trip to Vienna · Moneypenny');
+
+    useStore.setState({ currentConversation: null });
+    expect(document.title).toBe('(1) Moneypenny');
+  });
+
+  it('shows only the app name without a title', () => {
+    expect(titleFor('  ')).toBe('Moneypenny');
+    expect(titleFor(undefined)).toBe('Moneypenny');
   });
 });

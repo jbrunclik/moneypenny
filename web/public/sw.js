@@ -8,7 +8,8 @@
  *   construction - a new build ships new URLs.
  * - /api/* and everything else: network only, never cached.
  *
- * Push payload shape (see src/utils/push.py): { title, body, url?, tag? }
+ * Push payload shape (see src/services/push.py): { title, body, url?, tag?, badge? }
+ * badge: conversations with unread messages, set on the app icon
  */
 
 const SHELL_CACHE = 'shell-v1';
@@ -90,6 +91,12 @@ self.addEventListener('push', (event) => {
     payload = event.data ? event.data.json() : {};
   } catch {
     payload = { title: 'Moneypenny', body: event.data ? event.data.text() : '' };
+  }
+
+  // The app-icon badge (installed PWA): the server's count of unread chats
+  if (typeof payload.badge === 'number' && self.navigator.setAppBadge) {
+    const badge = payload.badge > 0 ? self.navigator.setAppBadge(payload.badge) : self.navigator.clearAppBadge();
+    event.waitUntil(badge.catch(() => undefined));
   }
 
   const title = payload.title || 'Moneypenny';

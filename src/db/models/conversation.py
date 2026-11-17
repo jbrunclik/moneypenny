@@ -238,6 +238,21 @@ class ConversationMixin:
             conn.commit()
             return True
 
+    def unread_conversation_count(self, user_id: str) -> int:
+        """Live (not archived, not deleted) conversations with messages the
+        user has not read - the app-icon badge a push sets."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                """SELECT COUNT(*) FROM conversations c
+                   WHERE c.user_id = ? AND c.deleted_at IS NULL
+                     AND (c.archived = 0 OR c.archived IS NULL)
+                     AND (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id)
+                         > c.read_message_count""",
+                (user_id,),
+            ).fetchone()
+            return int(row[0])
+
     def count_messages(self, conversation_id: str) -> int:
         """Count messages in a conversation.
 

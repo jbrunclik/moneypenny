@@ -5,6 +5,8 @@
  * the moment the user returns - without this there is no ambient signal
  * that an answer is ready after switching tabs or apps.
  */
+import { APP_NAME } from '../config';
+import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('attention');
@@ -27,9 +29,14 @@ function applyBadge(): void {
 }
 
 function clearAttention(): void {
-  if (pendingCount === 0) return;
-  pendingCount = 0;
-  applyBadge();
+  if (pendingCount > 0) {
+    pendingCount = 0;
+    applyBadge();
+    return;
+  }
+  // A push may have set the app badge (sw.js) while the app was closed
+  const nav = navigator as Navigator & { clearAppBadge?: () => Promise<void> };
+  nav.clearAppBadge?.()?.catch(() => undefined);
 }
 
 /** Test hook: reset module state between tests. */
@@ -38,8 +45,29 @@ export function _resetAttention(): void {
   baseTitle = '';
 }
 
+/**
+ * The window title for a conversation: its title first (tabs, the window
+ * switcher and history show which chat it is), then the app's name.
+ */
+export function titleFor(conversationTitle: string | null | undefined): string {
+  const title = conversationTitle?.trim();
+  return title ? `${title} · ${APP_NAME}` : APP_NAME;
+}
+
+function setBaseTitle(title: string): void {
+  if (title === baseTitle) return;
+  baseTitle = title;
+  applyBadge();
+}
+
 export function initAttention(): void {
   baseTitle = document.title;
+  // The open conversation names the window; other views show the app's name
+  setBaseTitle(titleFor(useStore.getState().currentConversation?.title));
+  useStore.subscribe(
+    (state) => state.currentConversation?.title,
+    (title) => setBaseTitle(titleFor(title))
+  );
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) clearAttention();
   });

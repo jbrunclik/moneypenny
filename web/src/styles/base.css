@@ -28,6 +28,16 @@ body {
     overflow: hidden;
 }
 
+/* Text size (Settings > Appearance; utils/preferences.ts): every size is in
+   rem, so scaling the root font size scales the whole interface */
+html[data-text-size="large"] {
+    font-size: 112.5%;
+}
+
+html[data-text-size="larger"] {
+    font-size: 125%;
+}
+
 body {
     font-family: var(--font-family);
     font-size: var(--font-size-base);

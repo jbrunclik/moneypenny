@@ -457,3 +457,27 @@ test.describe('Deep link - Archive view', () => {
     });
   });
 });
+
+test.describe('New chat link (#/new?text=)', () => {
+  test('opens a new chat with the text in the composer, unsent', async ({ page }) => {
+    await page.goto('/#/new?text=Shrn%20tenhle%20%C4%8Dl%C3%A1nek');
+    await appReady(page);
+
+    await expect(page.locator('#message-input')).toHaveValue('Shrn tenhle článek');
+    await expect(page.locator('#send-btn')).toBeEnabled();
+    await expect(page.locator('.message.user')).toHaveCount(0);
+    // Cleared, so a reload does not open it again
+    expect(new URL(page.url()).hash).toBe('');
+  });
+
+  test('works while the app is already open', async ({ page }) => {
+    await page.goto('/');
+    await appReady(page);
+
+    await page.evaluate(() => {
+      window.location.hash = '#/new?text=hello';
+    });
+
+    await expect(page.locator('#message-input')).toHaveValue('hello');
+  });
+});

@@ -79,6 +79,9 @@ Copy button in message actions copies the entire message content.
 **Behavior:**
 - Excludes file attachments, thinking/tool traces, inline copy buttons, and language labels
 - Appends `[Artifact: <title>]` per [artifact](artifacts.md) card (`artifactCopyText()`)
+- The plain-text part is the reply's Markdown (`htmlToMarkdown`, Nov 17 2026):
+  headings, lists, links and emphasis survive a paste into a plain-text editor;
+  an unformatted message is copied as its text
 - Available on both user and assistant messages
 - Shows checkmark feedback for 2 seconds after successful copy
 

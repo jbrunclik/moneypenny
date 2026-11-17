@@ -13,8 +13,9 @@
  *   so two stylesheets styling one class restyle each other (Jul 2026:
  *   `.memory-*` in popups.css and kv-store.css; Oct 2026: agents.css restyled
  *   every `.btn-icon` in the app). layout.css (where the app shell places each
- *   component), glass.css (the glass material) and mobile-sheets.css (mobile
- *   bottom sheets) are layers over every component, so they don't count.
+ *   component), glass.css (the glass material), mobile-sheets.css (mobile
+ *   bottom sheets) and print.css (paper) are layers over every component, so
+ *   they don't count.
  *
  * Each list is empty since Oct 27 2026 and stays empty.
  */
@@ -28,6 +29,7 @@ const LAYER_FILES = new Set([
   'styles/layout.css',
   'styles/components/glass.css',
   'styles/components/mobile-sheets.css',
+  'styles/print.css',
 ]);
 const LOCAL_Z_INDEX_MAX = 10;
 const COLOR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\([^)]*\)/g;

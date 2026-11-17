@@ -6,6 +6,7 @@
 import { initVersionBanner } from '../../components/VersionBanner';
 import { setPushControls } from '../../components/settings/notifications';
 import { initAttention } from '../attention';
+import { initShareLink } from '../share-link';
 import { initConnectivity } from '../connectivity';
 import { disablePush, enablePush, getPushState, registerServiceWorker, sendTestNotification } from '../push';
 
@@ -14,6 +15,7 @@ import { disablePush, enablePush, getPushState, registerServiceWorker, sendTestN
  */
 export function initAppStatus(): void {
   initAttention();
+  initShareLink();
   initConnectivity();
   initVersionBanner();
   // The settings' Notifications section turns push on and off through these

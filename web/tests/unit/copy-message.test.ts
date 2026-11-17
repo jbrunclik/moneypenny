@@ -49,3 +49,22 @@ describe('copyMessageContent with grounding annotations', () => {
     expect(writeText).toHaveBeenCalledWith('Kurýr vyzvedne doklady. Cena 1 200 Kč.');
   });
 });
+
+describe('copyMessageContent with formatting', () => {
+  it('copies a formatted reply as Markdown plain text', async () => {
+    const writeText = vi.fn(async (_text: string) => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    document.body.innerHTML = `
+      <div class="message assistant">
+        <div class="message-content"><h2>Plan</h2><ul><li><strong>Monday</strong>: run</li><li>Tuesday: rest</li></ul></div>
+        <button class="copy-btn"></button>
+      </div>`;
+
+    await copyMessageContent(document.querySelector<HTMLButtonElement>('.copy-btn')!);
+
+    const copied = writeText.mock.calls[0]?.[0] ?? '';
+    expect(copied).toContain('## Plan');
+    expect(copied).toContain('**Monday**: run');
+    expect(copied).toMatch(/^[-*] Tuesday: rest$/m);
+  });
+});

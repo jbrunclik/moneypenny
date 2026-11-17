@@ -1,0 +1,75 @@
+/* ============================================
+   Print - a conversation on paper (Nov 17 2026)
+   ============================================
+   Only the messages print: no sidebar, headers, composer, buttons or glass,
+   in the light palette, at full width, and long replies flow onto further
+   pages instead of being clipped by the scroll container. */
+
+@media print {
+    :root {
+        color-scheme: light;
+    }
+
+    body {
+        background: var(--white) !important;
+        color: var(--black) !important;
+    }
+
+    #app {
+        position: static;
+        height: auto;
+        overflow: visible;
+        display: block;
+    }
+
+    .sidebar,
+    .sidebar-overlay,
+    .mobile-header,
+    .chat-header,
+    .input-area,
+    .message-actions,
+    .scroll-to-bottom,
+    .toast-container,
+    .version-banner,
+    .status-bar-backdrop,
+    .inline-copy-btn,
+    .thinking-indicator,
+    button {
+        display: none !important;
+    }
+
+    .main,
+    .messages {
+        position: static;
+        height: auto;
+        max-height: none;
+        overflow: visible !important;
+        width: 100%;
+        max-width: none;
+        padding: 0;
+    }
+
+    .message {
+        break-inside: avoid-page;
+        margin-bottom: 12pt;
+    }
+
+    /* Bubbles and glass would print as grey boxes */
+    .message-content,
+    .message.user .message-content {
+        background: none !important;
+        backdrop-filter: none !important;
+        box-shadow: none !important;
+        color: var(--black) !important;
+    }
+
+    pre,
+    table {
+        break-inside: avoid;
+    }
+
+    a {
+        color: var(--black);
+        text-decoration: underline;
+    }
+}

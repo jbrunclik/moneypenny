@@ -19,7 +19,7 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('deeplink');
 
 /** Route types supported by the router */
-type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'storage' | 'sports' | 'language' | 'archive' | 'trash' | 'unknown';
+type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'storage' | 'sports' | 'language' | 'archive' | 'trash' | 'new' | 'unknown';
 
 /** Parsed route information */
 interface ParsedRoute {
@@ -71,6 +71,11 @@ export function parseHash(hash: string = window.location.hash): ParsedRoute {
   // Empty hash = home
   if (!cleanHash || cleanHash === '/') {
     return { type: 'home' };
+  }
+
+  // #/new?text=... - a new chat with the text in the composer (core/share-link.ts)
+  if (cleanHash === '/new' || cleanHash.startsWith('/new?')) {
+    return { type: 'new' };
   }
 
   const viewRoute = matchViewRoute(cleanHash);
@@ -345,6 +350,7 @@ function handleHashChange(): void {
 
   const route = parseHash();
   log.debug('Hash changed via navigation', { route });
+  if (route.type === 'new') return; // core/share-link.ts opens it
 
   if (hashChangeCallback) {
     if (route.type === 'planner') {

@@ -1,5 +1,13 @@
 import { createElement } from '../../utils/dom';
-import { SUN_ICON, MOON_ICON, MONITOR_ICON, LANGUAGE_ICON, createIconElement, type IconHtml } from '../../utils/icons';
+import {
+  SUN_ICON,
+  MOON_ICON,
+  MONITOR_ICON,
+  LANGUAGE_ICON,
+  TEXT_SIZE_ICON,
+  createIconElement,
+  type IconHtml,
+} from '../../utils/icons';
 import { settings } from '../../api/settings';
 import { toast } from '../Toast';
 import {
@@ -15,6 +23,10 @@ import {
   setSidebarPreviewsEnabled,
   getSwipeQuickAction,
   setSwipeQuickAction,
+  getTextSize,
+  setTextSize,
+  TEXT_SIZES,
+  type TextSize,
 } from '../../utils/preferences';
 import { fieldLabel, helper, log, toggle } from './shared';
 
@@ -35,6 +47,8 @@ const LANGUAGE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'French', label: 'Français' },
   { value: 'Italian', label: 'Italiano' },
 ];
+
+const TEXT_SIZE_LABELS: Record<TextSize, string> = { default: 'Default', large: 'Large', larger: 'Larger' };
 
 /**
  * A color scheme option button
@@ -67,6 +81,20 @@ export function renderAppearanceSection(): HTMLElement {
       ]),
       toggle('sidebar-previews-enabled', isSidebarPreviewsEnabled(), 'Show message previews in the sidebar', ' settings-toggle-spaced'),
       toggle('swipe-quick-delete', getSwipeQuickAction() === 'delete', 'Swipe to delete instead of archive', ' settings-toggle-spaced'),
+    ]),
+    createElement('div', { class: 'settings-divider' }),
+    createElement('div', { class: 'settings-field', 'data-section': 'text-size' }, [
+      fieldLabel(TEXT_SIZE_ICON, 'Text Size', 'text-size'),
+      helper('Larger text on this device only.'),
+      createElement(
+        'select',
+        { id: 'text-size', class: 'settings-input settings-language-select' },
+        TEXT_SIZES.map((size) =>
+          createElement('option', { value: size, ...(size === getTextSize() ? { selected: '' } : {}) }, [
+            TEXT_SIZE_LABELS[size],
+          ])
+        )
+      ),
     ]),
     createElement('div', { class: 'settings-divider' }),
     createElement('div', { class: 'settings-field', 'data-section': 'language-pref' }, [
@@ -133,6 +161,11 @@ async function handlePreferredLanguageChange(select: HTMLSelectElement): Promise
 
 /** Delegated `change` handling for the appearance section's controls. */
 export function handleAppearanceChange(target: HTMLElement): void {
+  if (target.id === 'text-size') {
+    const size = TEXT_SIZES.find((s) => s === (target as HTMLSelectElement).value) ?? 'default';
+    setTextSize(size);
+    log.info('Text size changed', { size });
+  }
   if (target.id === 'preferred-language') {
     void handlePreferredLanguageChange(target as HTMLSelectElement);
   }

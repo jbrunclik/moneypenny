@@ -55,6 +55,26 @@ class TestSendPushToUserSync:
         subs = test_database.get_push_subscriptions(push_user.id)
         assert all(s.last_used_at is not None for s in subs)
 
+    def test_the_payload_carries_the_unread_chat_count(
+        self, push_user: User, test_database: Database
+    ) -> None:
+        """The service worker sets it as the app-icon badge (Nov 17 2026)."""
+        import json
+
+        read = test_database.create_conversation(push_user.id, "Read")
+        test_database.add_message(read.id, "assistant", "seen")
+        test_database.mark_conversation_read(read.id, push_user.id, 1)
+        unread = test_database.create_conversation(push_user.id, "Unread")
+        test_database.add_message(unread.id, "assistant", "new")
+        archived = test_database.create_conversation(push_user.id, "Archived")
+        test_database.add_message(archived.id, "assistant", "old news")
+        test_database.archive_conversation(archived.id, push_user.id)
+
+        with patch("src.services.push.webpush") as mock_webpush:
+            send_push_to_user_sync(push_user.id, "Title", "Body", None, None)
+
+        assert json.loads(mock_webpush.call_args.kwargs["data"])["badge"] == 1
+
     def test_no_subscriptions_returns_zero(
         self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
     ) -> None:

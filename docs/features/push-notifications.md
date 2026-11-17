@@ -129,3 +129,12 @@ owns the Settings-facing lifecycle):
 ## Planned (see TODO.md)
 
 - Planner reminders, program nudges, budget alerts
+
+## App-icon badge
+
+Every push carries `badge`: the user's live conversations (not archived or
+deleted) with unread messages (`unread_conversation_count`, the sidebar's
+message-count versus read-count rule; Nov 17 2026). The service worker sets it
+on the installed app's icon (`setAppBadge`, cleared at 0); opening or focusing
+the app clears it (`clearAttention` in attention.ts). A failed count drops only
+the badge, never the notification.

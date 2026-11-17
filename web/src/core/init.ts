@@ -12,6 +12,7 @@ import { initSidebarSelection } from '../components/SidebarSelection';
 import { initModal } from '../components/Modal';
 import { initToast } from '../components/Toast';
 import { initDeepLinking } from '../router/deeplink';
+import { applyTextSize } from '../utils/preferences';
 import { installAvatarFallback } from '../utils/avatar';
 import { getElementById } from '../utils/dom';
 import { createLogger } from '../utils/logger';
@@ -57,6 +58,7 @@ export async function init(): Promise<void> {
   // Initialize theme early to prevent flash of wrong theme
   const { scheme, effectiveTheme } = initializeTheme();
   log.debug('Theme initialized', { scheme, effectiveTheme });
+  applyTextSize();
 
   const app = getElementById<HTMLDivElement>('app');
   if (!app) return;

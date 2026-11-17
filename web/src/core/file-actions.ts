@@ -10,6 +10,7 @@ import { files } from '../api/files';
 import { showToast, toast } from '../components/Toast';
 import { CHECK_ICON, setIcon } from '../utils/icons';
 import { hapticTick } from '../utils/haptics';
+import { htmlToMarkdown } from '../utils/html-to-markdown';
 
 const log = createLogger('file-actions');
 
@@ -151,7 +152,10 @@ export async function copyMessageContent(button: HTMLButtonElement): Promise<voi
   textClone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
   // Artifacts live outside the text: name them so the copy is complete
   const artifacts = messageEl ? artifactCopyText(messageEl) : '';
-  const textContent = [textClone.textContent?.trim(), artifacts].filter(Boolean).join('\n\n');
+  // The plain text is the reply's Markdown (headings, lists, links, bold
+  // survive a paste into a plain-text editor); unformatted text as is
+  const body = htmlToMarkdown(textClone.innerHTML) ?? textClone.textContent?.trim();
+  const textContent = [body, artifacts].filter(Boolean).join('\n\n');
   if (!textContent) return;
 
   try {

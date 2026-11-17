@@ -50,7 +50,9 @@ test.describe('Settings', () => {
     // Appearance tab (default)
     const visibleLabels = popup.locator('.settings-section.active .settings-label');
     await expect(visibleLabels.first()).toHaveText('Appearance');
-    await expect(visibleLabels.nth(1)).toHaveText('Primary Language');
+    await expect(visibleLabels.nth(1)).toHaveText('Text Size');
+    await expect(popup.locator('#text-size')).toHaveValue('default');
+    await expect(visibleLabels.nth(2)).toHaveText('Primary Language');
     await expect(popup.locator('#preferred-language')).toHaveValue('');
 
     // Integrations tab

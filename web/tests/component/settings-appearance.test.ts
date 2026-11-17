@@ -17,6 +17,9 @@ const prefs = vi.hoisted(() => ({
   setSidebarPreviewsEnabled: vi.fn(),
   getSwipeQuickAction: vi.fn(() => 'archive' as 'archive' | 'delete'),
   setSwipeQuickAction: vi.fn(),
+  TEXT_SIZES: ['default', 'large', 'larger'] as const,
+  getTextSize: vi.fn(() => 'default' as const),
+  setTextSize: vi.fn(),
 }));
 const settingsApi = vi.hoisted(() => ({ update: vi.fn<(data: Partial<UserSettings>) => Promise<void>>() }));
 const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
@@ -150,5 +153,19 @@ describe('primary language', () => {
     handleAppearanceChange(select);
     await vi.waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Failed to update language.'));
     expect(select.value).toBe('English');
+  });
+});
+
+describe('text size', () => {
+  it('marks the stored size and saves a newly picked one', () => {
+    prefs.getTextSize.mockReturnValue('default');
+    const section = renderAppearanceSection();
+    const select = section.querySelector<HTMLSelectElement>('#text-size')!;
+    expect(select.value).toBe('default');
+
+    select.value = 'larger';
+    handleAppearanceChange(select);
+
+    expect(prefs.setTextSize).toHaveBeenCalledWith('larger');
   });
 });
