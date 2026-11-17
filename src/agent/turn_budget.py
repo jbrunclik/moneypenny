@@ -61,17 +61,36 @@ def _budget_now() -> float:
     return max(0.0, min(budget, deadline - time.monotonic()))
 
 
-def initial_state(messages: list[BaseMessage]) -> AgentState:
-    """A graph run's input: its messages and a fresh budget (clock started)."""
+def initial_state(messages: list[BaseMessage], spent_usd: float = 0.0) -> AgentState:
+    """A graph run's input: its messages and a fresh budget (clock started).
+    ``spent_usd``: what the turn spent before the graph (the freshness gate)."""
     return {
         "messages": messages,
         "tool_retries": 0,
         "tool_rounds": 0,
         "turn_started_at": time.monotonic(),
         "turn_time_budget_s": _budget_now(),
-        "turn_cost_usd": 0.0,
+        "turn_cost_usd": spent_usd,
         "failed_calls": {},
     }
+
+
+def tool_spend_usd(messages: list[BaseMessage]) -> float:
+    """What the latest tool round spent on models of its own: delegate_task's
+    subagent (its usage rides in the result as _delegate_usage). Images are
+    left out on purpose - one is ~$0.13, near TURN_COST_LIMIT_USD, and the
+    user asked for it."""
+    from langchain_core.messages import AIMessage, ToolMessage  # noqa: PLC0415 - cheap; keeps the module's imports light
+
+    from src.services.costs import calculate_delegate_cost_from_tool_results  # noqa: PLC0415 - same
+
+    results: list[dict[str, object]] = []
+    for msg in reversed(messages):
+        if isinstance(msg, AIMessage):
+            break  # the call that started this round
+        if isinstance(msg, ToolMessage) and isinstance(msg.content, str):
+            results.append({"type": "tool", "content": msg.content})
+    return calculate_delegate_cost_from_tool_results(results)
 
 
 def call_cost_usd(response: AIMessage, model_name: str) -> float:
@@ -88,7 +107,10 @@ def call_cost_usd(response: AIMessage, model_name: str) -> float:
 StopReason = Literal["cost", "time", "rounds", "loop"]
 
 # Appended to the latest tool result (results are read; prompt text is not)
-WRAP_UP_NOTICE = "\n\n[Time is nearly up: finish with what you have in your next reply.]"
+WRAP_UP_NOTICE = (
+    "\n\n[This turn's time or cost budget is nearly used up: finish with what you "
+    "have in your next reply.]"
+)
 # Once, mid-hunt: batch independent lookups - and no hurry to answer
 BATCHING_HINT = (
     "\n\n[Tip: independent lookups can go into one round - several queries in one call "
@@ -150,10 +172,14 @@ def budget_stop(state: AgentState, tool_rounds: int) -> StopReason | None:
 
 
 def wrap_up_due(state: AgentState) -> bool:
-    """The one wrap-up notice is due (past the fraction, not sent yet)."""
+    """The one wrap-up notice is due (past the fraction of the time or the
+    cost limit, not sent yet): a cost stop used to come with no warning."""
     if state.get("wrap_up_noticed"):
         return False
-    return elapsed_s(state) >= Config.TURN_WRAP_UP_FRACTION * time_budget_s(state)
+    fraction = Config.TURN_WRAP_UP_FRACTION
+    late = elapsed_s(state) >= fraction * time_budget_s(state)
+    costly = state.get("turn_cost_usd", 0.0) >= fraction * Config.TURN_COST_LIMIT_USD
+    return late or costly
 
 
 def batching_hint_due(state: AgentState, tool_rounds: int) -> bool:

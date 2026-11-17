@@ -32,6 +32,7 @@ from src.agent.turn_budget import initial_state
 from src.agent.turn_usage import TurnClock, batch_usage_info, with_model_timing
 from src.config import Config
 from src.db.models import ConversationFact
+from src.services.costs import calculate_freshness_cost
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -88,6 +89,13 @@ def _consume_stream(
         if close is not None:
             close()
     return None
+
+
+def _gate_spend(decision: FreshnessDecision | None) -> float:
+    """What the freshness gate's call cost - the turn's spend before the graph."""
+    if decision is None or not decision.usage:
+        return 0.0
+    return calculate_freshness_cost({"freshness_usage": decision.usage})
 
 
 class ChatAgent:
@@ -396,7 +404,7 @@ class ChatAgent:
             messages = [*messages, *self._prefetch(decision, messages)]
             clock.lookup_done(lookup_started)
         result = self._turn_graph(decision).invoke(
-            cast(Any, initial_state(messages)), config=config
+            cast(Any, initial_state(messages, _gate_spend(decision))), config=config
         )
         turn_duration_ms = round((time.monotonic() - turn_started) * 1000)
         result_messages: list[BaseMessage] = result["messages"]
@@ -495,7 +503,7 @@ class ChatAgent:
         config = with_model_timing(get_graph_config(), clock.model)
         turn_started = time.monotonic()
         stream = self._turn_graph(decision).stream(
-            cast(Any, initial_state(messages)),
+            cast(Any, initial_state(messages, _gate_spend(decision))),
             config=config,
             # "custom" carries node-written statuses (transient-error
             # retries) that must reach the client while the node sleeps

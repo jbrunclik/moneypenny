@@ -153,6 +153,52 @@ def _clock(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("src.agent.turn_budget.time.monotonic", lambda: 0.0)
 
 
+class TestBlindSpots:
+    """Nov 17 2026: delegate_task's subagent and the freshness gate spent
+    outside the turn's running cost, and a cost stop came with no warning."""
+
+    def test_a_delegate_subagents_spend_counts(self, budgets: pytest.MonkeyPatch) -> None:
+        import json
+
+        _clock(budgets)
+        usage = {"model": "gemini-4-hydrogen", "input_tokens": 100_000, "output_tokens": 0}
+        state = _after_tools()
+        state["messages"][-1] = ToolMessage(
+            content=json.dumps({"result": "found", "_delegate_usage": usage}),
+            tool_call_id="c1",
+            name="delegate_task",
+            id="t1",
+        )
+
+        out = check_tool_results(state)
+
+        spent = calculate_token_cost("gemini-4-hydrogen", 100_000, 0)
+        assert out["turn_cost_usd"] == pytest.approx(0.01 + spent)
+
+    def test_a_delegate_spend_can_stop_the_turn(self, budgets: pytest.MonkeyPatch) -> None:
+        import json
+
+        _clock(budgets)
+        usage = {"model": "gemini-4-hydrogen", "input_tokens": 200_000, "output_tokens": 0}
+        state = _after_tools()
+        state["messages"][-1] = ToolMessage(
+            content=json.dumps({"_delegate_usage": usage}), tool_call_id="c1", name="delegate_task"
+        )
+        assert check_tool_results(state)["final_answer"] == "cost"
+
+    def test_the_wrap_up_notice_comes_before_a_cost_stop(self, budgets: pytest.MonkeyPatch) -> None:
+        _clock(budgets)
+        out = check_tool_results(_after_tools(turn_cost_usd=0.125))  # past 80% of $0.15
+        assert out.get("wrap_up_noticed") is True
+        assert "final_answer" not in out
+
+    def test_the_gate_spend_starts_the_turns_cost(self) -> None:
+        from src.agent.turn_budget import initial_state
+
+        assert initial_state([], spent_usd=0.0004)["turn_cost_usd"] == 0.0004
+        assert initial_state([])["turn_cost_usd"] == 0.0
+
+
 class TestLimits:
     def test_cost_limit_stops_the_turn(self, budgets: pytest.MonkeyPatch) -> None:
         _clock(budgets)

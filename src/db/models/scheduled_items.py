@@ -261,8 +261,9 @@ class ScheduledItemsMixin:
         return row is not None
 
     def job_spend_today(self, job_id: str) -> float:
-        """A standing job's own unattended spend since local midnight (its
-        daily budget; the user's turns in the same chat are not counted)."""
+        """A scheduled item's own unattended spend since local midnight (its
+        daily budget; the user's turns in the same chat are not counted).
+        Light items' runs carry their id since Nov 17 2026."""
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,

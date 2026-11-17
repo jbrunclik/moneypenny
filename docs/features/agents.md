@@ -364,9 +364,12 @@ Transient model errors (connection errors, timeouts, rate limits, 503s) are retr
 ## Budget Limits
 
 A standing job can have a daily spending limit (`budget_usd`, set in the editor or by
-`edit_standing_chat`; empty = none). Before a run, `job_spend_today` sums the job's own
-unattended cost since local midnight (the user's turns in the chat don't count); over the
-budget the run is skipped and recorded, not counted as a failure, until the next day.
+`edit_standing_chat`). Empty, it gets `UNATTENDED_DAILY_BUDGET_USD` ($1.00), and so does
+every light item (watcher, recurring, check-in) since Nov 17 2026: their cost rows carry
+the item id too. Before a run, `job_spend_today` sums the item's own unattended cost since
+local midnight (the user's turns in the chat don't count); over the budget the run is
+skipped and recorded ("Scheduled item over budget"), not counted as a failure, until the
+next day. The default is a backstop: the costliest real day of any job was $0.20 (Nov 3-17).
 
 ## Command Center UI
 

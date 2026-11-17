@@ -247,7 +247,8 @@ def _chat(
             tool_results,
             len(raw),
             mode="item",
-            job_id=item.id if item.standing else None,
+            # Every item's runs carry its id: its daily budget counts them
+            job_id=item.id,
         )
 
     return raw, record_cost, tool_outputs

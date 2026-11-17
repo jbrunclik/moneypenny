@@ -834,6 +834,10 @@ class Config:
     # Daily budget (USD) of a standing chat created by talking: a run is held
     # once its runs today cost this much (changeable in the editor)
     STANDING_CREATE_BUDGET_USD: float = float(os.getenv("STANDING_CREATE_BUDGET_USD", "0.5"))
+    # The daily budget of a scheduled item without its own (the Daily Briefing,
+    # older jobs, watchers and recurring items): 5x the costliest real day of
+    # any job (Nov 3-17 2026: $0.20), so it stops a runaway, not ordinary use
+    UNATTENDED_DAILY_BUDGET_USD = 1.0
     SCHEDULE_MAX_ACTIVE_PER_USER: int = int(os.getenv("SCHEDULE_MAX_ACTIVE_PER_USER", "20"))
     # Cards one message may file (a typed yes approves them all, so a message -
     # or a page steering the model - cannot pile up more; prod max was 7, Nov 2026)

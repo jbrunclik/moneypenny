@@ -209,10 +209,12 @@ Since Nov 9 2026 a turn stops on what it costs and how long it runs, not on a ro
 
 | Limit | Setting (default) | `stopped_by` |
 |---|---|---|
-| Running cost of the turn's model calls, priced by the answering model in `chat_node` | `TURN_COST_LIMIT_USD` (0.15) | `cost` |
+| Running cost of the turn: its model calls (priced by the answering model in `chat_node`), the freshness gate's call (`initial_state(messages, spent_usd)`, since Nov 17 2026) and `delegate_task` subagents (`tool_spend_usd`, added after each tool round; images are left out) | `TURN_COST_LIMIT_USD` (0.15) | `cost` |
 | Wall clock since the turn started | `TURN_TIME_BUDGET_SECONDS` (240) | `time` |
 | Round backstop against runaways (a run can override it, e.g. deep-research subagents: `round_cap_override`) | `TURN_MAX_TOOL_ROUNDS` (20) | `rounds` |
 | The same failing call keeps coming back | `TURN_LOOP_BLOCK_AFTER` (2) + 2 | `loop` |
+
+The wrap-up notice rides on the last tool result once either budget passes `TURN_WRAP_UP_FRACTION` (0.8) - time or cost (cost since Nov 17 2026), so a cost stop is announced a round ahead like a time stop.
 
 State keys (`AgentState`): `turn_started_at`, `turn_cost_usd`, `failed_calls`, `recent_rounds`, `seen_results`, `final_answer` (the stop reason), `wrap_up_noticed`, `batching_hinted`, `ab_warned`; `initial_state()` seeds them for both invokes.
 

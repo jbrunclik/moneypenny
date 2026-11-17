@@ -22,6 +22,7 @@ from src.agent.turn_budget import (
     final_guidance,
     log_stop,
     stop_facts,
+    tool_spend_usd,
     with_note,
     wrap_up_due,
 )
@@ -127,7 +128,13 @@ def _budget_update(
         }
     latest = state["messages"][-1] if state["messages"] else None
     if wrap_up_due(state) and isinstance(latest, ToolMessage):
-        logger.info("Turn wrap-up notice", extra={"tool_rounds": tool_rounds})
+        logger.info(
+            "Turn wrap-up notice",
+            extra={
+                "tool_rounds": tool_rounds,
+                "cost_usd": round(state.get("turn_cost_usd", 0.0), 4),
+            },
+        )
         notice = with_note(latest, WRAP_UP_NOTICE)
         return {
             "tool_rounds": tool_rounds,
@@ -248,5 +255,16 @@ def check_tool_results(state: AgentState) -> Update:
     # context, so unbounded rounds multiply input-token cost.
     tool_rounds = state.get("tool_rounds", 0) + 1
 
+    # Spend inside the round's tools (delegate_task's subagent) counts toward
+    # the turn's cost limit before the budgets decide
+    spent = tool_spend_usd(state["messages"])
+    if spent:
+        state = cast(
+            "AgentState", {**state, "turn_cost_usd": state.get("turn_cost_usd", 0.0) + spent}
+        )
+
     update = _interjection_update(state, tool_rounds)
-    return _with_budgets(state, tool_rounds, update)
+    result = _with_budgets(state, tool_rounds, update)
+    if spent:
+        result["turn_cost_usd"] = state["turn_cost_usd"]
+    return result

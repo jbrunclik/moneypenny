@@ -166,6 +166,9 @@ The review itself changes nothing in production and edits nothing but
   `message_costs.stopped_by` - the share of turns stopped and by which limit
   (cost, time, rounds, loop), and p90 turn cost and time. A limit that stops
   good turns, or one that never fires, is a value to retune in `src/config.py`.
+  "Scheduled item over budget" lines (`item_id`, `kind`, `budget_usd`): any
+  means a job or light item spent `UNATTENDED_DAILY_BUDGET_USD` (or its own
+  budget) in a day - read what it ran before raising anything.
   "Turn final answer retried without tools" counts final rounds that only asked
   for tools (since Nov 11 2026 they get one retry on a model with no tools); a
   stopped reply that still ends in "I stopped before finishing" means the retry

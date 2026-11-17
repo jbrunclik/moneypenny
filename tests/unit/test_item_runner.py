@@ -400,6 +400,24 @@ def test_standing_job_cost_rows_carry_job_id(
     assert db.job_spend_today(job.id) > 0
 
 
+def test_a_light_items_cost_rows_carry_its_id_too(
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    fake_llm: type[FakeChatAgent],
+    push: MagicMock,
+) -> None:
+    """Its daily budget counts its runs (Nov 17 2026: only standing jobs did)."""
+    fake_llm.response = "Nothing new on the board."
+    light = _job(test_user, test_conversation, grants=None)
+    assert not light.standing
+
+    outcome = run_model_item(light, test_user)
+    deliver(light, outcome.text, "Watching · Mon 07:15", outcome=outcome)
+
+    assert db.job_spend_today(light.id) > 0
+
+
 def test_standing_job_runs_the_chat_model_of_its_choice(
     db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
 ) -> None:

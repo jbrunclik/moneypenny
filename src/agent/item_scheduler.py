@@ -165,7 +165,7 @@ def _handle(item: ScheduledItem, now: datetime, result: ItemsResult) -> None:
     if user is None:
         db.delete_item(item.id)
         return
-    if item.standing and _job_held(item, now):
+    if _job_held(item, now):
         return
     result.run += 1
     _apply_outcome(item, now, run_model_item(item, user))
@@ -277,19 +277,26 @@ def _continue_after_cards(item: ScheduledItem, now: datetime, result: ItemsResul
     db.release_item(item.id, claimed_at, prior)
 
 
+def daily_budget(item: ScheduledItem) -> float:
+    """The item's daily budget: its own, else UNATTENDED_DAILY_BUDGET_USD (the
+    Daily Briefing, older jobs and the light items had none - Nov 17 2026)."""
+    own = item.budget_usd
+    return own if own is not None and own > 0 else Config.UNATTENDED_DAILY_BUDGET_USD
+
+
 def hold_reason(item: ScheduledItem) -> str | None:
-    """Why a standing job must not run now, by any path: it waits for an
+    """Why a scheduled item must not run now, by any path: it waits for an
     approval it asked for, or it spent its daily budget."""
     if db.has_pending_run_proposal(item.id):
         return "waiting for your approval"
-    budget = item.budget_usd
-    if budget is not None and budget > 0 and db.job_spend_today(item.id) >= budget:
+    budget = daily_budget(item)
+    if db.job_spend_today(item.id) >= budget:
         return f"over its daily budget (${budget:.2f})"
     return None
 
 
 def _job_held(item: ScheduledItem, now: datetime) -> bool:
-    """A held standing job is given back on its schedule; an over-budget one
+    """A held item is given back on its schedule; an over-budget one
     records a skipped run (not a failure)."""
     reason = hold_reason(item)
     if reason is None:
@@ -297,7 +304,10 @@ def _job_held(item: ScheduledItem, now: datetime) -> bool:
     if "budget" in reason:
         execution = db.create_execution(item.id, "scheduled")
         db.update_execution(execution.id, "failed", f"Skipped: {reason}")
-        logger.info("Standing job over budget", extra={"item_id": item.id})
+        logger.info(
+            "Scheduled item over budget",
+            extra={"item_id": item.id, "kind": item.kind, "budget_usd": daily_budget(item)},
+        )
     _give_back(item, now, failed=False)
     return True
 

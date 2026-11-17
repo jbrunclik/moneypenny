@@ -582,6 +582,34 @@ def test_over_budget_skips_without_counting_a_failure(
     assert "over its daily budget" in (execution.error_message or "")
 
 
+def test_a_light_item_without_a_budget_gets_the_default(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    """Nov 17 2026: watchers, recurring items and older jobs had no daily
+    budget at all; UNATTENDED_DAILY_BUDGET_USD now applies to them."""
+    watcher = _watcher(db, test_user, test_conversation)
+    earlier = db.add_message(test_conversation.id, "assistant", "earlier run")
+    spent = Config.UNATTENDED_DAILY_BUDGET_USD
+    db.save_message_cost(
+        earlier.id, test_conversation.id, test_user.id, "m", 1, 1, spent, job_id=watcher.id
+    )
+
+    item_scheduler.run_due_items(_NOW)
+
+    runs.assert_not_called()
+    assert _stored(db, watcher).next_run_at > _NOW
+
+
+def test_an_own_budget_beats_the_default(
+    db: Database, test_user: User, test_conversation: Conversation
+) -> None:
+    assert (
+        item_scheduler.daily_budget(_job(db, test_user, test_conversation, budget_usd=0.3)) == 0.3
+    )
+    unset = _job(db, test_user, test_conversation, budget_usd=None)
+    assert item_scheduler.daily_budget(unset) == Config.UNATTENDED_DAILY_BUDGET_USD
+
+
 def test_standing_job_pauses_after_failures_with_one_alert(
     db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
 ) -> None:
