@@ -6,6 +6,7 @@ import { isTouchDevice } from '../gestures/swipe';
 import { hapticTick } from '../utils/haptics';
 import { createLogger } from '../utils/logger';
 import { LONG_PRESS_DURATION_MS, STORAGE_KEY_VOICE_LANG } from '../config';
+import { useStore } from '../state/store';
 
 const log = createLogger('voice');
 
@@ -249,10 +250,41 @@ function handleOutsideClick(e: MouseEvent): void {
   }
 }
 
+// UI-local (F2): the conversation whose dictation language the user picked by hand
+let pickedForConversation: string | null = null;
+
+function currentConversationId(): string | null {
+  return useStore.getState().currentConversation?.id ?? null;
+}
+
+/**
+ * The language of the conversation on screen: its latest message's detected
+ * language, when dictation supports it.
+ */
+function conversationLanguage(): string | null {
+  const tagged = document.querySelectorAll<HTMLElement>('#messages .message[data-language]');
+  const lang = tagged[tagged.length - 1]?.dataset.language;
+  if (!lang) return null;
+  const code = normalizeLanguageCode((lang.split('-')[0] ?? lang).toLowerCase());
+  return getAvailableLanguages().includes(code) ? code : null;
+}
+
+/**
+ * The language a new recording uses: a hand pick in this conversation, else
+ * the conversation's language, else the saved one (or the browser's).
+ */
+export function languageForRecording(): string {
+  if (pickedForConversation !== null && pickedForConversation === currentConversationId()) {
+    return currentLang || getSavedLanguage();
+  }
+  return conversationLanguage() ?? getSavedLanguage();
+}
+
 /**
  * Select a language for speech recognition
  */
 function selectLanguage(lang: string): void {
+  pickedForConversation = currentConversationId();
   currentLang = lang;
   saveLanguage(lang);
   if (recognition) {
@@ -435,6 +467,12 @@ export function initVoiceInput(): void {
     } else {
       // SpeechRecognition will automatically prompt for microphone permission when start() is called
       try {
+        const lang = languageForRecording();
+        if (recognition && recognition.lang !== lang) {
+          currentLang = lang;
+          recognition.lang = lang;
+          voiceBtn.title = `Voice input (${getLanguageDisplayName(lang)})`;
+        }
         recognition?.start();
       } catch (error) {
         // Already started or other error

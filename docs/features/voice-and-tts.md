@@ -20,7 +20,12 @@ Voice input uses the Web Speech API (`SpeechRecognition`) in [VoiceInput.ts](../
 
 ### Language Selection
 
-Long-press (500ms) on the microphone button to open a language selector popup.
+Dictation starts in the conversation's language (Nov 17 2026,
+`languageForRecording()`): the latest message's detected `language`
+(`data-language` on the message element), when dictation supports it.
+Long-press (500ms) on the microphone button opens a language selector popup;
+a pick there wins for that conversation, and otherwise (a new chat, an
+unsupported language) the saved pick or the browser's language applies.
 
 - Currently supports English (en-US) and Czech (cs-CZ)
 - The browser's preferred language is shown first if supported
@@ -52,12 +57,13 @@ Assistant messages can be read aloud using the Web Speech API (`SpeechSynthesis`
 
 ### Content Filtering
 
-The `getTextContentForTTS()` function excludes from reading:
-- Thinking indicator content (`.thinking-indicator`)
-- Inline copy buttons (`.inline-copy-btn`)
-- Code language labels (`.code-language`)
-- File attachment metadata (`.message-files`)
-- Copyable header elements (`.copyable-header`)
+`getSpeechChunks()` reads prose only (Nov 17 2026): it drops UI chrome
+(thinking indicator, copy buttons, code labels, attachments), code blocks,
+tables, diagrams, formulas, artifacts, citation marks and the grounding note,
+and strips inline citation numbers ("[1]") and bare links. Each paragraph,
+list item or heading is its own utterance (queued; a chunk over 240 characters
+is split at sentence ends), since some voices stop a long utterance after
+~15 s and the pauses read more naturally. Stop cancels the whole queue.
 
 ### Toggle Behavior
 
@@ -84,7 +90,7 @@ For existing messages without language data:
 
 ### Key Files
 
-- [tts.ts](../../web/src/core/tts.ts) - `speakMessage()`, `findVoiceForLanguage()`, `initTTSVoices()`, `getTextContentForTTS()`
+- [tts.ts](../../web/src/core/tts.ts) - `speakMessage()`, `findVoiceForLanguage()`, `initTTSVoices()`, `getSpeechChunks()`
 - [messages/actions.ts](../../web/src/components/messages/actions.ts) - Speak button in `createMessageActions()`
 - [content.py](../../src/agent/content.py) - `detect_response_language()` (server-side langdetect on the reply)
 - [prompt_texts/core.py](../../src/agent/prompt_texts/core.py) - System prompt text

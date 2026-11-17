@@ -336,6 +336,8 @@ function createMessageElement(message: Message, animate: boolean): HTMLDivElemen
   const messageEl = document.createElement('div');
   messageEl.className = `message ${message.role}`;
   messageEl.dataset.messageId = message.id;
+  // Dictation starts in the conversation's language (VoiceInput)
+  if (message.language) messageEl.dataset.language = message.language;
 
   // Entrance animation only for live appends (never on history load).
   // Transform/opacity only - does not affect layout or scroll anchoring.

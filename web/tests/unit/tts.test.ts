@@ -6,7 +6,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 
 vi.mock('@/components/Toast', () => ({ toast: { error: vi.fn() } }));
 
-import { findVoiceForLanguage, getTextContentForTTS } from '@/core/tts';
+import { findVoiceForLanguage, getSpeechChunks } from '@/core/tts';
 
 function voice(name: string, lang: string): SpeechSynthesisVoice {
   return { name, lang } as SpeechSynthesisVoice;
@@ -50,21 +50,42 @@ describe('findVoiceForLanguage', () => {
   });
 });
 
-describe('getTextContentForTTS', () => {
-  it('reads the message text without UI chrome and leaves the DOM untouched', () => {
-    const content = document.createElement('div');
-    content.innerHTML = [
-      '<div class="thinking-indicator">Thinking...</div>',
-      '<p>Hello there.</p>',
-      '<div class="copyable-header"><span class="code-language">python</span></div>',
-      '<pre><code>print(1)</code><button class="inline-copy-btn">Copy</button></pre>',
-      '<div class="message-files">report.pdf</div>',
-    ].join('');
-    expect(getTextContentForTTS(content)).toBe('Hello there.print(1)');
-    expect(content.querySelector('.thinking-indicator')).not.toBeNull();
+function content(html: string): HTMLDivElement {
+  const el = document.createElement('div');
+  el.innerHTML = html;
+  return el;
+}
+
+describe('getSpeechChunks', () => {
+  it('reads prose only - no UI chrome, code, tables or citations - and leaves the DOM untouched', () => {
+    const el = content(
+      [
+        '<div class="thinking-indicator">Thinking...</div>',
+        '<p>Hello there<sup class="claim-cite">[1]</sup>.</p>',
+        '<div class="copyable-header"><span class="code-language">python</span></div>',
+        '<div class="code-block-wrapper"><pre><code>print(1)</code></pre></div>',
+        '<div class="table-wrapper"><table><tr><td>42</td></tr></table></div>',
+        '<ul><li>First [2] point, see https://example.com/x</li><li>Second</li></ul>',
+        '<div class="message-files">report.pdf</div>',
+      ].join('')
+    );
+    expect(getSpeechChunks(el)).toEqual(['Hello there.', 'First point, see', 'Second']);
+    expect(el.querySelector('.thinking-indicator')).not.toBeNull();
   });
 
-  it('returns an empty string for an empty element', () => {
-    expect(getTextContentForTTS(document.createElement('div'))).toBe('');
+  it('reads plain text without blocks as one chunk', () => {
+    expect(getSpeechChunks(content('Just text [3].'))).toEqual(['Just text.']);
+  });
+
+  it('splits a long paragraph at sentence ends', () => {
+    const sentence = 'This sentence is about forty-five characters. ';
+    const chunks = getSpeechChunks(content(`<p>${sentence.repeat(12)}</p>`));
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.every((c) => c.length <= 240 && c.endsWith('.'))).toBe(true);
+    expect(chunks.join(' ')).toBe(sentence.repeat(12).trim());
+  });
+
+  it('returns nothing for an empty element', () => {
+    expect(getSpeechChunks(document.createElement('div'))).toEqual([]);
   });
 });

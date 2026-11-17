@@ -69,19 +69,75 @@ export function findVoiceForLanguage(langCode: string): SpeechSynthesisVoice | n
   return null;
 }
 
+// Not read aloud: UI chrome, and blocks that make no sense spoken (code,
+// tables, diagrams, formulas, artifacts, citation marks, the grounding note)
+const SKIPPED_FOR_SPEECH = [
+  '.thinking-indicator',
+  '.inline-copy-btn',
+  '.code-language',
+  '.copyable-header',
+  '.message-files',
+  'pre',
+  '.code-block-wrapper',
+  '.table-wrapper',
+  'table',
+  '.mermaid-diagram',
+  '.katex',
+  '.artifact-list',
+  '.claim-cite',
+  '.grounding-footer',
+  'sup',
+].join(', ');
+
+// Blocks read as separate utterances: one long utterance gets cut off by
+// some browsers, and a pause between paragraphs reads more naturally
+const SPEECH_BLOCKS = 'p, li, h1, h2, h3, h4, h5, h6, blockquote, dt, dd';
+
+// Inline citation numbers ("[1]", "[2, 3]") and bare links read as noise
+const CITATION_NUMBERS = /\s*\[\d+(?:\s*[,–-]\s*\d+)*\]/g;
+const URLS = /https?:\/\/\S+/g;
+
+// Longer chunks are split at sentence ends (some voices stop after ~15 s)
+const MAX_UTTERANCE_CHARS = 240;
+
+function speakable(text: string): string {
+  return text.replace(CITATION_NUMBERS, '').replace(URLS, '').replace(/\s+/g, ' ').trim();
+}
+
+function splitLong(text: string): string[] {
+  if (text.length <= MAX_UTTERANCE_CHARS) return [text];
+  const sentences = text.match(/[^.!?…]+[.!?…]*\s*/g) ?? [text];
+  const chunks: string[] = [];
+  let current = '';
+  for (const sentence of sentences) {
+    if (current && current.length + sentence.length > MAX_UTTERANCE_CHARS) {
+      chunks.push(current.trim());
+      current = '';
+    }
+    current += sentence;
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
 /**
- * Extract text content for TTS, excluding UI elements.
+ * The message text read aloud, as utterance-sized chunks: prose blocks in
+ * order, without UI chrome, code, tables, citation numbers or links.
  */
-export function getTextContentForTTS(element: HTMLElement): string {
+export function getSpeechChunks(element: HTMLElement): string[] {
   // Clone to avoid modifying the actual DOM
   const clone = element.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll(SKIPPED_FOR_SPEECH).forEach((el) => el.remove());
 
-  // Remove elements we don't want to read (UI elements, file attachments, etc.)
-  clone.querySelectorAll('.thinking-indicator, .inline-copy-btn, .code-language, .copyable-header, .message-files').forEach(el => el.remove());
-
-  // Get text content
-  return clone.textContent || '';
+  // Innermost blocks only (a list item's nested list is its own block)
+  const blocks = [...clone.querySelectorAll<HTMLElement>(SPEECH_BLOCKS)].filter(
+    (el) => !el.querySelector(SPEECH_BLOCKS)
+  );
+  const texts = blocks.length ? blocks.map((el) => el.textContent ?? '') : [clone.textContent ?? ''];
+  return texts.map(speakable).filter(Boolean).flatMap(splitLong);
 }
+
+
 
 /**
  * Speak a message using Web Speech API.
@@ -121,29 +177,25 @@ export function speakMessageInternal(messageId: string, language?: string): void
     return;
   }
 
-  // Get text content, excluding thinking/tool traces and inline copy buttons
-  const textContent = getTextContentForTTS(contentEl as HTMLElement);
-  if (!textContent.trim()) {
+  const chunks = getSpeechChunks(contentEl as HTMLElement);
+  if (!chunks.length) {
     log.warn('No text content to speak', { messageId });
     return;
   }
 
-  // Create utterance
-  const utterance = new SpeechSynthesisUtterance(textContent);
-
-  // Set language and find appropriate voice
-  if (language) {
-    // Set the lang attribute (browser may use this as fallback)
-    utterance.lang = language;
-
-    // Try to find a voice for this language
-    const matchingVoice = findVoiceForLanguage(language);
-    if (matchingVoice) {
-      utterance.voice = matchingVoice;
-    } else {
-      log.warn('No voice found for language, using browser default', { language });
-    }
+  // One utterance per chunk, queued; the last one's end restores the button
+  const voice = language ? findVoiceForLanguage(language) : null;
+  if (language && !voice) {
+    log.warn('No voice found for language, using browser default', { language });
   }
+  const utterances = chunks.map((chunk) => {
+    const utterance = new SpeechSynthesisUtterance(chunk);
+    if (language) utterance.lang = language; // the browser's fallback when there is no voice
+    if (voice) utterance.voice = voice;
+    return utterance;
+  });
+  const utterance = utterances.at(-1);
+  if (!utterance) return;
 
   // Mark button as speaking and swap to stop icon
   const speakBtn = messageEl.querySelector('.message-speak-btn');
@@ -160,18 +212,20 @@ export function speakMessageInternal(messageId: string, language?: string): void
     }
   };
 
-  utterance.onerror = (event) => {
+  const onError = (event: SpeechSynthesisErrorEvent): void => {
+    // Don't log or toast user-initiated cancellation or interruption
+    if (event.error === 'canceled' || event.error === 'interrupted') return;
     log.error('TTS error', { error: event.error, messageId });
+    speechSynthesis.cancel(); // drop the rest of the queue
     speakBtn?.classList.remove('speaking');
     if (speakBtn) {
       setIcon(speakBtn, SPEAKER_ICON);
     }
-    // Don't show error for user-initiated cancellation or interruption
-    if (event.error !== 'canceled' && event.error !== 'interrupted') {
-      toast.error('Failed to read message aloud.');
-    }
+    toast.error('Failed to read message aloud.');
   };
-
-  speechSynthesis.speak(utterance);
-  log.info('Started TTS', { messageId, language, voice: utterance.voice?.name });
+  utterances.forEach((u) => {
+    u.onerror = onError;
+    speechSynthesis.speak(u);
+  });
+  log.info('Started TTS', { messageId, language, voice: voice?.name, chunks: utterances.length });
 }
