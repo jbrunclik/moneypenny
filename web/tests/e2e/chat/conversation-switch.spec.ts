@@ -440,12 +440,21 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
     const messageContent = page.locator('.message.assistant .message-content');
     await expect(messageContent).toContainText('This', { timeout: 2000 });
 
+    // Remember which sidebar row is the streaming chat: clicking `.last()` on
+    // the way back picked whatever row was last when the list re-rendered, and
+    // under CI load that was not always this chat (Nov 17 2026)
+    const streamingRow = page.locator('.conversation-item-wrapper.active');
+    await expect(streamingRow).toHaveCount(1);
+    const convId = await streamingRow.getAttribute('data-conv-id');
+    expect(convId).toBeTruthy();
+
     // Create second conversation (switches away from first)
     await page.click('#new-chat-btn');
 
     // Switch back to first conversation
-    const convItems = page.locator('.conversation-item-wrapper');
-    await convItems.last().click();
+    const firstChat = page.locator(`.conversation-item-wrapper[data-conv-id="${convId}"]`);
+    await firstChat.click();
+    await expect(firstChat).toHaveClass(/active/);
 
     // The message content should still contain what we had before (or more)
     // Use toContainText instead of comparing lengths since thinking indicator
