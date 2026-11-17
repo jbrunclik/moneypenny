@@ -1,4 +1,5 @@
 id: web_lookup_cited
+smoke: true
 description: Current-fact question requires a web tool and a citation
 user: What is the current price of Bitcoin in USD?
 expect:

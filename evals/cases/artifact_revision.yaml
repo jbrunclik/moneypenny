@@ -1,4 +1,5 @@
 id: artifact_revision
+smoke: true
 description: Changing an earlier artifact edits it into a new version instead of recreating it
 artifacts:
   - title: Kalkulačka spropitného

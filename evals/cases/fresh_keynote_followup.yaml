@@ -1,4 +1,5 @@
 id: fresh_keynote_followup
+smoke: true
 description: A follow-up about a recent keynote is looked up, not answered from training data (Oct 2026 report)
 history:
   - role: user

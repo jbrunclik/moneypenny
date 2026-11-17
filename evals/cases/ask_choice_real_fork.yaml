@@ -1,4 +1,5 @@
 id: ask_choice_real_fork
+smoke: true
 description: >
   A request with two real readings the conversation cannot settle: the agent
   asks with a question card (ask_choice) naming the concrete options, instead

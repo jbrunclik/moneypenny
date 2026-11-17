@@ -1,4 +1,5 @@
 id: fresh_gate_precision
+smoke: true
 description: A request that needs no current facts runs no web lookup (the freshness gate must not over-fire)
 user: "Přelož mi do angličtiny: Dobré ráno, dnes nepřijdu, jsem nemocný."
 expect:

@@ -1,4 +1,5 @@
 id: deep_research_offer_precision
+smoke: true
 description: A single quick fact must not get a deep-research offer
 user: |
   Kolik je hodin v Tokiu?

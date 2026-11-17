@@ -1,4 +1,5 @@
 id: schedule_reminder_preview
+smoke: true
 description: >
   A reminder request is previewed and confirmed with the user - nothing is
   scheduled without a yes (schedule tool, create without confirm)

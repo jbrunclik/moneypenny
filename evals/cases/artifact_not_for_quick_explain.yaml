@@ -1,4 +1,5 @@
 id: artifact_not_for_quick_explain
+smoke: true
 description: A one-line question on an explainer topic still gets a short text answer, not an artifact
 user: Mám brát hořčík ráno, nebo večer?
 expect:

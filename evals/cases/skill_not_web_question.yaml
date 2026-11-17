@@ -1,4 +1,5 @@
 id: skill_not_web_question
+smoke: true
 description: A factual web question must not load a skill
 user: "Who is the current president of Czechia?"
 expect:

@@ -178,7 +178,10 @@ test:
 	$(PYTHON) -m pytest tests/ -v -n auto
 
 eval: ## Run agent eval harness (golden cases, hits live Gemini API)
-	$(PYTHON) evals/run.py
+	PYTHONPATH=. $(PYTHON) evals/run.py
+
+eval-smoke: ## The ~$1 smoke subset (smoke: true cases) - run it on changes to src/agent/
+	PYTHONPATH=. $(PYTHON) evals/run.py --smoke
 
 eval-ab: ## Compare cases on BASE vs the working tree: make eval-ab BASE=main~1 ONLY='a,b' [RUNS=2]
 	PYTHONPATH=. $(PYTHON) evals/ab.py $(BASE) --only '$(ONLY)' --runs $(or $(RUNS),2)

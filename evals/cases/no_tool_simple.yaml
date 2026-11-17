@@ -1,4 +1,5 @@
 id: no_tool_simple
+smoke: true
 description: Timeless factual question must be answered directly, without web tools
 user: What is the capital of France?
 expect:

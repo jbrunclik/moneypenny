@@ -28,6 +28,7 @@ import fnmatch
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import threading
@@ -79,6 +80,11 @@ class EvalCase:
     description: str
     user: str
     requires: list[str] = field(default_factory=list)
+    # In the ~$1 smoke subset (`--smoke`, `make eval-smoke`)
+    smoke: bool = False
+    # A behaviour the agent does not have yet (a target, not a regression):
+    # reported as TARGET instead of FAIL, so a run's failures are the new ones
+    known_failure: str | None = None
     rubric: str = ""
     required_tools: list[str] = field(default_factory=list)  # any-of
     forbidden_tools: list[str] = field(default_factory=list)
@@ -195,6 +201,8 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 description=str(data.get("description", "")),
                 user=str(data["user"]),
                 requires=list(data.get("requires") or []),
+                smoke=bool(data.get("smoke", False)),
+                known_failure=str(data["known_failure"]) if data.get("known_failure") else None,
                 rubric=_resolve_dates(str(expect["rubric"])),
                 required_tools=list(expect.get("required_tools") or []),
                 forbidden_tools=list(expect.get("forbidden_tools") or []),
@@ -1177,14 +1185,23 @@ def execute_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         result = {"id": case.id, "pass": False, "score": 0, "error": str(e), "timed_out": True}
     except Exception as e:  # noqa: BLE001 - a crashed case is a failed case, not a dead run
         result = {"id": case.id, "pass": False, "score": 0, "error": str(e)}
+    if case.known_failure:
+        result["known_failure"] = case.known_failure
     return result
+
+
+def _status(result: dict[str, Any]) -> str:
+    """PASS, FAIL, or TARGET for a failing case marked known_failure."""
+    if result.get("pass"):
+        return "PASS"
+    return "TARGET" if result.get("known_failure") else "FAIL"
 
 
 def _print_result(result: dict[str, Any]) -> None:
     if result.get("skipped"):
         print(f"SKIP  {result['id']} (requirements not met)", flush=True)
         return
-    status = "PASS" if result.get("pass") else "FAIL"
+    status = _status(result)
     cost = result.get("cost_usd")
     cost_str = f" cost={_usd(cost)}" if cost is not None else ""
     print(
@@ -1194,58 +1211,17 @@ def _print_result(result: dict[str, Any]) -> None:
     )
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cases", default=str(Path(__file__).parent / "cases"))
-    parser.add_argument(
-        "--only",
-        action="append",
-        default=[],
-        help="case ids or globs (quote them), comma-separated or repeated",
-    )
-    parser.add_argument("--workers", type=int, help="parallel cases (default EVAL_WORKERS)")
-    args = parser.parse_args()
-
-    isolate_environment()
-    # Imported here, not at module scope: Config reads env at import time and
-    # must not be loaded before the DATABASE_PATH override above.
-    from evals.pool import run_cases
-    from src.config import Config
-
-    try:
-        cases = select_cases(load_cases(Path(args.cases)), args.only)
-    except ValueError as e:
-        print(e)
-        return 1
-    workers = max(1, args.workers or Config.EVAL_WORKERS)
-
-    results_dir = Path(__file__).parent / "results"
-    results_dir.mkdir(exist_ok=True)
-
-    out_path = results_dir / f"{to_local(utc_now()).strftime('%Y%m%d-%H%M%S')}.json"
-    print(f"{len(cases)} cases on {min(workers, len(cases))} workers", flush=True)
-    started = time.monotonic()
-
-    done: dict[str, dict[str, Any]] = {}
-
-    def on_result(result: dict[str, Any]) -> None:
-        done[result["id"]] = result
-        # Flush after every case so a hang or Ctrl-C keeps what was paid for
-        write_results(out_path, in_case_order(cases, done))
-        _print_result(result)
-
-    run_cases(cases, workers, on_result)
-    results = in_case_order(cases, done)
-    elapsed = time.monotonic() - started
-
+def _print_summary(
+    results: list[dict[str, Any]], cost: dict[str, Any], elapsed: float, workers: int
+) -> None:
+    """Pass counts, spend, and why each failing case failed."""
     ran = [r for r in results if not r.get("skipped")]
     passed = sum(1 for r in ran if r.get("pass"))
-    cost = _cost_summary(results)
-    write_results(out_path, results)
-
+    targets = [r for r in ran if _status(r) == "TARGET"]
     print(
-        f"\n{passed}/{len(ran)} passed ({len(results) - len(ran)} skipped) "
-        f"in {elapsed / 60:.1f} min on {min(workers, len(cases))} workers"
+        f"\n{passed}/{len(ran)} passed ({len(results) - len(ran)} skipped"
+        + (f", {len(targets)} known targets failing" if targets else "")
+        + f") in {elapsed / 60:.1f} min on {workers} workers"
     )
 
     print(f"\nCost: {_usd(cost['total_usd'])} total for {cost['cases_priced']} priced cases")
@@ -1276,13 +1252,124 @@ def main() -> int:
     if any(r.get("cost_usd") is None for r in ran):
         print("  NOTE: some cases errored before pricing; total is a lower bound.")
 
-    print(f"\nResults: {out_path}")
     for r in ran:
         if not r.get("pass"):
             reason = "; ".join(r.get("deterministic_failures", [])) or r.get(
                 "judge_reasoning", r.get("error", "")
             )
-            print(f"  FAIL {r['id']}: {reason}")
+            print(f"  {_status(r)} {r['id']}: {reason}")
+        elif r.get("known_failure"):
+            print(f"  TARGET PASSED {r['id']}: drop its known_failure if it keeps passing")
+
+
+HISTORY_PATH = Path(__file__).parent / "history.jsonl"
+
+
+def _git_sha() -> str:
+    """The checkout's short sha, "-dirty" when it has uncommitted changes."""
+    try:
+        sha = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607 - git from PATH
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],  # noqa: S607 - git from PATH
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except OSError, subprocess.CalledProcessError:
+        return "unknown"
+    return f"{sha}-dirty" if dirty else sha
+
+
+def history_line(
+    results: list[dict[str, Any]], cost: dict[str, Any], selection: str, elapsed: float
+) -> dict[str, Any]:
+    """One run in the tracked log: what ran, on what, how it went and what it cost.
+
+    Per case [pass, score]; TARGET cases also show as false - known_failing
+    lists them so a reader can tell new failures from the known ones.
+    """
+    ran = [r for r in results if not r.get("skipped")]
+    return {
+        "at": to_local(utc_now()).strftime("%Y-%m-%d %H:%M"),
+        "sha": _git_sha(),
+        "agent_model": cost["agent_model"],
+        "judge_model": cost["judge_model"],
+        "selection": selection,
+        "passed": sum(1 for r in ran if r.get("pass")),
+        "ran": len(ran),
+        "known_failing": sorted(r["id"] for r in ran if _status(r) == "TARGET"),
+        "cost_usd": round(float(cost["total_usd"]), 4),
+        "minutes": round(elapsed / 60, 1),
+        "cases": {r["id"]: [bool(r.get("pass")), r.get("score")] for r in ran},
+    }
+
+
+def append_history(path: Path, line: dict[str, Any]) -> None:
+    """Append one run to the tracked results log (evals/results/ is gitignored)."""
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(line, ensure_ascii=False) + "\n")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cases", default=str(Path(__file__).parent / "cases"))
+    parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        help="case ids or globs (quote them), comma-separated or repeated",
+    )
+    parser.add_argument("--workers", type=int, help="parallel cases (default EVAL_WORKERS)")
+    parser.add_argument(
+        "--smoke", action="store_true", help="only the ~$1 smoke subset (cases with smoke: true)"
+    )
+    args = parser.parse_args()
+
+    isolate_environment()
+    # Imported here, not at module scope: Config reads env at import time and
+    # must not be loaded before the DATABASE_PATH override above.
+    from evals.pool import run_cases
+    from src.config import Config
+
+    try:
+        cases = select_cases(load_cases(Path(args.cases)), args.only)
+    except ValueError as e:
+        print(e)
+        return 1
+    if args.smoke:
+        cases = [c for c in cases if c.smoke]
+    selection = "smoke" if args.smoke else ",".join(args.only) or "all"
+    workers = max(1, args.workers or Config.EVAL_WORKERS)
+
+    results_dir = Path(__file__).parent / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    out_path = results_dir / f"{to_local(utc_now()).strftime('%Y%m%d-%H%M%S')}.json"
+    print(f"{len(cases)} cases on {min(workers, len(cases))} workers", flush=True)
+    started = time.monotonic()
+
+    done: dict[str, dict[str, Any]] = {}
+
+    def on_result(result: dict[str, Any]) -> None:
+        done[result["id"]] = result
+        # Flush after every case so a hang or Ctrl-C keeps what was paid for
+        write_results(out_path, in_case_order(cases, done))
+        _print_result(result)
+
+    run_cases(cases, workers, on_result)
+    results = in_case_order(cases, done)
+    elapsed = time.monotonic() - started
+
+    cost = _cost_summary(results)
+    write_results(out_path, results)
+    append_history(HISTORY_PATH, history_line(results, cost, selection, elapsed))
+    _print_summary(results, cost, elapsed, min(workers, len(cases)))
+    print(f"\nResults: {out_path} (one line appended to {HISTORY_PATH.name})")
     return 0
 
 

@@ -19,6 +19,28 @@ Nov 14 2026), so for a targeted change run only the affected cases with
 `--only`, and A/B a suspicious failure against the previous commit in a
 worktree before trusting one run.
 
+**Smoke subset** (Nov 17 2026): `make eval-smoke` runs the 26 cases marked
+`smoke: true` - a cheap spread over plain answers, Czech, the freshness gate,
+memory, tool-output recall, artifacts, skills, schedules, instructions,
+injection, episodic recall, ask_choice and the deep-research offer - for about
+$1 in ~7 minutes (first run: $1.28 with two pricier web cases since swapped
+out). Run it on any change to `src/agent/`. Its web cases share the laptop's
+ddgs throttling: read a web failure's reason before blaming the change.
+
+**Known targets**: `known_failure: <why>` marks a case the agent fails today
+on purpose (`cz_batched_lookups`, `fresh_opinion_current_politics`). It still
+runs and is judged, but reports `TARGET` instead of `FAIL`, so a run's FAIL
+lines are the new failures; a target that passes is reported as "TARGET
+PASSED" - drop its marker once it keeps passing.
+
+**Run log**: every run appends one line to the tracked
+[evals/history.jsonl](../../evals/history.jsonl) (`evals/results/` is
+gitignored): time, git sha (`-dirty` with uncommitted changes), agent and
+judge model, the selection (`all`, `smoke` or the `--only` patterns), passed
+over ran, the known targets that failed, cost, minutes, and `[pass, score]`
+per case. Commit it with the change it measured, so the next run has
+something to compare against.
+
 **A new tool can make a case stale.** When a tool lands that is the better
 answer to a case's request, the case fails "correctly": `cz_todoist_add_task`
 asked "remind me tomorrow about the plumber" and required `todoist` (written
@@ -58,6 +80,9 @@ id: web_lookup_cited
 description: Current-fact question requires a web tool and a citation
 user: What is the current price of Bitcoin in USD?
 requires: [code_sandbox]        # optional: skip when unavailable
+smoke: true                     # optional: in the make eval-smoke subset
+known_failure: >                # optional: a known target - TARGET, not FAIL
+  Why it fails today.
 mode: sports                    # optional: chat (default) / sports / language / agent -
                                 # a canned standing chat (cycling program, Italian
                                 # program, garden agent) built like production
@@ -205,6 +230,7 @@ from earlier runs were measured with every nudge off.
 
 ```bash
 make eval                                  # all cases, EVAL_WORKERS (4) in parallel
+make eval-smoke                            # the ~$1 smoke subset (smoke: true)
 .venv/bin/python evals/run.py --only code_exec   # one case
 .venv/bin/python evals/run.py --only 'skill_*,code_exec' --workers 2   # ids/globs, comma-separated or repeated
 make eval-ab BASE=main~1 ONLY='sports_*,cz_local_lookup' RUNS=2   # A/B: BASE vs the working tree

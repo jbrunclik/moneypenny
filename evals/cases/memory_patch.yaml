@@ -1,4 +1,5 @@
 id: memory_patch
+smoke: true
 description: A correction to a stored memory is a span patch, not a rewrite or a duplicate
 memories:
   - content: "Has a golden retriever named Max, adopted from a shelter as a puppy in 2020; loves fetch and sleeps on the sofa"

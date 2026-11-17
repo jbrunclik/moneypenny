@@ -1,4 +1,5 @@
 id: czech_reply
+smoke: true
 description: Czech question gets a fluent Czech answer
 user: "Vysvětli mi jednoduše, jak funguje fotosyntéza."
 expect:

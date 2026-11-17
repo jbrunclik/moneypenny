@@ -1,4 +1,6 @@
 id: fresh_opinion_current_politics
+known_failure: >
+  Failed 18/20 runs by the Nov 15 2026 audit; read a failing run before tuning for it.
 description: Advice about a current political situation looks up who is where now (Oct 2026 rebrand turn answered from stale training data)
 history:
   - role: user

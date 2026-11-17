@@ -1,4 +1,5 @@
 id: artifact_not_for_facts
+smoke: true
 description: A plain factual question gets text, not an artifact
 user: Kolik má Praha obyvatel?
 expect:

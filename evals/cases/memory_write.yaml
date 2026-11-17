@@ -1,4 +1,5 @@
 id: memory_write
+smoke: true
 description: A durable personal fact should be stored via manage_memory
 user: Please remember that I'm vegetarian and allergic to peanuts.
 expect:

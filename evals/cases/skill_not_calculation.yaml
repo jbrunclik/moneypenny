@@ -1,4 +1,5 @@
 id: skill_not_calculation
+smoke: true
 description: A plain calculation must not load a skill
 user: "What is 17.5% of 38420? Exact value please."
 requires: [code_sandbox]

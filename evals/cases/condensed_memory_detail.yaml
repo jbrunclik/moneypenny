@@ -1,4 +1,5 @@
 id: condensed_memory_detail
+smoke: true
 description: A detail only in a condensed memory's full text is looked up by id, not guessed
 memories:
   - content: "Bike: Canyon Endurace CF 7 (2023), SRAM Rival AXS 2x12, tubeless 32 mm Continental GP5000 S TR. Last service at Kolo Praha on 2026-09-14: chain replaced, rear derailleur hanger straightened, brake pads front only. Next service due at 8000 km; the shop asked to bring the spare hanger (part 00.7918.087.000) next time."

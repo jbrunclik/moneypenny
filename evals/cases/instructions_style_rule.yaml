@@ -1,4 +1,5 @@
 id: instructions_style_rule
+smoke: true
 description: >
   The user corrects the reply format in a way meant to last ("vždycky");
   the assistant follows it and offers it for the custom instructions with

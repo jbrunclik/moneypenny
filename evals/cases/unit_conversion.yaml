@@ -1,4 +1,5 @@
 id: unit_conversion
+smoke: true
 description: Trivial conversion should not spend tool rounds
 user: How many kilometers is 26.2 miles?
 expect:

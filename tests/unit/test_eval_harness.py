@@ -882,3 +882,51 @@ def test_a_seeded_card_is_answered_before_the_turn(test_database: Any, test_user
     assert "The user approved" in text and "Reminder set" in text
     [item] = test_database.list_items(test_user.id)
     assert item.text == "Zavolat instalatérovi"
+
+
+class TestRunLogAndTargets:
+    """Nov 17 2026: results were gitignored (no history to compare against),
+    chronic failures made every run read red, and there was no cheap subset
+    to run on agent changes."""
+
+    def test_smoke_and_known_failure_parse_from_yaml(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "a.yaml",
+            "id: a\nsmoke: true\nknown_failure: not batched yet\ndescription: d\nuser: q\n"
+            "expect:\n  rubric: r\n",
+        )
+        _write_case(tmp_path, "b.yaml", "id: b\ndescription: d\nuser: q\nexpect:\n  rubric: r\n")
+        a, b = load_cases(tmp_path)
+        assert (a.smoke, a.known_failure) == (True, "not batched yet")
+        assert (b.smoke, b.known_failure) == (False, None)
+
+    def test_a_failing_known_target_is_not_a_failure(self) -> None:
+        from evals.run import _status
+
+        assert _status({"pass": False, "known_failure": "x"}) == "TARGET"
+        assert _status({"pass": False}) == "FAIL"
+        assert _status({"pass": True, "known_failure": "x"}) == "PASS"
+
+    def test_history_line(self, tmp_path: Path) -> None:
+        from evals.run import append_history, history_line
+
+        results = [
+            {"id": "a", "pass": True, "score": 5},
+            {"id": "b", "pass": False, "score": 2, "known_failure": "x"},
+            {"id": "c", "skipped": True},
+        ]
+        cost = {"agent_model": "m", "judge_model": "j", "total_usd": 0.123456}
+        line = history_line(results, cost, "smoke", 90.0)
+
+        assert line["passed"] == 1 and line["ran"] == 2
+        assert line["known_failing"] == ["b"]
+        assert line["cases"] == {"a": [True, 5], "b": [False, 2]}
+        assert (line["selection"], line["cost_usd"], line["minutes"]) == ("smoke", 0.1235, 1.5)
+
+        path = tmp_path / "history.jsonl"
+        append_history(path, line)
+        append_history(path, line)
+        assert [json.loads(raw)["sha"] for raw in path.read_text().splitlines()] == [
+            line["sha"]
+        ] * 2

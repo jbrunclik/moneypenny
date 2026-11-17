@@ -1,4 +1,5 @@
 id: artifact_checklist
+smoke: true
 description: A packing list becomes a checklist artifact whose ticks are saved
 user: Jedeme na týden k moři se dvěma malými dětmi. Dej mi seznam na balení.
 expect:

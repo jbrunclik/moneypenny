@@ -1,4 +1,5 @@
 id: memory_until
+smoke: true
 description: A fact that holds only for a while is saved with an end date (valid_until)
 user: Remember that I'm in Vienna for a conference until Friday, so plan nothing in Prague for me before the weekend.
 expect:
