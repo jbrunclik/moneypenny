@@ -616,6 +616,9 @@ class Config:
     # GAP_MIN_PAGES pages gets one more subagent, bounded by GAP_TIMEOUT, when
     # the estimate's research time still has that much left
     DEEP_RESEARCH_GAP_MIN_PAGES = 2
+    # Finished sub-questions are kept this long for a retried run to reuse
+    # (src/agent/deep_research/item_store.py)
+    DEEP_RESEARCH_ITEM_KEEP_SECONDS = 2 * 24 * 3600
     DEEP_RESEARCH_GAP_TIMEOUT_SECONDS = 90.0
     DEEP_RESEARCH_CUT_GRACE_SECONDS: float = float(
         os.getenv("DEEP_RESEARCH_CUT_GRACE_SECONDS", "10")

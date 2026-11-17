@@ -187,7 +187,8 @@ The review itself changes nothing in production and edits nothing but
   Gap pass (from Nov 17 2026): "Deep research gap pass" lines against runs - how
   often it fires, its `reasons`, and `pages_after - pages_before` (near zero:
   the retries find nothing new, so drop it); "... skipped" lines mean the
-  estimate leaves no room.
+  estimate leaves no room. "Deep research item reused" lines: retries that
+  skipped the subagents an interrupted run had finished.
 - Questions (step 5): "Question asked" lines per day against chat turns, and
   `question` cards by state and `resolved_by` - a card on many replies means
   it is being used as suggestion chips.

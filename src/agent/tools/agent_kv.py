@@ -33,6 +33,7 @@ RESERVED_NAMESPACES = frozenset(
         "cancel",
         "cancel_pending",
         "deep_research_finish",
+        "deep_research_items",
         "conv_compaction",
         "interject",
         "lost_actions",

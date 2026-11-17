@@ -1060,6 +1060,7 @@ class TestKVStoreReservedNamespaces:
             "src.agent.cancellation.KV_NAMESPACE",
             "src.agent.cancellation.FINISH_KV_NAMESPACE",
             "src.agent.conversation_compaction.KV_NAMESPACE",
+            "src.agent.deep_research.item_store.KV_NAMESPACE",
             "src.agent.interjection.KV_NAMESPACE",
             "src.api.helpers.lost_actions.KV_NAMESPACE",
             "src.api.helpers.memory_review_trigger.KV_NAMESPACE",

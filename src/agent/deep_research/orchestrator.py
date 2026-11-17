@@ -21,9 +21,11 @@ from typing import Any
 from src.agent.cancellation import TurnCancelled, register_token, token_for, unregister_token
 from src.agent.deep_research.board import BoardEntry, ResearchBoard
 from src.agent.deep_research.briefs import build_brief
+from src.agent.deep_research.item_store import load_item, save_item
 from src.agent.deep_research.plan import DeepResearchPlan
 from src.agent.deep_research.subagent import ItemResult, Status, run_subagent
 from src.agent.source_pages import SourcePage
+from src.agent.tools.context import get_conversation_context
 from src.agent.turn_usage import TokenTotals, collecting_model_usage
 from src.config import Config
 from src.utils.logging import get_logger
@@ -84,6 +86,9 @@ class Orchestrator:
         self._abandoned: set[int] = set()
         self._timeout = Config.DEEP_RESEARCH_SUBAGENT_TIMEOUT_SECONDS
         self._started = time.monotonic()
+        # Finished items are kept per user so a retried run reuses them
+        # (item_store.py); no user (tests, scripts) keeps nothing
+        self._user_id = get_conversation_context()[1]
 
     def _on_post(self, entry: BoardEntry) -> None:
         self.emit({"type": "research_finding", "agent": entry.agent, "text": entry.text})
@@ -201,6 +206,9 @@ class Orchestrator:
             slots.release()
 
     def _item(self, index: int) -> ItemResult:
+        saved = self._saved(index)
+        if saved is not None:
+            return self._finish_item(saved)
         try:
             if (
                 not (
@@ -213,6 +221,19 @@ class Orchestrator:
             return self._finish_item(self._research(index))
         finally:
             self._release(index)
+
+    def _saved(self, index: int) -> ItemResult | None:
+        """This sub-question's result from an earlier, interrupted run of the offer."""
+        if not self._user_id or index in self._gaps:
+            return None
+        question = self.plan.sub_questions[index]
+        saved = load_item(self._user_id, self.plan.offer_message_id, question, index)
+        if saved is not None:
+            logger.info(
+                "Deep research item reused",
+                extra={"index": index, "pages": len(saved.pages)},
+            )
+        return saved
 
     def _research(self, index: int) -> ItemResult:
         rid = self._rid(index)
@@ -255,6 +276,9 @@ class Orchestrator:
                 "pages": len(result.pages),
             }
         )
+        if self._user_id:
+            question = self.plan.sub_questions[result.index]
+            save_item(self._user_id, self.plan.offer_message_id, question, result)
         return result
 
     def _cut_running(self, status: Status, only_overdue: bool = False) -> None:

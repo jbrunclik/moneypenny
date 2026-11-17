@@ -55,6 +55,14 @@ agent loop:
    Stop, and not for an item abandoned while stuck (its thread may still end).
    Logged "Deep research gap pass" (`items`, `reasons`, `seconds_left`,
    `pages_before`, `pages_after`, `statuses`) or "... skipped" with no time left.
+   **Saved items** (Nov 17 2026, [item_store.py](../../src/agent/deep_research/item_store.py)):
+   every item that finishes `done` is saved as it finishes (kv namespace
+   `deep_research_items`, reserved; key = offer message + a hash of the
+   sub-question; pages cut to `DEEP_RESEARCH_PAGE_MAX_CHARS`). A run of the
+   same offer - Retry after a deploy killed it, reopened by `reopen_offer` -
+   reuses a saved item instead of starting its subagent ("Deep research item
+   reused"); an edited or added sub-question runs. Entries older than
+   `DEEP_RESEARCH_ITEM_KEEP_SECONDS` (2 days) are dropped on each save.
 5. **The board** ([board.py](../../src/agent/deep_research/board.py)),
    thread-safe and run-scoped:
    - `share_finding(text, urls, kind)`: `finding` or `lead`, clipped to
