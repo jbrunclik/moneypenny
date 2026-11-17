@@ -21,6 +21,7 @@ Options:
 
 import argparse
 import sys
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -28,9 +29,11 @@ from typing import Any
 # Add parent directory to path so we can import from src
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from google.genai import types
 from pydantic import BaseModel, Field
 
+from src.agent.flex import generate_on_flex
+from src.agent.gemini_clients import shared_genai_client
 from src.agent.tools.memory import VALID_CATEGORIES
 from src.config import Config
 from src.db.models import Memory, User, db, skip_if_migrations_pending
@@ -309,31 +312,34 @@ Please analyze these memories and provide consolidation recommendations."""
     return system_prompt, user_prompt
 
 
-def _request_plan(
-    llm: ChatGoogleGenerativeAI, system_prompt: str, user_prompt: str
-) -> DefragPlan | None:
-    """Ask for a schema-validated plan rather than JSON embedded in prose."""
-    out = llm.with_structured_output(DefragPlan, include_raw=True).invoke(
-        [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+# Asks the model for a plan: (system prompt, user prompt) -> plan or None
+Planner = Callable[[str, str], "DefragPlan | None"]
+
+
+def request_plan(system_prompt: str, user_prompt: str) -> DefragPlan | None:
+    """Ask for a schema-validated plan rather than JSON embedded in prose.
+
+    The nightly run waits on nobody, so it asks for Gemini's half-price Flex
+    tier (src/agent/flex.py), which falls back to standard when Flex refuses.
+    """
+    config = types.GenerateContentConfig(
+        system_instruction=system_prompt,
+        temperature=0.3,  # Lower temperature for more consistent results
+        response_mime_type="application/json",
+        response_schema=DefragPlan,
     )
-    # include_raw wraps the plan as {"raw", "parsed", "parsing_error"}; some
-    # providers (and the tests) hand the plan back directly, even as a dict
-    wrapped = isinstance(out, dict) and "parsed" in out and "raw" in out
-    if wrapped:
-        record_side_cost("memory_defrag", Config.MEMORY_DEFRAG_MODEL, out["raw"])
-    changes = out["parsed"] if wrapped else out
-    if changes is None:
-        return None
-    return (
-        changes
-        if isinstance(changes, DefragPlan)
-        else DefragPlan.model_validate(
-            changes if isinstance(changes, dict) else changes.model_dump()
+    model = Config.MEMORY_DEFRAG_MODEL
+    if Config.MEMORY_DEFRAG_FLEX:
+        response = generate_on_flex(model, user_prompt, config, feature="memory_defrag")
+    else:
+        response = shared_genai_client().models.generate_content(
+            model=model, contents=user_prompt, config=config
         )
-    )
+    record_side_cost("memory_defrag", model, response)
+    parsed = response.parsed
+    if isinstance(parsed, DefragPlan):
+        return parsed
+    return DefragPlan.model_validate_json(response.text) if response.text else None
 
 
 def _log_dry_run(
@@ -459,7 +465,7 @@ def _run_plan(
 def defragment_user_memories(
     user: User,
     memories: list[Memory],
-    llm: ChatGoogleGenerativeAI,
+    planner: Planner = request_plan,
     dry_run: bool = False,
 ) -> dict[str, int]:
     """Defragment memories for a single user.
@@ -467,7 +473,7 @@ def defragment_user_memories(
     Args:
         user: The user whose memories to defragment
         memories: List of the user's memories
-        llm: The LLM to use for consolidation
+        planner: Asks the model for the consolidation plan
         dry_run: If True, don't make any changes
 
     Returns:
@@ -495,7 +501,7 @@ def defragment_user_memories(
     system_prompt, user_prompt = _build_prompts(memories, target_count)
 
     try:
-        plan = _request_plan(llm, system_prompt, user_prompt)
+        plan = planner(system_prompt, user_prompt)
         if plan is None:
             logger.error("LLM returned no defragmentation plan", extra={"user_id": user.id})
             result["skipped"] = True
@@ -563,17 +569,6 @@ def main() -> int:
         logger.error("GEMINI_API_KEY is required")
         return 1
 
-    # Initialize the LLM
-    try:
-        llm = ChatGoogleGenerativeAI(
-            model=Config.MEMORY_DEFRAG_MODEL,
-            google_api_key=Config.GEMINI_API_KEY,
-            temperature=0.3,  # Lower temperature for more consistent results
-        )
-    except Exception as e:
-        logger.exception("Failed to initialize LLM", extra={"error": str(e)})
-        return 1
-
     # Get users to process
     if args.user_id:
         # Process specific user
@@ -608,7 +603,7 @@ def main() -> int:
     for user, _memory_count in users_to_process:
         try:
             memories = db.list_memories(user.id)
-            result = defragment_user_memories(user, memories, llm, dry_run=args.dry_run)
+            result = defragment_user_memories(user, memories, dry_run=args.dry_run)
 
             if result.get("skipped"):
                 total_stats["users_skipped"] += 1

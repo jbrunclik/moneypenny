@@ -106,8 +106,8 @@ The review itself changes nothing in production and edits nothing but
   against all of them, "Memories expired" per night, and "Memory previous text
   restored" lines. Many restores mean writes lose details - read which writer
   (defrag, review, agent) changed those memories last.
-- Flex memory review (from Nov 17 2026; [cost-tracking.md](features/cost-tracking.md#flex-tier-nov-17-2026)):
-  `side_costs` `memory_review` rows by `service_tier` ('flex' or NULL = fell back
+- Flex memory review and defrag (from Nov 17 2026; [cost-tracking.md](features/cost-tracking.md#flex-tier-nov-17-2026)):
+  `side_costs` `memory_review` and `memory_defrag` rows by `service_tier` ('flex' or NULL = fell back
   to standard) and "Flex call fell back" by `reason` - mostly fallbacks means Flex
   saves nothing; "Memory review pass" `model_ms` (a minute or two is expected).
 - Side costs (from Nov 15 2026; [cost-tracking.md](features/cost-tracking.md)):

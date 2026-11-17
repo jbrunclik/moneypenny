@@ -1,6 +1,7 @@
 """Unit tests for memory defragmentation script."""
 
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -329,12 +330,8 @@ class TestDefragmentUserMemories:
 
     @pytest.fixture
     def mock_llm(self):
-        """Create a mock LLM whose structured call returns a plan."""
-        llm = MagicMock()
-        llm.with_structured_output.return_value.invoke.return_value = DefragPlan(
-            reasoning="Test", no_changes=True
-        )
-        return llm
+        """A planner (system, user prompt) -> plan that returns a fixed plan."""
+        return MagicMock(return_value=DefragPlan(reasoning="Test", no_changes=True))
 
     @pytest.fixture
     def mock_user(self):
@@ -360,8 +357,8 @@ class TestDefragmentUserMemories:
 
     @staticmethod
     def _set_plan(mock_llm, plan: DefragPlan) -> None:
-        """Point the mock's structured-output call at a specific plan."""
-        mock_llm.with_structured_output.return_value.invoke.return_value = plan
+        """Point the mock planner at a specific plan."""
+        mock_llm.return_value = plan
 
     def test_returns_skipped_for_empty_memories(self, mock_llm, mock_user):
         """Test that empty memory list is skipped."""
@@ -370,24 +367,56 @@ class TestDefragmentUserMemories:
         result = defragment_user_memories(mock_user, [], mock_llm)
 
         assert result["skipped"] is True
-        mock_llm.with_structured_output.assert_not_called()
+        mock_llm.assert_not_called()
 
-    def test_requests_a_schema_validated_plan(self, mock_llm, mock_user, sample_memories):
-        """The plan is requested as a schema, not parsed out of prose.
-
-        Regression: the old text parser skipped the whole user whenever the
-        model's JSON formatting surprised it, silently and nightly.
-        """
+    def test_the_planner_gets_both_prompts(self, mock_llm, mock_user, sample_memories):
         from scripts.defragment_memories import defragment_user_memories
 
         defragment_user_memories(mock_user, sample_memories, mock_llm)
 
-        mock_llm.with_structured_output.assert_called_once_with(DefragPlan, include_raw=True)
-        call_args = mock_llm.with_structured_output.return_value.invoke.call_args[0][0]
-        assert len(call_args) == 2
-        assert call_args[0]["role"] == "system"
-        assert call_args[1]["role"] == "user"
-        assert "User likes coffee" in call_args[1]["content"]
+        system_prompt, user_prompt = mock_llm.call_args.args
+        assert "Rules:" in system_prompt
+        assert "User likes coffee" in user_prompt
+
+    def test_requests_a_schema_validated_plan_on_flex(self, monkeypatch):
+        """The plan is requested as a schema, not parsed out of prose.
+
+        Regression: the old text parser skipped the whole user whenever the
+        model's JSON formatting surprised it, silently and nightly. Since Nov
+        17 2026 the call runs on the half-price Flex tier.
+        """
+        import scripts.defragment_memories as defrag
+
+        plan = DefragPlan(reasoning="Merge", delete=["mem-2"])
+        calls = []
+
+        def flex(model, contents, config, *, feature):
+            calls.append((model, contents, config, feature))
+            return SimpleNamespace(parsed=plan, text=plan.model_dump_json(), usage_metadata=None)
+
+        monkeypatch.setattr(defrag, "generate_on_flex", flex)
+        monkeypatch.setattr(Config, "MEMORY_DEFRAG_FLEX", True)
+
+        assert defrag.request_plan("system rules", "the memories") == plan
+        [(model, contents, config, feature)] = calls
+        assert (model, contents, feature) == (
+            Config.MEMORY_DEFRAG_MODEL,
+            "the memories",
+            "memory_defrag",
+        )
+        assert config.response_schema is DefragPlan
+        assert config.system_instruction == "system rules"
+
+    def test_a_plan_left_as_text_is_parsed(self, monkeypatch):
+        import scripts.defragment_memories as defrag
+
+        text = DefragPlan(reasoning="ok", no_changes=True).model_dump_json()
+        monkeypatch.setattr(
+            defrag,
+            "generate_on_flex",
+            lambda *a, **k: SimpleNamespace(parsed=None, text=text, usage_metadata=None),
+        )
+        assert defrag.request_plan("s", "u") == DefragPlan(reasoning="ok", no_changes=True)
 
     @patch("scripts.defragment_memories.db")
     def test_dry_run_does_not_modify_database(self, mock_db, mock_llm, mock_user, sample_memories):
@@ -451,7 +480,7 @@ class TestDefragmentUserMemories:
         """Test that LLM errors are handled gracefully."""
         from scripts.defragment_memories import defragment_user_memories
 
-        mock_llm.with_structured_output.return_value.invoke.side_effect = Exception("API error")
+        mock_llm.side_effect = Exception("API error")
 
         result = defragment_user_memories(mock_user, sample_memories, mock_llm)
 
@@ -476,15 +505,3 @@ class TestDefragmentUserMemories:
         result = defragment_user_memories(mock_user, sample_memories, mock_llm)
 
         assert result["skipped"] is True
-
-    @patch("scripts.defragment_memories.db")
-    def test_handles_plan_returned_as_dict(self, mock_db, mock_llm, mock_user, sample_memories):
-        """Some model/provider combinations return a plain dict."""
-        from scripts.defragment_memories import defragment_user_memories
-
-        mock_db.bulk_update_memories.return_value = {"deleted": 1, "updated": 0, "added": 0}
-        self._set_plan(mock_llm, {"reasoning": "Merge", "delete": ["mem-2"]})
-
-        result = defragment_user_memories(mock_user, sample_memories, mock_llm)
-
-        assert result["deleted"] == 1

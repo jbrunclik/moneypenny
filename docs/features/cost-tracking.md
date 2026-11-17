@@ -96,10 +96,15 @@ the `x-gemini-service-tier` response header (`served_tier`; usage_metadata
 does not carry it), so a fallback is priced at the standard rate;
 `side_costs.service_tier` is 'flex' for Flex rows and NULL otherwise.
 
-Only the background memory review uses it (`MEMORY_REVIEW_FLEX`). Not the
-nightly defrag: Carbon on Flex hit a 504 after 179 s in the Nov 17 probe. Not
-evals: the agent runs through LangChain, which cannot send the tier, and a
-full run would take hours. Batch (up to 24 h) fits none of them.
+The background memory review (`MEMORY_REVIEW_FLEX`) and the nightly memory
+defrag (`MEMORY_DEFRAG_FLEX`, Carbon; its call moved from LangChain to the SDK
+with `DefragPlan` as `response_schema`, Nov 17 2026) use it. A first Carbon
+probe hit a 504 after 179 s: the SDK sends the client timeout as
+`X-Server-Timeout`, so the server gave up at the shared client's 180 s - with
+`FLEX_TIMEOUT_SECONDS` Carbon on Flex answered in 5-9 s. Not evals: the agent
+runs through LangChain, which cannot send the tier, and the judge is ~6% of a
+run's cost (a smoke run's judge: $0.08 of $1.28), not worth a queue on every
+case. Batch (up to 24 h) fits none of them.
 
 Thinking level: side calls go through `chat_model()`
 ([gemini_clients.py](../../src/agent/gemini_clients.py)), which sends no

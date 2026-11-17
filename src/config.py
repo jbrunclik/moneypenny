@@ -1051,6 +1051,9 @@ class Config:
     MEMORY_DEFRAG_MODEL: str = os.getenv(
         "MEMORY_DEFRAG_MODEL", "gemini-4-carbon"
     )  # Use advanced model for quality consolidation
+    # The nightly defrag waits on nobody: Gemini's half-price Flex tier
+    # (src/agent/flex.py; Carbon on Flex answered in 5-9 s, Nov 17 2026)
+    MEMORY_DEFRAG_FLEX = True
     # Deletes are soft: rows stay for this long so a bad defrag run or an
     # unwanted LLM delete can be recovered before the nightly purge.
     MEMORY_SOFT_DELETE_RETENTION_DAYS: int = int(
