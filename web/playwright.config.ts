@@ -35,7 +35,10 @@ export default defineConfig({
   ],
   use: {
     baseURL,
-    trace: 'on-first-retry',
+    // CI keeps the trace of a FAILED FIRST attempt: on-first-retry records only
+    // the retry, which passes, so a flake left no trace of what went wrong
+    // (WebKit page.goto stalls; the Nov 17 2026 Chromium deep-research flake)
+    trace: process.env.CI ? 'retain-on-first-failure' : 'on-first-retry',
     screenshot: 'only-on-failure',
     // No test needs the app's service worker, and with it WebKit breaks the
     // harness: page.route() misses requests that pass through a worker (even
@@ -66,11 +69,6 @@ export default defineConfig({
       retries: process.env.CI ? 3 : 0,
       use: {
         ...devices['Desktop Safari'],
-        // CI keeps the trace of a FAILED FIRST attempt: the WebKit page.goto
-        // stalls (blank page, no load event, retry passes) left no trace -
-        // on-first-retry only records the retry, which passes. Its network
-        // log names the request that never finished.
-        trace: process.env.CI ? 'retain-on-first-failure' : 'on-first-retry',
         // Increase viewport height to reduce whitespace in visual tests
         viewport: { width: 1280, height: 1024 },
       },

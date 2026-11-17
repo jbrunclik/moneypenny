@@ -464,21 +464,31 @@ test.describe('Messages Pagination', () => {
     await expect(page.locator('.message').last()).toContainText('Seeded message 120', { timeout: 10000 });
     const initialCount = await page.locator('.message').count();
 
-    // Let the open's bottom pin settle, then wheel to the top like a user
-    // (the older page loads from the scroll handler)
-    await scrollSettled(page);
-    // Record where the topmost message sits on every scroll until the older
-    // page's loader goes in (it pushes the content down while the page loads,
-    // and under load that can happen before the test reads the position)
-    await page.evaluate(() => {
-      const c = document.getElementById('messages')!;
-      const w = window as unknown as { __anchor?: { text: string; top: number } };
-      c.addEventListener('scroll', () => {
-        if (c.querySelector('.older-messages-loader')) return;
-        const el = c.querySelector<HTMLElement>('.message')!;
-        w.__anchor = { text: el.textContent!.trim().slice(0, 40), top: el.getBoundingClientRect().top };
-      });
+    // Hold the older page: the user keeps scrolling while it loads (a slow
+    // network, or CI under load, where the wheel's scroll outlasts the debounce)
+    let release = (): void => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/conversations/*/messages?*direction=older*', async (route) => {
+      await held;
+      await route.continue();
     });
+    // Where the topmost message sits in the content (not on screen): the
+    // loader shifts it by its own height (and the list's gap) while it shows
+    await scrollSettled(page);
+    const contentY = (): Promise<number> =>
+      page.evaluate(() => {
+        const c = document.getElementById('messages')!;
+        const el = c.querySelector<HTMLElement>('.message')!;
+        return el.getBoundingClientRect().top - c.getBoundingClientRect().top + c.scrollTop;
+      });
+    const baseY = await contentY();
+
+    // Near the top (the scroll handler starts the load), then wheel the rest
+    // of the way like a user while the page is held
+    await page.evaluate(() => {
+      document.getElementById('messages')!.scrollTop = 150; // under the load threshold
+    });
+    await expect(page.locator('.older-messages-loader')).toHaveCount(1);
     await page.locator('#messages').hover();
     await expect
       .poll(
@@ -489,10 +499,17 @@ test.describe('Messages Pagination', () => {
         { timeout: 5000 }
       )
       .toBe(0);
+    await scrollSettled(page);
+
+    // What the user reads now, less the loader's shift that goes with it
+    const loaderShift = (await contentY()) - baseY;
+    const anchor = await page.evaluate((shift) => {
+      const el = document.querySelector<HTMLElement>('#messages .message')!;
+      return { text: el.textContent!.trim().slice(0, 40), top: el.getBoundingClientRect().top - shift };
+    }, loaderShift);
+
+    release();
     await expect.poll(() => page.locator('.message').count(), { timeout: 10000 }).toBeGreaterThan(initialCount);
-    const anchor = await page.evaluate(
-      () => (window as unknown as { __anchor: { text: string; top: number } }).__anchor
-    );
     await expect(page.locator('.older-messages-loader')).toHaveCount(0);
     await scrollSettled(page);
 
