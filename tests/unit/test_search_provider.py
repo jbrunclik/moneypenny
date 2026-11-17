@@ -1322,10 +1322,12 @@ class TestQuotaStatus:
             patch.object(search_provider, "db", _stateful_db(store)),
             patch.object(Config, "BRAVE_SEARCH_API_KEY", "k"),
             patch.object(Config, "TAVILY_API_KEY", ""),
+            # Pinned: the developer's .env may mirror production's larger quota
+            patch.object(Config, "SEARCH_QUOTA_BRAVE_MONTHLY", 1000),
         ):
             status = {s["provider"]: s for s in search_provider.quota_status()}
         assert status["brave"]["used"] == 1000
-        assert status["brave"]["quota"] == Config.SEARCH_QUOTA_BRAVE_MONTHLY
+        assert status["brave"]["quota"] == 1000
         assert status["brave"]["available"] is False  # out of credits
         assert status["tavily"]["configured"] is False
         assert status["ddgs"]["quota"] is None  # unmetered fallback
