@@ -44,6 +44,14 @@ export const memories = {
   },
 
   /**
+   * Put back the text a memory had before its last change. The two texts
+   * swap, so restoring again undoes it.
+   */
+  async restorePrevious(memoryId: string): Promise<Memory> {
+    return request<Memory>(`/api/memories/${memoryId}/restore-previous`, { method: 'POST' });
+  },
+
+  /**
    * Protect a memory so the LLM and the defrag job cannot delete it.
    */
   async setProtected(memoryId: string, isProtected: boolean): Promise<void> {

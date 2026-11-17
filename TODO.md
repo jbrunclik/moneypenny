@@ -36,7 +36,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 - [ ] **Past chats and memory** (Nov 15 2026 audit):
   - **Re-measure past-chat search** (~Nov 30 2026; shipped Nov 16 2026, [spec](docs/superpowers/specs/2026-11-16-past-chat-search-design.md)) - from the "Conversation search via tool" lines: the share with `results` 0 (11 of 12 on Nov 13-16, before the any-word fallback), the `mode` mix, median `ms`; whether `(words + meaning)` hits are the ones the agent reads (`read_conversation` after a search).
-  - **Memories have no expiry or revision history** - "until Friday" stays injected until defrag notices, and an overwritten text is unrecoverable. An optional `valid_until`; keep the previous content on update.
+  - **Re-measure memory end dates and undo** (~Dec 1 2026; shipped Nov 17 2026, [memory-and-context.md](docs/features/memory-and-context.md#end-dates-and-the-previous-text-nov-17-2026)) - from the journal: the share of memory writes with a `valid_until` (near zero: the model does not use it - check `memory_until` and the prompt line), "Memories expired" per night, and "Memory previous text restored" per week (many: find which writer loses details).
 
 - [ ] **Deep research depth** (Nov 15 2026 audit) - one wave of subagents then the writer; add one automatic gap pass (re-dispatch failed or thin items) inside the estimate. For the unsourced reports: have the writer emit `[n]` plus a short quote per specific and check the quote with the existing plain-text matcher, in place of the Lite verifier re-deriving sources. Persist each item result so a retry after a deploy re-runs only what is missing.
 

@@ -88,7 +88,42 @@ async function setupStoragePage(page: import('@playwright/test').Page, options?:
   }
 }
 
+// A temporary memory (its last day is a fixed calendar date, not relative)
+// and one whose earlier text is kept, with that text opened
+const HISTORY_MEMORIES = [
+  {
+    id: 'mem-until',
+    content: 'Away in Vienna for a conference, back on Saturday',
+    category: 'context',
+    created_at: daysAgo(15),
+    updated_at: daysAgo(15), // "2w ago"
+    valid_until: '2026-11-21',
+  },
+  {
+    id: 'mem-previous',
+    content: 'Has a golden retriever',
+    category: 'fact',
+    created_at: daysAgo(105),
+    updated_at: daysAgo(45), // "1mo ago"
+    previous_content: 'Has a golden retriever named Max, adopted as a puppy in 2020, loves playing fetch',
+  },
+];
+
+async function openMemoryHistory(page: import('@playwright/test').Page): Promise<void> {
+  await setupStoragePage(page, { memories: HISTORY_MEMORIES as typeof MOCK_MEMORIES, namespaces: [] });
+  await page.goto('/#/storage');
+  await page.waitForSelector('.kv-store');
+  await page.locator('.memory-history').click();
+  await page.waitForSelector('.memory-previous');
+  await pageSettled(page);
+}
+
 test.describe('Visual: Storage Page - Desktop', () => {
+  test('memory with a last day and its previous version', async ({ page }) => {
+    await openMemoryHistory(page);
+    await expect(page.locator('.main')).toHaveScreenshot('storage-page-memory-history.png');
+  });
+
   test('storage page with data', async ({ page }) => {
     await setupStoragePage(page);
 
@@ -167,6 +202,11 @@ test.describe('Visual: Storage Page - Desktop', () => {
 
 test.describe('Visual: Storage Page - Mobile', () => {
   test.use({ viewport: { width: 375, height: 667 } });
+
+  test('memory history mobile view', async ({ page }) => {
+    await openMemoryHistory(page);
+    await expect(page.locator('.main')).toHaveScreenshot('storage-page-mobile-memory-history.png');
+  });
 
   test('storage page mobile view', async ({ page }) => {
     await setupStoragePage(page);

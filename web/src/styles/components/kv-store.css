@@ -545,6 +545,7 @@
 
 .memory-delete,
 .memory-protect,
+.memory-history,
 .memory-restore {
     display: flex;
     align-items: center;
@@ -561,6 +562,7 @@
 
 .memory-delete svg,
 .memory-protect svg,
+.memory-history svg,
 .memory-restore svg {
     width: 14px;
     height: 14px;
@@ -571,6 +573,8 @@
 }
 
 .memory-protect:hover,
+.memory-history:hover,
+.memory-history[aria-expanded="true"],
 .memory-restore:hover {
     color: var(--text-primary);
 }
@@ -596,6 +600,39 @@
     border-radius: var(--radius-sm);
     background: var(--bg-tertiary);
     color: var(--text-secondary);
+}
+
+.memory-until-badge {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--warning-a15);
+    color: var(--color-warning-400);
+}
+
+/* The text before the last change, shown under the memory with its restore */
+.memory-previous {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+}
+
+.memory-previous-label {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.memory-previous-text {
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    color: var(--text-secondary);
+    word-break: break-word;
 }
 
 .memory-meta {

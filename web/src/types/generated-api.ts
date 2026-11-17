@@ -7243,6 +7243,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/memories/{memory_id}/restore-previous": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put back the text a memory had before its last change (the two swap,
+         * @description so this can itself be undone).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    memory_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MemoryResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}/anonymous-mode": {
         parameters: {
             query?: never;
@@ -9517,6 +9567,18 @@ export interface components {
              * @default null
              */
             deleted_at: string | null;
+            /**
+             * Valid Until
+             * @description Last local day the memory holds (YYYY-MM-DD); deleted after it
+             * @default null
+             */
+            valid_until: string | null;
+            /**
+             * Previous Content
+             * @description The text before the memory's last change
+             * @default null
+             */
+            previous_content: string | null;
         };
         /**
          * MemoriesListResponse
@@ -14904,6 +14966,58 @@ export interface components {
              * @default null
              */
             summary: string | null;
+        };
+        /**
+         * MemoryResponse
+         * @description Single memory entry.
+         */
+        MemoryResponse: {
+            /** Id */
+            id: string;
+            /** Content */
+            content: string;
+            /**
+             * Category
+             * @default null
+             */
+            category: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Protected
+             * @default false
+             */
+            protected: boolean;
+            /**
+             * Source Conversation Id
+             * @default null
+             */
+            source_conversation_id: string | null;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
+            /**
+             * Valid Until
+             * @description Last local day the memory holds (YYYY-MM-DD); deleted after it
+             * @default null
+             */
+            valid_until: string | null;
+            /**
+             * Previous Content
+             * @description The text before the memory's last change
+             * @default null
+             */
+            previous_content: string | null;
         };
         /**
          * UpdateAnonymousModeRequest

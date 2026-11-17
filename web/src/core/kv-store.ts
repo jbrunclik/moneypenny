@@ -150,6 +150,11 @@ function buildStorageCallbacks(): KVStoreCallbacks {
       await memories.restore(memoryId);
       toast.success('Memory restored.');
     },
+    onRestorePreviousMemory: async (memoryId: string) => {
+      const restored = await memories.restorePrevious(memoryId);
+      toast.success('Previous version restored.');
+      return restored;
+    },
   };
 }
 

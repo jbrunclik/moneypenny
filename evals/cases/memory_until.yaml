@@ -1,0 +1,12 @@
+id: memory_until
+description: A fact that holds only for a while is saved with an end date (valid_until)
+user: Remember that I'm in Vienna for a conference until Friday, so plan nothing in Prague for me before the weekend.
+expect:
+  rubric: >
+    The assistant confirms it will remember the Vienna trip. It must not claim
+    a failure, and must not treat the trip as a permanent fact (e.g. "you live
+    in Vienna").
+  required_tools: [manage_memory]
+  required_arg_patterns:
+    manage_memory.operations: ["valid_until['\"]?:\\s*['\"]?\\d{4}-\\d{2}-\\d{2}"]
+  max_tool_rounds: 3

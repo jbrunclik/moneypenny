@@ -11,12 +11,12 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
 from src.db.models.dataclasses import Memory, User
 from src.db.models.timestamps import from_db, from_db_or_none, to_db
-from src.utils.clock import utc_now
+from src.utils.clock import local_today, utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -31,6 +31,7 @@ class MemoryWrite:
 
     add: content + category. patch: the full new content, the content it was
     computed from (expected), and an optional new category. delete: the id.
+    valid_until (add, patch): an ISO date, "" to clear it, None to leave it.
     """
 
     action: Literal["add", "patch", "delete"]
@@ -38,6 +39,7 @@ class MemoryWrite:
     content: str | None = None
     expected: str | None = None
     category: str | None = None
+    valid_until: str | None = None
 
 
 class MemoryWriteConflictError(Exception):
@@ -208,18 +210,37 @@ class MemoryMixin:
                 conn,
                 """INSERT INTO user_memories
                    (id, user_id, content, category, created_at, updated_at,
-                    source_conversation_id, protected)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, 0)""",
-                (memory_id, user_id, write.content, write.category, now, now, conversation_id),
+                    source_conversation_id, protected, valid_until)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULLIF(?, ''))""",
+                (
+                    memory_id,
+                    user_id,
+                    write.content,
+                    write.category,
+                    now,
+                    now,
+                    conversation_id,
+                    write.valid_until,
+                ),
             )
             return memory_id
         if write.action == "patch":
             cursor = self._execute_with_timing(
                 conn,
                 """UPDATE user_memories
-                   SET content = ?, category = COALESCE(?, category), updated_at = ?
+                   SET content = ?, category = COALESCE(?, category), updated_at = ?,
+                       valid_until = CASE WHEN ? IS NULL THEN valid_until ELSE NULLIF(?, '') END
                    WHERE id = ? AND user_id = ? AND content = ? AND deleted_at IS NULL""",
-                (write.content, write.category, now, write.memory_id, user_id, write.expected),
+                (
+                    write.content,
+                    write.category,
+                    now,
+                    write.valid_until,
+                    write.valid_until,
+                    write.memory_id,
+                    user_id,
+                    write.expected,
+                ),
             )
         else:
             cursor = self._execute_with_timing(
@@ -306,7 +327,9 @@ class MemoryMixin:
         return deleted
 
     def restore_memory(self, memory_id: str, user_id: str) -> bool:
-        """Undo a soft delete, provided the row has not been purged yet.
+        """Undo a soft delete, provided the row has not been purged yet. An
+        expired memory comes back without its end date (or it would expire
+        again the next night).
 
         Args:
             memory_id: The memory ID
@@ -318,9 +341,10 @@ class MemoryMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE user_memories SET deleted_at = NULL
+                """UPDATE user_memories SET deleted_at = NULL,
+                       valid_until = CASE WHEN valid_until < ? THEN NULL ELSE valid_until END
                    WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL""",
-                (memory_id, user_id),
+                (local_today().isoformat(), memory_id, user_id),
             )
             conn.commit()
             restored = cursor.rowcount > 0
@@ -328,6 +352,49 @@ class MemoryMixin:
         if restored:
             logger.info("Memory restored", extra={"memory_id": memory_id, "user_id": user_id})
         return restored
+
+    def restore_previous_memory(self, memory_id: str, user_id: str) -> Memory | None:
+        """Put a live memory's previous text back. The two texts swap (the
+        trigger keeps the replaced one), so a restore can itself be undone.
+
+        Returns:
+            The memory as restored, or None if not found, deleted or without
+            a previous text
+        """
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """UPDATE user_memories SET content = previous_content, updated_at = ?
+                   WHERE id = ? AND user_id = ? AND deleted_at IS NULL
+                     AND previous_content IS NOT NULL""",
+                (to_db(utc_now()), memory_id, user_id),
+            )
+            conn.commit()
+        if cursor.rowcount == 0:
+            return None
+        logger.info(
+            "Memory previous text restored", extra={"memory_id": memory_id, "user_id": user_id}
+        )
+        return self.get_memory(memory_id, user_id)
+
+    def expire_memories(self, today: date) -> int:
+        """Soft-delete live memories whose last day (valid_until) is before
+        ``today``; they land in the Deleted list like any other delete.
+        Protected memories stay (only the user deletes those).
+
+        Returns:
+            Number of memories expired
+        """
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """UPDATE user_memories SET deleted_at = ?
+                   WHERE deleted_at IS NULL AND protected = 0
+                     AND valid_until IS NOT NULL AND valid_until < ?""",
+                (to_db(utc_now()), today.isoformat()),
+            )
+            conn.commit()
+            return int(cursor.rowcount)
 
     def purge_deleted_memories(self, retention_days: int) -> int:
         """Hard-delete soft-deleted memories past the retention window.
@@ -368,6 +435,8 @@ class MemoryMixin:
             source_conversation_id=row["source_conversation_id"],
             deleted_at=from_db_or_none(row["deleted_at"]),
             summary=row["summary"],
+            valid_until=date.fromisoformat(row["valid_until"]) if row["valid_until"] else None,
+            previous_content=row["previous_content"],
         )
 
     def memories_needing_summary(self, min_chars: int, limit: int) -> list[Memory]:

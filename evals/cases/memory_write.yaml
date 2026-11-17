@@ -7,3 +7,5 @@ expect:
     allergy). The confirmation must not claim failure.
   required_tools: [manage_memory]
   max_tool_rounds: 3
+  forbidden_arg_patterns:
+    manage_memory.operations: ["valid_until['\"]?:\\s*['\"]?\\d"]

@@ -14,6 +14,7 @@ import {
   LOCK_ICON,
   UNLOCK_ICON,
   RESTORE_ICON,
+  HISTORY_ICON,
   createIconButton,
   createIconElement,
   setIcon,
@@ -59,6 +60,7 @@ export interface KVStoreCallbacks {
   onDeleteMemory: (memoryId: string) => Promise<void>;
   onSetMemoryProtected: (memoryId: string, isProtected: boolean) => Promise<void>;
   onRestoreMemory: (memoryId: string) => Promise<void>;
+  onRestorePreviousMemory: (memoryId: string) => Promise<Memory>;
 }
 
 /** Category labels */
@@ -88,6 +90,31 @@ function formatRelativeTime(dateString: string): string {
   if (diffDays < 7) return `${diffDays}d ago`;
   if (diffWeeks < 4) return `${diffWeeks}w ago`;
   return `${diffMonths}mo ago`;
+}
+
+/**
+ * The text a memory had before its last change, with its restore action.
+ */
+function renderPrevious(previous: string): HTMLDivElement {
+  return createElement('div', { class: 'memory-previous' }, [
+    createElement('span', { class: 'memory-previous-label' }, ['Before the last change']),
+    createElement('span', { class: 'memory-previous-text' }, [previous]),
+    createElement('button', { class: 'btn btn-secondary-sm memory-restore-previous', type: 'button' }, [
+      'Restore this version',
+    ]),
+  ]);
+}
+
+/**
+ * A memory's last day ("YYYY-MM-DD", a calendar date) as "Fri 21 Nov".
+ * Parsed as local noon so no timezone shifts it to the day before.
+ */
+function formatUntil(day: string): string {
+  return new Date(`${day}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
 }
 
 /**
@@ -173,24 +200,37 @@ function renderMemoriesSection(
 }
 
 /**
- * Render one memory row with its protect and delete actions.
+ * A memory's badges (category, protected, last day) and its age.
+ */
+function renderMemoryMeta(memory: Memory, isProtected: boolean): HTMLDivElement {
+  const categoryConfig = memory.category ? CATEGORY_CONFIG[memory.category] : null;
+  return createElement('div', { class: 'memory-meta' }, [
+    categoryConfig &&
+      createElement('span', { class: `memory-category memory-category--${categoryConfig.class}` }, [
+        categoryConfig.label,
+      ]),
+    isProtected && createElement('span', { class: 'memory-protected-badge' }, ['Protected']),
+    memory.valid_until &&
+      createElement('span', { class: 'memory-until-badge', title: 'Deleted after this day' }, [
+        `Until ${formatUntil(memory.valid_until)}`,
+      ]),
+    createElement('span', { class: 'memory-time' }, [formatRelativeTime(memory.updated_at)]),
+  ]);
+}
+
+/**
+ * Render one memory row with its protect, history and delete actions.
  */
 function renderMemoryItem(
-  memory: Memory,
+  initial: Memory,
   section: HTMLDivElement,
   list: HTMLDivElement,
   callbacks: KVStoreCallbacks,
 ): HTMLDivElement {
   const item = document.createElement('div');
   item.className = 'memory-item';
-
-  const categoryConfig = memory.category ? CATEGORY_CONFIG[memory.category] : null;
-  const categoryBadge = (): HTMLElement | null =>
-    categoryConfig
-      ? createElement('span', { class: `memory-category memory-category--${categoryConfig.class}` }, [
-          categoryConfig.label,
-        ])
-      : null;
+  let memory = initial;
+  let showPrevious = false;
 
   let isProtected = memory.protected === true;
 
@@ -199,20 +239,27 @@ function renderMemoryItem(
       ? 'Protected - the assistant cannot delete this. Click to unprotect.'
       : 'Protect from automatic deletion';
     item.classList.toggle('memory-item--protected', isProtected);
+    const previous = memory.previous_content;
     item.replaceChildren(
       createElement('div', { class: 'memory-content-row' }, [
         createElement('span', { class: 'memory-text' }, [memory.content]),
+        previous &&
+          createIconButton(
+            {
+              class: 'memory-history',
+              'aria-expanded': String(showPrevious),
+              title: 'Show the version before the last change',
+            },
+            HISTORY_ICON
+          ),
         createIconButton(
           { class: 'memory-protect', 'aria-pressed': String(isProtected), title: protectTitle },
           isProtected ? LOCK_ICON : UNLOCK_ICON
         ),
         createIconButton({ class: 'memory-delete', title: 'Delete memory' }, DELETE_ICON),
       ]),
-      createElement('div', { class: 'memory-meta' }, [
-        categoryBadge(),
-        isProtected && createElement('span', { class: 'memory-protected-badge' }, ['Protected']),
-        createElement('span', { class: 'memory-time' }, [formatRelativeTime(memory.updated_at)]),
-      ])
+      renderMemoryMeta(memory, isProtected),
+      ...(showPrevious && previous ? [renderPrevious(previous)] : [])
     );
     attachHandlers();
   };
@@ -238,6 +285,23 @@ function renderMemoryItem(
     };
     item.querySelector('.memory-protect')?.addEventListener('click', () => {
       void toggleProtected();
+    });
+
+    item.querySelector('.memory-history')?.addEventListener('click', () => {
+      showPrevious = !showPrevious;
+      renderRow();
+    });
+    const restorePrevious = async (): Promise<void> => {
+      try {
+        memory = await callbacks.onRestorePreviousMemory(memory.id);
+        showPrevious = false;
+        renderRow();
+      } catch {
+        // Error surfaced by the caller
+      }
+    };
+    item.querySelector('.memory-restore-previous')?.addEventListener('click', () => {
+      void restorePrevious();
     });
 
     const deleteMemory = async (): Promise<void> => {

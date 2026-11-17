@@ -44,7 +44,7 @@ holds). Facts about the user in general go to manage_memory instead.
 No facts recorded yet.
 
 ## Current Memories (5/200)
-(id | category | created[, upd updated] | [protected |] text)
+(id | category | created[, upd updated][, until last day] | [protected |] text)
 - 00000001 | fact | 2026-03-01, upd 2026-04-01 | protected | Name is Jana; husband Petr, kids Ema (9) and Tom (6)
 - 00000002 | preference | 2026-03-02 | Prefers short answers without tables on the phone
 - 00000003 | goal | 2026-03-03, upd 2026-04-03 | Running a half marathon in April 2027, 3 runs a week

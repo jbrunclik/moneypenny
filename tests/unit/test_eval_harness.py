@@ -182,6 +182,17 @@ class TestDeterministicFailures:
         assert deterministic_failures(case, set(), tool_rounds=1, tool_calls=[token_call]) == []
         assert deterministic_failures(case, set(), tool_rounds=1, tool_calls=[other_tool]) == []
 
+    def test_required_arg_patterns_need_a_matching_call(self) -> None:
+        case = self._case()
+        case.required_arg_patterns = {"manage_memory.operations": [r"valid_until"]}
+        dated = {"name": "manage_memory", "args": {"operations": [{"valid_until": "2026-11-21"}]}}
+        undated = {"name": "manage_memory", "args": {"operations": [{"content": "x"}]}}
+
+        assert deterministic_failures(case, set(), tool_rounds=1, tool_calls=[dated]) == []
+        failures = deterministic_failures(case, set(), tool_rounds=1, tool_calls=[undated])
+        assert failures and "manage_memory.operations" in failures[0]
+        assert deterministic_failures(case, set(), tool_rounds=1, tool_calls=[])
+
     def test_forbidden_arg_patterns_parse_from_yaml(self, tmp_path: Path) -> None:
         _write_case(
             tmp_path,

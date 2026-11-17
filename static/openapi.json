@@ -6479,6 +6479,47 @@
         }
       }
     },
+    "/api/memories/{memory_id}/restore-previous": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memory_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Memory"
+        ],
+        "summary": "Put back the text a memory had before its last change (the two swap,",
+        "description": "so this can itself be undone)."
+      }
+    },
     "/api/conversations/{conv_id}/anonymous-mode": {
       "patch": {
         "parameters": [
@@ -9787,6 +9828,32 @@
             ],
             "default": null,
             "title": "Deleted At"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Last local day the memory holds (YYYY-MM-DD); deleted after it",
+            "title": "Valid Until"
+          },
+          "previous_content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The text before the memory's last change",
+            "title": "Previous Content"
           }
         },
         "required": [
@@ -9797,7 +9864,9 @@
           "updated_at",
           "protected",
           "source_conversation_id",
-          "deleted_at"
+          "deleted_at",
+          "valid_until",
+          "previous_content"
         ],
         "title": "MemoryResponse",
         "type": "object"
@@ -20454,6 +20523,111 @@
           "summary"
         ],
         "title": "ConversationCompactionResponse",
+        "type": "object"
+      },
+      "MemoryResponse": {
+        "description": "Single memory entry.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Category"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "protected": {
+            "default": false,
+            "title": "Protected",
+            "type": "boolean"
+          },
+          "source_conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Conversation Id"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Last local day the memory holds (YYYY-MM-DD); deleted after it",
+            "title": "Valid Until"
+          },
+          "previous_content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The text before the memory's last change",
+            "title": "Previous Content"
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "category",
+          "created_at",
+          "updated_at",
+          "protected",
+          "source_conversation_id",
+          "deleted_at",
+          "valid_until",
+          "previous_content"
+        ],
+        "title": "MemoryResponse",
         "type": "object"
       },
       "UpdateAnonymousModeRequest": {

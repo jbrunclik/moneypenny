@@ -15,7 +15,11 @@ from apiflask import APIBlueprint
 
 from src.api.errors import raise_not_found_error
 from src.api.schemas.common import StatusResponse
-from src.api.schemas.memory import MemoriesListResponse, UpdateMemoryProtectionRequest
+from src.api.schemas.memory import (
+    MemoriesListResponse,
+    MemoryResponse,
+    UpdateMemoryProtectionRequest,
+)
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
@@ -44,6 +48,8 @@ def _serialize(memory: Memory) -> dict[str, Any]:
         "protected": memory.protected,
         "source_conversation_id": memory.source_conversation_id,
         "deleted_at": to_api(memory.deleted_at) if memory.deleted_at else None,
+        "valid_until": memory.valid_until.isoformat() if memory.valid_until else None,
+        "previous_content": memory.previous_content,
     }
 
 
@@ -111,6 +117,19 @@ def restore_memory(user: User, memory_id: str) -> tuple[dict[str, str], int]:
 
     logger.info("Memory restored", extra={"user_id": user.id, "memory_id": memory_id})
     return {"status": "restored"}, 200
+
+
+@api.route("/memories/<memory_id>/restore-previous", methods=["POST"])
+@api.output(MemoryResponse)
+@api.doc(responses=[404])
+@require_auth
+def restore_previous_memory(user: User, memory_id: str) -> tuple[dict[str, object], int]:
+    """Put back the text a memory had before its last change (the two swap,
+    so this can itself be undone)."""
+    memory = db.restore_previous_memory(memory_id, user.id)
+    if memory is None:
+        raise_not_found_error("Memory")
+    return _serialize(memory), 200
 
 
 @api.route("/memories/<memory_id>/protection", methods=["PATCH"])

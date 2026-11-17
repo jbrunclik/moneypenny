@@ -28,6 +28,9 @@ function callbacks(): KVStoreCallbacks {
     onDeleteMemory: vi.fn(() => Promise.resolve()),
     onSetMemoryProtected: vi.fn(() => Promise.resolve()),
     onRestoreMemory: vi.fn(() => Promise.resolve()),
+    onRestorePreviousMemory: vi.fn((id: string) =>
+      Promise.resolve(memory(id, { content: 'Has a dog named Max', previous_content: 'Has a dog' }))
+    ),
   };
 }
 
@@ -48,6 +51,34 @@ describe('KVStorePage', () => {
     expect(row.classList.contains('memory-item--protected')).toBe(true);
     expect(row.querySelector('.memory-protect')?.getAttribute('aria-pressed')).toBe('true');
     expect(row.querySelector('.memory-protected-badge')).not.toBeNull();
+  });
+
+  it('shows a last day and restores the version before the last change', async () => {
+    const cb = callbacks();
+    const page = renderKVStorePage(
+      { namespaces: [] },
+      [memory('m1', { content: 'Has a dog', previous_content: 'Has a dog named Max', valid_until: '2026-11-21' })],
+      cb
+    );
+    const row = page.querySelector('.memory-item')!;
+    expect(row.querySelector('.memory-until-badge')?.textContent).toMatch(/^Until .*21/);
+    expect(row.querySelector('.memory-previous')).toBeNull();
+
+    row.querySelector<HTMLButtonElement>('.memory-history')!.click();
+    expect(row.querySelector('.memory-previous-text')?.textContent).toBe('Has a dog named Max');
+
+    row.querySelector<HTMLButtonElement>('.memory-restore-previous')!.click();
+    await flush();
+    expect(cb.onRestorePreviousMemory).toHaveBeenCalledWith('m1');
+    expect(row.querySelector('.memory-text')?.textContent).toBe('Has a dog named Max');
+    expect(row.querySelector('.memory-previous')).toBeNull();
+    expect(row.querySelector('.memory-history')).not.toBeNull();
+  });
+
+  it('offers no history for a memory that never changed', () => {
+    const page = renderKVStorePage({ namespaces: [] }, [memory('m1')], callbacks());
+    expect(page.querySelector('.memory-history')).toBeNull();
+    expect(page.querySelector('.memory-until-badge')).toBeNull();
   });
 
   it('restores a deleted memory and drops the empty section', async () => {

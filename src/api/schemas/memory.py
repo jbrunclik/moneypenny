@@ -18,6 +18,12 @@ class MemoryResponse(ResponseModel):
     protected: bool = False
     source_conversation_id: str | None = None
     deleted_at: Timestamp | None = None
+    valid_until: str | None = Field(
+        default=None, description="Last local day the memory holds (YYYY-MM-DD); deleted after it"
+    )
+    previous_content: str | None = Field(
+        default=None, description="The text before the memory's last change"
+    )
 
 
 class MemoriesListResponse(ResponseModel):

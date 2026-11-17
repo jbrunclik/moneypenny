@@ -19,6 +19,7 @@ matters because the operation list can be influenced by fetched web content.
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any, TypedDict, cast
 
 from langchain_core.tools import tool
@@ -29,7 +30,9 @@ from src.agent.tools.permission_check import check_autonomous_permission
 from src.agent.tools.turn_usage import record_tool_call
 from src.config import Config
 from src.db.models import db
+from src.db.models.dataclasses import Memory
 from src.db.models.memory import MemoryWrite, MemoryWriteConflictError
+from src.utils.clock import local_today
 from src.utils.embeddings import embed_text, top_k_similar
 from src.utils.logging import get_logger
 from src.utils.memory_ids import matching_memory_ids
@@ -52,6 +55,7 @@ class MemoryOp(TypedDict, total=False):
     category: str
     old_text: str
     new_text: str
+    valid_until: str
 
 
 def _reject(action: str, reason: str) -> str:
@@ -93,6 +97,26 @@ def _bad_category(action: str, category: object) -> str | None:
         action,
         f"unknown category '{category}'. Use one of: {', '.join(sorted(VALID_CATEGORIES))}.",
     )
+
+
+def _valid_until(action: str, op: MemoryOp) -> tuple[str | None, str | None]:
+    """The op's valid_until (an ISO date, "" to clear, None if absent) and a
+    rejection when it is not a date from today on."""
+    raw = op.get("valid_until")
+    if raw is None:
+        return None, None
+    text = str(raw).strip()
+    if not text:
+        return "", None
+    try:
+        day = date.fromisoformat(text)
+    except ValueError:
+        return None, _reject(action, f"valid_until '{text}' is not a date; use YYYY-MM-DD.")
+    if day < local_today():
+        return None, _reject(
+            action, f"valid_until {text} is in the past; use today or a later day (YYYY-MM-DD)."
+        )
+    return day.isoformat(), None
 
 
 @dataclass
@@ -177,8 +201,13 @@ def _plan_add(op: MemoryOp, state: _BatchState) -> _Planned | str:
     category = op.get("category")
     if rejection := _bad_category("add", category):
         return rejection
+    valid_until, rejection = _valid_until("add", op)
+    if rejection:
+        return rejection
     state.count += 1
-    return _Planned(MemoryWrite("add", content=content, category=category))
+    return _Planned(
+        MemoryWrite("add", content=content, category=category, valid_until=valid_until or None)
+    )
 
 
 def _patched_text(op: MemoryOp, memory_id: str, content: str) -> str:
@@ -199,24 +228,23 @@ def _patched_text(op: MemoryOp, memory_id: str, content: str) -> str:
 
 
 def _plan_patch(op: MemoryOp, state: _BatchState) -> _Planned | str:
-    """Replace one unique span of a memory (and/or change its category)."""
+    """Replace one unique span of a memory (and/or change its category or end date)."""
     memory_id, rejection = _memory_id("patch", op, state)
     if rejection:
         return rejection
-    category = op.get("category")
-    if rejection := _bad_category("patch", category):
-        return rejection
+    fields = _patch_fields(op)
+    if isinstance(fields, str):
+        return fields
+    category, valid_until = fields
     has_span = bool(op.get("old_text"))
-    if not has_span and (category is None or op.get("new_text") is not None):
-        return _reject(
-            "patch", "missing 'old_text' (the exact text to replace, copied from the memory)"
-        )
-    if has_span and op.get("new_text") is None:
-        return _reject("patch", "missing 'new_text' (use \"\" to remove old_text)")
 
     content = state.content_of(memory_id)
     if content is None:
         return _unknown_id("patch", memory_id)
+    if valid_until and memory_id in state.protected:
+        return _reject(
+            "patch", f"id={memory_id} is protected by the user, so it cannot get an end date."
+        )
     try:
         new_content = _patched_text(op, memory_id, content) if has_span else content
     except ValueError as e:
@@ -231,8 +259,35 @@ def _plan_patch(op: MemoryOp, state: _BatchState) -> _Planned | str:
         return rejection
 
     state.contents[memory_id] = new_content
-    write = MemoryWrite("patch", memory_id, new_content, expected=content, category=category)
+    write = MemoryWrite(
+        "patch",
+        memory_id,
+        new_content,
+        expected=content,
+        category=category,
+        valid_until=valid_until,
+    )
     return _Planned(write, old_chars=len(content))
+
+
+def _patch_fields(op: MemoryOp) -> tuple[str | None, str | None] | str:
+    """A patch's (category, valid_until), or the rejection: it needs old_text +
+    new_text, or at least one of the two fields."""
+    category = op.get("category")
+    if rejection := _bad_category("patch", category):
+        return rejection
+    valid_until, rejection = _valid_until("patch", op)
+    if rejection:
+        return rejection
+    has_span = bool(op.get("old_text"))
+    only_fields = category is not None or valid_until is not None
+    if not has_span and (not only_fields or op.get("new_text") is not None):
+        return _reject(
+            "patch", "missing 'old_text' (the exact text to replace, copied from the memory)"
+        )
+    if has_span and op.get("new_text") is None:
+        return _reject("patch", "missing 'new_text' (use \"\" to remove old_text)")
+    return category, valid_until
 
 
 def _plan_delete(op: MemoryOp, state: _BatchState) -> _Planned | str:
@@ -319,10 +374,16 @@ def _applied_line(user_id: str, planned: _Planned, new_id: str | None, count: in
     if write.action == "add":
         logger.info(
             "Memory added via tool",
-            extra={"user_id": user_id, "memory_id": new_id, "category": write.category},
+            extra={
+                "user_id": user_id,
+                "memory_id": new_id,
+                "category": write.category,
+                "valid_until": write.valid_until,
+            },
         )
         _best_effort(db.embed_and_store_async, user_id, "memory", str(new_id), str(write.content))
-        return f"added id={new_id} ({count}/{Config.MEMORY_MAX_ENTRIES} used)"
+        until = f", until {write.valid_until}" if write.valid_until else ""
+        return f"added id={new_id}{until} ({count}/{Config.MEMORY_MAX_ENTRIES} used)"
     if write.action == "patch":
         content = str(write.content)
         # The old length shows in the log whether edits shrink memories (lose details)
@@ -333,10 +394,13 @@ def _applied_line(user_id: str, planned: _Planned, new_id: str | None, count: in
                 "memory_id": write.memory_id,
                 "old_chars": planned.old_chars,
                 "new_chars": len(content),
+                "valid_until": write.valid_until,
             },
         )
         _best_effort(db.embed_and_store_async, user_id, "memory", str(write.memory_id), content)
         line = f'patched id={write.memory_id}, now: "{content}"'
+        if write.valid_until is not None:
+            line += f", until {write.valid_until}" if write.valid_until else ", no end date"
         limit = Config.MEMORY_MAX_ENTRY_CHARS
         if len(content) >= limit * Config.MEMORY_ENTRY_NEAR_LIMIT_RATIO:
             line += f" ({len(content)}/{limit} chars). {_ONE_TOPIC_HINT}"
@@ -436,10 +500,14 @@ def manage_memory(operations: list[dict[str, Any]]) -> str:
     Args:
         operations: List of memory operations. Each dict has an "action":
             - "add": "content", "category" (one of "preference", "fact",
-              "context", "goal")
+              "context", "goal"); optionally "valid_until"
             - "patch": "id", "old_text" (an exact span of the memory, matching
               once), "new_text" (its replacement; "" removes it); optionally
-              "category" to recategorize (old_text may then be omitted)
+              "category" to recategorize and/or "valid_until" (old_text may
+              then be omitted)
+            "valid_until": the last day (YYYY-MM-DD) a temporary fact holds
+              ("away until Friday", "on antibiotics this week"); the memory is
+              deleted after that day. "" removes the end date.
             - "delete": "id"
             To merge memories: add the merged one and delete the old ones in
             one batch.
@@ -503,15 +571,13 @@ def search_memory(query: str) -> str:
     if not query:
         return tool_error("'query' is required.")
 
-    memories = db.list_memories(user_id)
+    today = local_today()
+    memories = [mem for mem in db.list_memories(user_id) if not mem.expired(today)]
     by_id = {mem.id: mem for mem in memories}
     as_id = query.removeprefix("id=").strip("'\" ")
     named = matching_memory_ids(as_id, by_id)
     if len(named) == 1:  # a condensed memory's full text (also short, id=... or quoted)
-        record_tool_call("memory_fetch")
-        mem = by_id[named[0]]
-        logger.info("Memory fetched by id", extra={"user_id": user_id, "memory_id": mem.id})
-        return f"- id={mem.id} [{mem.category or 'uncategorized'}] {mem.content}"
+        return _fetched(user_id, by_id[named[0]])
 
     # Keyword pass: case-insensitive substring over content and category
     needle = query.casefold()
@@ -523,16 +589,9 @@ def search_memory(query: str) -> str:
 
     # Semantic pass: cosine over stored embeddings, merged after keyword hits
     if Config.EMBEDDINGS_ENABLED and len(matched_ids) < _SEARCH_MEMORY_MAX_RESULTS:
-        query_vec = embed_text(query)
-        if query_vec is not None:
-            candidates = [
-                (ref_id, vector)
-                for ref_id, _dim, vector in db.get_embeddings(user_id, "memory")
-                if ref_id in by_id
-            ]
-            for ref_id, score in top_k_similar(query_vec, candidates, _SEARCH_MEMORY_MAX_RESULTS):
-                if score >= Config.MEMORY_SEARCH_MIN_SIMILARITY and ref_id not in matched_ids:
-                    matched_ids.append(ref_id)
+        for ref_id in _semantic_ids(user_id, query, set(by_id)):
+            if ref_id not in matched_ids:
+                matched_ids.append(ref_id)
 
     matched_ids = matched_ids[:_SEARCH_MEMORY_MAX_RESULTS]
     logger.info(
@@ -547,8 +606,38 @@ def search_memory(query: str) -> str:
         )
 
     lines = [f"Found {len(matched_ids)} matching memor{'y' if len(matched_ids) == 1 else 'ies'}:"]
-    for memory_id in matched_ids:
-        mem = by_id[memory_id]
-        category = mem.category or "uncategorized"
-        lines.append(f"- id={mem.id} [{category}] {mem.content}")
+    lines.extend(_search_line(by_id[memory_id]) for memory_id in matched_ids)
     return "\n".join(lines)
+
+
+def _semantic_ids(user_id: str, query: str, live_ids: set[str]) -> list[str]:
+    """Live memories close in meaning to the query, best first."""
+    query_vec = embed_text(query)
+    if query_vec is None:
+        return []
+    candidates = [
+        (ref_id, vector)
+        for ref_id, _dim, vector in db.get_embeddings(user_id, "memory")
+        if ref_id in live_ids
+    ]
+    return [
+        ref_id
+        for ref_id, score in top_k_similar(query_vec, candidates, _SEARCH_MEMORY_MAX_RESULTS)
+        if score >= Config.MEMORY_SEARCH_MIN_SIMILARITY
+    ]
+
+
+def _fetched(user_id: str, mem: Memory) -> str:
+    """One memory looked up by id: its full text, and what its last change replaced."""
+    record_tool_call("memory_fetch")
+    logger.info("Memory fetched by id", extra={"user_id": user_id, "memory_id": mem.id})
+    line = _search_line(mem)
+    if mem.previous_content:
+        # "it was right before" can then be put back with a patch
+        line += f'\n  previous text: "{" ".join(mem.previous_content.split())}"'
+    return line
+
+
+def _search_line(mem: Memory) -> str:
+    until = f" (until {mem.valid_until.isoformat()})" if mem.valid_until else ""
+    return f"- id={mem.id} [{mem.category or 'uncategorized'}]{until} {mem.content}"

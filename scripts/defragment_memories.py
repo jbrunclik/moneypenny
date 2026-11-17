@@ -35,7 +35,7 @@ from src.agent.tools.memory import VALID_CATEGORIES
 from src.config import Config
 from src.db.models import Memory, User, db, skip_if_migrations_pending
 from src.services.side_costs import record_side_cost
-from src.utils.clock import utc_now
+from src.utils.clock import local_today, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -76,6 +76,8 @@ Rules:
 - Prefer rewriting one of the merged memories via `update` over `add` + `delete` of all
   of them: it keeps the original creation date.
 - Memories marked PROTECTED cannot be deleted. Leave them, or update them in place.
+- Memories marked UNTIL <date> expire on their own after that day: never merge one into
+  a memory without that mark (the merged text would outlive it); leave them as they are.
 - Memories marked RECENT were just written at the user's request: leave them exactly as
   they are (no delete, no update). You may still delete an OLDER memory that a RECENT
   one already covers.
@@ -139,8 +141,9 @@ def format_memories_for_llm(memories: list[Memory]) -> str:
         date_str = mem.created_at.strftime("%Y-%m-%d")
         protected_str = " | PROTECTED (cannot be deleted)" if mem.protected else ""
         recent_str = " | RECENT (leave unchanged)" if is_recent(mem) else ""
+        until_str = f" | UNTIL {mem.valid_until.isoformat()}" if mem.valid_until else ""
         lines.append(f"{i}. {category_str}{mem.content}")
-        lines.append(f"   ID: {mem.id} | Created: {date_str}{protected_str}{recent_str}")
+        lines.append(f"   ID: {mem.id} | Created: {date_str}{until_str}{protected_str}{recent_str}")
         lines.append("")
     return "\n".join(lines)
 
@@ -537,10 +540,13 @@ def main() -> int:
         },
     )
 
-    # Purge soft-deleted memories whose recovery window has passed. Done here
-    # rather than in a separate timer so the retention window is tied to the job
-    # that produces most of the deletes.
+    # Expire memories past their last day ("until Friday") before defrag sees
+    # them, then purge soft-deleted ones whose recovery window has passed. Done
+    # here rather than in a separate timer so the retention window is tied to
+    # the job that produces most of the deletes.
     if not args.dry_run:
+        expired = db.expire_memories(local_today())
+        logger.info("Memories expired", extra={"expired": expired})
         purged = db.purge_deleted_memories(Config.MEMORY_SOFT_DELETE_RETENTION_DAYS)
         logger.info(
             "Purged expired soft-deleted memories",

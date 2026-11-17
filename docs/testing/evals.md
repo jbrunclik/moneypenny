@@ -103,6 +103,8 @@ expect:
   max_tool_rounds: 4                       # optional, 0 = no limit
   forbidden_arg_patterns:                  # optional: regexes that must NOT
     create_artifact.html: ['https?://']    # match a tool argument ("tool.arg")
+  required_arg_patterns:                   # optional: each regex must match the
+    manage_memory.operations: ['valid_until']  # argument of some call to that tool
 ```
 
 The judge sees the response text PLUS the list of tools actually called and
@@ -111,7 +113,8 @@ via kv_store", "cites a source") and the judge can verify them. It cannot see
 generated file contents or tool arguments; phrase file-output rubrics as
 "delivered via execute_code counts", and check arguments deterministically with
 `forbidden_arg_patterns` (the [artifact](../features/artifacts.md) cases use it
-for hex colours, fixed widths and URLs in `create_artifact.html`).
+for hex colours, fixed widths and URLs in `create_artifact.html`) and
+`required_arg_patterns` (`memory_until`: the memory gets a `valid_until`).
 
 Grounding verdicts are shown IN PLACE: `annotate_for_judge()` in
 [run.py](../../evals/run.py) inserts each annotation right after its claim -

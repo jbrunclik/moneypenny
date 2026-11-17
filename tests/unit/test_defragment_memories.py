@@ -57,6 +57,19 @@ class TestFormatMemoriesForLlm:
         assert "[preference]" in result
         assert "ID: mem-1" in result
 
+    def test_marks_a_memory_with_an_end_date(self):
+        """Defrag must not merge a temporary memory into a lasting one."""
+        from datetime import date
+
+        dated = _memory("mem-1", "Away in Vienna")
+        dated.valid_until = date(2026, 11, 21)
+
+        result = format_memories_for_llm([dated, _memory("mem-2", "Has a dog")])
+
+        assert "ID: mem-1 | Created: " in result
+        assert "| UNTIL 2026-11-21" in result
+        assert result.count("UNTIL") == 1
+
     def test_formats_multiple_memories(self):
         """Test formatting several memories."""
         memories = [_memory("mem-1", "First"), _memory("mem-2", "Second")]

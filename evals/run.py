@@ -89,6 +89,9 @@ class EvalCase:
     # Regexes that must NOT match a tool argument, keyed "tool.arg" (e.g.
     # create_artifact.html: hex colours) - the judge never sees tool args
     forbidden_arg_patterns: dict[str, list[str]] = field(default_factory=dict)
+    # Regexes that must each match the argument of at least one call to that
+    # tool, keyed "tool.arg" (e.g. manage_memory.operations: a valid_until)
+    required_arg_patterns: dict[str, list[str]] = field(default_factory=dict)
     # Prior turns for multi-turn cases: [{role, content[, metadata]}] - metadata
     # is the enriched-history dict (e.g. tool_outputs) the model sees in MSG_CONTEXT
     history: list[dict[str, Any]] = field(default_factory=list)
@@ -200,6 +203,10 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 forbidden_arg_patterns={
                     str(k): [str(p) for p in v]
                     for k, v in (expect.get("forbidden_arg_patterns") or {}).items()
+                },
+                required_arg_patterns={
+                    str(k): [str(p) for p in v]
+                    for k, v in (expect.get("required_arg_patterns") or {}).items()
                 },
                 history=[
                     {
@@ -441,6 +448,12 @@ def _arg_pattern_failures(case: EvalCase, tool_calls: list[dict[str, Any]]) -> l
             hits = [p for p in patterns if value and re.search(p, value)]
             if hits:
                 failures.append(f"{key} matched forbidden pattern(s) {hits}")
+    for key, patterns in case.required_arg_patterns.items():
+        tool_name, _, arg = key.partition(".")
+        values = [str(c["args"].get(arg, "")) for c in tool_calls if c["name"] == tool_name]
+        missing = [p for p in patterns if not any(re.search(p, v) for v in values)]
+        if missing:
+            failures.append(f"{key} matched no call for required pattern(s) {missing}")
     return failures
 
 

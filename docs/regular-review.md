@@ -97,6 +97,11 @@ The review itself changes nothing in production and edits nothing but
   under ~1 in 4; an extra round costs ~$0.018), "Memory summaries written" per day,
   and memories still without a summary over 150 characters (should be ~0 after a
   pass).
+- Memory end dates and undo (from Nov 17 2026; [memory-and-context.md](features/memory-and-context.md#end-dates-and-the-previous-text-nov-17-2026)):
+  "Memory added via tool" / "Memory updated via tool" lines with a `valid_until`
+  against all of them, "Memories expired" per night, and "Memory previous text
+  restored" lines. Many restores mean writes lose details - read which writer
+  (defrag, review, agent) changed those memories last.
 - Side costs (from Nov 15 2026; [cost-tracking.md](features/cost-tracking.md)):
   `side_costs` per `feature` and `model` per week (sum of `cost_usd`, count) next to
   the chat turns' total; the nightly `memory_defrag` on Carbon from Dec 1 2026 (its

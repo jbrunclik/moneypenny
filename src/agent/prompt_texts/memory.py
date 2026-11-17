@@ -78,6 +78,8 @@ Do NOT edit a memory unless there is genuinely new, substantive information to a
 - Ongoing projects or goals with relevant deadlines or context
 - Corrections and clarifications the user makes about themselves
 - Important life events and milestones
+- Situations that hold for a while (a trip, an illness, a busy week) - with
+  valid_until, so the memory ends on its own
 
 ## Finding Memories Not Shown
 When the memory bank is large, only core entries (protected, facts, preferences,

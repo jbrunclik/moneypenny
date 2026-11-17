@@ -5,7 +5,7 @@ They are returned by Database methods and used throughout the application.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal, NotRequired, TypedDict
 
 from src.enums import MessageRole
@@ -224,6 +224,15 @@ class Memory:
     # A short version for the per-turn context (None: short, new, or just
     # edited - the full text is shown; src/agent/memory_summaries.py)
     summary: str | None = None
+    # Last local day the memory holds ("until Friday"); the nightly sweep
+    # soft-deletes it after that, and it leaves the model's context at once
+    valid_until: date | None = None
+    # The text before the last content change (any writer), for undo
+    previous_content: str | None = None
+
+    def expired(self, today: date) -> bool:
+        """Past its last day: the nightly sweep deletes it (protected ones stay)."""
+        return self.valid_until is not None and self.valid_until < today and not self.protected
 
 
 @dataclass

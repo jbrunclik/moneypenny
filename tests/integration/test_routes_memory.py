@@ -155,3 +155,45 @@ class TestMemoryRoutes:
     def test_requires_auth(self, client: FlaskClient) -> None:
         assert client.get("/api/memories").status_code == 401
         assert client.get("/api/memories/deleted").status_code == 401
+
+
+class TestRestorePreviousRoute:
+    def test_restores_and_lists_the_new_fields(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        memory = test_database.add_memory(test_user.id, "Has a dog named Max")
+        test_database.bulk_update_memories(test_user.id, [], [(memory.id, "Has a dog", "fact")], [])
+        with test_database._pool.get_connection() as conn:
+            conn.execute(
+                "UPDATE user_memories SET valid_until = '2099-01-01' WHERE id = ?", (memory.id,)
+            )
+            conn.commit()
+
+        [listed] = client.get("/api/memories", headers=auth_headers).get_json()["memories"]
+        assert (listed["previous_content"], listed["valid_until"]) == (
+            "Has a dog named Max",
+            "2099-01-01",
+        )
+
+        response = client.post(f"/api/memories/{memory.id}/restore-previous", headers=auth_headers)
+
+        assert response.status_code == 200
+        body = response.get_json()
+        assert (body["content"], body["previous_content"]) == ("Has a dog named Max", "Has a dog")
+
+    def test_without_a_previous_text_is_404(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        memory = test_database.add_memory(test_user.id, "Never changed")
+
+        response = client.post(f"/api/memories/{memory.id}/restore-previous", headers=auth_headers)
+
+        assert response.status_code == 404

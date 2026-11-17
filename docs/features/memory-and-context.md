@@ -180,6 +180,23 @@ Additional guards:
   time via `check_autonomous_permission`.
 - **Anonymous mode** does not bind the tool at all, so no write can be attempted.
 
+### End dates and the previous text (Nov 17 2026)
+
+- **`valid_until`** (a local date, the last day a memory holds): `manage_memory`
+  takes it on `add` and `patch` (a patch may set or clear only the end date; `""`
+  clears it; a past day or a non-date is rejected; protected memories get none).
+  The memory list shows it (`created[, upd ...][, until YYYY-MM-DD]`), and from the
+  next day the memory leaves the model's context and `search_memory`; the nightly
+  defrag script soft-deletes it first (`expire_memories`, "Memories expired"), so it
+  lands in Recently deleted. Restoring it drops the past end date. Defrag sees
+  `UNTIL <date>` and is told not to merge such a memory into an undated one.
+- **`previous_content`**: a trigger (`user_memories_keep_previous`, migration 0099)
+  keeps the text a memory had before its last content change, whoever wrote it (the
+  agent, defrag, the background review, instructions moves). `search_memory` by id
+  shows it as "previous text"; the Data page has a history button on such a memory
+  with "Restore this version" (`POST /api/memories/<id>/restore-previous`). The two
+  texts swap, so a restore can itself be undone. One level only.
+
 ### Episodic Recall (Conversation Search)
 
 Memory holds a small set of curated facts. Everything else that was ever discussed is

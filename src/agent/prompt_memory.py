@@ -7,7 +7,7 @@ from src.agent.prompt_texts.memory import MEMORY_SYSTEM_PROMPT
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import Memory
-from src.utils.clock import to_local
+from src.utils.clock import local_today, to_local
 from src.utils.memory_ids import short_memory_id
 
 
@@ -37,6 +37,8 @@ def _memory_line(mem: Memory) -> str:
     created = to_local(mem.created_at).strftime("%Y-%m-%d")
     updated = to_local(mem.updated_at).strftime("%Y-%m-%d")
     dates = created if updated == created else f"{created}, upd {updated}"
+    if mem.valid_until:
+        dates += f", until {mem.valid_until.isoformat()}"
     fields = [f"- {short_memory_id(mem.id)}", mem.category or "fact", dates]
     if mem.protected:
         fields.append("protected")
@@ -61,7 +63,9 @@ def get_user_memories_list_prompt(user_id: str) -> str:
     Returns:
         Formatted string with the user's current memories
     """
-    memories = db.list_memories(user_id)
+    # Past their last day: out of the context at once, deleted by the nightly sweep
+    today = local_today()
+    memories = [mem for mem in db.list_memories(user_id) if not mem.expired(today)]
     memory_count = len(memories)
     limit = Config.MEMORY_MAX_ENTRIES
 
@@ -102,7 +106,9 @@ def get_user_memories_list_prompt(user_id: str) -> str:
         )
 
     if shown:
-        prompt_parts.append("(id | category | created[, upd updated] | [protected |] text)")
+        prompt_parts.append(
+            "(id | category | created[, upd updated][, until last day] | [protected |] text)"
+        )
         prompt_parts.extend(_memory_line(mem) for mem in shown)
     else:
         prompt_parts.append("\nNo memories stored yet.")
