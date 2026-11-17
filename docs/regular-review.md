@@ -169,6 +169,8 @@ The review itself changes nothing in production and edits nothing but
   "Scheduled item over budget" lines (`item_id`, `kind`, `budget_usd`): any
   means a job or light item spent `UNATTENDED_DAILY_BUDGET_USD` (or its own
   budget) in a day - read what it ran before raising anything.
+  "Scheduled item stopped after failures" lines by `error`: the same error on
+  several items is a tool or integration to fix, not the items.
   "Turn final answer retried without tools" counts final rounds that only asked
   for tools (since Nov 11 2026 they get one retry on a model with no tools); a
   stopped reply that still ends in "I stopped before finishing" means the retry

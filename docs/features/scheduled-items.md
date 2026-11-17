@@ -50,7 +50,9 @@ message, each belonging to the chat that set it
   - its interval doubles per `SCHEDULE_WATCH_SLOWDOWN_AFTER_RUNS` silent runs, up to
   weekly, except with a user-given end date; the next run never passes the expiry.
   `SCHEDULE_ITEM_MAX_FAILURES` failed runs in a row, or the end date, stop the item with a
-  note in its chat (no push). The run line logs `items_fired`, `items_run`,
+  note in its chat. Reaching the end date is quiet; a stop for failing pushes once
+  ("Scheduled item stopped after failures", since Nov 17 2026) - failed runs before it
+  push nothing, so that push is the item's one alert. The run line logs `items_fired`, `items_run`,
   `items_missed`, `items_expired`.
 - **Runs** (`src/agent/item_runner.py`): ChatAgent in autonomous mode with a `JobContext`
   for the item (no grants) and only `web_search`, `fetch_url`, `research`; the user's

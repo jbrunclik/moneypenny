@@ -232,6 +232,7 @@ def test_three_failures_stop_the_watcher(
     item_scheduler.run_due_items(_NOW)
     stored = db.get_item(item.id, test_user.id)
     assert stored is not None and stored.failures == 2
+    push.assert_not_called()  # a failed run on its own stays quiet
 
     item_scheduler.run_due_items(stored.next_run_at)
 
@@ -239,6 +240,7 @@ def test_three_failures_stop_the_watcher(
     assert text.startswith("Stopped watching - kept failing")
     assert label == "Watcher · stopped"
     assert db.list_items(test_user.id) == []
+    push.assert_called_once()  # one alert: it would otherwise vanish unnoticed
 
 
 def test_a_success_resets_the_failures(

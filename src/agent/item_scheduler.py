@@ -5,7 +5,8 @@ one more than SCHEDULE_MISSED_GRACE_HOURS late (scheduler downtime, or a chat
 restored from the trash after the time) is not fired late but noted as
 missed. Watchers and recurring items run (src/agent/item_runner.py): a
 silent run backs a watcher off, a report is delivered, [DONE] ends a watcher,
-SCHEDULE_ITEM_MAX_FAILURES failures in a row stop the item, and an item past
+SCHEDULE_ITEM_MAX_FAILURES failures in a row stop the item (one push, the
+only alert of its failures), and an item past
 its end stops with a note in its chat. Each item is handled on its own: one
 bad item never stops the tick.
 
@@ -341,7 +342,11 @@ def _apply_outcome(item: ScheduledItem, now: datetime, outcome: RunOutcome) -> N
         elif item.standing:
             _pause_job(item, now, outcome.error or "unknown error")
         else:
-            _stop(item, now, f"{_stopped_title(item)} - kept failing: {item.text}")
+            _stop(item, now, f"{_stopped_title(item)} - kept failing: {item.text}", push=True)
+            logger.warning(
+                "Scheduled item stopped after failures",
+                extra={"item_id": item.id, "kind": item.kind, "error": (outcome.error or "")[:200]},
+            )
         return
     found = outcome.status == "done" and item.kind == "watcher"
     if outcome.status == "silent" or (not outcome.text and not found):  # nothing to tell
@@ -446,6 +451,10 @@ def _pause_job(item: ScheduledItem, now: datetime, error: str) -> None:
     logger.warning("Standing job paused after failures", extra={"item_id": item.id})
 
 
-def _stop(item: ScheduledItem, now: datetime, text: str) -> None:
-    deliver(item, text, delivery_label(item.kind, now, Config.APP_TIMEZONE, "stopped"), push=False)
+def _stop(item: ScheduledItem, now: datetime, text: str, push: bool = False) -> None:
+    """Ends a light item with a note in its chat. Reaching its end is expected
+    and quiet; one stopped for failing pushes once (its only alert: failed
+    runs before it push nothing), or it would vanish unnoticed."""
+    label = delivery_label(item.kind, now, Config.APP_TIMEZONE, "stopped")
+    deliver(item, text, label, push=push)
     db.delete_item(item.id)
