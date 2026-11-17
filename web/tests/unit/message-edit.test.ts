@@ -3,14 +3,15 @@
  * text by writing it into the composer and pressing send: the user's own
  * draft there was overwritten and any files attached to it went with the
  * edit. Editing a message with attachments silently deleted them (only the
- * text is resent).
+ * text is resent), so such a message is now edited in place (Nov 17 2026):
+ * its text changes server-side, its files stay, and the reply is regenerated.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '@/state/store';
 
 vi.mock('@/api/conversations', () => ({
   conversations: { truncate: vi.fn(() => Promise.resolve()) },
-  messages: { delete: vi.fn() },
+  messages: { delete: vi.fn(), edit: vi.fn(() => Promise.resolve()) },
 }));
 vi.mock('@/components/Toast', () => ({
   toast: { info: vi.fn(), error: vi.fn(), warning: vi.fn(), success: vi.fn() },
@@ -19,6 +20,7 @@ vi.mock('@/components/messages', () => ({
   hideLoadingIndicator: vi.fn(),
   revealLoadingIndicator: vi.fn(),
   removeRenderedMessagesFrom: vi.fn(),
+  addMessageToUI: vi.fn(),
 }));
 const edit = { save: (_text: string): void => {} };
 vi.mock('@/components/messages/edit', () => ({
@@ -36,7 +38,9 @@ vi.mock('@/core/batch-send', () => ({ sendBatchMessage: vi.fn() }));
 
 import { initOutboxHandlers } from '@/core/rerun';
 import { sendMessage, sendUiMessage } from '@/core/messaging';
-import { conversations } from '@/api/conversations';
+import { conversations, messages } from '@/api/conversations';
+import { sendBatchMessage } from '@/core/batch-send';
+import { sendStreamingMessage } from '@/core/stream-send';
 import { toast } from '@/components/Toast';
 import { beginInlineEdit } from '@/components/messages/edit';
 
@@ -72,10 +76,25 @@ describe('edit and resend', () => {
     expect((document.getElementById('message-input') as HTMLTextAreaElement).value).toBe('my unsent draft');
   });
 
-  it('does not edit a message with attachments (they would be lost)', () => {
+  it('edits a message with attachments in place and regenerates the reply', async () => {
     editMessage('u2');
-    expect(beginInlineEdit).not.toHaveBeenCalled();
+    expect(beginInlineEdit).toHaveBeenCalled();
+    edit.save('  What breed?  ');
+
+    await vi.waitFor(() => expect(messages.edit).toHaveBeenCalledWith('u2', 'What breed?'));
+    // The rerun goes through batch or streaming, whichever the store has on
+    const reruns = (): unknown[][] => [
+      ...vi.mocked(sendBatchMessage).mock.calls,
+      ...vi.mocked(sendStreamingMessage).mock.calls,
+    ];
+    await vi.waitFor(() => expect(reruns()).toHaveLength(1));
+    const [call] = reruns();
+    expect(call?.[7]).toBe('regenerate');
     expect(conversations.truncate).not.toHaveBeenCalled();
-    expect(toast.info).toHaveBeenCalled();
+    expect(sendUiMessage).not.toHaveBeenCalled();
+    const kept = useStore.getState().getMessages('c1').find((m) => m.id === 'u2');
+    expect(kept?.content).toBe('What breed?');
+    expect(kept?.files).toHaveLength(1);
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

@@ -6,13 +6,15 @@ single OpenAPI tag and the original endpoint names).
 
 from typing import Any
 
-from src.api.errors import raise_not_found_error
+from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.helpers.chat_turn import refuse_if_read_only
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
 from src.api.schemas.chat import MessageResponse
 from src.api.schemas.common import StatusResponse
 from src.api.schemas.conversations import (
+    EditMessageRequest,
+    EditMessageResponse,
     MessagesListResponse,
     MessagesPageQuery,
     TruncateConversationRequest,
@@ -110,6 +112,33 @@ def truncate_conversation(
             "deleted": deleted,
         },
     )
+    return {"deleted": deleted}, 200
+
+
+@api.route("/messages/<message_id>/edit", methods=["POST"])
+@api.output(EditMessageResponse)
+@api.doc(responses=[400, 404, 429])
+@rate_limit_conversations
+@require_auth
+@validate_request(EditMessageRequest)
+def edit_message(
+    user: User, data: EditMessageRequest, message_id: str
+) -> tuple[dict[str, int], int]:
+    """Edit a sent user message in place: everything after it goes and its
+    text changes; its attachments stay. The client then regenerates the reply
+    (a message with files could not be edited by truncate-and-resend, which
+    deleted the files)."""
+    message = db.get_message_by_id(message_id)
+    conv = db.get_conversation(message.conversation_id, user.id) if message else None
+    if message is None or conv is None:
+        raise_not_found_error("Message")
+    refuse_if_read_only(conv)
+    content = data.content.strip()
+    if not content:
+        raise_validation_error("The message cannot be empty.", field="content")
+    deleted = db.edit_user_message(conv.id, user.id, message_id, content)
+    if deleted is None:
+        raise_not_found_error("Message")
     return {"deleted": deleted}, 200
 
 

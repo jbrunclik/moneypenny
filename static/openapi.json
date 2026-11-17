@@ -4209,6 +4209,86 @@
         "summary": "Delete a key."
       }
     },
+    "/api/messages/{message_id}/edit": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditMessageResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Edit a sent user message in place: everything after it goes and its",
+        "description": "text changes; its attachments stay. The client then regenerates the reply\n(a message with files could not be edited by truncate-and-resend, which\ndeleted the files).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditMessageRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/conversations/bulk-restore": {
       "post": {
         "parameters": [],
@@ -17251,6 +17331,36 @@
           "value"
         ],
         "title": "KVSetRequest",
+        "type": "object"
+      },
+      "EditMessageResponse": {
+        "description": "Number of messages removed after the edited one.",
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "EditMessageResponse",
+        "type": "object"
+      },
+      "EditMessageRequest": {
+        "description": "Schema for POST /api/messages/<message_id>/edit.",
+        "properties": {
+          "content": {
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "EditMessageRequest",
         "type": "object"
       },
       "BulkRestoreResponse": {

@@ -46,6 +46,12 @@ use its id as the FTS rowid, and delete through it. Its rowid is an explicit INT
 VACUUM cannot renumber it (an implicit `messages.rowid` could). Any new trigger or code that writes
 `search_index` must keep the two tables in step.
 
+**Message text changes** ([migration 0101](../../migrations/0101_search_index_follows_message_edits.py),
+Nov 17 2026): `fts_update_message` copies a message's new text into its index row and drops its
+embedding. Before it there was no update trigger, so a reply saved as a placeholder and filled in
+later kept its old, often empty, indexed text (16 of 320 assistant replies in a local copy; the
+migration backfilled them), and an edited message would have stayed findable by its old text.
+
 Moving a conversation to the [trash](ui-conversations.md#trash) does not touch the index: the search query joins `conversations` and filters `c.deleted_at IS NULL`, so restoring needs no reindex. Rows leave the index only when the conversation is permanently deleted (purge, delete forever, empty trash).
 
 ## How It Works

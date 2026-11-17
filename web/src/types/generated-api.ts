@@ -4787,6 +4787,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/messages/{message_id}/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Edit a sent user message in place: everything after it goes and its
+         * @description text changes; its attachments stay. The client then regenerates the reply
+         *     (a message with files could not be edited by truncate-and-resend, which
+         *     deleted the files).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    message_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["EditMessageRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EditMessageResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/bulk-restore": {
         parameters: {
             query?: never;
@@ -13308,6 +13391,22 @@ export interface components {
         KVSetRequest: {
             /** Value */
             value: string;
+        };
+        /**
+         * EditMessageResponse
+         * @description Number of messages removed after the edited one.
+         */
+        EditMessageResponse: {
+            /** Deleted */
+            deleted: number;
+        };
+        /**
+         * EditMessageRequest
+         * @description Schema for POST /api/messages/<message_id>/edit.
+         */
+        EditMessageRequest: {
+            /** Content */
+            content: string;
         };
         /**
          * BulkRestoreResponse

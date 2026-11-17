@@ -1644,6 +1644,53 @@ class TestTruncateAndRerun:
         assert response.get_json()["deleted"] == 2
         assert len(test_database.get_messages(test_conversation.id)) == 2
 
+    def test_edit_keeps_the_attachments_and_drops_the_tail(
+        self, client, auth_headers, test_database, test_conversation, test_blob_store
+    ) -> None:
+        """Nov 17 2026: a message with files could not be edited (truncate and
+        resend lost the files); the edit now changes the text in place."""
+        from src.db.models import make_blob_key
+
+        photo = test_database.add_message(
+            test_conversation.id,
+            "user",
+            "What is this?",
+            files=[{"name": "a.png", "type": "image/png", "size": 5, "data": "aGVsbG8="}],
+        )
+        test_database.add_message(test_conversation.id, "assistant", "A cat.")
+
+        response = client.post(
+            f"/api/messages/{photo.id}/edit",
+            json={"content": "  What breed is it?  "},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        assert response.get_json() == {"deleted": 1}
+        [kept] = test_database.get_messages(test_conversation.id)
+        assert (kept.id, kept.content) == (photo.id, "What breed is it?")
+        assert kept.files and kept.files[0]["name"] == "a.png"
+        assert test_blob_store.get(make_blob_key(photo.id, 0)) is not None
+
+    def test_edit_refuses_a_reply_and_an_empty_text(
+        self, client, auth_headers, test_database, test_conversation
+    ) -> None:
+        reply = test_database.add_message(test_conversation.id, "assistant", "Hi")
+        question = test_database.add_message(test_conversation.id, "user", "Q")
+
+        assert (
+            client.post(
+                f"/api/messages/{reply.id}/edit", json={"content": "x"}, headers=auth_headers
+            ).status_code
+            == 404
+        )
+        assert (
+            client.post(
+                f"/api/messages/{question.id}/edit", json={"content": "   "}, headers=auth_headers
+            ).status_code
+            == 400
+        )
+
     def test_truncate_unknown_message_404(self, client, auth_headers, test_conversation) -> None:
         response = client.post(
             f"/api/conversations/{test_conversation.id}/truncate",

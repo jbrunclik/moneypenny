@@ -380,6 +380,17 @@ export const conversations = {
 
 // Message endpoints
 export const messages = {
+  /**
+   * Edit a sent user message in place: everything after it goes, its text
+   * changes and its attachments stay (the reply is regenerated after).
+   */
+  async edit(id: string, content: string): Promise<void> {
+    await request<{ deleted: number }>(`/api/messages/${id}/edit`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  },
+
   async delete(id: string): Promise<void> {
     // DELETE is idempotent (deleting already deleted = same result), safe to retry
     await request<{ status: string }>(`/api/messages/${id}`, {

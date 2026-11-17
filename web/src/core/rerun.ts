@@ -9,7 +9,7 @@ import { createLogger } from '../utils/logger';
 import { conversations, messages } from '../api/conversations';
 import { ApiError } from '../api/http';
 import { toast } from '../components/Toast';
-import { hideLoadingIndicator, removeRenderedMessagesFrom } from '../components/messages';
+import { addMessageToUI, hideLoadingIndicator, removeRenderedMessagesFrom } from '../components/messages';
 import { beginInlineEdit } from '../components/messages/edit';
 import { getElementById } from '../utils/dom';
 import { getClientLocation } from '../utils/location';
@@ -136,15 +136,41 @@ function startMessageEdit(messageId: string): void {
   const message = useStore.getState().getMessages(convId).find((m) => m.id === messageId);
   const messageEl = document.querySelector<HTMLElement>(`.message[data-message-id="${messageId}"]`);
   if (!message || !messageEl) return;
-  // Only the text is resent, and the truncation deletes the original - its
-  // attachments were silently lost
-  if (message.files && message.files.length > 0) {
-    toast.info('Messages with attachments can\'t be edited yet - send a new message instead.');
+  // A message with attachments is edited in place (its files stay on the
+  // server) and the reply regenerated: truncate-and-resend sent only the
+  // text and the truncation deleted the files
+  const hasFiles = Boolean(message.files && message.files.length > 0);
+  beginInlineEdit(messageEl, message.content, {
+    onSave: (newText) =>
+      void (hasFiles ? submitAttachmentEdit(convId, messageId, newText) : submitMessageEdit(convId, messageId, newText)),
+  });
+}
+
+async function submitAttachmentEdit(convId: string, messageId: string, newText: string): Promise<void> {
+  const trimmed = newText.trim();
+  if (!trimmed) return;
+  log.info('Edit in place (attachments)', { conversationId: convId, messageId });
+  try {
+    await messages.edit(messageId, trimmed);
+  } catch (error) {
+    log.error('Failed to edit the message', { error, conversationId: convId, messageId });
+    toast.error('Failed to edit the message.');
     return;
   }
-  beginInlineEdit(messageEl, message.content, {
-    onSave: (newText) => void submitMessageEdit(convId, messageId, newText),
-  });
+  const store = useStore.getState();
+  const list = store.getMessages(convId);
+  const index = list.findIndex((m) => m.id === messageId);
+  const edited = index >= 0 ? list[index] : undefined;
+  // Drop the edited message and its tail from the screen, then put the
+  // message back with the new text (its attachments render as before)
+  store.truncateMessagesFrom(convId, messageId);
+  removeRenderedMessagesFrom(messageId);
+  if (edited) {
+    const updated = { ...edited, content: trimmed };
+    store.appendMessage(convId, updated);
+    addMessageToUI(updated);
+  }
+  await dispatchRerun(convId, 'regenerate');
 }
 
 async function submitMessageEdit(convId: string, messageId: string, newText: string): Promise<void> {

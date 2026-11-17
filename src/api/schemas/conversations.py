@@ -60,6 +60,18 @@ class TruncateConversationRequest(RequestModel):
     inclusive: bool = Field(default=True)
 
 
+class EditMessageRequest(RequestModel):
+    """Schema for POST /api/messages/<message_id>/edit."""
+
+    content: str = Field(..., min_length=1, max_length=200_000)
+
+
+class EditMessageResponse(ResponseModel):
+    """Number of messages removed after the edited one."""
+
+    deleted: int
+
+
 class TruncateConversationResponse(ResponseModel):
     """Number of messages removed by a truncate."""
 

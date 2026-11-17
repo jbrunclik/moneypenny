@@ -194,6 +194,44 @@ class MessageMixin:
         )
         return len(doomed_ids)
 
+    def edit_user_message(
+        self, conversation_id: str, user_id: str, message_id: str, content: str
+    ) -> int | None:
+        """Edit a sent user message in place: delete everything after it and
+        replace its text, keeping its attachments (the edit-and-resend of a
+        message with files; the reply is then regenerated).
+
+        Returns the number of messages deleted after it, or None when the
+        message is not this user's user message in this conversation. The
+        search index follows the text (trigger fts_update_message).
+        """
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                """SELECT m.role FROM messages m JOIN conversations c ON m.conversation_id = c.id
+                   WHERE m.id = ? AND m.conversation_id = ? AND c.user_id = ?""",
+                (message_id, conversation_id, user_id),
+            ).fetchone()
+        if not row or row["role"] != MessageRole.USER:
+            return None
+        deleted = self.delete_messages_after(conversation_id, user_id, message_id, False)
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                "UPDATE messages SET content = ? WHERE id = ? AND conversation_id = ?",
+                (content, message_id, conversation_id),
+            )
+            conn.commit()
+        logger.info(
+            "User message edited",
+            extra={
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "deleted": deleted,
+            },
+        )
+        return deleted
+
     def add_message(
         self,
         conversation_id: str,
