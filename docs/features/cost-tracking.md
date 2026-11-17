@@ -83,6 +83,24 @@ recorded yet (priced per character, a few cents a month). The admin page adds
 them to the family totals and lists them per feature (Nov 16 2026,
 [admin.md](admin.md)).
 
+### Flex tier (Nov 17 2026)
+
+Gemini's Flex tier bills `FLEX_PRICE_RATIO` (0.5) of the standard price for
+calls that can wait: it queues them (a tiny Hydrogen call took 48-84 s, a
+memory review 57-157 s), may refuse under load, and never upgrades itself.
+`generate_on_flex` ([src/agent/flex.py](../../src/agent/flex.py)) asks for
+`service_tier=flex` with a `FLEX_TIMEOUT_SECONDS` (600) client timeout and runs
+the call again on standard on 429, 503, 504 or a timeout ("Flex call fell
+back", with `reason` and `waited_ms`). The tier that served a call comes from
+the `x-gemini-service-tier` response header (`served_tier`; usage_metadata
+does not carry it), so a fallback is priced at the standard rate;
+`side_costs.service_tier` is 'flex' for Flex rows and NULL otherwise.
+
+Only the background memory review uses it (`MEMORY_REVIEW_FLEX`). Not the
+nightly defrag: Carbon on Flex hit a 504 after 179 s in the Nov 17 probe. Not
+evals: the agent runs through LangChain, which cannot send the tier, and a
+full run would take hours. Batch (up to 24 h) fits none of them.
+
 Thinking level: side calls go through `chat_model()`
 ([gemini_clients.py](../../src/agent/gemini_clients.py)), which sends no
 thinking level unless asked - and Gemini 4 Hydrogen's API default is high. Each

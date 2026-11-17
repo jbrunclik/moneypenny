@@ -29,15 +29,17 @@ class SideCostsMixin:
         tokens: tuple[int, int, int],
         cost_usd: float,
         user_id: str | None = None,
+        service_tier: str | None = None,
     ) -> None:
-        """Record a side call; ``tokens`` = (input, cached input, output)."""
+        """Record a side call; ``tokens`` = (input, cached input, output);
+        ``service_tier`` names a non-standard Gemini tier (flex)."""
         input_tokens, cached_tokens, output_tokens = tokens
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
                 """INSERT INTO side_costs (created_at, user_id, feature, model, input_tokens,
-                       cached_input_tokens, output_tokens, cost_usd)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                       cached_input_tokens, output_tokens, cost_usd, service_tier)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     to_db(utc_now()),
                     user_id,
@@ -47,6 +49,7 @@ class SideCostsMixin:
                     cached_tokens,
                     output_tokens,
                     cost_usd,
+                    None if service_tier in (None, "standard") else service_tier,
                 ),
             )
             conn.commit()

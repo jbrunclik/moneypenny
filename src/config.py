@@ -739,6 +739,14 @@ class Config:
     MEMORY_REVIEW_EVERY_TURNS: int = int(os.getenv("MEMORY_REVIEW_EVERY_TURNS", "6"))
     MEMORY_REVIEW_MAX_TURNS: int = int(os.getenv("MEMORY_REVIEW_MAX_TURNS", "12"))
     MEMORY_REVIEW_MAX_OPS: int = int(os.getenv("MEMORY_REVIEW_MAX_OPS", "3"))
+    # The review waits on nobody, so it runs on Gemini's Flex tier at half price
+    # (src/agent/flex.py), falling back to standard when Flex refuses
+    MEMORY_REVIEW_FLEX = True
+    # Flex queues requests (48-84 s for a tiny Hydrogen call, Nov 17 2026);
+    # Google advises a client timeout of 10 minutes or more
+    FLEX_TIMEOUT_SECONDS = 600
+    # Flex bills this share of the standard per-token price
+    FLEX_PRICE_RATIO = 0.5
     # Tiered injection: at or below MEMORY_INJECT_FULL_MAX every memory is
     # injected into the prompt (small banks, current behavior). Above it, only
     # core entries (protected + preference + goal) plus the most recently

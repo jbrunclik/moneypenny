@@ -12,11 +12,13 @@ from __future__ import annotations
 import json
 import re
 import secrets
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, cast
 
 from google.genai.types import GenerateContentConfig, ThinkingConfig, ThinkingLevel
 
+from src.agent.flex import generate_on_flex
 from src.agent.gemini_clients import shared_genai_client
 from src.agent.prompt_texts.memory_review import MEMORY_REVIEW_PROMPT
 from src.agent.tools.memory import MemoryOp, apply_single_op
@@ -24,6 +26,7 @@ from src.config import Config
 from src.db.models import db
 from src.services.side_costs import record_side_cost
 from src.utils.logging import get_logger
+from src.utils.service_tier import STANDARD, served_tier
 
 if TYPE_CHECKING:
     from src.db.models import Memory
@@ -45,6 +48,9 @@ class ReviewResult:
     ops: list[MemoryOp] = field(default_factory=list)
     input_tokens: int = 0
     output_tokens: int = 0
+    # The Gemini tier that served the call (flex bills FLEX_PRICE_RATIO)
+    service_tier: str = STANDARD
+    model_ms: int = 0
 
 
 def parse_ops(text: str) -> list[MemoryOp]:
@@ -109,23 +115,27 @@ def build_prompt(user_id: str, messages: list[Message]) -> str:
     )
 
 
-def _call_model(prompt: str) -> tuple[str, int, int]:
-    response = shared_genai_client().models.generate_content(
-        model=Config.AI_ASSIST_MODEL,
-        contents=prompt,
-        config=GenerateContentConfig(
-            temperature=0.2,
-            thinking_config=ThinkingConfig(thinking_level=ThinkingLevel.LOW),
-        ),
+def _call_model(prompt: str) -> tuple[str, int, int, str]:
+    """(text, input tokens, output tokens, the tier that served it)."""
+    config = GenerateContentConfig(
+        temperature=0.2,
+        thinking_config=ThinkingConfig(thinking_level=ThinkingLevel.LOW),
     )
-    record_side_cost("memory_review", Config.AI_ASSIST_MODEL, response)
+    model = Config.AI_ASSIST_MODEL
+    if Config.MEMORY_REVIEW_FLEX:
+        response = generate_on_flex(model, prompt, config, feature="memory_review")
+    else:
+        response = shared_genai_client().models.generate_content(
+            model=model, contents=prompt, config=config
+        )
+    record_side_cost("memory_review", model, response)
     usage = getattr(response, "usage_metadata", None)
     tokens_in = int(getattr(usage, "prompt_token_count", 0) or 0)
     # Thinking is billed at the output rate
     tokens_out = int(getattr(usage, "candidates_token_count", 0) or 0) + int(
         getattr(usage, "thoughts_token_count", 0) or 0
     )
-    return response.text or "", tokens_in, tokens_out
+    return response.text or "", tokens_in, tokens_out, served_tier(response)
 
 
 def review_messages(user_id: str, conversation_id: str, messages: list[Message]) -> ReviewResult:
@@ -134,8 +144,14 @@ def review_messages(user_id: str, conversation_id: str, messages: list[Message])
     Synchronous (the trigger runs it on a daemon thread; evals call it directly).
     Raises when the model call fails - the caller logs and retries next time.
     """
-    text, tokens_in, tokens_out = _call_model(build_prompt(user_id, messages))
-    result = ReviewResult(input_tokens=tokens_in, output_tokens=tokens_out)
+    started = time.monotonic()
+    text, tokens_in, tokens_out, tier = _call_model(build_prompt(user_id, messages))
+    result = ReviewResult(
+        input_tokens=tokens_in,
+        output_tokens=tokens_out,
+        service_tier=tier,
+        model_ms=round((time.monotonic() - started) * 1000),
+    )
     for op in parse_ops(text):
         applied = apply_single_op(user_id, conversation_id, op)
         if applied is not None:

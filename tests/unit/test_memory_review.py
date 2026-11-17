@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from src.agent import memory_review
+from src.agent import flex, memory_review
 from src.agent.memory_review import format_note, parse_ops, review_messages
 from src.config import Config
 from src.enums import MessageRole
@@ -86,6 +86,8 @@ def fake_model(monkeypatch: pytest.MonkeyPatch, test_database: Database) -> _Fak
     monkeypatch.setattr(
         memory_review, "shared_genai_client", lambda: SimpleNamespace(models=models)
     )
+    # The review runs on Flex (src/agent/flex.py), which has its own client
+    monkeypatch.setattr(flex, "shared_genai_client", lambda: SimpleNamespace(models=models))
     return models
 
 

@@ -282,8 +282,9 @@ outside production. Backfill for pre-existing rows:
 
 The agent saves a memory only when it decides to call `manage_memory` mid-turn,
 which misses facts mentioned in passing. Every `MEMORY_REVIEW_EVERY_TURNS` (6)
-user turns of a chat, a cheap pass (`AI_ASSIST_MODEL`, low thinking) rereads the
-turns since its last review and may add or patch up to `MEMORY_REVIEW_MAX_OPS`
+user turns of a chat, a cheap pass (`AI_ASSIST_MODEL`, low thinking, on Gemini's
+half-price Flex tier since Nov 17 2026 - [cost-tracking.md](cost-tracking.md#flex-tier-nov-17-2026))
+rereads the turns since its last review and may add or patch up to `MEMORY_REVIEW_MAX_OPS`
 (3) memories. Design: [spec](../superpowers/specs/2026-11-08-background-memory-review-design.md).
 
 - **When**: `save_message_to_db` calls `note_turn`

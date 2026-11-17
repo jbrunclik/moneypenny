@@ -29,6 +29,7 @@ from src.db.models.dataclasses import Message
 from src.db.models.timestamps import from_db, to_db
 from src.services.costs import calculate_token_cost
 from src.utils.logging import get_logger
+from src.utils.service_tier import FLEX
 
 logger = get_logger(__name__)
 
@@ -199,6 +200,8 @@ def _run_pass(conv_id: str, user_id: str, window: _Window) -> None:
         cost = calculate_token_cost(
             Config.AI_ASSIST_MODEL, result.input_tokens, result.output_tokens
         )
+        if result.service_tier == FLEX:
+            cost *= Config.FLEX_PRICE_RATIO
         if target is not None:
             if result.applied:
                 db.set_memory_note(target, format_note(result.applied))
@@ -213,6 +216,8 @@ def _run_pass(conv_id: str, user_id: str, window: _Window) -> None:
                 "reviewed_messages": len(messages),
                 "applied": len(result.applied),
                 "cost_usd": round(cost, 6),
+                "service_tier": result.service_tier,
+                "model_ms": result.model_ms,
             },
         )
     except Exception:

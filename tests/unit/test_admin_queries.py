@@ -1,5 +1,6 @@
 """Admin page queries (src/db/models/admin.py) against a real test database."""
 
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -144,4 +145,5 @@ class TestTurnsAndAgents:
 
     def test_system_facts(self, test_database: Database, test_user: User) -> None:
         assert test_database.admin_user_count() >= 1
-        assert (test_database.admin_latest_migration() or "").startswith("00")
+        # Four-digit ids: "0100_..." came after "0099_..." (Nov 17 2026)
+        assert re.match(r"\d{4}_", test_database.admin_latest_migration() or "")

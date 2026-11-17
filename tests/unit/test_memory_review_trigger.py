@@ -13,6 +13,7 @@ from src.agent.memory_review import ReviewResult
 from src.api.helpers import memory_review_trigger as trigger
 from src.config import Config
 from src.enums import MessageRole
+from src.services.costs import calculate_token_cost
 
 if TYPE_CHECKING:
     from src.db.models import Conversation, Database, User
@@ -205,6 +206,27 @@ def test_records_cost_on_the_triggering_reply(
 
     cost = test_database.get_message_cost(reply.id)
     assert cost is not None and cost["cost_usd"] > 0.01
+
+
+@pytest.mark.parametrize("tier", ["standard", "flex"])
+def test_a_flex_review_costs_the_flex_share(
+    reviewer: _Reviewer, test_database: Database, test_conversation: Conversation, tier: str
+) -> None:
+    reviewer.result = ReviewResult(input_tokens=1_000_000, service_tier=tier)
+    for i in range(5):
+        _turn(test_database, test_conversation, i)
+    test_database.add_message(test_conversation.id, MessageRole.USER, "q")
+    reply = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "a")
+    test_database.save_message_cost(
+        reply.id, test_conversation.id, test_conversation.user_id, "m", 1, 1, 0.0
+    )
+
+    trigger.note_turn(test_conversation.id, test_conversation.user_id, reply.id, [])
+
+    full = calculate_token_cost(Config.AI_ASSIST_MODEL, 1_000_000, 0)
+    share = Config.FLEX_PRICE_RATIO if tier == "flex" else 1.0
+    cost = test_database.get_message_cost(reply.id)
+    assert cost is not None and cost["cost_usd"] == pytest.approx(full * share)
 
 
 def test_deleted_cursor_falls_back_to_its_time(

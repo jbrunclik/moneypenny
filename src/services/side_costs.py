@@ -10,9 +10,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from src.config import Config
 from src.db.models import db
 from src.services.costs import calculate_token_cost
 from src.utils.logging import get_logger
+from src.utils.service_tier import FLEX, served_tier
 
 logger = get_logger(__name__)
 
@@ -48,6 +50,9 @@ def record_side_cost(feature: str, model: str, usage: object, user_id: str | Non
         return
     try:
         cost = calculate_token_cost(model, tokens[0], tokens[2], tokens[1])
-        db.add_side_cost(feature, model, tokens, cost, user_id=user_id)
+        tier = served_tier(usage)
+        if tier == FLEX:
+            cost *= Config.FLEX_PRICE_RATIO
+        db.add_side_cost(feature, model, tokens, cost, user_id=user_id, service_tier=tier)
     except Exception:  # telemetry must not break the call it measures
         logger.exception("Side cost not recorded", extra={"feature": feature})
