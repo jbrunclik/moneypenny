@@ -5,6 +5,7 @@ before the results reach the model, autonomous agents' blocked calls get an
 error result, and request_approval runs after its batch siblings.
 """
 
+import json
 import time
 from typing import Any
 
@@ -245,6 +246,7 @@ def _capture_and_strip_tool_messages(messages: list[Any], request_id: str | None
         if isinstance(msg, ToolMessage) and isinstance(msg.content, str):
             if request_id is not None:
                 store_tool_result(request_id, msg.content)
+            keep_script_pages(msg)
 
             content_len_before = len(msg.content)
             msg.content = strip_full_result_from_tool_content(msg.content)
@@ -259,6 +261,25 @@ def _capture_and_strip_tool_messages(messages: list[Any], request_id: str | None
                         "bytes_saved": content_len_before - content_len_after,
                     },
                 )
+
+
+def keep_script_pages(msg: ToolMessage) -> None:
+    """Pages an execute_code script read through its tool calls ride in
+    _full_result (not for the model); keep them on the message's artifact,
+    which LangChain never sends, so turn_pages counts them as sources."""
+    if (
+        msg.name != "execute_code"
+        or not isinstance(msg.content, str)
+        or "_full_result" not in msg.content
+    ):
+        return
+    try:
+        data = json.loads(msg.content)
+    except ValueError:
+        return
+    full = data.get("_full_result") if isinstance(data, dict) else None
+    if isinstance(full, dict) and isinstance(full.get("pages"), list):
+        msg.artifact = {"pages": full["pages"]}
 
 
 def _frame_untrusted(msg: ToolMessage) -> None:

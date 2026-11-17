@@ -114,6 +114,37 @@ told about, or wastes a round on an import that fails).
 
 Pressing Stop while `execute_code` runs kills the user's program (SIGKILL to every process but PID 1 and the keep-alive `tail`, found by scanning `/proc` from Python as root - the slim image has no `pkill`) through a cancel callback registered around `session.run`; the run's own timeout (`CODE_SANDBOX_TIMEOUT_SECONDS`) uses the same kill. The session container and `/work` survive, so later calls in the conversation still see saved files. When no exec can start (a fork bomb holding every pid), the kill falls back to `docker kill` and the pool drops the session. See [Agent Graph - Stop Checkpoints](../architecture/agent-graph.md#stop-checkpoints).
 
+## Scripts that call tools (Nov 17 2026, off by default)
+
+With `CODE_SANDBOX_TOOL_CALLS=true`, a script can call read-only tools:
+`from moneypenny import tools` gives `tools.web_search(query)`,
+`tools.fetch_url(url)`, `tools.research(queries)` and
+`tools.search_memory(query)`, with the tools' own results (a failed call or an
+`{"error"}` result raises `tools.ToolError`). It is the structural answer to one
+tool call per round: five independent lookups in one script, and only what it
+prints returns to the model ([spec](../superpowers/specs/2026-11-17-sandbox-tool-calls-design.md)).
+
+- **Transport** ([sandbox_rpc.py](../../src/agent/tools/sandbox_rpc.py),
+  `pump_frames` in [docker_sandbox.py](../../src/agent/tools/docker_sandbox.py)):
+  the run's exec gets stdin and a random per-run token in `MP_RPC_TOKEN`; the
+  stub (`STUB`, prepended by `wrap_user_code`) pops the token, writes one
+  `<<rpc:TOKEN>> {json}` line per call and reads the reply line from stdin. Any
+  other line is output, so a printed page cannot pose as a request. The network
+  stays off. The exec's HTTP response is closed first when the run ends (closing
+  the socket alone made its finalizer flush a closed file).
+- **Limits**: `CODE_SANDBOX_TOOL_CALLS_MAX` (50) calls a run; the run's limit
+  becomes `CODE_SANDBOX_TOOL_RUN_TIMEOUT_SECONDS` (120) once it makes a call.
+  Each call is recorded as the turn's tool call (`record_tool_call`), so turn
+  budgets see them; Stop kills the script as before.
+- **Result**: `tool_calls` (count); stdout framed as untrusted when a web tool
+  ran; the pages read go to `_full_result.pages`, which `tool_node` moves to the
+  ToolMessage `artifact` before stripping, and `turn_pages` reads as sources.
+- **Logs**: "Sandbox tool call" (`tool`, `ms`, `ok`) and "Sandbox tool run"
+  (`calls`, `failed`, `ms`, `pages`).
+- The tool description gains its "Tools from the script" section only while
+  the flag is on (`TOOL_CALLS_DOC`), so the shared prompt prefix is unchanged
+  while it is off.
+
 ## Office Files
 
 The image ships python-docx, python-pptx and openpyxl (since image label

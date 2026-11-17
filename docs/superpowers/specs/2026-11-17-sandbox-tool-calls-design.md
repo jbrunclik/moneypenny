@@ -1,6 +1,11 @@
 # Sandbox scripts that call tools - design
 
-Status: **proposed** (Nov 17 2026), for approval before any code.
+Status: **built, off** (Nov 17 2026): `CODE_SANDBOX_TOOL_CALLS=false` until the
+evals below run on an unthrottled search (the laptop's ddgs returned nothing that
+day). Open questions answered with the proposed defaults: web and memory tools
+first (calendar later), a one-line steer in the tool description, 120 s.
+Pages read inside a script reach the turn's sources through the ToolMessage
+`artifact` (set by `tool_node` from `_full_result.pages`; the model never sees it).
 TODO: "Harness hardening from the Hermes Agent comparison" - sandbox scripts
 that call tools. Reference: Hermes `tools/code_execution_rpc.py`.
 

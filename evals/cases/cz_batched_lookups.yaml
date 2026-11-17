@@ -14,5 +14,7 @@ expect:
   rubric: >
     Gives opening hours (or a clear statement that it could not confirm them)
     for all four places, concisely, in Czech, and cites sources.
-  required_tools: [research, web_search]
+  # execute_code: a script that looks the four up through moneypenny.tools
+  # (CODE_SANDBOX_TOOL_CALLS) counts as batching too
+  required_tools: [research, web_search, execute_code]
   max_tool_rounds: 3

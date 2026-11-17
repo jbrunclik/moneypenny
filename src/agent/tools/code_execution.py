@@ -26,7 +26,9 @@ from src.agent.tools.conversation_files import (
 )
 from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.sandbox_rpc import STUB, ToolBridge
 from src.agent.tools.sandbox_sessions import get_sandbox_pool, make_sandbox_session
+from src.agent.tools.web_content import wrap_untrusted_content
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -274,6 +276,43 @@ def _collect_execution_response(session: Any, result: Any) -> dict[str, Any]:
     return build_execution_response(result, clean_stdout, file_metadata, full_result_files)
 
 
+# The tools a script can call - in the description only while the bridge is
+# on, so the shared prompt prefix does not change for nothing
+TOOL_CALLS_DOC = f"""
+
+    ## Tools from the script
+    Several independent lookups (prices in five shops, weather in three towns): ONE
+    script, not one tool call each. `from moneypenny import tools` gives
+    tools.web_search(query), tools.fetch_url(url), tools.research(queries) and
+    tools.search_memory(query) - the same results as those tools (a dict, or text);
+    a failed call raises tools.ToolError. At most {Config.CODE_SANDBOX_TOOL_CALLS_MAX}
+    calls a run, which may then take {Config.CODE_SANDBOX_TOOL_RUN_TIMEOUT_SECONDS} s.
+    Print only what the answer needs: the rest of what the tools return stays out."""
+
+
+def with_tool_calls(response: dict[str, object], bridge: ToolBridge) -> None:
+    """A run that called tools: its count, its printed web data framed as
+    untrusted, and the pages it read as the turn's sources (server-side only:
+    _full_result is stripped before the model sees the result)."""
+    response["tool_calls"] = bridge.calls
+    stdout = response.get("stdout")
+    if bridge.web_calls and isinstance(stdout, str) and stdout:
+        response["stdout"] = wrap_untrusted_content(stdout, kind="script output with web content")
+    pages = [{"title": p.title, "url": p.url, "text": p.text} for p in bridge.pages()]
+    if pages:
+        full = response.get("_full_result")
+        response["_full_result"] = {**(full if isinstance(full, dict) else {}), "pages": pages}
+    logger.info(
+        "Sandbox tool run",
+        extra={
+            "calls": bridge.calls,
+            "failed": bridge.failed,
+            "ms": bridge.ms,
+            "pages": len(pages),
+        },
+    )
+
+
 def _log_execution_result(result: Any, response: dict[str, Any], work_bytes: int | None) -> None:
     if result.exit_code == 0:
         logger.info(
@@ -447,7 +486,9 @@ def execute_code(code: str, files: list[str] | None = None) -> str:
     )
 
     try:
-        wrapped_code = wrap_user_code(code)
+        # Scripts that call tools (sandbox_rpc.py): the bridge answers them
+        bridge = ToolBridge() if Config.CODE_SANDBOX_TOOL_CALLS else None
+        wrapped_code = wrap_user_code(code, prelude=STUB if bridge else "")
 
         # Sessions come from the per-conversation pool (the constraints in
         # docker_sandbox.sandbox_container_config, shared with the
@@ -466,9 +507,15 @@ def execute_code(code: str, files: list[str] | None = None) -> str:
             copied = _copy_attachments(session, attachments)
             raise_if_cancelled()
             with on_cancel(lambda: _kill_user_code(session)):
-                result = session.run(wrapped_code, timeout_s=Config.CODE_SANDBOX_TIMEOUT_SECONDS)
+                # The bridge only when on: a run without it is unchanged
+                bridged = {"bridge": bridge} if bridge else {}
+                result = session.run(
+                    wrapped_code, timeout_s=Config.CODE_SANDBOX_TIMEOUT_SECONDS, **bridged
+                )
 
             response = _collect_execution_response(session, result)
+            if bridge is not None and bridge.calls:
+                with_tool_calls(response, bridge)
             if files:
                 response["attachments"] = copied
             _log_execution_result(result, response, session.work_bytes())
@@ -480,3 +527,7 @@ def execute_code(code: str, files: list[str] | None = None) -> str:
         return _timed_out()
     except Exception as e:  # noqa: BLE001 - every sandbox failure becomes a tool error, logged there
         return _execution_error(e)
+
+
+if Config.CODE_SANDBOX_TOOL_CALLS:
+    execute_code.description += TOOL_CALLS_DOC

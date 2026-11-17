@@ -160,12 +160,8 @@ def _read_and_searched(
         escalated = name == "web_search" and data is not None and "_escalated" in data
         if (name in ("research", "delegate_task") or escalated) and data:
             _collect_research(name, data, read, searched, loose)
-        elif name == "fetch_url":
-            page = _fetched_page(msg, args, data)
-            if page:
-                read.append(page)
-        elif name == "browser" and (page := _browser_page(data)) is not None:
-            read.append(page)
+        elif name in ("fetch_url", "browser", "execute_code"):
+            read.extend(_pages_read(name, msg, args, data))
         elif name == "web_search" and data:
             searched.extend(_search_pages(data))
         elif name in WEB_TOOL_NAMES:
@@ -173,6 +169,27 @@ def _read_and_searched(
             if text:
                 loose.append(text)
     return read, searched, loose
+
+
+def _pages_read(
+    name: str, msg: ToolMessage, args: dict[str, object], data: dict[str, object] | None
+) -> list[SourcePage]:
+    """The pages a fetch_url, browser or execute_code call read."""
+    if name == "execute_code":
+        return _script_pages(msg)
+    page = _fetched_page(msg, args, data) if name == "fetch_url" else _browser_page(data)
+    return [page] if page else []
+
+
+def _script_pages(msg: ToolMessage) -> list[SourcePage]:
+    """Pages an execute_code script read through its tool calls (the
+    message's artifact, set by tool_node; the model never sees them)."""
+    artifact = msg.artifact if isinstance(msg.artifact, dict) else {}
+    return [
+        SourcePage(str(p.get("title", "")), str(p["url"]), str(p.get("text", "")))
+        for p in artifact.get("pages") or []
+        if isinstance(p, dict) and p.get("url")
+    ]
 
 
 def _unique(pages: list[SourcePage], limit: int) -> list[SourcePage]:

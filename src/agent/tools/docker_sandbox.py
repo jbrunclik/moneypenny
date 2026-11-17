@@ -24,14 +24,20 @@ import os
 import secrets
 import shutil
 import threading
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src.config import Config
 from src.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from src.agent.tools.sandbox_rpc import ToolBridge
 
 logger = get_logger(__name__)
 
@@ -181,11 +187,14 @@ class DockerSandbox:
         path.chmod(0o644)
         return path
 
-    def run(self, code: str, timeout_s: float) -> ExecResult:
+    def run(self, code: str, timeout_s: float, bridge: ToolBridge | None = None) -> ExecResult:
         """Run a Python script as the sandbox user in /work.
 
         Output streams in and is capped (OUTPUT_CAP_BYTES per stream). Raises
-        SandboxTimeoutError after ``timeout_s`` (the program is killed).
+        SandboxTimeoutError after ``timeout_s`` (the program is killed). With
+        a ``bridge`` the script can call tools over its stdin/stdout
+        (sandbox_rpc.py), and once it has made a call the limit becomes
+        CODE_SANDBOX_TOOL_RUN_TIMEOUT_SECONDS.
         """
         script = self._stage("code", code.encode(), suffix=".py")
         output = _CappedOutput()
@@ -199,9 +208,18 @@ class DockerSandbox:
                     ["python", f"{STAGING_MOUNT}/{script.name}"],
                     user=SANDBOX_USER,
                     workdir="/work",
+                    stdin=bridge is not None,
+                    environment=bridge.environment if bridge else None,
                 )["Id"]
-                for stdout, stderr in api.exec_start(exec_id, stream=True, demux=True):
-                    output.add(stdout, stderr)
+                if bridge is None:
+                    for stdout, stderr in api.exec_start(exec_id, stream=True, demux=True):
+                        output.add(stdout, stderr)
+                else:
+                    sock = api.exec_start(exec_id, socket=True)
+                    try:
+                        pump_frames(_frames(sock), _sender(sock), bridge, output)
+                    finally:
+                        _close_exec_socket(sock)
                 exit_code = api.exec_inspect(exec_id)["ExitCode"]
                 outcome.append(-1 if exit_code is None else int(exit_code))
             except Exception as exc:  # noqa: BLE001 - re-raised on the caller's thread
@@ -210,11 +228,11 @@ class DockerSandbox:
         worker = threading.Thread(target=_exec, daemon=True, name="sandbox-exec")
         try:
             worker.start()
-            worker.join(timeout_s)
+            limit = _join_within(worker, timeout_s, bridge)
             if worker.is_alive():
                 self._kill_within_grace()
                 worker.join(KILL_GRACE_SECONDS)
-                raise SandboxTimeoutError(f"timed out after {timeout_s:g} s")
+                raise SandboxTimeoutError(f"timed out after {limit:g} s")
         finally:
             script.unlink(missing_ok=True)
         [result] = outcome
@@ -316,6 +334,78 @@ def _bounded(action: Callable[[], object], seconds: float) -> bool:
     thread.start()
     thread.join(seconds)
     return not thread.is_alive()
+
+
+def _join_within(worker: threading.Thread, timeout_s: float, bridge: ToolBridge | None) -> float:
+    """Wait for the run; the limit grows to the tool-run limit once the script
+    makes its first tool call. Returns the limit that applied."""
+    if bridge is None:
+        worker.join(timeout_s)
+        return timeout_s
+    deadline = timeout_s
+    clock = time.monotonic()
+    while worker.is_alive():
+        if bridge.calls:
+            deadline = max(timeout_s, Config.CODE_SANDBOX_TOOL_RUN_TIMEOUT_SECONDS)
+        left = deadline - (time.monotonic() - clock)
+        if left <= 0:
+            break
+        worker.join(min(left, 0.25))  # poll: the limit can grow while the run waits
+    return deadline
+
+
+def _close_exec_socket(sock: object) -> None:
+    """Close the exec's HTTP response, which closes the socket under it.
+    Closing the socket alone left the response's finalizer flushing a closed
+    file ("I/O operation on closed file" on garbage collection)."""
+    response = getattr(sock, "_response", None)
+    close = getattr(response if response is not None else sock, "close", None)
+    if callable(close):
+        with contextlib.suppress(Exception):
+            close()
+
+
+def _frames(sock: object) -> Iterable[tuple[int, bytes]]:
+    """(stream, chunk) frames of a non-tty exec socket (1 stdout, 2 stderr)."""
+    from docker.utils.socket import frames_iter  # noqa: PLC0415 - docker is imported lazily here
+
+    frames: Iterable[tuple[int, bytes]] = frames_iter(sock, tty=False)
+    return frames
+
+
+def _sender(sock: object) -> Callable[[bytes], None]:
+    """Write to the exec's stdin (docker-py hands back a read-only SocketIO
+    over a Unix socket; the socket inside it takes writes)."""
+    target = getattr(sock, "_sock", sock)
+    send: Callable[[bytes], None] = getattr(target, "sendall")  # noqa: B009 - typed here
+    return send
+
+
+def pump_frames(
+    frames: Iterable[tuple[int, bytes]],
+    send: Callable[[bytes], None],
+    bridge: ToolBridge,
+    output: _CappedOutput,
+) -> None:
+    """Route a bridged run's output: each stdout line carrying the run's
+    token is a tool request (answered on stdin), the rest is the script's
+    output."""
+    pending = b""
+    for stream, chunk in frames:
+        if stream != 1:
+            output.add(None, chunk)
+            continue
+        pending += chunk
+        *lines, pending = pending.split(b"\n")
+        for raw in lines:
+            line = raw.decode("utf-8", errors="replace")
+            request = bridge.request_in(line)
+            if request is None:
+                output.add(raw + b"\n", None)
+            else:
+                send((bridge.answer(request) + "\n").encode())
+    if pending:
+        output.add(pending, None)
 
 
 class _CappedOutput:

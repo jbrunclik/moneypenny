@@ -20,7 +20,7 @@ def get_mime_type(filename: str) -> str:
     return mime_type or "application/octet-stream"
 
 
-def wrap_user_code(code: str) -> str:
+def wrap_user_code(code: str, prelude: str = "") -> str:
     """Wrap user code with setup and file listing logic.
 
     The wrapped code:
@@ -31,6 +31,7 @@ def wrap_user_code(code: str) -> str:
 
     Args:
         code: The user's Python code to wrap
+        prelude: Code run before it (the tool-call stub, sandbox_rpc.STUB)
 
     Returns:
         Wrapped code ready for sandbox execution
@@ -40,7 +41,7 @@ import os, shutil
 shutil.rmtree('/output', ignore_errors=True)
 os.makedirs('/output', exist_ok=True)
 os.makedirs('/work', exist_ok=True)
-
+{prelude}
 # User code starts here
 {code}
 # User code ends here

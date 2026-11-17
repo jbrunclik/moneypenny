@@ -819,6 +819,14 @@ class Config:
     # Conversation attachments execute_code may copy into /work/attachments/
     # per call (each also capped at MAX_FILE_SIZE_BYTES)
     CODE_SANDBOX_MAX_ATTACHMENTS: int = int(os.getenv("CODE_SANDBOX_MAX_ATTACHMENTS", "5"))
+    # Scripts that call tools (src/agent/tools/sandbox_rpc.py): `from moneypenny
+    # import tools` in execute_code reaches read-only tools over the script's
+    # stdin/stdout. Off until the evals show fewer rounds without regressions
+    CODE_SANDBOX_TOOL_CALLS: bool = os.getenv("CODE_SANDBOX_TOOL_CALLS", "false").lower() == "true"
+    # Calls one run may make, and the run's time limit once it makes the first
+    # (research calls take 5-30 s each; the plain limit stays for other runs)
+    CODE_SANDBOX_TOOL_CALLS_MAX = 50
+    CODE_SANDBOX_TOOL_RUN_TIMEOUT_SECONDS = 120
     # Items a user may have scheduled from chat at once, paused included (schedule tool)
     # Standing chats (agents) a user may have; a guard against a runaway loop
     # creating them by talking, not a product limit
