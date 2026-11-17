@@ -252,7 +252,7 @@ make backup
 make backup-list
 ```
 
-Backups are stored zstd-compressed in `backups/{database_name}/` directories alongside the databases, named with a timestamp: `chatbot-20240101-120000.db.zst`. To restore one, `.venv/bin/python scripts/backup_databases.py --decompress <file>` writes the `.db` next to it and runs an integrity check ([Database backup](architecture/database.md#restoring)).
+Backups are stored zstd-compressed in `backups/{database_name}/` directories alongside the databases, named with a timestamp: `chatbot-20240101-120000.db.zst` (files.db copies stay plain `.db`). To restore one, `.venv/bin/python scripts/backup_databases.py --decompress <file>` writes the `.db` next to it and runs an integrity check ([Database backup](architecture/database.md#restoring)).
 
 ## Memory Defragmentation
 

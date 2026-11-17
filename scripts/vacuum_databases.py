@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config import Config
-from src.utils.logging import get_logger
+from src.utils.logging import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -111,6 +111,8 @@ def main() -> int:
     Returns:
         0 if all databases vacuumed successfully, 1 if any failed
     """
+    # Timer runs: without it the INFO lines (results, counts) reach no journal
+    setup_logging()
     from src.db.models import skip_if_migrations_pending
 
     if skip_if_migrations_pending("vacuum"):

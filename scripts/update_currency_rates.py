@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config import Config
 from src.db.models import db, skip_if_migrations_pending
-from src.utils.logging import get_logger
+from src.utils.logging import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -116,6 +116,8 @@ def main() -> int:
     Returns:
         0 if rates updated successfully, 1 if fetch failed (existing rates kept).
     """
+    # Timer runs: without it the INFO lines (results, counts) reach no journal
+    setup_logging()
     if skip_if_migrations_pending("currency-update"):
         return 0
     logger.info("Starting currency rate update")

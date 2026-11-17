@@ -260,6 +260,16 @@ class TestCompressedBackups:
         assert files[0].endswith(".db.zst")
         datetime.strptime(files[0].removeprefix("test-").removesuffix(".db.zst"), "%Y%m%d-%H%M%S")
 
+    def test_an_uncompressed_backup_keeps_the_plain_copy(self, test_db):
+        """files.db is mostly images (zstd 0.97, Nov 17 2026): kept plain."""
+        assert create_backup(test_db, "Test DB", compress=False) is True
+
+        [backup] = get_backup_dir(test_db).iterdir()
+        assert backup.name.endswith(".db") and not backup.name.endswith(".db.zst")
+        conn = sqlite3.connect(str(backup))
+        assert conn.execute("SELECT count(*) FROM test").fetchone()[0] == 200
+        conn.close()
+
     def test_decompressed_backup_holds_the_data(self, test_db):
         create_backup(test_db, "Test DB")
         compressed = next(get_backup_dir(test_db).glob("*.db.zst"))

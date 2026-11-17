@@ -2,7 +2,7 @@
 """Database backup script for Moneypenny.
 
 Creates timestamped snapshots of both SQLite databases (chatbot.db and files.db),
-stored zstd-compressed (`<stem>-<timestamp>.db.zst`), keeping a configurable
+stored zstd-compressed (`<stem>-<timestamp>.db.zst`; files.db plain), keeping a configurable
 number of backups (default: the last 24 hours, at most 3 per database).
 
 Usage:
@@ -28,7 +28,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config import Config
-from src.utils.logging import get_logger
+from src.utils.logging import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -155,7 +155,7 @@ def _compress_logged(plain: Path, db_name: str) -> None:
     )
 
 
-def create_backup(db_path: Path, db_name: str) -> bool:
+def create_backup(db_path: Path, db_name: str, compress: bool = True) -> bool:
     """Create a backup of a SQLite database using online backup API.
 
     Uses SQLite's backup API to create a consistent snapshot even while
@@ -164,6 +164,7 @@ def create_backup(db_path: Path, db_name: str) -> bool:
     Args:
         db_path: Path to the database file
         db_name: Human-readable name for logging
+        compress: Keep the zstd form (False keeps the plain copy)
 
     Returns:
         True if successful, False otherwise
@@ -226,7 +227,8 @@ def create_backup(db_path: Path, db_name: str) -> bool:
                 "backup_size_bytes": backup_size,
             },
         )
-        _compress_logged(backup_path, db_name)
+        if compress:
+            _compress_logged(backup_path, db_name)
         return True
 
     except sqlite3.Error as e:
@@ -348,6 +350,8 @@ def main() -> int:
     Returns:
         0 if all backups successful, 1 if any failed
     """
+    # Timer runs: without it the INFO lines (results, counts) reach no journal
+    setup_logging()
     parser = argparse.ArgumentParser(description="Backup Moneypenny databases")
     parser.add_argument(
         "--retention",
@@ -377,14 +381,17 @@ def main() -> int:
         print(f"{restored} (integrity check ok)")
         return 0
 
+    # files.db is mostly images that are compressed already: zstd took it from
+    # 555 to 536 MB (0.97, Nov 17 2026) - not worth the extra pass over half a
+    # gigabyte on every run - so it is kept plain; chatbot.db shrinks to 0.57
     databases = [
-        (Config.DATABASE_PATH, "Main database (chatbot.db)"),
-        (Config.BLOB_STORAGE_PATH, "Blob storage (files.db)"),
+        (Config.DATABASE_PATH, "Main database (chatbot.db)", True),
+        (Config.BLOB_STORAGE_PATH, "Blob storage (files.db)", False),
     ]
 
     # List mode - just show existing backups
     if args.list:
-        for db_path, db_name in databases:
+        for db_path, db_name, _compress in databases:
             backups = list_backups(db_path)
             print(f"\n{db_name}:")
             if not backups:
@@ -404,9 +411,9 @@ def main() -> int:
 
     all_success = True
 
-    for db_path, db_name in databases:
+    for db_path, db_name, compress in databases:
         # Create backup
-        if not create_backup(db_path, db_name):
+        if not create_backup(db_path, db_name, compress=compress):
             all_success = False
             continue
 

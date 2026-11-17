@@ -35,7 +35,11 @@ The review itself changes nothing in production and edits nothing but
   Connection noise (`[messaging] Streaming failed: Fetch is aborted`,
   `Failed to send message: Network error`) is expected on phones; compare its
   `count` per `app_version` against the last review and look into it only if
-  it grows faster than usage. A timeout followed by "Message already received"
+  it grows faster than usage. Baseline (Nov 17 2026, 14 days, ~90 user messages
+  a day): `Load failed` 60, `Fetch is aborted` 46 (~2 a day, all iPhone),
+  `Failed to send message: Network error` 42 (~3 a day on the current build),
+  `Stream read timed out` 26, `signal is aborted without reason` 19 - steady
+  per-day rates spread over builds, no growth: phone backgrounding and networks. A timeout followed by "Message already received"
   at a deploy is the retry hitting the duplicate guard, which is harmless.
 - **Layout checks** - the admin page's "Layout checks" section: a check the
   deployed build fails and the build before it didn't is an iOS layout
@@ -149,10 +153,13 @@ The review itself changes nothing in production and edits nothing but
 - Title calls (from Nov 15 2026; "Conversation title generated" journal lines): median
   and p90 `elapsed_ms` (a new chat's `done` waits for it; Flash-Lite took ~0.6 s) and
   the share with `ok` false.
-- Backup sizes: the nightly `Backup compressed` journal lines (`plain_size_bytes`,
-  `compressed_size_bytes`, `ratio` per database). A ratio creeping towards 1, or
-  sizes growing much faster than usage, is a finding; a `Backup compression
-  failed` line means that night's copy stayed uncompressed.
+- Backup sizes: the nightly `Backup compressed` journal lines for chatbot.db
+  (`plain_size_bytes`, `compressed_size_bytes`, `ratio`; 283 -> 160 MB, 0.57 on
+  Nov 17 2026) and `Backup completed` for files.db (kept plain: it compressed
+  to 0.97). The lines reach the journal only since Nov 17 2026 (the script did
+  not set up logging). A ratio creeping towards 1, or sizes growing much faster
+  than usage, is a finding; a `Backup compression failed` line means that
+  night's copy stayed uncompressed. At most 3 copies per database, within 24 h.
 - Web-search quotas (admin page "Web search"): a provider exhausted early in
   the period, or search falling back to the free provider.
 - Turn budgets (from Nov 2026): the `Turn budget stop` journal lines and

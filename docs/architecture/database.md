@@ -383,7 +383,7 @@ Daily automated backups create timestamped snapshots of both SQLite databases, k
 - Runs daily at 2:00 AM (with up to 30 min random delay)
 - Backs up both `chatbot.db` (main database) and `files.db` (blob storage)
 - Uses SQLite's online backup API for consistent snapshots even while the database is in use
-- Compresses each copy with zstd (stdlib `compression.zstd`, level 3), checks that it decompresses to the same bytes, then removes the plain copy; if compression fails the plain copy is kept and an error logged. The `Backup compressed` log line carries `plain_size_bytes`, `compressed_size_bytes` and `ratio`
+- Compresses the chatbot.db copy with zstd (stdlib `compression.zstd`, level 3; files.db stays plain since Nov 17 2026 - mostly images, it compressed to 0.97), checks that it decompresses to the same bytes, then removes the plain copy; if compression fails the plain copy is kept and an error logged. The `Backup compressed` log line carries `plain_size_bytes`, `compressed_size_bytes` and `ratio`
 - Automatically enabled when running `make deploy`
 - Check timer status: `systemctl --user list-timers`
 - View backup logs: `journalctl --user -u moneypenny-backup`

@@ -36,7 +36,7 @@ from src.config import Config
 from src.db.models import Memory, User, db, skip_if_migrations_pending
 from src.services.side_costs import record_side_cost
 from src.utils.clock import local_today, utc_now
-from src.utils.logging import get_logger
+from src.utils.logging import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -517,6 +517,8 @@ def main() -> int:
     Returns:
         0 if successful, 1 if any errors occurred
     """
+    # Timer runs: without it the INFO lines (results, counts) reach no journal
+    setup_logging()
     parser = argparse.ArgumentParser(description="Defragment user memories using LLM")
     parser.add_argument(
         "--dry-run",
