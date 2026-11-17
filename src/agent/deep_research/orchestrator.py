@@ -75,13 +75,21 @@ class Orchestrator:
         self._run_slots = threading.BoundedSemaphore(Config.DEEP_RESEARCH_PARALLELISM)
         self._held: dict[int, list[threading.BoundedSemaphore]] = {}
         self._finished: set[int] = set()
-        self._totals: dict[int, TokenTotals] = {}
+        # Spend per subagent run (request id): a gap retry is a second run
+        self._totals: dict[str, TokenTotals] = {}
+        # Items in the gap pass, and why their first attempt fell short
+        self._gaps: dict[int, str] = {}
+        # Items whose subagent was abandoned while stuck: its thread may still
+        # end later and touch the item's bookkeeping, so no retry for them
+        self._abandoned: set[int] = set()
+        self._timeout = Config.DEEP_RESEARCH_SUBAGENT_TIMEOUT_SECONDS
+        self._started = time.monotonic()
 
     def _on_post(self, entry: BoardEntry) -> None:
         self.emit({"type": "research_finding", "agent": entry.agent, "text": entry.text})
 
     def _rid(self, index: int) -> str:
-        return f"{self.run_id}-{index}"
+        return f"{self.run_id}-{index}" + ("-gap" if index in self._gaps else "")
 
     def _halted(self) -> bool:
         return self._finish.is_set() or self._stop.is_set()
@@ -97,13 +105,24 @@ class Orchestrator:
                 "started_at": round(time.time() * 1000),
             }
         )
-        results: list[ItemResult | None] = [None] * len(items)
+        self._started = time.monotonic()
+        first = self._wave(list(range(len(items))))
+        final = [first[i] for i in sorted(first)]
+        if not self._halted():
+            final = self._gap_pass(final)
+        if self._stop.is_set():
+            raise TurnCancelled
+        self.emit({"type": "research_sources", "count": len(merge_pages(final, self.board))})
+        return final
+
+    def _wave(self, indices: list[int]) -> dict[int, ItemResult]:
+        """Research these items in parallel; results by index."""
+        results: dict[int, ItemResult] = {}
         # One thread per item: a thread stuck in a tool must not starve the queue
-        pool = ThreadPoolExecutor(max(len(items), 1), "deep-research")
+        pool = ThreadPoolExecutor(max(len(indices), 1), "deep-research")
         try:
             futures = {
-                pool.submit(contextvars.copy_context().run, self._item, i): i
-                for i in range(len(items))
+                pool.submit(contextvars.copy_context().run, self._item, i): i for i in indices
             }
             pending = set(futures)
             while pending:
@@ -114,11 +133,53 @@ class Orchestrator:
                 pending = self._abandon_stuck(pending, futures, results)
         finally:
             pool.shutdown(wait=False, cancel_futures=True)
-        if self._stop.is_set():
-            raise TurnCancelled
-        final = [r for r in results if r is not None]
-        self.emit({"type": "research_sources", "count": len(merge_pages(final, self.board))})
-        return final
+        return results
+
+    def _research_seconds_left(self) -> float:
+        """What the estimate leaves for research: its minutes less the writer's
+        share (the base minutes) and the time spent so far."""
+        minutes = float(self.plan.estimate.get("minutes") or 0)
+        budget = (minutes - Config.DEEP_RESEARCH_EST_BASE_MINUTES) * 60
+        return budget - (time.monotonic() - self._started)
+
+    def _gap_pass(self, results: list[ItemResult]) -> list[ItemResult]:
+        """One more subagent for each item that failed, timed out or came back
+        thin, while the estimate still has room for it (Nov 17 2026: one wave
+        then the writer; 3 of 15 sub-questions timed out in the Oct review)."""
+        gaps = {
+            r.index: reason
+            for r in results
+            if (reason := gap_reason(r)) and r.index not in self._abandoned
+        }
+        if not gaps:
+            return results
+        left = self._research_seconds_left()
+        extra = {"items": sorted(gaps), "reasons": sorted(set(gaps.values()))}
+        if left < Config.DEEP_RESEARCH_GAP_TIMEOUT_SECONDS:
+            logger.info(
+                "Deep research gap pass skipped", extra={**extra, "seconds_left": round(left)}
+            )
+            return results
+        with self._lock:
+            self._gaps = gaps
+            for index in gaps:
+                self._finished.discard(index)
+                self._cut.pop(index, None)
+                self._cut_at.pop(index, None)
+        self._timeout = Config.DEEP_RESEARCH_GAP_TIMEOUT_SECONDS
+        retried = self._wave(sorted(gaps))
+        merged = [merge_attempts(r, retried.get(r.index)) for r in results]
+        logger.info(
+            "Deep research gap pass",
+            extra={
+                **extra,
+                "seconds_left": round(left),
+                "pages_before": sum(len(r.pages) for r in results if r.index in gaps),
+                "pages_after": sum(len(r.pages) for r in merged if r.index in gaps),
+                "statuses": [retried[i].status for i in sorted(retried)],
+            },
+        )
+        return merged
 
     def _acquire(self, index: int, slots: threading.BoundedSemaphore, announce: bool) -> bool:
         """Take a slot (False when the run halts first); recorded for _release."""
@@ -160,9 +221,11 @@ class Orchestrator:
             self._running[index] = time.monotonic()
         self.emit({"type": "research_item", "index": index, "status": "started"})
         brief = build_brief(self.plan, index, self.today, self.recent_turns)
+        if index in self._gaps:
+            brief += "\n\n" + gap_note(self._gaps[index], self.board.pages_of(index))
         totals = TokenTotals()
         with self._lock:
-            self._totals[index] = totals
+            self._totals[rid] = totals
         try:
             # Every model call is priced as it happens: a cut turn returns no usage
             with collecting_model_usage(totals):
@@ -196,7 +259,7 @@ class Orchestrator:
 
     def _cut_running(self, status: Status, only_overdue: bool = False) -> None:
         now = time.monotonic()
-        timeout = Config.DEEP_RESEARCH_SUBAGENT_TIMEOUT_SECONDS
+        timeout = self._timeout
         with self._lock:
             targets = [
                 i
@@ -212,7 +275,7 @@ class Orchestrator:
                 token.cancel()
 
     def _abandon_stuck(
-        self, pending: set[Any], futures: dict[Any, int], results: list[ItemResult | None]
+        self, pending: set[Any], futures: dict[Any, int], results: dict[int, ItemResult]
     ) -> set[Any]:
         """Stop waiting for items cut longer than the grace ago; returns what is left."""
         now = time.monotonic()
@@ -226,10 +289,11 @@ class Orchestrator:
                 left.add(future)
                 continue
             logger.warning("Deep research subagent stuck after its cut", extra={"index": index})
+            self._abandoned.add(index)
             self._release(index)
             status = self._cut[index]
             with self._lock:
-                spent = usage_of(self._totals.get(index, TokenTotals()))
+                spent = usage_of(self._totals.get(self._rid(index), TokenTotals()))
             results[index] = self._finish_item(
                 ItemResult(index, status, "", self.board.pages_of(index), spent)
             )
@@ -238,7 +302,7 @@ class Orchestrator:
     def spent(self) -> list[dict[str, int]]:
         """What every started subagent has spent so far (done, cut or stuck)."""
         with self._lock:
-            return [usage_of(t) for _i, t in sorted(self._totals.items())]
+            return [usage_of(t) for _rid, t in sorted(self._totals.items())]
 
     def _enforce_deadlines(self) -> None:
         self._cut_running("timed_out", only_overdue=True)
@@ -261,6 +325,45 @@ def usage_of(totals: TokenTotals) -> dict[str, int]:
         "output_tokens": totals.output_tokens,
         "cached_input_tokens": totals.cached_tokens,
     }
+
+
+_GAP_NOTES = {
+    "failed": "failed with an error",
+    "timed_out": "ran out of time",
+    "thin": "found too little",
+}
+
+
+def gap_reason(result: ItemResult) -> str | None:
+    """Why an item gets a second subagent: failed, timed out, or too few pages."""
+    if result.status in ("failed", "timed_out"):
+        return result.status
+    if result.status == "done" and len(result.pages) < Config.DEEP_RESEARCH_GAP_MIN_PAGES:
+        return "thin"
+    return None
+
+
+def gap_note(reason: str, pages: list[SourcePage]) -> str:
+    """What the retry is told about the first attempt."""
+    note = f"AN EARLIER ATTEMPT at this sub-question {_GAP_NOTES.get(reason, reason)}."
+    if pages:
+        note += " It already read (do not fetch these again): " + "; ".join(p.url for p in pages)
+    return note + " Look for other sources and other search phrasings."
+
+
+def merge_attempts(first: ItemResult, retry: ItemResult | None) -> ItemResult:
+    """An item's two attempts as one result: all pages, both digests, summed spend."""
+    if retry is None:
+        return first
+    urls = {p.url for p in first.pages}
+    pages = [*first.pages, *(p for p in retry.pages if p.url not in urls)]
+    digest = "\n\n".join(d for d in (first.digest, retry.digest) if d)
+    status = retry.status if retry.status == "done" or first.status != "done" else first.status
+    usage = {
+        key: first.usage.get(key, 0) + retry.usage.get(key, 0)
+        for key in {*first.usage, *retry.usage}
+    }
+    return ItemResult(first.index, status, digest, pages, usage)
 
 
 def merge_pages(results: list[ItemResult], board: ResearchBoard) -> list[SourcePage]:

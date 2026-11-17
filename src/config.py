@@ -612,6 +612,11 @@ class Config:
     # A subagent cut by its deadline or Finish now may be stuck inside one
     # tool call (cancellation is checked between rounds); after this grace
     # the run stops waiting for it and keeps what it put on the board
+    # Gap pass (Nov 17 2026): an item that failed, timed out or read fewer than
+    # GAP_MIN_PAGES pages gets one more subagent, bounded by GAP_TIMEOUT, when
+    # the estimate's research time still has that much left
+    DEEP_RESEARCH_GAP_MIN_PAGES = 2
+    DEEP_RESEARCH_GAP_TIMEOUT_SECONDS = 90.0
     DEEP_RESEARCH_CUT_GRACE_SECONDS: float = float(
         os.getenv("DEEP_RESEARCH_CUT_GRACE_SECONDS", "10")
     )

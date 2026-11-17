@@ -27,6 +27,8 @@ def _plan(n: int) -> DeepResearchPlan:
 def _limits(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Config, "DEEP_RESEARCH_PARALLELISM", 4)
     monkeypatch.setattr(Config, "DEEP_RESEARCH_SUBAGENT_TIMEOUT_SECONDS", 5.0)
+    # No room for a gap pass unless a test makes some (the TestGapPass tests)
+    monkeypatch.setattr(Config, "DEEP_RESEARCH_GAP_TIMEOUT_SECONDS", 10_000.0)
     orch.reset_slots(8)
 
 
@@ -267,3 +269,89 @@ def test_a_cut_subagent_keeps_what_it_spent(monkeypatch: pytest.MonkeyPatch) -> 
     assert [r.status for r in results] == ["done", "timed_out"]
     assert [u["input_tokens"] for u in o.spent()] == [400, 400]
     assert results[1].usage["input_tokens"] == 400
+
+
+class TestGapPass:
+    """Nov 17 2026: one wave then the writer - a failed, timed-out or thin
+    item got no second try even with minutes of the estimate left."""
+
+    @pytest.fixture(autouse=True)
+    def _room(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Config, "DEEP_RESEARCH_GAP_TIMEOUT_SECONDS", 2.0)
+        monkeypatch.setattr(Config, "DEEP_RESEARCH_GAP_MIN_PAGES", 2)
+
+    def test_failed_and_thin_items_get_one_more_subagent(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        briefs: dict[int, list[str]] = {0: [], 1: [], 2: []}
+
+        def first_fails(brief: str, board: ResearchBoard, index: int, rid: str) -> ItemResult:
+            briefs[index].append(brief)
+            attempt = len(briefs[index])
+            if index == 0 and attempt == 1:
+                raise RuntimeError("search down")
+            pages = [SourcePage(f"P{index}-{attempt}", f"https://p{index}-{attempt}.cz", "t")]
+            if index == 2:  # plenty on the first try: no retry
+                pages.append(SourcePage("X", "https://x.cz", "t"))
+            for page in pages:
+                board.record_page(index, page)
+            return ItemResult(index, "done", f"d{index}-{attempt}", pages, {"input_tokens": 5})
+
+        monkeypatch.setattr(orch, "run_subagent", first_fails)
+        events: list[dict[str, Any]] = []
+
+        _, results = _run(_plan(3), events)
+
+        assert [len(briefs[i]) for i in range(3)] == [2, 2, 1]
+        assert "failed with an error" in briefs[0][1]
+        assert "found too little" in briefs[1][1] and "https://p1-1.cz" in briefs[1][1]
+        assert [r.status for r in results] == ["done", "done", "done"]
+        thin = results[1]
+        assert [p.url for p in thin.pages] == ["https://p1-1.cz", "https://p1-2.cz"]
+        assert thin.digest == "d1-1\n\nd1-2"
+        assert events[-1] == {"type": "research_sources", "count": 5}
+
+    def test_no_retry_without_time_left(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Config, "DEEP_RESEARCH_GAP_TIMEOUT_SECONDS", 10_000.0)
+        calls: list[int] = []
+
+        def thin(brief: str, board: ResearchBoard, index: int, rid: str) -> ItemResult:
+            calls.append(index)
+            return ItemResult(index, "done", "d", [], {})
+
+        monkeypatch.setattr(orch, "run_subagent", thin)
+        _run(_plan(2), [])
+        assert sorted(calls) == [0, 1]
+
+    def test_no_retry_after_finish_now(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[int] = []
+        holder: list[Orchestrator] = []
+
+        def thin(brief: str, board: ResearchBoard, index: int, rid: str) -> ItemResult:
+            calls.append(index)
+            holder[0].finish_now()
+            return ItemResult(index, "done", "d", [], {})
+
+        monkeypatch.setattr(orch, "run_subagent", thin)
+        o = Orchestrator(_plan(1), [].append, run_id="run-1", today="2026-10-03", recent_turns="")
+        holder.append(o)
+        o.run()
+        assert calls == [0]
+
+
+def test_merged_attempts_keep_both_and_sum_the_spend() -> None:
+    from src.agent.deep_research.orchestrator import merge_attempts
+
+    a = SourcePage("A", "https://a.cz", "t")
+    b = SourcePage("B", "https://b.cz", "t")
+    first = ItemResult(0, "timed_out", "", [a], {"input_tokens": 7, "output_tokens": 1})
+    retry = ItemResult(0, "done", "found it", [a, b], {"input_tokens": 3})
+
+    merged = merge_attempts(first, retry)
+
+    assert (merged.status, merged.digest) == ("done", "found it")
+    assert [p.url for p in merged.pages] == ["https://a.cz", "https://b.cz"]
+    assert merged.usage == {"input_tokens": 10, "output_tokens": 1}
+    # A retry that fails keeps the first attempt's done status
+    kept = merge_attempts(ItemResult(0, "done", "x", [a], {}), ItemResult(0, "failed", "", [], {}))
+    assert kept.status == "done"

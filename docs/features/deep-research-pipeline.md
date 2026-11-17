@@ -44,6 +44,17 @@ agent loop:
    `propose_deep_research` inside. Each subagent has its own request id
    (`<run>-<index>`) and cancel token. It returns an `ItemResult`: status
    (`done`, `failed`, `skipped`, `timed_out`), the digest, its pages and usage.
+   **Gap pass** (Nov 17 2026): after the first wave, an item that failed, timed
+   out or read fewer than `DEEP_RESEARCH_GAP_MIN_PAGES` (2) pages gets one more
+   subagent (`<run>-<index>-gap`), bounded by `DEEP_RESEARCH_GAP_TIMEOUT_SECONDS`
+   (90), when the estimate's research time (its minutes less the base minutes,
+   less the time spent) still has that much left. Its brief adds why the first
+   attempt fell short and the URLs it already read (`gap_note`); the board keeps
+   the first attempt's findings. The two attempts merge into one result (all
+   pages, both digests, summed spend; `merge_attempts`). Not after Finish now or
+   Stop, and not for an item abandoned while stuck (its thread may still end).
+   Logged "Deep research gap pass" (`items`, `reasons`, `seconds_left`,
+   `pages_before`, `pages_after`, `statuses`) or "... skipped" with no time left.
 5. **The board** ([board.py](../../src/agent/deep_research/board.py)),
    thread-safe and run-scoped:
    - `share_finding(text, urls, kind)`: `finding` or `lead`, clipped to
