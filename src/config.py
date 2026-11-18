@@ -998,7 +998,7 @@ class Config:
     # first - and ends with one tools-off answer. Replaced the 6-round cap after
     # the Nov 9 2026 eval A/B (judge 4.67 vs 4.50, cost +22%).
     # Running cost of the turn's model calls, in USD (typical turns: $0.02-0.05)
-    TURN_COST_LIMIT_USD: float = float(os.getenv("TURN_COST_LIMIT_USD", "0.15"))
+    TURN_COST_LIMIT_USD: float = float(os.getenv("TURN_COST_LIMIT_USD", "0.40"))
     # Wall-clock budget of the tool loop (well under CHAT_TIMEOUT_SECONDS)
     TURN_TIME_BUDGET_SECONDS: float = float(os.getenv("TURN_TIME_BUDGET_SECONDS", "240"))
     # The one "wrap up now" notice, at this share of the time budget

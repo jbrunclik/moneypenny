@@ -78,7 +78,7 @@ def initial_state(messages: list[BaseMessage], spent_usd: float = 0.0) -> AgentS
 def tool_spend_usd(messages: list[BaseMessage]) -> float:
     """What the latest tool round spent on models of its own: delegate_task's
     subagent (its usage rides in the result as _delegate_usage). Images are
-    left out on purpose - one is ~$0.13, near TURN_COST_LIMIT_USD, and the
+    left out on purpose - one is ~$0.13 and the
     user asked for it."""
     from langchain_core.messages import AIMessage, ToolMessage  # noqa: PLC0415 - cheap; keeps the module's imports light
 
