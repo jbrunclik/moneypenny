@@ -31,7 +31,6 @@ from src.agent.turn_budget import run_time_budget
 from src.config import Config
 from src.db.models import db
 from src.db.models.scheduled_items import NEVER_RUN_AT
-from src.services.push import send_push_to_user
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 from src.utils.schedule_spec import describe_instant, next_cron_run
@@ -319,16 +318,9 @@ def _fire_one_off(item: ScheduledItem, now: datetime, result: ItemsResult) -> No
         text = f"Missed (was due {describe_instant(item.next_run_at, tz)}): {item.text}"
         deliver(item, text, delivery_label(item.kind, now, tz, "missed"), push=False)
         result.missed += 1
-    elif item.kind == "reminder":
-        send_push_to_user(
-            item.user_id,
-            "Reminder",
-            item.text[:_PUSH_BODY_CHARS],
-            url=f"/#/conversations/{item.conversation_id}",
-            tag=f"item-{item.id}",
-        )
-        result.fired += 1
     else:
+        # A reminder posts into its chat too: a push the phone drops (a stale
+        # iOS subscription Apple still accepts) must not lose it
         deliver(item, item.text, delivery_label(item.kind, item.next_run_at, tz))
         result.fired += 1
     db.delete_item(item.id)

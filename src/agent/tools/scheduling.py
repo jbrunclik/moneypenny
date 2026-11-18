@@ -1,7 +1,7 @@
 """Lightweight items set from chat: reminders, check-ins, watchers, recurring checks.
 
 Every item belongs to the chat that set it (docs/features/agents.md): a
-reminder pushes at a time, a check-in asks its question back in the chat, a
+reminder posts and pushes at a time, a check-in asks its question back in the chat, a
 watcher checks the web until its condition is met, a recurring check reports
 on a schedule. Nothing is stored until the user approved: a create files a
 proposal (src/agent/proposals.py) shown as a card under the reply, and the

@@ -35,10 +35,7 @@ def db(test_database: Database, monkeypatch: pytest.MonkeyPatch) -> Generator[Da
 @pytest.fixture
 def push() -> Generator[MagicMock]:
     sent = MagicMock()
-    with (
-        patch("src.agent.item_runner.send_push_to_user", sent),
-        patch("src.agent.item_scheduler.send_push_to_user", sent),
-    ):
+    with patch("src.agent.item_runner.send_push_to_user", sent):
         yield sent
 
 
@@ -91,17 +88,19 @@ def _deliveries(db: Database, conversation: Conversation) -> list[tuple[str, str
     ]
 
 
-def test_reminder_pushes_and_is_deleted(
+def test_reminder_posts_a_labelled_turn_pushes_and_is_deleted(
     db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
 ) -> None:
-    _add(db, test_user, test_conversation)
+    item = _add(db, test_user, test_conversation)
 
     result = item_scheduler.run_due_items(_NOW)
 
     assert result.fired == 1
+    # In its chat too: a push the phone drops must not lose the reminder
+    assert _deliveries(db, test_conversation) == [("Call the plumber", "Reminder · Fri 18:00")]
     push.assert_called_once()
-    assert push.call_args.args[2] == "Call the plumber"
-    assert db.get_messages(test_conversation.id) == []
+    assert push.call_args.args[1:3] == ("Reminder", "Call the plumber")
+    assert push.call_args.kwargs["tag"] == f"item-{item.id}"
     assert db.list_items(test_user.id) == []
 
 

@@ -64,8 +64,9 @@ message, each belonging to the chat that set it
   turn, or for a silent run under a `silent:` message id.
 - **Delivery:** a result is an ordinary assistant message in the item's chat with a
   `delivery` label (`{"kind", "label"}`, e.g. "Check-in · Fri 18:00", "Watcher · found"),
-  plus a push opening the chat - so the user just replies, in context. Reminders push
-  only.
+  plus a push opening the chat - so the user just replies, in context. Reminders post
+  their text the same way (label "Reminder · Mon 12:00"): a push the phone drops (a
+  stale iOS subscription Apple still accepts) would otherwise lose the reminder.
 - **UI:** a header chip in the chat (desktop and mobile, agent and program chats too;
   `ScheduleIndicator.ts`) opens a
   sheet listing its items with cancel, and pause/resume for watchers and recurring checks;
