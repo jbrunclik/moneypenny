@@ -41,6 +41,7 @@ from typing import Any
 
 import yaml
 
+from evals.chats import load_chat, merge_chat, seed_frozen_summary
 from src.utils.clock import local_today, to_local, utc_now
 
 _REPO_ROOT = Path(__file__).parent.parent
@@ -147,6 +148,10 @@ class EvalCase:
     # The background memory review instead of an agent turn: the history plus
     # `user` are reviewed, the ops it applied graded as one manage_memory call
     memory_review: bool = False
+    # A shared synthetic chat (evals/chats.py) whose messages precede `history`
+    history_from: str | None = None
+    # That chat's frozen compaction summary of its older turns
+    frozen_summary: str | None = None
 
 
 def _placeholder_date(placeholder: str, today: date) -> date | None:
@@ -192,6 +197,11 @@ def load_cases(directory: Path) -> list[EvalCase]:
     cases: list[EvalCase] = []
     for path in sorted(directory.glob("*.yaml")):
         data = yaml.safe_load(path.read_text())
+        if data.get("history_from"):
+            try:
+                data = merge_chat(data, load_chat(str(data["history_from"])))
+            except ValueError as e:
+                raise ValueError(f"{path.name}: {e}") from e
         expect = data.get("expect") or {}
         if not (expect.get("rubric") or "").strip():
             raise ValueError(f"{path.name}: expect.rubric is required")
@@ -257,6 +267,10 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 proposals=[dict(p) for p in (data.get("proposals") or [])],
                 integrations=_resolve_dates(dict(data.get("integrations") or {})),
                 memory_review=bool(data.get("memory_review", False)),
+                history_from=str(data["history_from"]) if data.get("history_from") else None,
+                frozen_summary=(
+                    str(data["frozen_summary"]) if data.get("frozen_summary") else None
+                ),
                 deep_research=dict(data.get("deep_research") or {}),
                 conversation_facts=(
                     None
@@ -688,13 +702,27 @@ def _seed_case(
         if a.get("state") is not None:
             db.set_artifact_state(artifact.id, a["state"])
         artifact_ids.append(artifact.id)
-    history = with_artifact_ids(case.history, artifact_ids) or None
-    summarizer_usage = {"input": 0.0, "output": 0.0}
-    if history and any(turn.get("files") for turn in history) and not case.compact_history:
-        history = _history_with_files(history, db, conversation_id)
-    if case.compact_history:
-        history, summarizer_usage = _compacted_history(case, user, db, conversation_id)
+    history, summarizer_usage = _seeded_history(case, user, db, conversation_id, artifact_ids)
     return seeded_memory_ids, history, summarizer_usage
+
+
+def _seeded_history(
+    case: EvalCase, user: Any, db: Any, conversation_id: str, artifact_ids: list[str]
+) -> tuple[list[dict[str, Any]] | None, dict[str, float]]:
+    """The history the turn sees (files stored, compacted or behind a frozen
+    summary) and the compaction summarizer's estimated token usage."""
+    if case.compact_history:
+        return _compacted_history(case, user, db, conversation_id)
+    if case.frozen_summary:
+        # A program chat already stored its user turns (_program_conversation)
+        frozen = seed_frozen_summary(
+            case, user, db, conversation_id, store_messages=case.mode not in _CANNED_PROGRAMS
+        )
+        return frozen, {"input": 0.0, "output": 0.0}
+    history = with_artifact_ids(case.history, artifact_ids) or None
+    if history and any(turn.get("files") for turn in history):
+        history = _history_with_files(history, db, conversation_id)
+    return history, {"input": 0.0, "output": 0.0}
 
 
 def _seed_proposals(case: EvalCase, user: Any, db: Any, conversation_id: str) -> None:
@@ -1137,6 +1165,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         "judge_cost_usd": round(judge_cost, 6),
         "cost_usd": round(agent_cost + judge_cost, 6),
         "deterministic_failures": failures,
+        "history_from": case.history_from,
         "judge_reasoning": reasoning,
         "response_preview": response[:200],
     }
