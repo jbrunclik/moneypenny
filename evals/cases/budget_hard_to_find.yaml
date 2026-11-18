@@ -4,8 +4,6 @@ description: >
   buy) - turn budgets must let it finish with a complete, sourced answer, or
   say plainly what is still missing (turn budgets, Nov 2026)
 user: "Kolik stojí roční dálniční známka pro auto v Česku, Rakousku a Slovinsku na rok 2027 a kde ji koupím online?"
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Answers in Czech. Gives the annual vignette price for a car in each of the
@@ -13,3 +11,1017 @@ expect:
     to buy each online (official e-shop), and cites sources. Must not invent a
     price it did not find.
   max_tool_rounds: 12
+# Canned web captured 2026-11-18 (evals/capture_web.py): dálniční známka 2027 cena Česko; Vignette Österreich 2027 Preis; vinjeta Slovenija 2027 cena
+web:
+  results:
+    - url: https://edalnice.gov.cz/cs/cenik
+      title: Ceník dálniční známky | Oficiální státní e-shop eDalnice.gov.cz
+      snippet: "Ceník dálniční známky | Oficiální státní e-shop eDalnice.gov.cz
+
+
+        Zákaznická linka(+420) 222 266 757 (+420222266757)
+
+
+        # Aktuální ceník
+
+
+        ## Platnost ceníku:
+
+
+        od 1. 1. 2026
+
+
+        ### Roční
+
+
+        Standardní palivo
+
+
+        2 570 Kč
+
+
+        Biometan
+
+
+        1 280 Kč
+
+
+        Zemní plyn
+
+
+        CNG a LNG (neplatí pro LPG)
+
+
+        1 280 Kč
+
+
+        Plug‑in hybrid
+
+
+        (CO₂ max 50 g/km)
+
+
+        640 Kč
+
+
+        ### 30denní
+
+
+        Standardní palivo
+
+
+        480 Kč
+
+
+        Biometan
+
+
+        240 Kč
+
+
+        Zemní plyn
+
+
+        CNG a LNG (neplatí pro LPG)
+
+
+        240 Kč
+
+
+        Plug‑in hybrid
+
+
+        (CO₂ max 50 g/km)
+
+
+        120 Kč
+
+
+        ### 10denní
+
+
+        Standardní p"
+    - url: https://autoscena.cz/clanky/elektronicka-dalnicni-znamka-ceny-pravidla
+      title: "Dálniční známka 2027: ceny, slevy a 24h platnost"
+      snippet:
+        "Dálniční známka 2027: ceny, slevy a 24h platnost\n\n 18. 11. 2026 \n\n# Dálniční známka\
+        \ 2027: ceny, slevy a 24h platnost \n\n Ceny dálničních známek se v roce 2027 nemění: roční 2 570\
+        \ Kč. Jednodenní platí 24 h. Slevy, osvobození, nákup bez přirážky, přepočet výhodnosti a pokuty.\
+        \ \n\nCeny dálničních známek pro osobní auta zůstávají v roce 2027 stejné jako v roce 2026: roční\
+        \ 2 570 Kč, 30denní 480 Kč, 10denní 300 Kč a jednodenní 230 Kč. Jednodenní známka od 1. 1. 2027\
+        \ platí 24 hodin od zvoleného začátku, n"
+    - url: https://usetril.cz/dalnicni-znamka/
+      title: "Dálniční známka 2027: cena, 24 hodin a kdy koupit"
+      snippet: "Dálniční známka 2027: cena, 24 hodin a kdy koupit
+
+
+        # Dálniční známka 2027: cena 2 570 Kč, nová 24hodinová a kdy se vyplatí roční
+
+
+        Redakce Ušetřil· Aktualizováno 13. 11. 2026
+
+
+        Roční dálniční známka bude v roce 2027 stát stejně jako letos: 2 570 Kč. Novela zákona o pozemních
+        komunikacích, kterou prezident podepsal 4. 11. 2026, zrušila každoroční automatické zdražování a
+        ceny zapsala přímo do zákona. Nejkratší známka za 230 Kč se od 1. 1. 2027 mění z jednodenní na 24hodinovou.
+        Níže najdete všechny "
+    - url: https://i117.cz/dalnicni-znamka-2027-cena-24-hodin/
+      title: "Dálniční známka 2027: cena zůstává 2 570 Kč, změna u denní"
+      snippet:
+        "Dálniční známka 2027: cena zůstává 2 570 Kč, změna u denní\n\n# Dálniční známka 2027 zůstane\
+        \ za 2 570 Kč. Jednodenní bude platit 24 hodin\n\n#### Petr Vláčil \n\n- 16. 11. 2026 \n- 8:06 \n\
+        \nRoční dálniční známka bude od 1. ledna 2027 stát 2 570 korun, stejně jako letos. Novela totiž\
+        \ ruší automatické zdražování podle inflace a ceny píše přímo do zákona. Jednodenní známka za 230\
+        \ korun nově zůstane platná 24 hodin od zakoupení, ne jen do půlnoci.\n\nVideo: Dálniční známka\
+        \ 2027 jasně a srozumitelně\n\nKolik jedn"
+    - url: https://www.ots.at/presseaussendung/OTS_20261025_OTS0013/asfinag-reduzierte-preisanpassung-der-vignette-erleichtert-den-umstieg-auf-digitale-vignette
+      title: "ASFINAG: Reduzierte Preisanpassung der Vignette erleichtert den Umstieg auf Digitale Vignette"
+      snippet:
+        "ASFINAG: Reduzierte Preisanpassung der Vignette erleichtert den Umstieg auf Digitale Vignette\n\
+        \n- 25.10.2026, 10:05:32 \n- /\n- OTS0013 \n\n# ASFINAG: Reduzierte Preisanpassung der Vignette\
+        \ erleichtert den Umstieg auf Digitale Vignette \n\n Valorisierung bleibt mit zwei Prozent bewusst\
+        \ unter der Inflation – neuer Preis erst ab 1. Jänner 2027 gültig \n\nWien (OTS) - \n\nEs ist ein\
+        \ klares Zeichen im Sinne der Kundinnen und Kunden beim Umstieg auf die ausschließlich Digitale\
+        \ Vignette ab 1. Dezember 2026: Die "
+    - url: https://www.ots.at/presseaussendung/OTS_20261109_OTS0051/oeamtc-vignette-2027-jetzt-erhaeltlich-kauf-heuer-noch-zum-alten-preis
+      title: "ÖAMTC: Vignette 2027 jetzt erhältlich, Kauf heuer noch zum alten Preis"
+      snippet:
+        "ÖAMTC: Vignette 2027 jetzt erhältlich, Kauf heuer noch zum alten Preis\n\n# ÖAMTC: Vignette\
+        \ 2027 jetzt erhältlich, Kauf heuer noch zum alten Preis \n\n Ab 1. Jänner 2027 steigen die Preise\
+        \ um zwei Prozent \n\nWien (OTS) - \n\nMit der Vignette 2027 ist die Ära der Klebevignette endgültig\
+        \ vorbei: Ab sofort gibt es nur mehr die digitale Autobahnvignette, die bereits an allen ÖAMTC-Stützpunkten\
+        \ und -Grenzstationen erhältlich ist. Die Gültigkeit der Vignette 2027 beginnt mit 1. Dezember 2026.\n\
+        \nWer noch 2026 "
+    - url: https://blog.asfinag.at/auf-der-autobahn/digitale-vignette/
+      title: "Digitale Vignette 2027: Kauf, Preise & Gültigkeit | ASFINAG"
+      snippet:
+        "Digitale Vignette 2027: Kauf, Preise & Gültigkeit | ASFINAG\n\n# Digitale Vignette 2027\
+        \ - jetzt heißt es umsteigen, bitte! \n\nWir sind schon oft umgestiegen: vom Motorrad aufs Familienauto,\
+        \ vom Wählscheibentelefon aufs Smartphone und von der Straßenkarte aufs Navi. Viele dieser Veränderungen\
+        \ sind für uns längst selbstverständlich geworden. Jetzt steigt ganz Österreich um – auf die Digitale\
+        \ Vignette. Ab 2027 gehört die Klebevignette der Vergangenheit an. Was sich dadurch ändert, wie\
+        \ einfach der Kauf"
+    - url: https://www.news.at/ausflugsziele/vignette-2027-preis-digital-gueltigkeit
+      title: "Vignette 2027: Preis, digitale Vignette und Gültigkeit"
+      snippet: "Vignette 2027: Preis, digitale Vignette und Gültigkeit
+
+
+        # Vignette 2027: Nur noch digital und rund 109 Euro, bis Silvester gilt der alte Preis
+
+
+        Aktualisiert
+
+
+        23.10.2026
+
+
+        Foto:© Unsplash, viktor rejent
+
+
+        Die Regierung bremst die Erhöhung der Autobahnvignette: Statt um 3,6 Prozent steigt der Preis 2027
+        nur um zwei Prozent. Wer die neue Jahresvignette noch heuer kauft, zahlt 106,80 Euro. Erstmals gibt
+        es sie ausschließlich digital, mit einigen Regeln, die man kennen sollte.
+
+
+        von
+
+
+        ## Zwei statt 3,6 P"
+    - url: https://avtosi.si/novice/spremembe-za-voznike-2027-vinjete-cestnine
+      title: "Vinjeta 2027: cene, Avstrija in hrvaška cestnina | Avtosi"
+      snippet: "Vinjeta 2027: cene, Avstrija in hrvaška cestnina | Avtosi
+
+
+        # Vinjeta 2027: Avstrija le še digitalno, Hrvaška brez zapornic
+
+
+        Vinjeta 2027: slovenske cene ostajajo, Avstrija ukinja nalepko, Hrvaška s 1. marcem 2027 uvaja cestninjenje
+        brez ustavljanja. Pregled za voznike.
+
+
+        Uredništvo Avtosi.si
+
+
+        Uredništvo za avtomobilizem in trg rabljenih vozil · 8. NOV. 2026
+
+
+        Vinjeta 2027 slovenskim voznikom doma ne prinaša pretresov, v soseščini pa se spreminja skoraj vse.
+        Avstrija z vinjetnim letom 2027 ukinja n"
+    - url: http://evinjeta.dars.si/
+      title: Uradna spletna trgovina za slovensko e-vinjeto | E-vinjeta
+      snippet:
+        "Uradna spletna trgovina za slovensko e-vinjeto | E-vinjeta\n\n \n\n# Kaj je e-vinjeta?\n\
+        \nE-vinjeta je sodoben način plačevanja cestnine za motorna vozila z največjo tehnično dovoljeno\
+        \ maso do 3500 kilogramov. Osnovne značilnosti e-vinjete se od klasične vinjete v obliki nalepke\
+        \ bistveno ne razlikujejo. To pomeni, da si tudi z nakupom e-vinjete zagotovite pravico do uporabe\
+        \ vseh avtocest in hitrih cest v Republiki Sloveniji za čas veljavnosti e-vinjete in torej ne gre\
+        \ za cestninjenje po prevoženi razd"
+    - url: https://www.etocka.si/gorivo/vinjeta/
+      title: "Vinjeta 2026: cene in katera vinjeta se ti splača"
+      snippet:
+        "Vinjeta 2026: cene in katera vinjeta se ti splača\n\n# Vinjeta 2026\n\nSlovenska letna e-vinjeta\
+        \ za osebni avto (razred 2A) stane v letu 2026 117,50 €, tedenska 16,00 € in mesečna 32,00 €. Letna\
+        \ se ti splača, če bi sicer za krajše vinjete plačal več, na primer pri 8 ali več tedenskih potovanjih\
+        \ na leto.\n\n Posodobljeno 5. 11. 2026 Parametri 2026 Viri (7) Kako računamo \n\n Potovanj v letu\
+        \ 3 krat \n\n Dni na potovanje 7 dni Od prvega do zadnjega dne vožnje po avtocesti. \n\nSplačajo\
+        \ se krajše vinjete 48,00 "
+    - url: https://vignetteregister.com/slovenia/faq/
+      title: Slovenia E-Vignette FAQ — Frequently Asked Questions | Vignette Register
+      snippet: "Slovenia E-Vignette FAQ — Frequently Asked Questions | Vignette Register
+
+
+        # Slovenia Vignette FAQ
+
+
+        Frequently asked questions about the Slovenian e-vignette (e-vinjeta)
+
+
+        How much does the Slovenian vignette (vinjeta) cost in 2026? expand_more
+
+
+        For a standard car (height ≤1.3 m, class 2A) the 2026 DARS e-vignette (e-vinjeta) prices are: 7
+        days €16, 30 days €32, and 1 year €117.50. Motorcycles (class 1) are cheaper; taller vehicles over
+        1.3 m (class 2B) pay more. There is no 1-day option — 7 days "
+  pages:
+    https://edalnice.gov.cz/cs/cenik: "# Aktuální ceník
+
+
+      ## Platnost ceníku:
+
+
+      od 1. 1. 2026
+
+
+      Standardní palivo
+
+
+      2 570 Kč
+
+
+      Biometan
+
+
+      1 280 Kč
+
+
+      Zemní plyn
+
+
+      CNG a LNG (neplatí pro LPG)
+
+
+      1 280 Kč
+
+
+      Plug‑in hybrid
+
+
+      (CO₂ max 50 g/km)
+
+
+      640 Kč
+
+
+      Standardní palivo
+
+
+      480 Kč
+
+
+      Biometan
+
+
+      240 Kč
+
+
+      Zemní plyn
+
+
+      CNG a LNG (neplatí pro LPG)
+
+
+      240 Kč
+
+
+      Plug‑in hybrid
+
+
+      (CO₂ max 50 g/km)
+
+
+      120 Kč
+
+
+      Standardní palivo
+
+
+      300 Kč
+
+
+      Biometan
+
+
+      150 Kč
+
+
+      Zemní plyn
+
+
+      CNG a LNG (neplatí pro LPG)
+
+
+      150 Kč
+
+
+      Plug‑in hybrid
+
+
+      (CO₂ max 50 g/km)
+
+
+      70 Kč
+
+
+      ## Platnost ceníku:
+
+
+      od 1. 1. 2026
+
+
+      #### Standardní palivo
+
+
+      2 570 Kč
+
+
+      480 Kč
+
+
+      300 Kč
+
+
+      230 Kč
+
+
+      #### Biometan
+
+
+      1 280 Kč
+
+
+      240 Kč
+
+
+      150 Kč
+
+
+      110 Kč
+
+
+      #### Zemní plyn
+
+
+      1 280 Kč
+
+
+      240 Kč
+
+
+      150 Kč
+
+
+      110 Kč
+
+
+      #### Plug‑in hybrid
+
+
+      640 Kč
+
+
+      120 Kč
+
+
+      70 Kč
+
+
+      50 Kč
+
+
+      #### Elektromobil / Vodík
+
+
+      0 Kč
+
+
+      0 Kč
+
+
+      0 Kč
+
+
+      0 Kč"
+    https://autoscena.cz/clanky/elektronicka-dalnicni-znamka-ceny-pravidla:
+      "Published: 2026-11-18\n\n\
+      **Ceny dálničních známek pro osobní auta zůstávají v roce 2027 stejné jako v roce 2026: roční 2\
+      \ 570 Kč, 30denní 480 Kč, 10denní 300 Kč a jednodenní 230 Kč. Jednodenní známka od 1. 1. 2027 platí\
+      \ 24 hodin od zvoleného začátku, ne jen do půlnoci. Roční známka se vyplatí zhruba od dvanáctého\
+      \ dne jízdy po zpoplatněných úsecích za rok.**\n\n## Co platí teď a co se mění od 1. ledna 2027\n\
+      \nDo konce roku 2026 platí ceník, který je v e-shopu státu uvedený s platností od 1. 1. 2026. Jednodenní\
+      \ známka platí podle starých pravidel do konce zvoleného kalendářního dne. Dnes platí jen do půlnoci\
+      \ dne, pro který je koupená.\n\nNovelu zákona č. 13/1997 Sb., o pozemních komunikacích, schválila\
+      \ Poslanecká sněmovna ve třetím čtení a klíčovou změnou je konec automatického zdražování. Sněmovna\
+      \ hlasovala 23. 9. 2026 a prezident novelu podepsal 4. 11. 2026. Účinnost je od 1. 1. 2027.\n\n\
+      Novela mění dvě věci:\n\n- **Ceny:** ruší se automatická každoroční valorizace. Pro rok 2027 platí\
+      \ stejné sazby jako v roce 2026 (2 570 / 480 / 300 / 230 Kč).\n- **Jednodenní známka:** od účinnosti\
+      \ novely platí 24 hodin od zvoleného začátku. Kdo vyjede večer a přejede půlnoc, nemusí kupovat\
+      \ druhou známku.\n\nZrušení valorizace neznamená, že ceny nikdy nevzrostou. Změnit je může další\
+      \ novela zákona. Pro rok 2027 jsou ale sazby dané.\n\n## Ceník dálničních známek a ekologické slevy\
+      \ (k 18. 11. 2026)\n\nCeny pro osobní auta do 3,5 tuny jsou podle oficiálního e-shopu stejné pro\
+      \ rok 2026 (ceník od 1. 1. 2026) i pro rok 2027 (od 1. 1. 2027, podle novely). Sloupec „1 den /\
+      \ 24 h\" znamená v roce 2026 jednodenní známku do půlnoci, v roce 2027 známku na 24 hodin.\n\n|\
+      \ Pohon vozidla | Roční | 30denní | 10denní | 1 den / 24 h | \n|---|---|---|---|---|\n| Benzín,\
+      \ nafta, LPG (standardní palivo) | 2 570 Kč | 480 Kč | 300 Kč | 230 Kč | \n| CNG a LNG (neplatí\
+      \ pro LPG) | 1 280 Kč | 240 Kč | 150 Kč | 110 Kč | \n| Biometan | 1 280 Kč | 240 Kč | 150 Kč | 110\
+      \ Kč | \n| Plug-in hybrid (CO₂ max 50 g/km) | 640 Kč | 120 Kč | 70 Kč | 50 Kč | \n| Elektromobil,\
+      \ vodík | 0 Kč | 0 Kč | 0 Kč | 0 Kč | \n\nZdroj: oficiální ceník eDalnice.gov.cz, údaje k 18. 11.\
+      \ 2026; ceny 2027 podle tiskové zprávy Ministerstva dopravy o schválené novele.\n\n### Jak slevy\
+      \ fungují\n\nCNG, LNG a biometan mají 50% slevu. Platíte tedy polovinu standardní ceny. Sleva se\
+      \ netýká LPG. Plug-in hybridy s emisemi CO₂ nejvýše 50 g/km platí 25 % standardní ceny, což je sleva\
+      \ 75 %. Podle e-shopu státu u ročního poplatku činí sazba pro plug-in hybrid 640 Kč.\n\nPodmínkou\
+      \ slevy u plug-in hybridu je emisní hodnota 50 g/km nebo méně. U vozu s vyšší hodnotou platí standardní\
+      \ sazba. O tom, proč se laboratorní a reálné emise plug-in hybridů liší, píšeme v samostatném článku\
+      \ o reálných emisích CO₂ plug-in hybridů oproti WLTP.\n\nNovela podle ministerstva slevy pro plug-in\
+      \ hybridy a vozidla na CNG a LNG zachovává. Pro elektromobily a vodík se také nic nemění.\n\n##\
+      \ Koho se povinnost týká a kdy je auto osvobozeno\n\nElektronická známka je povinná pro motorová\
+      \ vozidla nejméně se čtyřmi koly a s nejvyšší povolenou hmotností nejvýše 3,5 tuny. Nevztahuje se\
+      \ na přípojná vozidla a motocykly. Známka platí pro konkrétní registrační značku, ne pro řidiče.\n\
+      \n### Automatické osvobození (vozidla registrovaná v ČR)\n\nPodle přehledu osvobozených vozidel\
+      \ na eDalnice.gov.cz jsou v ČR osvobozena:\n\n- vozidla výlučně na elektřinu nebo vodík,\n- vozidla\
+      \ přepravující držitele českého průkazu ZTP nebo ZTP/P, pokud je provozovatelem postižená osoba\
+      \ nebo osoba jí blízká,\n- vozidla k přepravě nezaopatřených dětí léčených pro zhoubný nádor nebo\
+      \ hemoblastózu,\n- historická vozidla se zvláštní registrační značkou a průkazem historického vozidla.\n\
+      \nU elektromobilů a vodíkových aut registrovaných v ČR se sazba 0 Kč uplatní automaticky. Nemusíte\
+      \ nic kupovat ani posílat. Pokud elektromobil teprve vybíráte, orientační nabídku najdete v článku\
+      \ o ceně MG4 EV Urban v Česku.\n\n### Oznamované osvobození (vozidla registrovaná v zahraničí)\n\
+      \nPro vozidla registrovaná v zahraničí je nutné podat oznámení osvoboz"
+    https://usetril.cz/dalnicni-znamka/:
+      "Published: 2026-11-13\n\n**Roční dálniční známka bude v roce\
+      \ 2027 stát stejně jako letos: 2 570 Kč.** Novela zákona o pozemních komunikacích, kterou prezident\
+      \ podepsal 4. 11. 2026, zrušila každoroční automatické zdražování a ceny zapsala přímo do zákona.\
+      \ Nejkratší známka za 230 Kč se od 1. 1. 2027 mění z jednodenní na 24hodinovou. Níže najdete všechny\
+      \ ceny, přepočet, kdy se vám vyplatí roční a kdy krátká známka, srovnání se Slovenskem a Rakouskem\
+      \ a postup, jak známku koupit bez zbytečných poplatků.\n\n## Ceny dálničních známek 2027\n\nSazby\
+      \ platí od 1. 1. 2027 podle nového znění § 21 odst. 3 až 5 zákona č. 13/1997 Sb. (sněmovní tisk\
+      \ 246). Jsou totožné s ceníkem platným od 1. 1. 2026, který dnes uvádí e-shop eDálnice i Česká pošta.\
+      \ Týkají se vozidel do 3,5 tuny.\n\n| Pohon vozidla | Roční | 30denní | 10denní | 24hodinová | \n\
+      |---|---|---|---|---|\n| Benzín, nafta, LPG a ostatní | 2 570 Kč | 480 Kč | 300 Kč | 230 Kč | \n\
+      | Zemní plyn (CNG, LNG) a biometan | 1 280 Kč | 240 Kč | 150 Kč | 110 Kč | \n| Plug-in hybrid s\
+      \ emisemi CO₂ do 50 g/km | 640 Kč | 120 Kč | 70 Kč | 50 Kč | \n| Čistý elektromobil nebo vodík |\
+      \ 0 Kč | 0 Kč | 0 Kč | 0 Kč | \n\nV přepočtu vychází roční známka na **7,04 Kč za den**, respektive\
+      \ zhruba 214 Kč za měsíc. U aut na zemní plyn je to polovina, u plug-in hybridů s nízkými emisemi\
+      \ čtvrtina.\n\n### Co se v roce 2027 opravdu mění\n\n- **Konec automatického zdražování.** Dosud\
+      \ se cena každý rok přepočítávala podle inflace a přírůstku kilometrů dálnic. Novela tyto odstavce\
+      \ zákona ruší, takže další zdražení by musel schválit parlament.\n- **Známka na 24 hodin místo jednodenní.**\
+      \ Dnes platí nejkratší známka jen do půlnoci zvoleného dne. Od ledna 2027 bude platit 24 hodin,\
+      \ cena zůstává 230 Kč.\n- **Žádné sdělení ministerstva o nové ceně.** Přechodné ustanovení, účinné\
+      \ od 30. 11. 2026, říká, že ministerstvo dopravy letos cenu na příští rok nevyhlašuje.\n\nPro srovnání:\
+      \ do roku 2023 stála roční známka 1 500 Kč, v roce 2024 2 300 Kč, v roce 2025 2 440 Kč a v roce\
+      \ 2026 2 570 Kč. Za tři roky tedy podražila o 1 070 Kč, tedy o 71 %. Rok 2027 je tak první rok bez\
+      \ zdražení od roku 2023.\n\n## Kdy se vyplatí roční a kdy krátká známka\n\nProtože se cena v lednu\
+      \ nemění, nemusíte řešit „poslední den za starou cenu“. Rozhoduje jen to, kolikrát za rok po dálnici\
+      \ opravdu jedete. Spočítali jsme, kde leží hranice:\n\n| Když jezdíte… | Krátké známky | Roční 2\
+      \ 570 Kč | Vyplatí se | \n|---|---|---|---|\n| 1× za rok na dovolenou | 1× 10denní = 300 Kč | 2\
+      \ 570 Kč | 10denní, ušetříte 2 270 Kč | \n| dovolená + Vánoce u rodiny | 2× 10denní = 600 Kč | 2\
+      \ 570 Kč | 10denní, ušetříte 1 970 Kč | \n| 8 výjezdů za rok (každý do 10 dnů) | 8× 300 = 2 400\
+      \ Kč | 2 570 Kč | ještě krátké, rozdíl 170 Kč | \n| 9 a více výjezdů za rok | 9× 300 = 2 700 Kč\
+      \ | 2 570 Kč | roční | \n| 5 měsíců s dálnicí | 5× 30denní = 2 400 Kč | 2 570 Kč | ještě 30denní\
+      \ | \n| 6 a více měsíců | 6× 480 = 2 880 Kč | 2 570 Kč | roční | \n| 1× měsíčně jednodenní cesta\
+      \ | 12× 230 = 2 760 Kč | 2 570 Kč | roční | \n\nPrakticky to znamená: **pokud dálnici použijete\
+      \ méně než devětkrát za rok a každý výjezd se vejde do deseti dnů, roční známka se nevyplatí.**\
+      \ Kdo jezdí po dálnici do práce nebo pravidelně na chatu, vyjde levněji s roční známkou, protože\
+      \ už od dvanácti jednodenních cest za rok zaplatí za krátké známky víc. Stejně tak při zimních cestách\
+      \ za lyžováním se vyplatí předem porovnat i ceny skipasů 2026/2027 a slevy při online nákupu.\n\n\
+      ### 24 hodin, nebo 10 dní?\n\nDvě 24hodinové známky stojí 460 Kč, desetidenní jen 300 Kč. Jakmile\
+      \ cesta tam a zpět netrvá do 24 hodin, kupte rovnou desetidenní. Nová 24hodinová známka ale pomůže\
+      \ tomu, kdo vyráží odpoledne a vrací se druhý den dopoledne: koupená v pátek v 17:00 bude platit\
+      \ do soboty do 17:00, kdežto dnešní jednodenní by skončila o půlnoci.\n\nPozor na jednu věc: jak\
+      \ přesně bude 24hodinová známka v e-shopu nastavená, zatím SFDI nezveřejnil. Před zaplacením si\
+      \ v lednu přečtěte začátek a konec platnosti, který vám e-shop ukáže.\n\n## Česko, Slovensko a Rakousko:\
+      \ srovnání na rok 2027\n\nKdo je"
+    https://i117.cz/dalnicni-znamka-2027-cena-24-hodin/: "Published: 2026-11-16
+
+
+      **Roční dálniční známka bude od 1. ledna 2027 stát 2 570 korun, stejně jako letos. Novela totiž
+      ruší automatické zdražování podle inflace a ceny píše přímo do zákona. Jednodenní známka za 230
+      korun nově zůstane platná 24 hodin od zakoupení, ne jen do půlnoci.**
+
+
+      **Video: Dálniční známka 2027 jasně a srozumitelně**
+
+
+      **Kolik jednotlivé známky stojí**
+
+
+      Podle přehledu Cebie se ceny nemění u žádné z běžných známek. Roční zůstává na 2 570 Kč, 30denní
+      na 480 Kč, 10denní na 300 Kč a jednodenní na 230 Kč.
+
+
+      Od roku 2025 se cena přepočítávala každý rok podle inflace a délky sítě. Roční známka stála do roku
+      2023 1 500 Kč, v roce 2024 2 300 Kč, v roce 2025 2 440 Kč a letos 2 570 Kč. Novela tento mechanismus
+      od ledna 2027 ruší. Další zdražení bude muset projít samostatnou změnou zákona.
+
+
+      **Co se mění u jednodenní známky**
+
+
+      Dnes jednodenní známka platí jen do půlnoci zvoleného dne. Kdo ji koupí večer, má z ní jen pár hodin.
+      Od 1. ledna 2027 bude platit 24 hodin od koupě, případně od pozdějšího začátku, který si zvolíte
+      nejpozději 30 dní po zaplacení.
+
+
+      Změna pomůže hlavně řidičům, kteří vyjíždějí odpoledne nebo večer a vracejí se druhý den. Jak přesně
+      půjde začátek nastavit v e-shopu eDalnice.gov.cz, web zatím neuvádí. Ceník pro rok 2027 tam také
+      zatím chybí, ukazuje ceny platné od 1. ledna 2026, které jsou stejné.
+
+
+      **Elektromobily a hybridy**
+
+
+      Osvobození elektromobilů zůstává. U aut registrovaných v Česku platí automaticky, u zahraniční registrace
+      je nutné ho oznámit Státnímu fondu dopravní infrastruktury. Plug-in hybridy s emisemi do 50 g CO₂/km
+      platí nižší ceny: roční 640 Kč, 30denní 120 Kč, 10denní 70 Kč a 24hodinová 50 Kč. Auta na plyn platí
+      roční 1 280 Kč, 30denní 240 Kč, 10denní 150 Kč a 24hodinovou 110 Kč. Přehled registrací elektroaut
+      v Česku ukazuje, že mají zatím 7,4 procenta.
+
+
+      **Jak novela prošla a proč se ceny nezvyšují**
+
+
+      Novelu zákona o pozemních komunikacích podepsal prezident 4. listopadu 2026 a účinná je od 1. ledna
+      2027. Poslanecká sněmovna ji schválila a 29. září ji postoupila Senátu. Podle Cebie Senát novelu
+      neprojednal a nepřijal k ní žádné usnesení. Protože se do 30 dnů nevyjádřil, platí za přijatou.
+      Zdroje v této části nejsou jednotné, proto doporučujeme sledovat Sbírku zákonů.
+
+
+      Ministr dopravy Ivan Bednárik podle ČTK uvedl, že česká roční známka je zhruba o 1,5 eura levnější
+      než rakouská. S dalším automatickým zdražením by byla od ledna 2027 asi o 200 korun dražší. Rakousko
+      přitom od dálničního roku 2027 zavádí jen digitální známku za 108,90 eura.
+
+
+      **Kdy kupovat novou**
+
+
+      Roční známka platí rok od dne, který si zvolíte, a není vázaná na kalendářní rok. Pokud vám končí
+      v listopadu nebo prosinci, kupte novou s navazující platností. Začátek jde nastavit až 30 dní dopředu.
+      Jízda bez platné známky vyjde na pokutu do 5 000 Kč na místě a do 20 000 Kč ve správním řízení.
+      Na dálnici navíc dávejte pozor i na pravidla pro levý pruh.
+
+
+      **Původní text redakce i117.cz.**
+
+
+      Zdroj: www.cebia.cz, www.edalnice.gov.cz"
+    https://www.ots.at/presseaussendung/OTS_20261025_OTS0013/asfinag-reduzierte-preisanpassung-der-vignette-erleichtert-den-umstieg-auf-digitale-vignette:
+      'Published: 2026-10-25
+
+
+      - 25.10.2026, 10:05:32
+
+      - /
+
+      - OTS0013
+
+
+      Valorisierung bleibt mit zwei Prozent bewusst unter der Inflation – neuer Preis erst ab 1. Jänner
+      2027 gültig
+
+
+      Es ist ein klares Zeichen im Sinne der Kundinnen und Kunden beim Umstieg auf die ausschließlich
+      Digitale Vignette ab 1. Dezember 2026: Die Preisanpassung der Vignette wird für das kommende Jahr
+      mit lediglich zwei Prozent deutlich geringer ausfallen als die aktuelle Teuerung.
+
+
+      Damit soll der Übergang von der Klebevignette zur Digitalen Vignette zusätzlich erleichtert werden.
+      Besonders wichtig: Der neue Vignettenpreis gilt erst ab 1. Jänner 2027. Wer seine neue Digitale
+      Vignette 2027 bis spätestens 31. Dezember 2026 kauft, profitiert somit noch vom bisherigen Tarif
+      von aktuell 106,80 Euro für die Jahres-Vignette. Das gilt auch für Kundinnen und Kunden mit einem
+      bestehenden Vignetten-Abo.
+
+
+      **Früh umsteigen, günstiger fahren**
+
+
+      Mit dem Ende der Klebevignette setzt Österreich ab 1. Dezember 2026 vollständig auf das digitale
+      System. Um diesen Wechsel möglichst kundenfreundlich zu gestalten, haben alle Autofahrerinnen und
+      Autofahrer bis 31. Dezember 2026 die Möglichkeit, die Digitale Vignette für das kommende Jahr noch
+      zum bisherigen Preis zu erwerben. Ab 1. Jänner 2027 erfolgt die Preisanpassung um lediglich zwei
+      Prozent – damit wird die Jahres-Vignette ab dann 108,90 Euro kosten.
+
+
+      Die ASFINAG verbindet damit zwei Ziele: einen einfachen, sicheren Umstieg auf das neue System und
+      eine Entlastung der Kundinnen und Kunden in der Übergangsphase.
+
+
+      **Digitale Vignette bereits Standard**
+
+
+      Schon heute sind mehr als drei Viertel aller Jahres-Vignetten digital. Ab 1. Dezember 2026 werden
+      keine Klebevignetten mehr verkauft, ab 1. Februar 2027 gilt auf Österreichs Autobahnen und Schnellstraßen
+      ausschließlich die Digitale Vignette.
+
+
+      Für die Nutzerinnen und Nutzer bleiben alle gewohnten Vignettenprodukte erhalten, die Preisanpassung
+      betrifft somit auch lediglich die Vignetten. Gleichzeitig bietet die Digitale Vignette mehr Komfort
+      durch die kennzeichenbezogene Verwaltung, den Wegfall des Klebens und Abkratzens sowie einfache
+      Änderungen bei Fahrzeug- oder Kennzeichenwechseln.
+
+
+      Die ASFINAG bereitet den Umstieg auf die Digitale Vignette mit einem umfassenden Ausbau des Vertriebssystems
+      und einer Informations-Kampagne vor. Der Verkaufsstart für die Digitale Vignette für das kommende
+      Jahr erfolgt Anfang November 2026. Ab dann gekaufte Vignetten sind jedoch erst ab 1. Dezember 2026
+      gültig.
+
+
+      #### Rückfragen & Kontakt
+
+
+      ASFINAG
+
+
+      Pressesprecher
+
+
+      Mag. Andreas Steindl, MAS
+
+
+      Telefon: 0664 6010810833
+
+
+      E-Mail: \[email protected\]
+
+
+      Website: https://asfinag.at
+
+
+      OTS-ORIGINALTEXT PRESSEAUSSENDUNG UNTER AUSSCHLIESSLICHER INHALTLICHER VERANTWORTUNG DES AUSSENDERS
+      - WWW.OTS.AT | ASF'
+    https://www.ots.at/presseaussendung/OTS_20261109_OTS0051/oeamtc-vignette-2027-jetzt-erhaeltlich-kauf-heuer-noch-zum-alten-preis:
+      'Published: 2026-11-09
+
+
+      - 09.11.2026, 09:55:32
+
+      - /
+
+      - OTS0051
+
+
+      Ab 1. Jänner 2027 steigen die Preise um zwei Prozent
+
+
+      Mit der Vignette 2027 ist die Ära der Klebevignette endgültig vorbei: Ab sofort gibt es nur mehr
+      die digitale Autobahnvignette, die bereits an allen ÖAMTC-Stützpunkten und -Grenzstationen erhältlich
+      ist. Die Gültigkeit der Vignette 2027 beginnt mit 1. Dezember 2026.
+
+
+      Wer noch 2026 kauft, bezahlt die bisherigen Preise. Für die Pkw-Jahresvignette sind das z. B. 106,80
+      Euro, mit 1. Jänner 2027 steigt der Preis um zwei Prozent auf 108,90 Euro.
+
+
+      "Wer die digitale Jahresvignette direkt beim ÖAMTC erwirbt, profitiert von der sofortigen Gültigkeit:
+      Die gesetzliche 18-tägige Konsumentenschutz-Frist – wie beim Online-Kauf für Privatpersonen über
+      den ASFINAG-Webshop/-App – entfällt", erklärt ÖAMTC-Juristin Ursula Zelenka. "Das ist besonders
+      praktisch, wenn die Vignette kurzfristig benötigt wird."
+
+
+      Die Jahresvignette 2027 gilt wie gewohnt 14 Monate, von 1. Dezember 2026 bis 31. Jänner 2028. Vignettenpflichtig
+      sind alle Kraftfahrzeuge mit einer technisch zulässigen Gesamtmasse bis 3,5 Tonnen.
+
+
+      Für Fahrzeuge mit Wechselkennzeichen ist nur noch eine Vignette erforderlich. Dennoch sollten Fahrzeughalter:innen
+      ihre Daten stets aktuell halten – kommt es etwa zu einem Kennzeichenwechsel, muss dieser ehestmöglich
+      bei der ASFINAG gemeldet werden. Die Umschreibung kostet 18 Euro.
+
+
+      **Vignettenpreise 2027**
+
+
+      Kauf bis 31. Dezember 2026:
+
+
+      \* Jahresvignette: 106,80 Euro für Pkw | 42,70 Euro für Motorräder
+
+
+      \* Zwei-Monats-Vignette: 32,00 Euro für Pkw | 12,80 Euro für Motorräder
+
+
+      \* Zehn-Tages-Vignette: 12,80 Euro für Pkw | 5,10 Euro für Motorräder
+
+
+      \* 1-Tages-Vignette: 9,60 Euro für Pkw | 3,80 Euro für Motorräder
+
+
+      Kauf ab 1. Jänner 2027 (plus zwei Prozent):
+
+
+      \* Jahresvignette: 108,90 Euro für Pkw | 43,60 Euro für Motorräder
+
+
+      \* Zwei-Monats-Vignette: 32,64 Euro für Pkw | 13,10 Euro für Motorräder
+
+
+      \* Zehn-Tages-Vignette: 13,10 Euro für Pkw | 5,20 Euro für Motorräder
+
+
+      \* 1-Tages-Vignette: 9,80 Euro für Pkw | 3,90 Euro für Motorräder
+
+
+      Alle Informationen zur Vignette 2027 gibt es unter www.oeamtc.at/vignette. Die nächstgelegenen ÖAMTC-Stützpunkte
+      sind unter www.oeamtc.at/standorte abrufbar.
+
+
+      #### Rückfragen & Kontakt
+
+
+      ÖAMTC-Öffentlichkeitsarbeit
+
+
+      Telefon: +43 (0) 1 711 99-21218
+
+
+      E-Mail: \[email protected\]
+
+
+      OTS-ORIGINALTEXT PRESSEAUSSENDUNG UNTER AUSSCHLIESSLICHER INHALTLICHER VERANTWORTUNG DES AUSSENDERS
+      - WWW.OTS.AT | OCP'
+    https://blog.asfinag.at/auf-der-autobahn/digitale-vignette/:
+      "# Digitale Vignette 2027 - jetzt heißt\
+      \ es umsteigen, bitte!\n\nWir sind schon oft umgestiegen: vom Motorrad aufs Familienauto, vom Wählscheibentelefon\
+      \ aufs Smartphone und von der Straßenkarte aufs Navi. Viele dieser Veränderungen sind für uns längst\
+      \ selbstverständlich geworden. Jetzt steigt ganz Österreich um – auf die Digitale Vignette. Ab 2027\
+      \ gehört die Klebevignette der Vergangenheit an. Was sich dadurch ändert, wie einfach der Kauf funktioniert\
+      \ und warum sich ein früher Umstieg heuer besonders lohnt, erfahren Sie hier.\n## Die Klebevignette\
+      \ sagt Servus!\n\nFast 30 Jahre lang hat uns die Klebevignette auf Österreichs Autobahnen und Schnellstraßen\
+      \ begleitet. Mit der feuerroten Vignette 2026 endet nun eine Ära. Ab dem Vignettenjahr 2027 setzen\
+      \ wir vollständig auf die Digitale Vignette.\n\nFür viele ist das längst Alltag: Bereits mehr als\
+      \ 83 Prozent aller Jahresvignetten werden digital gekauft. Jetzt gehen wir den nächsten Schritt.\n\
+      \nDer Verkauf der Klebevignette endet am 30. November 2026. Ab 1. Dezember gibt es ausschließlich\
+      \ Digitale Vignetten zu kaufen. Wer noch eine Klebevignette 2026 auf der Windschutzscheibe hat,\
+      \ kann diese selbstverständlich bis einschließlich 31. Jänner 2027 nutzen. Ab 1. Februar 2027 gilt\
+      \ dann ausschließlich die Digitale Vignette.\n\n## Kein Kleben, kein Kratzen: Die Digitale Vignette\
+      \ hat sich längst bewährt\n\nDer größte Unterschied zur bisherigen Klebevignette? Die Digitale Vignette\
+      \ ist direkt mit dem Kfz-Kennzeichen verknüpft. Statt einen Aufkleber auf der Windschutzscheibe\
+      \ anzubringen, wird das Kennzeichen beim Kauf registriert.\n\nDas bringt einige Vorteile mit sich:\
+      \ kein mühsames Entfernen der alten Vignette, keine Klebereste und auch beim Austausch einer beschädigten\
+      \ Windschutzscheibe muss keine Ersatzvignette mehr angefordert werden.\n\nBesonders praktisch ist\
+      \ die Digitale Vignette auch für Fahrzeuge mit Wechselkennzeichen: Eine Digitale Vignette reicht\
+      \ für bis zu drei Pkw, die auf dasselbe Wechselkennzeichen zugelassen sind.\n\nUnd auch bei einem\
+      \ Kennzeichenwechsel ist unter bestimmten Voraussetzungen eine Online-Umregistrierung möglich.\n\
+      \nWas ebenfalls bleibt: die freie Wahl beim Vignettenprodukt. Ob für einen Tag, zehn Tage, zwei\
+      \ Monate oder ein ganzes Jahr – für jede Reise gibt es weiterhin die passende Digitale Vignette.\
+      \ Sie ist für Pkw, Motorräder und andere vignettenpflichtige Fahrzeuge bis einschließlich 3,5 Tonnen\
+      \ technisch zulässiger Gesamtmasse erhältlich.\n\n## Früh umsteigen und beim Vignettenkauf sparen\n\
+      \nGute Nachrichten für alle, die sich ihre Digitale Jahresvignette 2027 schon früh sichern: Seit\
+      \ 9. November 2026 ist die neue Jahresvignette erhältlich – und wer bis 31. Dezember kauft, spart!\n\
+      \nDenn die Preisanpassung für 2027 fällt mit lediglich zwei Prozent bewusst geringer aus als die\
+      \ Inflation. Der neue Preis gilt außerdem erst ab 1. Jänner 2027.\n\nDas bedeutet konkret:\n\n-\
+      \ **Bis 31. Dezember 2026:** Digitale Jahresvignette 2027 für 106,80 Euro\n- **Ab 1. Jänner 2027:**\
+      \ Digitale Jahresvignette 2027 für 108,90 Euro\n\n**Wichtig zu wissen: Auch Kundinnen und Kunden\
+      \ mit einem bestehenden Vignetten-Abo profitieren vom bisherigen Tarif.** \n\nDie Digitale Jahresvignette\
+      \ 2027 ist frühestens ab 1. Dezember 2026 gültig und kann bis einschließlich 31. Jänner 2028 genutzt\
+      \ werden.\n\n**Unser Tipp:** Wer rechtzeitig kauft, profitiert nicht nur vom günstigeren Preis,\
+      \ sondern hat auch den Vignettenkauf für das kommende Jahr bereits erledigt. Beim Online-Kauf ist\
+      \ allerdings die 18-Tage-Frist zu beachten.\n\n## Wo kann ich die Digitale Vignette kaufen?\n\n\
+      Digital bedeutet nicht, dass Sie Ihre Vignette ausschließlich online kaufen müssen. Ganz im Gegenteil:\
+      \ Wir haben unser Vertriebsnetz weiter ausgebaut, damit der Umstieg für alle möglichst einfach wird.\n\
+      \nAm bequemsten funktioniert der Kauf rund um die Uhr über unseren ASFINAG-Mautshop oder die ASFINAG-App.\n\
+      \nEinfach das gewünschte Vignettenprodukt auswählen, Zulassungsstaat und Kennzeichen eingeben, Gültigkeitsbeginn\
+      \ festlegen und bezahlen. Schon ist die Vignette digital hin"
+    https://www.news.at/ausflugsziele/vignette-2027-preis-digital-gueltigkeit:
+      "Die Regierung bremst die
+      Erhöhung der Autobahnvignette: Statt um 3,6 Prozent steigt der Preis 2027 nur um zwei Prozent. Wer
+      die neue Jahresvignette noch heuer kauft, zahlt 106,80 Euro. Erstmals gibt es sie ausschließlich
+      digital, mit einigen Regeln, die man kennen sollte.
+
+
+      ## Zwei statt 3,6 Prozent
+
+
+      Die **Vignette 2027** wird teurer, aber weniger stark als ursprünglich vorgesehen. Verkehrsminister
+      Peter Hanke hat am Donnerstag gemeinsam mit der ÖBB-Reform eine Preisbremse für Gebühren angekündigt,
+      die der Bund selbst festlegt. Die Jahresvignette für Pkw steigt damit um zwei Prozent und nicht
+      um die 3,6 Prozent, die sich aus der regulären Anpassung an den Verbraucherpreisindex ergeben hätten.
+
+
+      Die Jahresvignette 2026 kostet 106,80 Euro. Mit dem Aufschlag von zwei Prozent ergibt sich für 2027
+      ein Preis von **rund 109 Euro**. Die neue Vignette ist laut ARBÖ bis 31. Dezember 2026 noch zum
+      bisherigen Preis von 106,80 Euro erhältlich. Wer die Jahresvignette 2027 also noch heuer kauft,
+      spart den Aufschlag.
+
+
+      ## Erstmals nur noch digital
+
+
+      Die Jahresvignette 2027 gibt es nicht mehr als Pickerl für die Windschutzscheibe. Ab dem Vignettenjahr
+      2027 ist die Vignette laut dem Amtshelfer oesterreich.gv.at nur mehr als **digitale Vignette** erhältlich.
+      Die feuerrote Klebevignette 2026 ist damit die letzte ihrer Art, sie gilt noch bis 31. Jänner 2027.
+
+
+      Die digitale Vignette ist an das Kennzeichen gebunden, nicht an das Fahrzeug. Eine digitale Vignette
+      kann bis zu drei vignettenpflichtige Fahrzeuge mit Wechselkennzeichen abdecken. Geht die Windschutzscheibe
+      kaputt, braucht es keine neue Vignette. Eine Jahresvignette gilt grundsätzlich vom 1. Dezember des
+      Vorjahres bis 31. Jänner des Folgejahres, die Vignette 2027 also von 1. Dezember 2026 bis 31. Jänner
+      2028.
+
+
+      ## Achtung bei Kauf im Internet
+
+
+      Wichtig ist der Unterschied zwischen Online-Kauf und Kauf vor Ort. Wer die Vignette im Mautshop
+      oder in der App der Asfinag kauft, kann sie wegen des Rücktrittsrechts für Verbraucherinnen und
+      Verbraucher frühestens **18 Tage nach dem Kauf** nutzen. An Verkaufsstellen wie Mautstellen, Asfinag-Automaten,
+      bei ÖAMTC und ARBÖ sowie bei ausgewählten Tankstellen und Trafiken gekaufte Vignetten gelten sofort.
+
+
+      Beim Kauf muss das Kennzeichen korrekt eingegeben werden, ein falsches Kennzeichen gilt als Verwaltungsübertretung.
+      Eine digitale Jahresvignette lässt sich nach Gültigkeitsbeginn einmal ohne Angabe von Gründen um
+      18 Euro auf ein anderes Kennzeichen umschreiben, wenn die Zulassungsbesitzerin oder der Zulassungsbesitzer
+      gleich bleibt. Wer ohne gültige Vignette auf Autobahnen und Schnellstraßen fährt, riskiert eine
+      Ersatzmaut und bei Nichtzahlung ein Verwaltungsstrafverfahren mit Geldstrafen von 300 bis 3.000
+      Euro.
+
+
+      ## Was die anderen Vignetten kosten
+
+
+      Neben der Jahresvignette gibt es die Zwei-Monats-Vignette um 32 Euro, die Zehn-Tages-Vignette um
+      12,80 Euro und die Ein-Tages-Vignette um 9,60 Euro. Für Motorräder kosten die Jahresvignette 42,70
+      Euro, die Zwei-Monats-Vignette 12,80 Euro, die Zehn-Tages-Vignette 5,10 Euro und die Ein-Tages-Vignette
+      3,80 Euro. Das sind die Tarife für das Vignettenjahr 2026, die zehn Tage und einen Tag gültigen
+      Vignetten lassen sich online auch mit sofortigem Beginn kaufen.
+
+
+      Die Preisbremse ist Teil eines Pakets, das die Regierung gemeinsam mit einer Strukturreform der
+      ÖBB vorgelegt hat. Auch das **Klimaticket Österreich** wird 2027 nur um zwei Prozent teurer, der
+      Preis für das Klimaticket Classic steigt damit von 1.400 auf 1.428 Euro. Hintergrund ist ein Beschluss
+      der Regierung aus dem Herbst 2025, bei selbst beeinflussbaren Gebühren und Abgaben zurückhaltend
+      zu sein, um die Inflation nicht zusätzlich anzutreiben. ARBÖ-Generalsekretär Gerald Kumnig nannte
+      die geringere Erhöhung ein erfreuliches Zeichen für alle, die auf das Auto angewiesen sind."
+    https://avtosi.si/novice/spremembe-za-voznike-2027-vinjete-cestnine: "Published: 2026-11-08"
+    http://evinjeta.dars.si/:
+      "# Kaj je e-vinjeta?\n\nE-vinjeta je sodoben način plačevanja cestnine za\
+      \ motorna vozila z največjo tehnično dovoljeno maso do 3500 kilogramov. Osnovne značilnosti e-vinjete\
+      \ se od klasične vinjete v obliki nalepke bistveno ne razlikujejo. To pomeni, da si tudi z nakupom\
+      \ e-vinjete zagotovite pravico do uporabe vseh avtocest in hitrih cest v Republiki Sloveniji za\
+      \ čas veljavnosti e-vinjete in torej ne gre za cestninjenje po prevoženi razdalji. **Vozilo brez\
+      \ veljavne e-vinjete ne sme zapeljati na cestninsko cesto.**\n\n**E-vinjeta je vezana na registrsko\
+      \ označbo vozila. Ob nakupu morate zato navesti pravilno registrsko oznako in državo registracije\
+      \ vozila ter izbrati e-vinjeto za pravilen cestninski razred.** Če se registrska oznaka v sistemu\
+      \ e-vinjete ne ujema z registrsko oznako vozila, ki uporablja avtocesto ali hitro cesto, to pomeni,\
+      \ da cestnina ni plačana. Za pravilnost vnosa registrske oznake in izbiro cestninskega razreda je\
+      \ odgovorna stranka.\n\n## Preverjanje veljavnosti\n\ne-vinjete\n\nČe želite preveriti, ali vaše\
+      \ vozilo ima veljavno e-vinjeto, uporabite pripomoček za preverjanje veljavnosti. Po vnosu registrske\
+      \ označbe vašega vozila se bo na zaslonu prikazalo obvestilo s podatki o veljavnosti e-vinjete.\
+      \ Če za vozilo veljavna e-vinjeta ne obstaja, poizvedba ne bo vrnila rezultatov.\n\n# Vrste, cestninski\
+      \ razredi in cene e-vinjet\n\n## V kateri cestninski razred sodi moje vozilo?\n\nSe želite prepričati,\
+      \ za kateri cestninski razred kupiti e-vinjeto? Uporabite orodje za določanje cestninskega razreda.\
+      \ Iz spustnega seznama izberite znamko in model vašega vozila. Če vozila ni na seznamu, sodi v cestninski\
+      \ razred 2A.\n\n# Ste vozilo prodali oziroma odjavili iz prometa?\n\nČe ste imeli na registrsko\
+      \ označbo vezano **letno ali polletno e-vinjeto,** lahko zahtevate vračilo sorazmernega dela njene\
+      \ vrednosti za čas od odjave vozila do izteka veljavnosti e-vinjete. Pogoj je, da vozila niste prodali\
+      \ skupaj z registrskimi tablicami.\n\nZa uveljavljanje vračila sorazmernega dela vrednosti e-vinjete\
+      \ izpolnite **spletni obrazec**, dostopen na **tej povezavi**. Edina obvezna priloga k zahtevku\
+      \ je **račun za nakup e-vinjete** (POZOR: račun in potrdilo o nakupu e-vinjete sta dva različna\
+      \ dokumenta).\n\n*(Če je bilo vozilo registrirano v tujini, mora vložnik zahtevka za vračilo sorazmernega\
+      \ dela vrednosti e-vinjete vlogi priložiti tudi kopijo prometnega dovoljenja ter overjen prevod\
+      \ potrdila pristojnega organa v tej državi, da je vozilo odjavljeno iz evidence registriranih motornih\
+      \ vozil.)*\n\nZahtevek lahko odda lastnik ali imetnik vozila, ki je vozilo odjavil, v roku 30 dni\
+      \ od odjave vozila. V primeru ugodne rešitve zahtevka, se cestninskemu zavezancu vrne sorazmerni\
+      \ del zneska, zmanjšan za nadomestilo za obravnavo vloge v višini 6 EUR.\n\nVeč o postopku si lahko\
+      \ preberete na **tej povezavi**.\n\nZ registracijo ustvarite svoj osebni e-vinjetni uporabniški\
+      \ račun ter s tem pridobite možnost upravljanja svojih e-vinjet. V svoj profil lahko dodate e-vinjeto,\
+      \ tudi če je niste kupili preko spleta. Potrebujete samo ID-številko e-vinjete, ki je natisnjena\
+      \ na potrdilu o nakupu e-vinjete, in registrsko številko vozila, na katerega je vezana. S tem pridobite\
+      \ številne prednosti, navajamo najpomembnejše:\n\n#### 1\n\n### Prejemajte \n\nSMS-opomnike\n\n\
+      Nastavite si opomnik na potek veljavnosti e-vinjete, obvestilo o začetku veljavnosti e-vinjete in\
+      \ druga sporočila, vezana na vašo e-vinjeto, ki jih lahko prejmete po elektronski pošti, prek SMS-sporočila\
+      \ ali na oba omenjena načina. **Storitev je brezplačna.**\n\n#### 2\n\n### Priročno za podjetja\n\
+      \nRegistracija je zelo priročna za podjetja z večjim številom vozil, saj lahko uvozite seznam registrskih\
+      \ označb vaših vozil in z eno potezo kupite e-vinjete za vaš celoten vozni park, hkrati pa vodite\
+      \ evidenco nakupov e-vinjet za vsa vozila.\n\n#### 3\n\n### Opravite nakup po ponudbi\n\nPoleg plačila\
+      \ z debetno ali kreditno kartico lahko registrirane stranke nakup e-vinjete opravite tudi po ponudbi.\
+      \ Plačilo se v tem primeru izvede z bančnim nakazilom, prek s"
+    https://www.etocka.si/gorivo/vinjeta/:
+      "Published: 2026-11-18\n\n**16,00 €**razred 2A\n\n**32,00 €**razred\
+      \ 2A\n\n**117,50 €**razred 2A\n\n**106,80 €**od 1. 12. do 31. 1.\n\n## Koliko stane vinjeta v letu\
+      \ 2026?\n\nSlovenska e-vinjeta za osebni avto (razred 2A) stane v letu 2026 16,00 € za teden, 32,00\
+      \ € za mesec in 117,50 € za leto. V razred 2A spadajo vozila do 3,5 t, ki so nad prvo osjo visoka\
+      \ največ 1,3 m. Višja vozila, na primer višji kombiji, spadajo v razred 2B, kjer so cene 2026 32,00\
+      \ €, 64,10 € in 235,00 €. Za motorno kolo stane tedenska e-vinjeta 8,00 €, polletna 32,00 € in letna\
+      \ 58,70 €. Cene vseh petih držav so v tabeli na tej strani.\n\n## Katera vinjeta se splača?\n\n\
+      Letna vinjeta se splača, ko bi za krajše vinjete v enem letu plačal več od njene cene. Kalkulator\
+      \ za vsako potovanje izbere najcenejšo krajšo vinjeto, jo pomnoži s številom potovanj in vsoto primerja\
+      \ z letno.\n\n| Potovanja po 7 dni v Sloveniji | Tedenske vinjete | Letna vinjeta | Ugodneje | \n\
+      |---|---|---|---|\n| 3 | 3 × 16,00 € = 48,00 € | 117,50 € | tedenske, prihranek 69,50 € | \n| 7\
+      \ | 7 × 16,00 € = 112,00 € | 117,50 € | tedenske, prihranek 5,50 € | \n| 8 | 8 × 16,00 € = 128,00\
+      \ € | 117,50 € | letna, prihranek 10,50 € | \n\nPo cenah 2026 je meja v Sloveniji pri 8 tedenskih\
+      \ potovanjih na leto. Če se po avtocesti voziš vsak teden, je letna vinjeta skoraj vedno cenejša.\
+      \ Pri potovanju, daljšem od 7 dni, kalkulator primerja več tedenskih vinjet z mesečno in izbere\
+      \ cenejšo možnost.\n\nZa Avstrijo velja isto načelo. Za dvodnevni izlet kalkulator izbere 10-dnevno\
+      \ vinjeto za 12,80 €, ker je cenejša od dveh enodnevnih (19,20 €). Pri 8 takih izletih plačaš 102,40\
+      \ €, pri 9 pa 115,20 €, kar je več od letne vinjete za 106,80 €.\n\n## Koliko časa velja vinjeta?\n\
+      \nVeljavnost se med državami razlikuje, zato pravila preveri, preden kupiš letno vinjeto.\n\n- **Slovenija:**\
+      \ tedenska e-vinjeta velja 7 zaporednih dni, vključno z dnem začetka. Mesečna velja do istega datuma\
+      \ naslednjega meseca. Letna velja 12 mesecev od datuma, ki ga izbereš, in ne od 1. 12. do 31. 1.\
+      \ Začetek lahko določiš do 30 dni vnaprej.\n- **Avstrija:** letna vinjeta 2026 velja od 1. 12. 2025\
+      \ do 31. 1. 2027. Digitalna 2-mesečna in letna vinjeta, ki ju kot potrošnik kupiš na spletu, začneta\
+      \ veljati 18. dan po nakupu, zato ju kupi pravočasno.\n- **Madžarska:** letna e-matrica za vso državo\
+      \ velja do 31. 1. naslednjega leta. Tedenska velja 10 dni. Poleg letne za vso državo obstajajo tudi\
+      \ letne vinjete za posamezne županije.\n- **Češka:** letna vinjeta velja eno leto od izbranega datuma.\
+      \ Za električne avtomobile je brezplačna (0 CZK), a jo moraš registrirati.\n- **Slovaška:** namesto\
+      \ letne vinjete je na voljo 365-dnevna vinjeta za 90,00 €.\n\nPri avstrijski in madžarski letni\
+      \ vinjeti je obdobje veljavnosti fiksno, zato ob poznem nakupu dobiš manj mesecev. Slovenska letna\
+      \ e-vinjeta vedno velja polnih 12 mesecev. Letne e-vinjete, ki so veljale 1. 12. 2025, so bile z\
+      \ interventnim zakonom podaljšane za 4 mesece.\n\n## Kje kupiš vinjeto?\n\nVinjeto kupi v uradni\
+      \ spletni trgovini upravljavca avtocest, kjer plačaš samo uradno ceno:\n\n- Slovenija: evinjeta.dars.si\n\
+      - Avstrija: asfinag.at\n- Madžarska: nemzetiutdij.hu\n- Češka: edalnice.cz\n- Slovaška: eznamka.sk\n\
+      \nNa spletu delujejo tudi neuradni prodajalci, ki za isto vinjeto zaračunajo dodatno provizijo.\
+      \ Pred plačilom zato preveri naslov strani. E-vinjeta je vezana na registrsko številko, zato jo\
+      \ vpiši natančno. Cene v forintih in kronah kalkulator preračuna po tečaju ECB, sam pa jih preračunaš\
+      \ v pretvorniku valut.\n\n## Kakšna je kazen za vožnjo brez vinjete?\n\nV Sloveniji je globa za\
+      \ vožnjo po avtocesti brez veljavne e-vinjete 300 €. Za zlorabo registrske številke ali razreda\
+      \ vozila je globa 500 €. V drugih državah veljajo njihove globe, zato vinjeto kupi, preden zapelješ\
+      \ na avtocesto.\n\n## Ali na Hrvaškem potrebuješ vinjeto?\n\nNe. Na Hrvaškem vinjete ni, cestnino\
+      \ plačaš glede na prevoženo razdaljo. Cenik za svoje avtoceste objavlja HAC (Hrvatske autoceste).\
+      \ Strošek goriva in cestnin za celotno pot izračunaš v kalkulatorju stroška poti.\n\n## Kdaj bodo"
+    https://vignetteregister.com/slovenia/faq/: "# Slovenia Vignette FAQ
+
+
+      Frequently asked questions about the Slovenian e-vignette (e-vinjeta)
+
+
+      For a standard car (height ≤1.3 m, class 2A) the 2026 DARS e-vignette (e-vinjeta) prices are: 7
+      days €16, 30 days €32, and 1 year €117.50. Motorcycles (class 1) are cheaper; taller vehicles over
+      1.3 m (class 2B) pay more. There is no 1-day option — 7 days is the shortest.
+
+
+      For a class 2A car: 7 days (€16), 30 days (€32) and annual (€117.50). The 7-day vinjeta is ideal
+      for most visits and transit (e.g. Austria↔Croatia). There is no daily vignette in Slovenia.
+
+
+      A vignette is required on all Slovenian motorways (avtoceste) and expressways (hitre ceste). Key
+      corridors include the A1 (Šentilj–Koper), A2 (Karavanke–Ljubljana–Obrežje), and routes around Ljubljana.
+      Ordinary national and regional roads do not require a vignette.
+
+
+      Yes. Motorcycles are subject to the vignette obligation in Slovenia, but they fall under a separate
+      lower-price category (class 1). The price for motorcycles is different from that of passenger cars
+      — our registration form will guide you through the correct category.
+
+
+      No. Electric vehicles registered as passenger cars must purchase a vignette at the same rates as
+      petrol or diesel vehicles. Vehicles over 3.5 tonnes are exempt from the vignette (they use a separate
+      DarsGo transponder system), as are emergency and state vehicles.
+
+
+      The on-the-spot fine for driving without a valid e-vignette on Slovenian motorways is €300 for passenger
+      vehicles. Enforcement is continuous — there is no grace period. The automated camera system flags
+      vehicles without a registered vignette in real time.
+
+
+      For the 7-day and 30-day options you choose your start date at purchase — the vignette is valid
+      from that date. For the annual vignette purchased through our service, validity starts on your selected
+      date. There is no mandatory waiting period after purchase.
+
+
+      Slovenia uses height-based categories: class 2A for vehicles up to 1.3 m (standard passenger cars),
+      and class 2B for vehicles over 1.3 m (high-roof vans, SUVs with roof boxes, motorhomes). Class 2B
+      vignettes are priced higher. When registering, make sure to select the correct height category for
+      your vehicle.
+
+
+      DARS (Slovenian Motorway Company) operates a fully digital camera-based enforcement system. Cameras
+      installed at motorway entry points read your license plate and check it against the vignette database
+      in real time. There is no physical sticker — your plate number is your proof. Traffic police can
+      also perform checks using handheld devices.
+
+
+      Yes. The Slovenian motorway approach (A2) to the Karawanken Tunnel requires a Slovenian e-vinjeta.
+      The Austrian side requires a separate Austrian vignette, and the tunnel itself has its own toll.
+      The vinjeta covers the Slovenian motorway, not the tunnel toll.
+
+
+      The e-vinjeta is fully electronic since 2021 — buy it online at evinjeta.dars.si before travel,
+      or at petrol stations and kiosks near the border (Karawanken, Obrežje, Fernetiči). No sticker; your
+      plate is active within minutes.
+
+
+      Cars rented in Slovenia normally include a valid vinjeta — confirm with the rental company. A car
+      rented abroad (e.g. Austria, Italy or Croatia) will NOT have one, so register before using Slovenian
+      motorways (avtoceste).
+
+
+      Enter your plate in the checker at evinjeta.dars.si to see the active class, period and expiry.
+      Make sure you bought the right height class (2A vs 2B) — buying 2A for a 2B vehicle counts as having
+      no valid vignette. The price is the same for foreign plates."

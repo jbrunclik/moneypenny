@@ -1,7 +1,7 @@
 id: cz_date_recent_event
 description: An event after the training cutoff but before today is in the past (sweep - "it's not 2024")
 user: "jak dopadlo mistrovstvi sveta v hokeji 2026?"
-# Interim (Nov 18 2026): live until it gets canned pages
+# Live web on purpose: a recent event - canned pages would freeze it
 web: live
 expect:
   rubric: >

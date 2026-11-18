@@ -1,0 +1,13 @@
+id: chat_cycling_fueling_saturday
+description: Long cycling chat - fueling target for the next long ride follows the agreed progression
+history_from: cycling_program
+user: "Kolik toho mam v sobotu snist? Pojedu tu 1:30 Z2."
+expect:
+  rubric: >
+    Czech answer consistent with the agreed fueling plan (train 60 g carbs/h
+    on long rides, +10 g each week; last Saturday only ~40 g/h) and with the
+    deload Saturday being only 1:30 h: a concrete per-hour target around
+    60-70 g/h and what that means in food/drink (e.g. a gel + isotonic
+    bidon). Must not prescribe a long/3 h ride or a different plan.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 2

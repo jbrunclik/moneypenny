@@ -1199,3 +1199,28 @@ class TestHistoryLine:
 
         cost = _cost_summary(self._results())
         assert cost["live_web_usd"] == pytest.approx(0.16)
+
+
+def test_czech_weekday_placeholder(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fixture prose names days ("v úterý keramika") from the same relative
+    dates as its calendar, so the two never disagree whatever day it runs."""
+    from datetime import date
+
+    import evals.run as eval_run
+
+    monkeypatch.setattr(eval_run, "local_today", lambda: date(2026, 11, 18))  # a Wednesday
+    assert eval_run._resolve_dates("{tomorrow_cs} a {in_3_days_cs}") == "čtvrtek a sobota"
+    assert eval_run._resolve_dates("{today_weekday}") == "Wednesday"
+
+
+def test_weekday_placeholders_land_on_that_weekday(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import date
+
+    import evals.run as eval_run
+
+    monkeypatch.setattr(eval_run, "local_today", lambda: date(2026, 11, 18))  # a Wednesday
+    assert eval_run._resolve_dates("{tuesday}") == "2026-11-24"  # next one, not today's week
+    assert eval_run._resolve_dates("{thursday}") == "2026-11-19"
+    assert eval_run._resolve_dates("{wednesday}") == "2026-11-25"  # strictly after today
+    assert eval_run._resolve_dates("{thursday_plus_7}") == "2026-11-26"
+    assert eval_run._resolve_dates("{saturday_cs}") == "sobota"

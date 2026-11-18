@@ -4,7 +4,7 @@ user: >
   Open example.com in the browser, follow its "More information" link and
   tell me the title of the page it leads to.
 requires: [browser]
-# Interim (Nov 18 2026): live until it gets canned pages
+# Live web on purpose: drives the real browser - canned pages would freeze it
 web: live
 expect:
   rubric: >

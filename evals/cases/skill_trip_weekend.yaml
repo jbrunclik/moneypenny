@@ -4,8 +4,6 @@ user: >
   Plan a weekend trip to the Krkonoše mountains for our family, two kids aged
   6 and 9, we'll go by car from Brno on Saturday morning and come back Sunday
   evening.
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     A day-by-day, time-blocked plan with realistic travel times from Brno,
@@ -13,3 +11,588 @@ expect:
     anything to book or check (opening hours).
   required_tools: [load_skill]
   required_skill: trip-itinerary
+# Canned web captured 2026-11-18 (evals/capture_web.py): Krkonoše s dětmi tipy na výlet; Krkonoše s dětmi když prší; Brno Špindlerův Mlýn autem jak dlouho
+web:
+  results:
+    - url: https://www.krkonose.eu/nejlepsi-vylety-s-detmi-v-krkonosich
+      title: Nejlepší výlety s dětmi v Krkonoších | Krkonoše - oficiální webové stránky
+      snippet:
+        "Nejlepší výlety s dětmi v Krkonoších | Krkonoše - oficiální webové stránky\n\n# Nejlepší\
+        \ výlety S DĚTMI v Krkonoších\n\nV Krkonoších to bývá do kopce. Jenže právě za těmi kopci čekají\
+        \ místa, která si děti zamilují stejně jako vy\n\nVšechny doporučené trasy jsme prošli s vlastními\
+        \ dětmi, takže víme, kde vás čeká radost z pohybu, výhledy i chvíle, kdy přijde vhod dobrá svačina.\n\
+        \nVydejte se na TOP 10 + 1 rodinných výletů, kde cesta baví stejně jako cíl.\n\n## TOP 10 výletů\
+        \ s dětmi v Krkonoších\n\n \n\n \n\n Na h"
+    - url: https://www.mamanacestach.cz/krkonose-s-detmi/
+      title: "Krkonoše s dětmi: 10 výletů a tipy 2026"
+      snippet: "Krkonoše s dětmi: 10 výletů a tipy 2026
+
+
+        Obsah článku
+
+
+        - Jsou Krkonoše vhodné s kočárkem?
+
+        - Kam v Krkonoších s malými dětmi?
+
+        - Zvládnou děti výlet na Sněžku?
+
+        - Kde se ubytovat s dětmi?
+
+
+        Krkonoše s dětmi nejsou jen výstup na Sněžku. Rodinám nabízejí vodopády, lanovky, krátké naučné
+        stezky, dětská hřiště i trasy, které zvládnete s terénním kočárkem. Nejdůležitější je vybrat jednu
+        část hor, nepřeplnit program a před každým výletem zkontrolovat počasí a omezení v národním parku.
+
+
+        V průvodci najdete "
+    - url: https://www.krkonose.eu/vyletni-trasy
+      title: Výletní trasy | Krkonoše - oficiální webové stránky
+      snippet:
+        "Výletní trasy | Krkonoše - oficiální webové stránky\n\n# Výletní trasy \n\nKrkonoše nabízejí\
+        \ trasy pro pěší, cyklisty i rodiny s dětmi. Vydat se můžete po známých místech, naučných stezkách\
+        \ i méně objevených cestách krásnou horskou krajinou. Nechybí cyklotrasy různých obtížností ani\
+        \ výlety, které spojují pohyb, zážitky a poznávání.\n\n233 výletních tras.\n\n Doporučené pěší výlety\
+        \ \n\n Ze Špindlerovy boudy za zvířátky \n\nČas jízdy/chůze 2:18 hod\n\nVzdálenost - zastaralé 9\
+        \ km\n\nPřevýšení 38 m\n\n Disidentská st"
+    - url: https://www.vylety-zabava.cz/tipy-na-vylet/426-krkonose
+      title: Tipy kam na výlet s dětmi
+      snippet: "Tipy kam na výlet s dětmi
+
+
+        # Krkonoše, Podkrkonoší - výlety s dětmi
+
+
+        Krkonoše jsou nejvyšším pohořím České republiky rozkládajícím se v severovýchodních Čechách a na
+        jihu Polska. Nejvyšší hora Sněžka (1602 m) leží na Česko-polské hranici. Na území Krkonoš se nachází
+        Krkonošský národní park (KRNAP) založený v roce 1963. Organizace spojených národů pro vzdělání,
+        vědu a kulturu vyhlásila v roce 1992 Krkonoše za biosférickou rezervaci UNESCO.
+
+
+        Pramení zde řeky Labe, Malé Labe, Jizerka, Úpa a Mumlava"
+    - url: https://vilalumina.cz/4-tipy-na-vylet-krkonose-kdyz-venku-prsi/
+      title: 4 tipy na výlety v Krkonoších, když venku prší | Vila Lumina
+      snippet: "4 tipy na výlety v Krkonoších, když venku prší | Vila Lumina
+
+
+        # 4 tipy na výlety v Krkonoších, když venku prší
+
+
+        ## Na horách se zabavíte i v dešti
+
+
+        📅 18. 10. 2024
+
+
+        Přemýšlíte, kam vyrazit s dětmi, když v Krkonoších neustále prší a počasí zrovna nepřeje? Nemusíte
+        si zoufat! Krkonoše nabízejí spoustu zábavy i během deštivých dnů. Ať už toužíte po dobrodružství,
+        vzdělání nebo pohodovém relaxu, máme pro vás 5 skvělých tipů na výlety, které vás udrží v suchu
+        a zároveň zpestří váš pobyt v tomto krásn"
+    - url: https://www.explorio.cz/magazin/521-krkonose-s-detmi-v-lete-v-zime-i-v-desti
+      title: "Krkonoše s dětmi: v létě, v zimě i v dešti | Explorio.cz"
+      snippet: "Krkonoše s dětmi: v létě, v zimě i v dešti | Explorio.cz
+
+
+        # Krkonoše s dětmi: v létě, v zimě i v dešti
+
+
+        Krkonoše jsou nejnavštěvovanějšími horami v ČR a proto vás tu také na každém kroku čeká plno aktivit
+        pro rodiny s dětmi i obrovský výběr hotelů, restaurací, penzionů, apartmánů a chalup k pronájmu.
+
+
+        ### S dětmi na Sněžku
+
+
+        Zdolání naší nejvyšší hory byste si s dětmi rozhodně neměli nechat ujít. Pokud se necítíte na výšlap
+        až nahoru pěšky, jeďte lanovkou. Vybrat si můžete jednosměrnou, nebo zpát"
+    - url: https://stare.krkonose.eu/co-delat-kdyz-v-krkonosich-prsi
+      title: Co dělat, když v Krkonoších prší | Krkonoše - oficiální webové stránky
+      snippet:
+        "Co dělat, když v Krkonoších prší | Krkonoše - oficiální webové stránky\n\n# Co dělat, když\
+        \ v Krkonoších prší \n\n30. 11. 2023\n\nKaždé malé dítě ví, že krkonošskému počasí vládne od nepaměti\
+        \ Krakonoš. Když zrovna zalévá horskou krajinu a plní bystřiny vodou, češe louky a lesy prudkým\
+        \ větrem nebo pouští to údolí neprostupnou mlhu, je čas nechat pohorky větrat a oddat se novým dobrodružstvím.\
+        \ \n\n### Užijte si zábavu pod střechou, poradíme vám ty nejlepší zážitky.\n\nVyzkoušejte tradiční\
+        \ řemesla, poznejte k"
+    - url: https://ceskehory.info/krkonose/spindleruv-mlyn/
+      title: "Špindlerův Mlýn 2026/27: lyžování, ceny, parkování a ubytování"
+      snippet: "Špindlerův Mlýn 2026/27: lyžování, ceny, parkování a ubytování
+
+
+        # Špindlerův Mlýn
+
+
+        718 m n. m.
+
+
+        Foto: Ronny Ullrich, CC0, Wikimedia Commons
+
+
+        Největší lyžařské středisko na české straně Krkonoš s 27 km sjezdovek a výchozí bod pro výlety k
+        prameni Labe – pro lyžaře všech úrovní i pěší turisty.
+
+
+        - 2 h 08 min autem z Prahy, 143 km
+
+        - 3 h 38 min autem z Brna, 239 km
+
+        - 718 m nadmořská výška obce
+
+
+        ## Kdy do Špindlu vyrazit
+
+
+        V zimě je Špindl největší lyžařské středisko české strany Krkonoš. O víkendech v"
+    - url: https://fromto.travel/en/czech/brno/pindler-v-ml-n
+      title: Brno to Špindlerův Mlýn – distance, time, fares
+      snippet:
+        "Brno to Špindlerův Mlýn – distance, time, fares\n\nHow to Travel from\n\n Brno to Špindlerův\
+        \ Mlýn \n\nby Train, Route or Car\n\nBrno\n\n→\n\n + 0 → \n\n + 0 → \n\nCheapest Best Offer! \n\n\
+        Car\n\n3 h 21 min \n\n220 km.\n\nfrom $12\n\n# How to Get from Brno to Špindlerův Mlýn (Train, Route,\
+        \ Car)\n\n## Types of Transport\n\n If you want to travel directly using a specific type of transport,\
+        \ please select an option below. \n\n from $12 \n\n Composite Route Car Only \n\nSchedule\n\nBrno,\
+        \ Czech → Špindlerův Mlýn, Czech\n\n## Composite route"
+    - url: https://www.ubytovani-spindleruv-mlyn.cz/helpie_faq/jak-se-nejlepe-dostanu-autem-do-spindlerova-mlyna/
+      title: Jak se dostanu Špindlerova Mlýna? - Ubytování Špindlerův Mlýn
+      snippet: "Jak se dostanu Špindlerova Mlýna? - Ubytování Špindlerův Mlýn
+
+
+        # Jak se dostanu Špindlerova Mlýna?
+
+
+        Pokud se vydáte autem např. z Prahy, tak nejvhodnější a poněkud i nejrychlejší varianta je si zvolit
+        dálnici D11 směrem na Hradec Hrálové, sjet po 34km výjezdem 42 na silnici 32 směrem na Jičín/Velký
+        Osek (za jediným lanovým mostem na D11), a nadále pokračovat na každém kruhovém objezdu rovně až
+        do Špindlerova Mlýna. Přibližný čas jízdy je mezi 1h 45 min a 2h a 30min (vždy záleží na dopravní
+        situa"
+    - url: https://www.skiareal.cz/informace/o-nas/jak-se-k-nam-dostanete
+      title: Jak se k nám dostanete?
+      snippet:
+        "Jak se k nám dostanete?\n\n# Jak se k nám dostanete? \n\n# AUTEM \n\nNejpohodlnější cesta\
+        \ do Špindlerova Mlýna je autem. Z Vrchlabí pojedete podél řeky Labe po silnici 295, která je v\
+        \ zimě upravována. Z Prahy se k nám dostanete přes Poděbrady nebo Mladou Boleslav a Jičín za 2 hodiny.\
+        \ Z Hradce Králové přes Jaroměř nebo Hořice za hodinu a půl. \n\n# AUTOBUSEM CITY SKI \n\n### Expresní\
+        \ skibus z Prahy do Špindlerova Mlýna\n\nNechce se Vám k nám do Špindlu řídit? Přijeďte autobusem\
+        \ CITY SKI! Skiareál Špindlerův "
+  pages:
+    https://www.krkonose.eu/nejlepsi-vylety-s-detmi-v-krkonosich:
+      "Přejít k hlavnímu obsahu \n\n# Nejlepší\
+      \ výlety  \nS DĚTMI  \nv Krkonoších\n\nV Krkonoších to bývá do kopce. Jenže právě za těmi kopci\
+      \ čekají místa, která si děti zamilují stejně jako vy\n\nVšechny doporučené trasy jsme prošli s\
+      \ vlastními dětmi, takže víme, kde vás čeká radost z pohybu, výhledy i chvíle, kdy přijde vhod dobrá\
+      \ svačina.\n\nVydejte se na TOP 10 + 1 rodinných výletů, kde cesta baví stejně jako cíl.\n\n## TOP\
+      \ 10 výletů s dětmi v Krkonoších\n\n[ ](/k-mumlavskemu-vodopadu-na-krakonosovu-snidani)\n\n[K Mumlavskému\
+      \ vodopádu a na Krakonošovu snídani](/k-mumlavskemu-vodopadu-na-krakonosovu-snidani)\n\nPříjemný\
+      \ výšlap podél řeky Mumlavy, který můžete podniknout i s nejmenšími v kočárku. Starší děti si...\
+      \ \n\n[ ](/na-hlidku-na-strazi)\n\n[Na Hlídku na Stráži](/na-hlidku-na-strazi)\n\nLesopark na vrcholu\
+      \ Stráž ukrývá 4 nápadité vyhlídky ze dřeva a oceli. Jejich podoba i jména se pojí... \n\n[ ](/na-herni-krajinu-pecka)\n\
+      \n[Na herní krajinu Pecka](/na-herni-krajinu-pecka)\n\nVyjeďte vstříc velkému rodinnému dobrodružství!\
+      \ Herní krajina Pecka na vrcholu lanové dráhy Velká... \n\n[ ](/na-rozhlednu-zaly-k-3d-bludisti)\n\
+      \n[Na rozhlednu Žalý a k 3D bludišti](/na-rozhlednu-zaly-k-3d-bludisti)\n\nBenecku se přezdívá vzdušné\
+      \ lázně, pro místní čerstvý luft. Je to středisko vysoko v horách a přitom... \n\n[ ](/node/2375)\n\
+      \n[K prameni Labe](/node/2375)\n\nNavštivte symbolický pramen Labe na Labské louce, vzdejte hold\
+      \ tomuto evropskému veletoku a užijte... \n\n[ ](/ze-spindlerovy-boudy-za-zviratky)\n\n[Ze Špindlerovy\
+      \ boudy za zvířátky](/ze-spindlerovy-boudy-za-zviratky)\n\nPříjemná trasa, která bude bavit děti\
+      \ i dospělé. Nejen že se dozvíte spoustu zajímavostí a typických... \n\n[ ](/k-cernohorskemu-raselinisti)\n\
+      \n[K Černohorskému rašeliništi](/k-cernohorskemu-raselinisti)\n\nPříjemný výlet krásnou a zajímavou\
+      \ částí našich hor. Poučíte se o tom, jak vzniká rašelina, děti... \n\n[ ](/pohadkova-stezka-mala-upa)\n\
+      \n[Pohádková stezka](/pohadkova-stezka-mala-upa)\n\nKrkonošské pohádky a jejich postavičky jsou\
+      \ neodmyslitelně spjaty s krkonošskou krajinou. Na naučné... \n\n[ ](/za-trpytivou-krasou)\n\n[Za\
+      \ třpytivou krásou](/za-trpytivou-krasou)\n\nTak trochu jiný výlet po Krkonoších. Nebudete stoupat\
+      \ na hřebeny, ačkoliv stoupání vás čeká. Putovat... \n\n[ ](/z-cerne-hory-do-pece-pod-snezkou)\n\
+      \n[Z Černé hory do Pece pod Sněžkou](/z-cerne-hory-do-pece-pod-snezkou)\n\nPohodová trasa s nádhernými\
+      \ výhledy vede vlastně skoro pořád z kopce. Auto ponechte v Janských... \n\nS nejmenšími na Sněžku\n\
+      \nNa Sněžku můžete vyrazit s malými dětmi, většími dobrodruhy i s kočárkem. Připravili jsme proto\
+      \ několik variant tras, ze kterých si vyberete podle sil, času i nálady.\n\nSněžka je královnou\
+      \ českých hor a zdolat ji má své kouzlo v každém věku. Když už mají děti v nohách pár krkonošských\
+      \ kilometrů, bývá právě nejvyšší česká hora velkou výzvou i odměnou. Stačí dobře naplánovat trasu,\
+      \ tempo i správný čas. Rozdíl mezi skvělým zážitkem a únavným dnem totiž často dělá právě příprava.\n\
+      \nPokud můžete, **vydejte se sem mimo prázdniny, o všedních dnech a ideálně ráno**. V hlavní sezoně\
+      \ se totiž vrchol i lanovka z Pece pod Sněžkou rychle zaplní a z horského dobrodružství se snadno\
+      \ stane čekání v davu.\n\n[Kudy na Sněžku](/s-detmi-na-snezku \"S dětmi na Sněžku\")\n\n## 44 míst\
+      \ plných radosti\n\nRazítkovací hra Pohádkové Krkonoše\n\nVýlety, dobrodružství, zábava a pohádkové\
+      \ zážitky pro celou rodinu v Krakonošově revíru. Sbírejte razítka na skvělých místech a vyhrávejte\
+      \ ceny.\n\n[Vyrazíme za razítky](/node/3736)"
+    https://www.mamanacestach.cz/krkonose-s-detmi/:
+      "Published: 2026-08-20\n\n**Krkonoše s dětmi nejsou\
+      \ jen výstup na Sněžku. Rodinám nabízejí vodopády, lanovky, krátké naučné stezky, dětská hřiště\
+      \ i trasy, které zvládnete s terénním kočárkem. Nejdůležitější je vybrat jednu část hor, nepřeplnit\
+      \ program a před každým výletem zkontrolovat počasí a omezení v národním parku.**\n\nV průvodci\
+      \ najdete ověřené tipy na výlety, doporučení podle věku dětí, praktické informace k lanovkám, ubytování\
+      \ i jednoduchý plán na tři dny. Provozní informace byly ověřeny v srpnu 2026. Otevírací dobu, jízdní\
+      \ řády a stav cest si vždy zkontrolujte těsně před návštěvou.\n\n## Krkonoše s dětmi rychle a přehledně\n\
+      \n| Otázka | Doporučení | \n|---|---|\n| Kolik dní | 3 až 5 dní v jedné části hor | \n| Nejlepší\
+      \ základna | Harrachov, Špindlerův Mlýn, Pec pod Sněžkou nebo Janské Lázně | \n| S malými dětmi\
+      \ | Mumlavský vodopád, Stezka korunami stromů a kratší údolní trasy | \n| Se školáky | Sněžka, Černohorské\
+      \ rašeliniště, Labský důl a pevnost Stachelberg | \n| Co hlídat | Počasí, vítr, provoz lanovek a\
+      \ aktuální uzavírky cest | \n\n## Kterou část Krkonoš zvolit\n\n- **Harrachov:** Mumlavský vodopád,\
+      \ hornické muzeum, bobová dráha a výlety do západních Krkonoš.\n- **Špindlerův Mlýn:** dobré zázemí,\
+      \ lanovky, Labský důl a trasy různých délek.\n- **Pec pod Sněžkou:** výchozí místo na Sněžku a do\
+      \ východních Krkonoš.\n- **Janské Lázně a Černá hora:** Stezka korunami stromů, kabinková lanovka\
+      \ a Černohorské rašeliniště.\n- **Vrchlabí:** praktická základna s muzeem KRNAP a dobrým programem\
+      \ do deště.\n\n## Nejlepší výlety v Krkonoších s dětmi\n\n### 1. Mumlavský vodopád\n\nZ Harrachova\
+      \ vede k vodopádu široká cesta dlouhá přibližně dva kilometry. S terénním kočárkem ji za příznivého\
+      \ počasí zvládnete, v zimě a po dešti ale může klouzat. U vodopádu dávejte pozor na mokré kameny\
+      \ a děti nepouštějte k proudu bez dozoru. Výlet lze prodloužit směrem k Rýžovišti nebo zakončit\
+      \ v centru Harrachova.\n\n### 2. Stezka korunami stromů Krkonoše\n\nStezka v Janských Lázních je\
+      \ vhodná i pro menší děti a kočárky. Trasa vede od kořenů lesa až do korun stromů a součástí jsou\
+      \ naučná zastavení i výhled z věže. Otevírací doba se mění podle sezony a některé doplňkové atrakce\
+      \ mohou mít vlastní pravidla. Před cestou ověřte provoz na oficiálním webu stezky.\n\n### 3. Černá\
+      \ hora a Černohorské rašeliniště\n\nKabinková lanovka z Janských Lázní ušetří dětem velkou část\
+      \ stoupání. Od horní stanice můžete zvolit kratší procházku nebo delší trasu k Černohorskému rašeliništi.\
+      \ Dřevěné chodníky bývají úzké a mokré, proto je pro malé děti praktičtější nosítko. Zpáteční provoz\
+      \ lanovky zkontrolujte ještě před odchodem.\n\n### 4. Sněžka s dětmi\n\nNejvyšší česká hora není\
+      \ automaticky vhodná pro každé dítě. Kabinková lanovka z Pece pod Sněžkou může kvůli silnému větru\
+      \ jezdit jen v dolním úseku nebo stát úplně. Na vrcholu bývá výrazně chladněji než v údolí a terén\
+      \ je kamenitý. Se školáky je rozumné vyjet část trasy lanovkou a pěší variantu přizpůsobit počasí.\
+      \ Aktuální provoz sledujte na webu lanovky na Sněžku.\n\n### 5. Labský důl\n\nTrasa ze Špindlerova\
+      \ Mlýna vede údolím podél Labe a umožňuje otočit se kdykoliv podle kondice dětí. Spodní část je\
+      \ příjemná i pro rodiny, které nechtějí zdolávat hřebeny. K Labské boudě už cesta výrazně stoupá\
+      \ a patří spíš zdatnějším školákům. Po silném větru vždy ověřte stav lesa a případné uzavírky.\n\
+      \n### 6. Herní krajina Pecka\n\nDřevěné herní prvky na Portášových Boudách vycházejí z krkonošských\
+      \ zvířat a legend. Nahoru se dá dostat lanovkou z Velké Úpy, takže jde o dobrý program i pro děti,\
+      \ které nezvládnou dlouhé stoupání. Areál je venkovní a na horském svahu, proto vezměte pevné boty\
+      \ a teplejší vrstvu.\n\n### 7. Muzeum Krkonoš ve Vrchlabí\n\nModerní expozice návštěvnického centra\
+      \ KRNAP je dobrou volbou do deště nebo jako klidnější program po náročném výletu. Děti poznají přírodu,\
+      \ historii i život v horách. Informační centra KRNAP mají také menší expozice s herními prvky; jejich\
+      \ aktuální přehled najdete na webu národního parku.\n\n### 8. Hornické muzeum Harrachov\n\nProhlídka\
+      \ bývalého dol"
+    https://www.krkonose.eu/vyletni-trasy:
+      "Přejít k hlavnímu obsahu \n\n#  Výletní trasy \n\nKrkonoše\
+      \ nabízejí trasy pro pěší, cyklisty i rodiny s dětmi. Vydat se můžete po známých místech, naučných\
+      \ stezkách i méně objevených cestách krásnou horskou krajinou. Nechybí cyklotrasy různých obtížností\
+      \ ani výlety, které spojují pohyb, zážitky a poznávání.\n\nVše\n\nKrkonošemi na sněžnicích\n\nSkialpinistické\
+      \ trasy\n\nDalší bezbariérové trasy\n\nDlouhé sjezdy\n\nDoporučené běžkařské výlety/trasy\n\nDoporučené\
+      \ cyklovýlety\n\nDoporučené pěší výlety\n\nIn-line\n\nNaučné stezky\n\nPěšky v zimě\n\nTOP 10 bezbariérových\
+      \ tras\n\nNa vzdálenosti nezáleží\n\nProcházky do 5 kilometrů\n\nVýlety do 10 km\n\nTúry nad 10\
+      \ kilometrů\n\nVhodné pro invalidy\n\nVhodné pro děti\n\n233 výletních tras.\n\n[ ](/janouskova-cesta)\n\
+      \nDoporučené běžkařské výlety/trasy\n\n[Janouškova cesta](/janouskova-cesta)\n\nČas jízdy/chůze\n\
+      \n2:20 hod\n\nVzdálenost - zastaralé\n\n13 km\n\nPřevýšení\n\n101 m\n\n[ ](/z-harrachova-podel-mumlavy-na-krakonosovu-snidani)\n\
+      \nTOP 10 bezbariérových tras\n\n[Z Harrachova podél Mumlavy na Krakonošovu snídani](/z-harrachova-podel-mumlavy-na-krakonosovu-snidani)\n\
+      \nČas jízdy/chůze\n\n2:06 hod\n\nVzdálenost - zastaralé\n\n6 km\n\nPřevýšení\n\n331 m\n\n[ ](/trasa-bud-fit-labskym-dolem)\n\
+      \nDoporučené běžkařské výlety/trasy\n\n[Trasa \"Buď fit\" Labským dolem](/trasa-bud-fit-labskym-dolem)\n\
+      \nČas jízdy/chůze\n\n1:40 hod\n\nVzdálenost - zastaralé\n\n9 km\n\nPřevýšení\n\n157 m\n\n[ ](/do-udoli-svateho-petra)\n\
+      \nDoporučené pěší výlety\n\n[Do údolí Svatého Petra](/do-udoli-svateho-petra)\n\nČas jízdy/chůze\n\
+      \n1:18 hod\n\nVzdálenost - zastaralé\n\n4 km\n\nPřevýšení\n\n151 m\n\n[ ](/krakonosuv-ranec)\n\n\
+      Naučné stezky\n\n[Krakonošův ranec](/krakonosuv-ranec)\n\nČas jízdy/chůze\n\n2:18 hod\n\nVzdálenost\
+      \ - zastaralé\n\n7 km\n\nPřevýšení\n\n282 m\n\n[ ](/node/2375)\n\nDoporučené pěší výlety\n\n[K prameni\
+      \ Labe](/node/2375)\n\nČas jízdy/chůze\n\n2:00 hod\n\nVzdálenost - zastaralé\n\n6 km\n\nPřevýšení\n\
+      \n135 m\n\n[ ](/z-dolniho-dvora-do-strazneho-pres-tetrevi-hribeci-boudy)\n\nDoporučené běžkařské\
+      \ výlety/trasy\n\n[Z Dolního Dvora do Strážného přes Tetřeví a Hříběcí boudy](/z-dolniho-dvora-do-strazneho-pres-tetrevi-hribeci-boudy)\n\
+      \nČas jízdy/chůze\n\n4:35 hod\n\nVzdálenost - zastaralé\n\n22 km\n\nPřevýšení\n\n673 m\n\n[ ](/na-pomezi-krkonos-jizerskych-hor)\n\
+      \nDlouhé sjezdy\n\n[Na pomezí Krkonoš a Jizerských hor](/na-pomezi-krkonos-jizerskych-hor)\n\nČas\
+      \ jízdy/chůze\n\n1:12 hod\n\nVzdálenost - zastaralé\n\n16 km\n\nPřevýšení\n\n308 m\n\n[ ](/okruh-z-pece-pod-snezkou-pres-lisci-horu)\n\
+      \nSkialpinistické trasy\n\n[Okruh z Pece pod Sněžkou přes Liščí horu](/okruh-z-pece-pod-snezkou-pres-lisci-horu)\n\
+      \nČas jízdy/chůze\n\n5:15 hod\n\nVzdálenost - zastaralé\n\n15 km\n\nPřevýšení\n\n606 m\n\n[ ](/z-pece-pod-snezkou-do-obriho-dolu)\n\
+      \nTOP 10 bezbariérových tras\n\n[Z Pece pod Sněžkou do Obřího dolu](/z-pece-pod-snezkou-do-obriho-dolu)\n\
+      \nČas jízdy/chůze\n\n1:12 hod\n\nVzdálenost - zastaralé\n\n3 km\n\nPřevýšení\n\n156 m\n\n[ ](/k-prameni-labe-nejen-s-detmi)\n\
+      \nDoporučené pěší výlety\n\n[K prameni Labe nejen s dětmi](/k-prameni-labe-nejen-s-detmi)\n\nČas\
+      \ jízdy/chůze\n\n2:00 hod\n\nVzdálenost - zastaralé\n\n7 km\n\nPřevýšení\n\n184 m\n\n[ ](/z-pece-pod-snezkou-na-snezku)\n\
+      \nSkialpinistické trasy\n\n[Z Pece pod Sněžkou na Sněžku ](/z-pece-pod-snezkou-na-snezku)\n\nČas\
+      \ jízdy/chůze\n\n6:00 hod\n\nPřevýšení\n\n840 m\n\n[ ](/do-horni-branne-a-martinic-v-krkonosich)\n\
+      \nDoporučené pěší výlety\n\n[Do Horní Branné a Martinic v Krkonoších](/do-horni-branne-a-martinic-v-krkonosich)\n\
+      \nČas jízdy/chůze\n\n4:24 hod\n\nVzdálenost - zastaralé\n\n16 km\n\nPřevýšení\n\n265 m\n\n[ ](/harrachova-cesta)\n\
+      \nDoporučené pěší výlety\n\n[Harrachova cesta](/harrachova-cesta)\n\n[ ](/za-trpytivou-krasou)\n\
+      \nDoporučené pěší výlety\n\n[Za třpytivou krásou](/za-trpytivou-krasou)\n\nČas jízdy/chůze\n\n1:24\
+      \ hod\n\nVzdálenost - zastaralé\n\n5 km\n\nPřevýšení\n\n110 m\n\n[ ](/node/2656)\n\nDoporučené pěší\
+      \ výlety\n\n[Z Vrchlabí na Kněžice za koníčky ](/node/2656)\n\nČas jízdy/chůze\n\n1:12 hod\n\nVzdálenost\
+      \ - zastaralé\n\n4 km\n\nPřevýšení\n\n130 m\n\n  * [Další výletní trasy](?page=1 \"Load more items\"\
+      )"
+    https://www.explorio.cz/magazin/521-krkonose-s-detmi-v-lete-v-zime-i-v-desti:
+      "# Krkonoše s dětmi:
+      v létě, v zimě i v dešti
+
+
+      Krkonoše jsou nejnavštěvovanějšími horami v ČR a proto vás tu také na každém kroku čeká plno aktivit
+      pro rodiny s dětmi i obrovský výběr hotelů, restaurací, penzionů, apartmánů a chalup k pronájmu.
+
+
+      ### S dětmi na Sněžku
+
+
+      Zdolání naší nejvyšší hory byste si s dětmi rozhodně neměli nechat ujít. Pokud se necítíte na výšlap
+      až nahoru pěšky, jeďte lanovkou. Vybrat si můžete jednosměrnou, nebo zpáteční jízdenku. Lanovka
+      staví ještě ve stanici Růžohorky, můžete vystoupit zde a užít si závěrečné stoupání. Z parkoviště
+      v Peci pod Sněžkou vede k lanovce **krátká trasa plná úkolů** a před spodní zastávkou lanovky je
+      **velké dětské hřiště**.
+
+
+      Ovšem **hřiště s nejkrásnějším výhledem** najdete u horní stanice lanovky Medvědín.
+
+
+      ### Trasy i pro kočárek
+
+
+      Netroufáte si se svým kočárkem do hor? Nemějte strach, v Krkonoších je mnoho tras, které zvládnete
+      i bez terénního kočárku. Podívejte se na tipy z minulého článku.
+
+
+      ### Stezka Korunami stromů
+
+
+      Stezka korunami stromů je otevřená celý rok. Na okolní lesy se podíváte ze **45 metrů vysoké věže**
+      a cestou se zábavnou formou dozvíte zajímavosti o okolní přírodě.
+
+
+      ### Herní krajina Pecka
+
+
+      Odvážíte se dát hlavu do tlapy rysa nebo se utkat s obřími mravenci? Na Portáškách to můžete vyzkoušet
+      v Herní Krajině Pecka s dřevěnými interaktivními sochami a objekty na motivy krkonošské fauny. **Vstup
+      je zdarma** a dostanete se sem pěšky, nebo lanovkou z Velké Úpy.
+
+
+      ### Přehrada Les Království
+
+
+      Znáte tuhle přehradu, co vypadá jako z pohádky? Určitě stojí za návštěvu. Dostanete se sem velmi
+      snadno, silnice vede přímo po hrázi a na obou stranách najdete malá parkoviště. Okolím vás provedou
+      značené naučné stezky.
+
+
+      ### Sjezdovky pro zkušené lyžaře i úplné začátečníky
+
+
+      Z lyžařských areálů v Krkonoších si vybere opravdu každý. Začínající malé lyžaře vezměte třeba do
+      Kidparku Mladé Buky, dětské části skiareálu Herlíkovice nebo dětských skiparků ve Skiareálu Špindlerův
+      Mlýn. Mnoho lanovek jezdí i mimo lyžařskou sezónu a usnadní vám tak cestu na vrchol. Přehled lanovek
+      a informace, které jsou aktuálně v provozu, najdete na oficiálních webových stránkách Krkonoš.
+
+
+      ### A co když venku prší?
+
+
+      Ani za nepříznivého počasí se v Krkonoších s dětmi nudit nebudete. Ve Špindlerově Mlýně mají Lego
+      muzeum i s hernou plnou kostiček. Ve Svobodě nad Úpou můžete navštívit Krakonoše. Kromě interaktivního
+      muzea tu najdete i kavárničku s dětskou hernou. Jak vypadal kdysi život v horách? To se dozvíte
+      v Krkonošském muzeu ve Vrchlabí."
+    https://stare.krkonose.eu/co-delat-kdyz-v-krkonosich-prsi:
+      "## Tradiční krkonošská řemesla na vlastní
+      ruce
+
+
+      Buďte nejen návštěvníkem, ale také tvůrcem a pište chvíli historii tradičních krkonošských řemesel.
+
+
+      Každé malé dítě ví, že krkonošskému počasí vládne od nepaměti Krakonoš. Když zrovna zalévá horskou
+      krajinu a plní bystřiny vodou, češe louky a lesy prudkým větrem nebo pouští to údolí neprostupnou
+      mlhu, je čas nechat pohorky větrat a oddat se novým dobrodružstvím.
+
+
+      Vyzkoušejte tradiční řemesla, poznejte krkonošskou historii. Odpočněte si a dopřejte odpočinek i
+      horské přírodě."
+    https://ceskehory.info/krkonose/spindleruv-mlyn/: "## Kdy do Špindlu vyrazit
+
+
+      **V zimě** je Špindl největší lyžařské středisko české strany Krkonoš. O víkendech v hlavní sezóně
+      se parkoviště P1–P3 plní brzy ráno, takže kdo jede autem na den, má vyrazit co nejdřív. Klidnější
+      lyžování je mimo prázdniny.
+
+
+      Počítejte i s větrem: lanovka na Pláň ve Svatém Petru má povolenou rychlost větru 18 m/s a kritickou
+      20 m/s. Za větrných dnů je jistější Medvědín nebo Hromovka.
+
+
+      **V létě** jezdí lanovky na Medvědín a ve Svatém Petru, takže se na hřebeny dostanete bez velkého
+      převýšení.
+
+
+      ## Lyžování
+
+
+      Skiareál Špindlerův Mlýn provozuje společnost Tatry mountain resorts a uvádí zhruba **27 km sjezdovek**
+      v pěti areálech: **Svatý Petr, Medvědín, Hromovka, Horní Mísečky a Labská**. Je to jedno z mála
+      středisek u nás, kde se dá lyžovat celý týden bez opakování stejných tratí. Detail sjezdovek a mapu
+      najdete na stránce Skiareál Špindlerův Mlýn.
+
+
+      - **Svatý Petr** – nejnáročnější část, vede sem vyhřívaná šestisedačková lanovka na Pláň. Červené
+      a černé sjezdovky včetně tratě na Stohu.
+
+      - **Medvědín** – sedačková lanovka z dolní části města, nahoře restaurace ve výšce 1 235 m. Široké
+      modré a červené tratě pro rodiny a středně pokročilé.
+
+      - **Hromovka** – vstupní areál u parkoviště P2 se čtyřsedačkovou lanovkou. Červená a modrá sjezdovka
+      ho propojují se Svatým Petrem, červená bývá osvětlená pro večerní lyžování.
+
+      - **Horní Mísečky** – mírnější svahy, funpark a Burton snowpark.
+
+
+      ## Kolik to stojí
+
+
+      - **Skipas:** prodává se přes **Gopass** s dynamickými cenami, takže se liší podle dne a podle toho,
+      jak dlouho předem kupujete. Nejlevnější je nákup online s předstihem, nejdražší pokladna v den lyžování.
+      V sezóně 2025/26 stál denní skipas pro dospělého na pokladně **1 690 Kč**, online od **820 Kč**
+      (Echo24). Denní ceny na zimu 2026/27 ukáže Gopass až pro konkrétní den.
+
+      - **Sezónka Gopass SKI 2026/27:** pro dospělého od 16 490 Kč (gopass.travel, stav 28. 10. 2026).
+      Srovnání s ostatními areály je v cenách skipasů.
+
+      - **CITY SKI z Prahy** (autobus + celodenní skipas): 1 350 Kč ve vedlejší a 1 600 Kč v hlavní sezóně,
+      k tomu záloha 50 Kč za kartu.
+
+      - **Parkování v centru** (P Centrum, P Bobová dráha, P JIP Potraviny): 1 h 50 Kč, 2 h 100 Kč, 3
+      h 200 Kč.
+
+      - **Parkování Horní Mísečky:** 15 minut zdarma, 1 h 30 Kč, celý den 300 Kč.
+
+      - **Lanovky v ceně pobytu:** některé hotely je nabízejí, podmínky jsou na webu skiareálu v sekci
+      „Lanovky zdarma“.
+
+
+      ## Kde se ubytovat
+
+
+      Ubytování je rozložené mezi **centrum, Svatý Petr, Bedřichov a Horní Mísečky**. Z centra a od Svatého
+      Petra dojdete k lanovkám pěšky, což se v zimě vyplatí nejvíc. Horní Mísečky jsou klidnější a blíž
+      k běžkám a snowparku, ale do centra je to dál. Nabídky Bookingu a pobyty se slevou ze Slevomatu
+      porovnáte níže na stránce.
+
+
+      ## 14 tipů, co ve Špindlu dělat
+
+
+      1. **Pramen Labe** – klasický celodenní výlet údolím Labe nebo přes Labský důl.
+
+      2. **Labská přehrada** – krátká procházka od Bílého mostu v centru.
+
+      3. **Čertova strouha** – naučná stezka zakončená u boudy U Bílého Labe.
+
+      4. **Hřebenovka na Výrovku** – túra Špindlerův Mlýn – Výrovka – úbočí Stohu.
+
+      5. **Špindlerova bouda – Moravská bouda** – kombinace pěší trasy a autobusu.
+
+      6. **Hornická stezka** v Údolí Svatého Petra.
+
+      7. **Mlynářovy okruhy** – procházky od infocentra.
+
+      8. **Sněžka** – dlouhý výšlap po hřebenech.
+
+      9. **Přes hřeben do Polska** – po cestě česko-polského přátelství, při dvoudenní túře se dá sejít
+      do Przesieky pod Karkonošským sedlem.
+
+      10. **Běžky** – skiareál upravuje kolem 90 km běžeckých tratí, na Horních Mísečkách jsou závodní
+      okruhy 1, 2, 5 a 10 km.
+
+      11. **Burton snowpark** na Horních Mísečkách.
+
+      12. **Večerní lyžování** na osvětlené červené sjezdovce na Hromovce.
+
+      13. **Bobová dráha** v Bedřichově (Bedřichov 127).
+
+      14. **Elektrokola** – dají se půjčit přímo ve Špindlu.
+
+
+      ## Špindl s dětmi
+
+
+      Na lyžích jsou pro děti nejlepší široké modré tratě na **Medvědínu** a mírné svahy na **Horních
+      Mísečkách**. Mimo sjezdovky je tu **bobová dráha**, **Adventure Park** a u Medvědína dětská hřiště,
+      trampolíny, kuličková dráh"
+    https://fromto.travel/en/czech/brno/pindler-v-ml-n:
+      "[](https://fromto.travel/en/czech/brno) [](https://fromto.travel/en/czech/pindler-v-ml-n)\n\
+      \n**How to Travel from**\n\nBrno to Špindlerův Mlýn \n\nby Train, Route or Car\n\n__\n\nBrno\n\n\
+      →\n\n+0 __ →\n\nŠpindlerův Mlýn\n\n__\n\nTransport search to Špindlerův Mlýn\n\nSimply select points\
+      \   \nA and B, and we will create   \na convenient route for you \U0001F44D\n\n__\n\n__\n\n__ __\n\
+      \n__Search Find accommodation\n\n__\n\n__\n\n[Czech](https://fromto.travel/en/czechia) __[Brno](https://fromto.travel/en/czech/brno)\
+      \ __[Špindlerův Mlýn](https://fromto.travel/en/czech/pindler-v-ml-n)\n\n__\n\nBrno\n\n→\n\n+0 __\
+      \ →\n\nŠpindlerův Mlýn\n\n__\n\nBuilding a composite car route\n\nSimply select points   \nA and\
+      \ B, and we will create   \na convenient route for you \U0001F44D\n\n__To build a composite route,\
+      \ click the \"Add point\" button.  \nYou can also move and delete intermediate points. \n\n__\n\n\
+      __ __\n\nAdd point ____Search Find accommodation\n\n__\n\n__ __\n\nCheapest\n\nBest Offer! __\n\n\
+      __\n\nCar\n\n__3 h 21 min\n\n__220 km.\n\n__from $12\n\n[__](/en/czech/brno/pindler-v-ml-n/car)\n\
+      \n__Composite Route __ Car Only\n\n__\n\nSchedule\n\nBrno, Czech → Špindlerův Mlýn, Czech\n\n__All\n\
+      \n__\n\n__\n\nSelect date __\n\nAll days\n\n19 Nov, Thu\n\n20 Nov, Fri\n\n21 Nov, Sat\n\n22 Nov,\
+      \ Sun\n\n23 Nov, Mon\n\n__Show more __\n\n##  Cheapest and Fastest Ways to Travel from Brno to Špindlerův\
+      \ Mlýn \n\n## Composite routes from Brno to Špindlerův Mlýn\n\nCheapest\n\n__\n\n__3 h 21 min\n\n\
+      Car \n\n__220 km.\n\n__from $12\n\n__\n\nRoute Navigator __\n\nOther\n\n______\n\n__6 h 2 min\n\n\
+      __184 km.\n\nSelect a ticket __\n\n__\n\n__________\n\n__6 h 59 min\n\nTrain, Bus \n\n__183 km.\n\
+      \nSelect a ticket __\n\n__\n\n### Route Navigator Brno - Špindlerův Mlýn\n\nGet all the information\
+      \ you need right here\n\n**Continue onto Veselá**\n\nVeselá, 70 м\n\n70 м\n\n**Continue onto Dominikánské\
+      \ náměstí**\n\nDominikánské náměstí, 76 м\n\n76 м\n\n**Turn right onto Dominikánská**\n\nDominikánská,\
+      \ 179 м\n\n179 м\n\n**Turn right onto Šilingrovo náměstí**\n\nŠilingrovo náměstí, 44 м\n\n44 м\n\
+      \n**Turn sharp right onto Husova**\n\nHusova, 1 km 692 м\n\n1 km 692 м\n\n**Turn slight right onto\
+      \ Žerotínovo náměstí**\n\nŽerotínovo náměstí, 157 м\n\n157 м\n\n**Continue onto Moravské náměstí**\n\
+      \nMoravské náměstí, 213 м\n\n213 м\n\n**Turn left onto Lidická**\n\nLidická, 1 km 879 м\n\n1 km\
+      \ 879 м\n\n**Turn right onto Pionýrská**\n\nPionýrská, 387 м\n\n387 м\n\n**Turn left onto Sportovní**\n\
+      \nSportovní, 1 km 69 м\n\n1 km 69 м\n\n**At roundabout, take exit 2 onto Sportovní**\n\nSportovní,\
+      \ 203 м\n\n203 м\n\n**Keep right onto 42 and drive toward Praha, Bratislava, Wien, Svitavy**\n\n\
+      Praha, Bratislava, Wien, Svitavy, 8 km 221 м\n\n8 km 221 м\n\n**Keep left onto 43**\n\n16 km 888\
+      \ м\n\n16 km 888 м\n\n**At roundabout, take exit 2 onto 43**\n\n8 km 859 м\n\n8 km 859 м\n\n**At\
+      \ roundabout, take exit 2 onto 43**\n\n7 km 211 м\n\n7 km 211 м\n\n**At roundabout, take exit 2\
+      \ onto Pražská**\n\nPražská, 26 km 740 м\n\n26 km 740 м\n\n**At roundabout, take exit 3 onto 43**\n\
+      \n4 km 581 м\n\n4 km 581 м\n\n**At roundabout, take exit 2 onto 43**\n\n330 м\n\n330 м\n\n**Keep\
+      \ right**\n\n32 м\n\n32 м\n\n**Turn slight right**\n\n11 km 465 м\n\n11 km 465 м\n\n**Continue onto\
+      \ 35**\n\n6 km 845 м\n\n6 km 845 м\n\n**At roundabout, take exit 2 onto Sokolovská**\n\nSokolovská,\
+      \ 1 km 75 м\n\n1 km 75 м\n\n**At roundabout, take exit 2 onto Sokolovská**\n\nSokolovská, 12 km\
+      \ 303 м\n\n12 km 303 м\n\n**At roundabout, take exit 3 onto Husova**\n\nHusova, 3 km 171 м\n\n3\
+      \ km 171 м\n\n**At roundabout, take exit 1 onto Hradecká**\n\nHradecká, 3 km 740 м\n\n3 km 740 м\n\
+      \n**At roundabout, take exit 2 onto 35**\n\n12 km 405 м\n\n12 km 405 м\n\n**Turn right**\n\n1 km\
+      \ 188 м\n\n1 km 188 м\n\n**Continue onto náměstí T. G. Masaryka**\n\nnáměstí T. G. Masaryka, 273\
+      \ м\n\n273 м\n\n**At roundabout, take exit 2 onto Holubova**\n\nHolubova, 78 м\n\n78 м\n\n**Continue\
+      \ onto Hradecká**\n\nHradecká, 1 km 118 м\n\n1 km 118 м\n\n**Turn right onto 35**\n\n17 km 415 м\n\
+      \n17 km 415 м\n\n**Turn right onto Gočárův okruh and drive toward Liberec, Trutnov, Náchod, Ostrava**\n\
+      \nGočárův okruh, Liberec, Trutnov, Náchod, Ostrava, 3 km 56 м\n\n3 km 56 м\n\n**Keep right onto\
+      \ M. D. Rettigové**\n\nM. D. Rettigové, 3 km 26 м\n\n3 km 26 м\n\n**At roundabout, take exit 2 onto\
+      \ 11, 35**\n\n1 km 489 м\n\n1 km 489 м\n\n**At roundabout, take exit 2 onto 35"
+    https://www.skiareal.cz/informace/o-nas/jak-se-k-nam-dostanete:
+      "Nejpohodlnější cesta do Špindlerova
+      Mlýna je autem. Z Vrchlabí pojedete podél řeky Labe po silnici 295, která je v zimě upravována.
+
+
+      Z **Prahy** se k nám dostanete přes Poděbrady nebo Mladou Boleslav a Jičín za 2 hodiny.
+
+
+      Z **Hradce Králové** přes Jaroměř nebo Hořice za hodinu a půl.
+
+
+      ### Expresní skibus z Prahy do Špindlerova Mlýna
+
+
+      Nechce se Vám k nám do Špindlu řídit? Přijeďte autobusem CITY SKI! **Skiareál Špindlerův Mlýn spolu
+      se CITY SKI Vám nabízejí komfortní odvoz na hory za super cenu.** Cesta autobusem CITY SKI šetří
+      přírodu i Vaši peněženku. Součástí zájezdů CITY SKI je zábava, soutěže, seznamka a další služby
+      vytvářející neopakovatelnou atmosféru lyžařské komunity. Každý účastník zájezdu obdrží v ceně zájezdu
+      zpáteční dopravu, celodenní skipas a lyžařský časopis.
+
+
+      ### Balíček BUS + SKIPAS:
+
+
+      **1350 Kč** ve vedlejší sezoně
+
+
+      **1600 Kč** v hlavní sezoně
+
+
+      Tato cena je jednotná pro všechny lyžaře a nevztahují se na ni další slevy. K této ceně každý účastník
+      zaplatí ještě padesát korun jako zálohu za skipas. Tuto zálohu obdrží každý účastník zpět po vrácení
+      skipasu přímo na kase střediska.
+
+
+      **ODJEZDOVÉ MÍSTO** >>> Praha, stanice metra Palmovka
+
+
+      **ČAS ODJEZDU** >>> 7:00
+
+
+      **PŘÍJEZD** >>> spodní stanice lanovky Hromovka kolem 9:00
+
+
+      **ZPÁTEČNÍ CESTA** >>> odjezd ze Špindlerova Mlýna je v 16:15
+
+
+      Autobusy CITY SKI vyrážejí z Prahy pravidelně o víkendech i ve všední dny během celé sezony. Příležitostně
+      jsou vypravovány jednodenní zájezdy také z Pardubic z možností nástupu v Hradci Králové. Většinou
+      jednou za sezonu je také vypraven víkendový zájezd do Špindlu z Brna.
+
+
+      Termíny všech zájezdů, rezervace a veškeré další informace o službě CITY SKI naleznete na **www.cityski.cz**
+
+
+      Z **PRAHY** jezdí pravidlené přímé linky do Špindlerova Mlýna několikrát denně z autobusového nádraží
+      na Černém Mostě. Můžete jet i z nádraží Na Florenci, počítejte ale s přestupem.
+
+
+      Z **HRADCE KRÁLOVÉ** můžete jet autobudem do Špindlerova Mlýna s přestupem v Jičíně."

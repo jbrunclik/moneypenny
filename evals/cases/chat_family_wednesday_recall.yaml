@@ -1,0 +1,13 @@
+id: chat_family_wednesday_recall
+description: Long family chat - recall the planned Wednesday as a timeline
+history_from: family_logistics
+user: "Shrn mi prosim jeste jednou celou stredu, at to mam na jednom miste."
+expect:
+  rubric: >
+    Czech timeline consistent with the chat: Klara in Brno all day, work from
+    home with a 14:00 call, 15:20 pick up both kids from the after-school
+    club, ~15:35 leave for swimming, Matej swimming 16:00-16:45 (Anicka comes
+    along), back home ~17:30, 18:20 leave for the main station to pick up
+    Klara (train 18:40). Must not move or invent events.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 2

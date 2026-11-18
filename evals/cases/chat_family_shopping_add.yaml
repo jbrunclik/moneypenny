@@ -1,0 +1,12 @@
+id: chat_family_shopping_add
+description: Long family chat - add groceries to the existing shopping project
+history_from: family_logistics
+user: "Do nakupu jeste banany a toaletni papir."
+expect:
+  rubric: >
+    Adds bananas and toilet paper to the Todoist "Nakup" project (one task or
+    two) and confirms briefly in Czech. Must not put them in another project.
+  required_tools: [todoist]
+  required_actions:
+    todoist: ["^created task .*(?i:ban[aá]n)"]
+  max_tool_rounds: 3

@@ -3,11 +3,1006 @@ description: Longer-form practical advice quality (no specific tool required)
 user: >
   I'm planning a three-day hiking trip in the Julian Alps in September.
   What should I pack and what permits do I need?
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     The answer gives useful, structured packing advice appropriate for a
     multi-day September alpine hike (layers/rain protection, navigation, water,
     first aid) and addresses permits/park regulations for the Julian Alps
     (even if it says none are typically needed for hiking).
+# Canned web captured 2026-11-18 (evals/capture_web.py): Julian Alps multi-day hike packing list September; Triglav National Park rules for hikers
+web:
+  results:
+    - url: https://dutable.com/what-to-pack-for-a-multi-day-trek-in-the-julian-alps/
+      title: What to Pack for a Multi-Day Trek in the Julian Alps - Dutable
+      snippet:
+        "What to Pack for a Multi-Day Trek in the Julian Alps - Dutable\n\n# What to Pack for a Multi-Day\
+        \ Trek in the Julian Alps\n\n Abdul Jabbar 1 year ago 1 year ago 0 15 mins\n\n \n\nHiking in the\
+        \ Julian Alps is one of those experiences that stays with you. You’ll find yourself surrounded by\
+        \ glacial lakes, jagged peaks, and alpine meadows bursting with wildflowers. \n\nBut this kind of\
+        \ beauty comes with its own challenges: cold mornings, sudden storms, and yes, snoring bunkmates.\n\
+        \nAfter six summers of hiking f"
+    - url: https://sandfare.com/articles/lake-bled-slovenia/what-to-pack-for-a-week-in-the-julian-alps
+      title: What to Pack for a Week in the Julian Alps — Lake Bled, Slovenia | Sandfare
+      snippet: "What to Pack for a Week in the Julian Alps — Lake Bled, Slovenia | Sandfare
+
+
+        # What to Pack for a Week in the Julian Alps
+
+
+        This article is part of: Lake Bled, Slovenia in THE LONG EXHALE
+
+
+        The Julian Alps aren't very tall (Triglav, the highest, is 2,864m) but they're steep, weather-prone,
+        and accessible only by foot. Packing wrong means cold nights, wet gear, and frustration. Packing
+        right means comfort and safety.
+
+
+        ### The Reality
+
+
+        You'll hike 4–8 hours daily on rocky trails. You'll climb 500–1,"
+    - url: https://www.moonhoneytravel.com/hut-to-hut-hiking-packing-list/
+      title: Complete Hut to Hut Hiking Packing List
+      snippet:
+        "Complete Hut to Hut Hiking Packing List\n\n# Complete Hut to Hut Hiking Packing List \n\n\
+        Hiking hut to hut is one of the most incredible experiences you can have in the Alps. However, your\
+        \ enjoyment is very much tied to how prepared you are and how much weight you’re carrying on your\
+        \ back.\n\nWe’ve learned the hard way how poor gear impacts a multi-day hiking trip. We want to\
+        \ help you be as prepared as possible, so you don’t make the same mistakes as we did (e.g. low-grade\
+        \ hiking boots, travel pack in"
+    - url: https://brookebeyond.com/the-ultimate-hut-to-hut-packing-list
+      title: The ultimate hut-to-hut packing list (for multi-day hikes without camping gear) ⋆ brooke beyond
+      snippet:
+        "The ultimate hut-to-hut packing list (for multi-day hikes without camping gear) ⋆ brooke\
+        \ beyond\n\n \n\n# The ultimate hut-to-hut packing list (for multi-day hikes without camping gear)\n\
+        \n 14 April 2025 \n\nLast Updated on 19 September 2026\n\nMulti-day hiking doesn’t always mean carrying\
+        \ a tent, stove, and 20kg pack— hut-to-hut hikes are the perfect middle ground between rugged backcountry\
+        \ and lightweight adventure. Whether you’re trekking through the Italian Dolomites, staying in alpine\
+        \ huts in New Zea"
+    - url: https://www.tnp.si/en/visiting-park/information-for-visitors/code-of-conduct/
+      title: Code of conduct | Triglav National Park
+      snippet:
+        "Code of conduct | Triglav National Park\n\n# Code of Conduct\n\nCompliance with the rules\
+        \ and recommendations of the protected area is well accepted, as it contributes to the basic mission\
+        \ of the National Park - to preserve for the next generations the extraordinary nature of this invaluable\
+        \ mountainous world.\n\n Visit Triglav National Park with feeling. \n\nMountain peaks, wild and\
+        \ deep gorges, a wealth of flora, a cultural landscape with mountains and picturesque villages with\
+        \ a rich cultural heritag"
+    - url: https://www.tnp.si/media/1411/10_practical_guidelines.pdf
+      title: 10 practical guides for responsible and safe visit of nature in Triglav National Park
+      snippet:
+        "## 10 practical guides for responsible and safe visit of nature in Triglav National Park\n\
+        \nSocial media posts can have a significant impact on nature.\n\n• Social media posts about nature\
+        \ conservation and responsible visit of nature support the mission of Triglav National park. \n\
+        • Take photos and videos of the responsible and safe visit of nature. \n• Enquire in which cases\
+        \ you need permission for filming. \n\nKnow the forest fruits and mushrooms before you pick them.\
+        \ The daily limit of picking is 2 k"
+    - url: https://www.tnp.si/en/visiting-park/information-for-visitors/faqs/
+      title: FAQs | Triglav National Park
+      snippet:
+        "FAQs | Triglav National Park\n\n# Frequently asked questions\n\n### Is the use of drones\
+        \ allowed in the Triglav National Park?\n\nThe use of unmanned aerial vehicles (UAVs), or drones,\
+        \ in the area of the national park is restricted in line with the protective regime stipulated in\
+        \ the Triglav National Park Act (Official Gazette of RS, No. 52/10, 46/14-ZONC and 60/17), which\
+        \ prohibits flights of aerial vehicles under 1,000 feet (304.8m) above the current location or an\
+        \ obstacle detected during flight. \n"
+    - url: https://www.tnp.si/en/visiting-park/activities/hiking/mountain-safety/
+      title: Staying safe in the mountains | Triglav National Park
+      snippet:
+        "Staying safe in the mountains | Triglav National Park\n\n# Tips for visiting mountains safely\n\
+        \nIt is crucial to go to the mountains with the right equipment, knowledge and respect for the mountain\
+        \ environment.\n\n You should venture into the mountains with great respect and caution, ensuring\
+        \ that you are properly equipped and in good health and physical condition. \n\nYou should be well\
+        \ equipped and well prepared when you head to the mountains. HERE you can find are some recommendations\
+        \ you should fol"
+  pages:
+    https://dutable.com/what-to-pack-for-a-multi-day-trek-in-the-julian-alps/:
+      "Published: 2025-06-27
+
+
+      Hiking in the Julian Alps is one of those experiences that stays with you. You’ll find yourself
+      surrounded by glacial lakes, jagged peaks, and alpine meadows bursting with wildflowers.
+
+
+      But this kind of beauty comes with its own challenges: cold mornings, sudden storms, and yes, snoring
+      bunkmates.
+
+
+      After six summers of hiking from one mountain lodge to another, we’ve figured out what’s actually
+      worth carrying and what’s just extra weight and can be left behind.
+
+
+      If you’re planning your first trip, or even if you’ve done a few treks before, this friendly and
+      realistic checklist will help you stay warm, dry, well-fed, and well-rested.
+
+
+      ### **1. Earplugs**
+
+
+      You don’t really think about earplugs until you find yourself in a bunk room with someone who snores
+      like a lawnmower.
+
+
+      Most huts in the Julian Alps don’t offer private rooms. You’ll usually share with at least five
+      other people. That means you’re at the mercy of other hikers’ sleep habits.
+
+
+      We’ve had plenty of nights where earplugs were the difference between a good night’s sleep and a
+      groggy, grumpy hike the next day.
+
+
+      **Pro tip:** Keep them in an easy-to-reach pocket of your backpack so you’re not fumbling around
+      in the dark when you really need them.
+
+
+      ### **2. Reading Material**
+
+
+      One of the best parts about hiking in the Alps is the chance to unplug from screens and constant
+      notifications. It gives you the perfect opportunity to slow down and enjoy some reading.
+
+
+      We usually bring e-readers instead of paperbacks because they are lighter, water-resistant, and
+      can hold several books. Having a good book to dive into makes the quiet evenings at the huts much
+      more enjoyable.
+
+
+      **Pro tip:** Catch up on blogs like Stay Curious, which covers a wide range of topics including
+      lifestyle, travel, career advice, technology, and much more. It’s a great way to stay inspired and
+      learn something new, even while taking a break from the busy world.
+
+
+      ### **3. Emergency Blanket**
+
+
+      This little piece of gear costs next to nothing, weighs practically nothing, and takes up no space.
+      But it can save your life.
+
+
+      An emergency blanket reflects around 90% of your body heat, which is critical if you ever find yourself
+      stuck in cold weather waiting for help. It is also windproof and waterproof, and can even double
+      as a sunshade if you’re caught under a blazing sun with no cover in sight.
+
+
+      **How to use it:**
+
+
+      - To warm up: silver side in, orange side out.
+
+      - To cool down: silver side out to reflect sunlight.
+
+
+      We always keep one in our backpack. Hope you never need it, but you’ll be glad it’s there if you
+      do.
+
+
+      ### **4. Cash**
+
+
+      It might feel like the stone age, but many huts in the Julian Alps still operate on a cash-only
+      basis. Even if you’ve pre-paid online, you’ll often need cash for hot showers, snacks, drinks, or
+      that well-earned beer at the end of a 10-hour day.
+
+
+      **Pro tip:** Keep your cash in a ziplock or waterproof pouch. Mountain weather is unpredictable,
+      and soggy euros are no fun.
+
+
+      ### **5. Waterproof Gear**
+
+
+      Just because it’s summer doesn’t mean it won’t rain. In fact, three out of the five summer hut-to-hut
+      hikes we’ve done in the Alps included a full day of rain. Once, even hail.
+
+
+      Make sure to pack:
+
+
+      - A waterproof jacket (bonus if it doubles as a windbreaker)
+
+      - Lightweight rain poncho or shell
+
+      - Waterproof pants
+
+      - Backpack rain cover
+
+      - Rain mitts or waterproof gloves
+
+
+      And always check the forecast before heading out. Local conditions can change quickly in the mountains,
+      so it’s a good idea to ask the hut staff or other hikers for updates if you’re unsure.
+
+
+      **Lesson learned:** During the Mount Triglav Traverse, we hiked eight hours in pouring rain and
+      sleet. It was miserable, dangerous, and not worth it. If the weather looks sketchy, wait it out
+      in the hut.
+
+
+      ### **6. Toiletries Kit**
+
+
+      You don’t need a full bathroom cabinet, but you do need the basics. Our go-to kit includes:
+
+
+      - Toothbrush and travel-size toothpaste
+
+      - Biodegradable soap
+
+      - Compact towel or microfiber cloth
+
+      - "
+    https://sandfare.com/articles/lake-bled-slovenia/what-to-pack-for-a-week-in-the-julian-alps:
+      'This
+      article is part of: Lake Bled, Slovenia in THE LONG EXHALE
+
+
+      The Julian Alps aren''t very tall (Triglav, the highest, is 2,864m) but they''re steep, weather-prone,
+      and accessible only by foot. Packing wrong means cold nights, wet gear, and frustration. Packing
+      right means comfort and safety.
+
+
+      You''ll hike 4–8 hours daily on rocky trails. You''ll climb 500–1,000m of elevation per day. Weather
+      changes hourly — sun at 9 AM, clouds by 11 AM, rain by 2 PM, clear by evening. You''ll camp in mountain
+      huts (basic dormitory), sleep at elevation, and be sore in muscles you forgot existed.
+
+
+      None of this is dangerous if you pack properly.
+
+
+      **Base layers (next to skin):**
+
+
+      Cotton absorbs sweat and doesn''t dry. Merino wool wicks moisture and keeps you warm even when wet.
+      This is non-negotiable.
+
+
+      **Mid-layers (insulation):**
+
+
+      These layers trap warmth. Wear them stacked in cold/wet conditions. Remove them as you warm up hiking.
+
+
+      **Outer layer (wind & rain):**
+
+
+      This keeps wind and precipitation out. A cheap rain jacket ($20 plastic) will fail after 2 days.
+      Spend $60+ on a breathable Gore-Tex jacket that lasts.
+
+
+      **What''s in your hiking pack daily:**
+
+
+      **What''s at your guesthouse (not carried):**
+
+
+      You''re rotating 2–3 sets of hiking clothes throughout the week. They dry overnight (merino wool
+      dries fast). You''re showering in cold mountain water and feeling like a person anyway because the
+      soreness is part of the experience.
+
+
+      Aim for 12–15 kg (26–33 lbs) total. This is heavy, but most of it is gear you''re sleeping with
+      and water. After water (1.5 kg), sleeping bag (1 kg), and layers (2–3 kg), you''re left with minimal
+      clothes.
+
+
+      If you don''t already own hiking gear:
+
+
+      Buy:
+
+
+      Hiking boots ($100+), backpack ($80+), rain jacket ($60+)
+
+
+      Borrow or thrift:
+
+
+      Sleeping bag, fleece, some layers
+
+
+      Minimize new purchases
+
+
+      and save the rest for future trips
+
+
+      Total investable: \~$240–300 gets you the core.
+
+
+      The most common hiking mistake: overpacking warm clothes. You''ll generate heat hiking, so daytime
+      layers don''t need to be warm — just moisture-wicking. The warmth matters at night in the hut.
+
+
+      The second mistake: bad boots. There are few things worse than foot pain on day 3 of a multiday
+      trek. Spend the money, break them in at home, and thank yourself every descent.
+
+
+      **Pack light, pack smart, and the Julian Alps will reward you.**
+
+
+      Plan Your Julian Alps Trip → | Read the Full Julian Alps Guide →
+
+
+      Inspired?
+
+
+      Turn this into a personalized trip plan.'
+    https://www.moonhoneytravel.com/hut-to-hut-hiking-packing-list/: 'Published: 2023-05-12
+
+
+      Hiking hut to hut is one of the most incredible experiences you can have in the Alps. However, your
+      enjoyment is very much tied to how prepared you are and how much weight you’re carrying on your
+      back.
+
+
+      We’ve learned the hard way how poor gear impacts a multi-day hiking trip. We want to help you be
+      as prepared as possible, so you don’t make the same mistakes as we did (e.g. low-grade hiking boots,
+      travel pack instead of hiking pack).
+
+
+      Below, you’ll find our personal hut to hut packing list for multi-day trekking in the Alps. In addition
+      to gear and overnight hut (Hütte, Rifugio, Koča, Cabane, Cappana, Refuge) essentials, remember to
+      always bring enough cash for mountain hut expenses. Most mountain huts we’ve visited do not accept
+      credit cards.
+
+
+      Also, remember to pack your passport. In Slovenia and often in Italy, you always have to show your
+      passport when you check into a mountain hut.
+
+
+      - **Hut to Hut Hiking Season in the Alps**: mid/late June to late September
+
+      - **Mountain Hut Reservations**: Necessary. Always make overnight reservations well in advance of
+      your trek.
+
+      - **Mountain Hut Essentials**: Cash, Sleeping Bag Liner, Waterproof Slippers, Earplugs, Microfiber
+      Towel, and E-Reader (optional)
+
+
+      ## Hut to Hut Hiking Gear
+
+
+      ### Hiking Backpack
+
+
+      The Osprey Kyte 38 (for women) and the Osprey Kestrel 38 (for men) are the best hut-to-hut hiking
+      backpacks on the market.
+
+
+      The weight is distributed perfectly. You’ll never feel like the pack is weighing you down, or working
+      against you.
+
+
+      You’ll feel confident tackling secured passages and assisted climbing routes as well. When I (Sabrina)
+      switched to the Osprey Kyte 38, it made hiking long distances so much easier and more enjoyable.
+      Also, these Osprey packs come with a rain cover, which is very easy to access in a hurry.
+
+
+      ### Packing Cubes
+
+
+      The easiest way to keep your trekking backpack organized is by using Eagle Creek packing cubes.
+
+
+      ### Trekking Poles
+
+
+      Hiking poles are very helpful in stabilizing descents when you have extra weight on your back. They
+      are also super helpful for water and snowfield crossings. In the Alps, you’ll likely encounter snow
+      until July.
+
+
+      We both use these durable unisex Black Diamond trail poles and love them. We bought them 7 years
+      ago and there is still no sign of wear.
+
+
+      Tip: Opt for poles with lever locks (flick lock mechanism), as opposed to twisting locks. They’re
+      more durable.
+
+
+      ### Grade B or B/C Hiking Boots
+
+
+      You need a high-cut boot with Gore-Tex waterproofing and robust construction when hiking in rocky,
+      high-alpine terrain.
+
+
+      We recommend wearing a sturdy pair of hiking boots, preferably grade B or B/C like the women’s Hanwag
+      Tatra II GTX / Meindl Schuhe Island Lady (what Kati and I wear), or the men’s Hanwag Tatra II GTX.
+
+
+      I also love the Grade A/B Hanwag Tatra Light Lady GTX, which is an excellent boot for day hiking,
+      but not robust enough for hiking with a heavier pack.
+
+
+      ### Hydration
+
+
+      Depending on your preference, pack either a reusable water bottle, or a water bladder. We always
+      refill our water bottles in the mountain huts. If the water isn’t potable, you’ll be able to purchase
+      water at each hut.
+
+
+      This lightweight, BPA\_free stainless steel SIGG – Reusable Water Bottle – Shield ONE is our favorite
+      water bottle for hiking. We carry 2 water bottles each.
+
+
+      ## Multi-Day Hiking Clothing
+
+
+      ### Quick-Dry, or Merino Base Layer
+
+
+      You need base layers that are lightweight and wick away sweat. Never wear cotton when hiking in
+      the alps. We typically pack 2-3 base layers for a trek: 2 short-sleeve shirts and 1 long-sleeve
+      shirt.
+
+
+      **Update** | We’re increasingly hiking in **merino wool**. The biggest advantage of merino wool
+      is that it doesn’t smell, even after several days of consecutive use. So, it’s ideal for multi-day
+      hikes. The disadvantage is that it doesn’t dry as quickly. If we take a longer break (e.g. lunch),
+      I absolutely have to change my shirt, or else I’m just sitting in cold sweat.
+
+
+      Our preferred short-sleeve shirt: Arc’te'
+    https://brookebeyond.com/the-ultimate-hut-to-hut-packing-list: "Published: 2025-04-13
+
+
+      # The ultimate hut-to-hut packing list (for multi-day hikes without camping gear)
+
+
+      *Last Updated on 19 September 2026*
+
+
+      Multi-day hiking doesn’t always mean carrying a tent, stove, and 20kg pack— **hut-to-hut hikes are
+      the perfect middle ground between rugged backcountry and lightweight adventure**. Whether you’re
+      trekking through the Italian Dolomites, staying in alpine huts in New Zealand, or hiking between
+      mountain refuges in South America, this style of hiking is all about efficiency: carrying just the
+      essentials and staying light.
+
+
+      **This packing list is exactly what I’ve carried on countless multi-day hut hikes around the world**.
+      Some gear will depend on location and weather, but most of these items are compact, lightweight,
+      and versatile enough for any hut-to-hut route!
+
+
+      *This post contains affiliate links, which means I may earn a small commission if you purchase something
+      I recommend, at no extra cost to you. I ONLY recommend gear that I personally use (or that James
+      uses) and that we genuinely LOVE— your support helps keep this site going and the adventures rolling!*
+
+
+      **Check out all my outdoor packing lists for:**
+
+
+      ## **What to pack for a multi-day hut-to-hut hike**
+
+
+      This list is tailored for **multi-day hikes where you’ll be staying in huts or refuges**— meaning
+      you don’t need to carry a tent, full sleep system, or cook set. This lightens your pack significantly
+      compared to other multi-day backpacking trips, but you still need to be well-prepared for changing
+      conditions and multi-day wear.
+
+
+      **Use your judgement to adapt this list for the terrain, remoteness, and whatever weather you’re
+      expecting.** Personally, I always prefer to see an item on my list and choose not to pack it than
+      to forget something that turns out to be essential. Everything here has been tested across hut hikes
+      in the Alps, the Andes, the Southern Alps of NZ, and beyond!
+
+
+      ### *🥾 **brookebeyond hut-to-hut hiking checklist***
+
+
+      **BACKPACK**
+
+
+      ⭐️ **daypack (25-35L)**
+
+
+      ⭐️ **raincover**
+
+
+      ⭐️ **summit pack**
+
+
+      **BOOTS & POLES**
+
+
+      ⭐️ **hiking boots ⭐️ boot socks ⭐️ liner socks ⭐️ trekking poles**
+
+
+      **SAFETY & NAVIGATION**
+
+      ⭐️
+
+
+      **PLB/SOS**
+
+
+      ⭐️
+
+
+      **GPS**
+
+
+      **⭐️**
+
+
+      **First Aid Kit**
+
+
+      **⭐️**
+
+
+      **headlamp**
+
+
+      **⭐️**
+
+
+      **powerbank**
+
+
+      **HUT GEAR**
+
+
+      ⭐️
+
+
+      **sleep sack**
+
+
+      ⭐️
+
+
+      **camp pillow**
+
+
+      ⭐️
+
+
+      **comfortable hut clothes**
+
+
+      ⭐️
+
+
+      **hut shoes**
+
+
+      **WATER STORAGE & FOOD ⭐️ water filter ⭐️ water bottle** OR
+
+
+      **bladder**
+
+
+      **⭐️**
+
+
+      **electrolytes
+
+      ⭐️ snacks (as needed**)
+
+
+      **EXTRA LAYERS**
+
+
+      ⭐️
+
+
+      **long-sleeve layer
+
+      ⭐️ **synthetic or down insulation layer**
+
+      ⭐️ GoreTex rain shell layer
+
+      ⭐️ lightweight hiking gloves
+
+      ⭐️ waterproof exterior mittens**
+
+
+      **⭐️ Buff**
+
+
+      **⭐️**
+
+
+      **beanie**
+
+
+      **PERSONAL ITEMS**
+
+
+      **⭐️**
+
+
+      **toiletries, bathroom bits
+
+      ⭐️ Kula Cloth (for women)**
+
+
+      **⭐️**
+
+
+      **sun**
+
+
+      **safety**
+
+
+      **⭐️**
+
+
+      **camera**
+
+
+      ### *Best hut-to-hut backpack*
+
+
+      Hut-to-hut hiking is the ultimate minimalist adventure— you still need to be self-sufficient, but
+      without the burden of carrying a full tent and camp kitchen. A well-fitted day-hiking pack is usually
+      perfect for carrying your layers, sleep gear, snacks, and personal items!
+
+
+      👉🏼 **Check out our complete guide for specific advice on daypacks (which work great for hut-to-hut):**
+      How to choose the best hiking backpack for every outdoor adventure
+
+
+      **Daypack (25–35L)**
+
+
+      A 25–35L daypack is perfect for carrying hut essentials, layers, water, snacks, and emergency gear
+      for just about every multi-day hut hike. Look for a supportive hipbelt, a ventilated back panel,
+      and quick-access storage for sunnies, snacks & safety gear.
+
+
+      **Best overall:** Osprey Tempest 30 (women’s) / Osprey Talon 33 (men’s)
+
+
+      **Best for upgraded support:** Osprey Sirrus 36 (Women’s) / Stratos 36 (Men’s)
+
+
+      **Raincover**
+
+
+      Protects your gear from sudden downpours— some packs come with one built-in, but if not, make sure
+      to pack a lightweight rain cover that fits over your bag (REI’s size small works for 25-35L dayhiking
+      packs).
+
+
+      **Best overall:** REI Co-op Duck’s Back "
+    https://www.tnp.si/en/visiting-park/information-for-visitors/code-of-conduct/:
+      "Mountain peaks, wild
+      and deep gorges, a wealth of flora, a cultural landscape with mountains and picturesque villages
+      with a rich cultural heritage invite you to visit. Getting to know the nature, the cultural landscape
+      and the people of the park is an extraordinary experience, but one that must take into account the
+      fundamental objectives of nature conservation.
+
+
+      Triglav National Park is the only national park in Slovenia. In this beautiful and delicate natural
+      environment and cultural landscape, we visitors are only guests.
+
+
+      We want your experience of the Triglav National Park and its thematic routes to be authentic and
+      rich. At the same time, visitors, remember that you are only guest in this delicate environment.
+
+
+      Did you know that Triglav National Park comprises 134 quiet areas, which are, by definition, essential
+      for the conservation of plant and animal species? Visitation and other activities are regulated
+      in terms of time and space. Quiet zones are designated to protect raised bogs and species such as
+      capercaillie, rock ptarmigan, black grouse, and chamois.
+
+
+      **GENERAL GUIDELINES FOR VISITING**
+
+
+      #### Be a respectful guest
+
+
+      You are entering a sensitive world of nature. Peace and tranquillity should be the privilege of
+      the park's inhabitants and visitors.
+
+
+
+      #### Use marked routes
+
+
+      The sensitive natural environment requires an aware visitor, so walking off the marked trails is
+      not recommended.
+
+
+
+      #### Burning of fire is forbidden
+
+
+      Burning fires is prohibited in natural environment. Exceptionally, it is allowed in specially designated
+      places and for agricultural and forest protection purposes.
+
+
+
+      **ACTIVITIES IN THE PARK**
+
+
+      #### Use of drones is prohibited
+
+
+      The use of drones is prohibited in the natural environment without the prior consent of the national
+      park.
+
+
+
+      #### Swimming in high mountain lakes and streams is prohibited
+
+
+      High mountain lakes and streams are sensitive and vulnerable habitats where swimming is not allowed.
+      Dogs are also prohibited from swimming.
+
+
+
+      #### Prohibited driving in natural environment
+
+
+      Driving, stopping and parking of motor vehicles is prohibited in the natural environment of the
+      park.
+
+
+
+      **CAMPING AND TENTING**
+
+
+      #### Overnight stays outside the designated areas are not permitted
+
+
+      Tenting and sleeping outside the designated areas is not allowed. There are enough beds in the mountain
+      huts.
+
+
+
+      #### Camping is not allowed outside the designated areas
+
+
+      Camping and overnight stays outside the designated areas are not allowed.
+
+
+      **IN THE PARK WITH YOUR DOG**
+
+
+      #### Dogs must be kept on a leash in the natural environment of the park
+
+
+      Let's visit with a non-intrusive presence, ensuring the dog is always on a leash.
+
+
+
+      #### Stay away from livestock in pastures
+
+
+      For your own safety and the safety of your dog, do not approach livestock in pastures. Keep dogs
+      on a leash.
+
+
+
+      #### Dogs are prohibited from swimming in high mountain lakes and streams
+
+
+      High mountain lakes and streams are sensitive and vulnerable habitats where dogs are not permitted
+      to swim.
+
+
+
+      **Was this page helpful?**
+
+
+      **Thank you**
+
+
+      Thank you."
+    https://www.tnp.si/media/1411/10_practical_guidelines.pdf:
+      "## 10 practical guides for responsible\
+      \ and safe visit of nature in Triglav National Park\n\nSocial media posts can have a significant\
+      \ impact on nature.\n\n• Social media posts about nature conservation and responsible visit of nature\
+      \ support the mission of Triglav National park. \n• Take photos and videos of the responsible and\
+      \ safe visit of nature. \n• Enquire in which cases you need permission for filming. \n\nKnow the\
+      \ forest fruits and mushrooms before you pick them. The daily limit of picking is 2 kilos per person.\
+      \ The picking is allowed just in the 3rd protective regime in Triglav National park.\n\nBe respectful\
+      \ to livestock grazing on mountain pastures. Farmers work hard to preserve traditional mountain\
+      \ pasture farming. Keep your distance from livestock, especially if you have a dog. Always close\
+      \ the doors of the fence. Use marked hiking trails on mountain pastures. Don’t feed livestock as\
+      \ well as wild animals.\n\nCamping is allowed at official camping spots. There are many organisedcamping\
+      \ in the area of Triglav National Park. Swimming is not allowed in mountain lakes.\n\nPlan one or\
+      \ multi-day trip to Triglav National Park and consider the weather, traffic, available parking at\
+      \ starting points, available time and your physical abilities.We always plan different scenarios\
+      \ in case of changing weather, traffic jams or full parking. Follow traffic situation at https://promet.si/en.\n\
+      \nSummer weather in the mountains can be very unpredictable. Summer showers are more frequent, \n\
+      even on summer days. Follow the weather forecast for the Julian Alps \nhttps://meteo.arso.gov.si/met/en/weather/fproduct/\
+      \ and regularly check the radar image of perception \nhttps://meteo.arso.gov.si/met/en/. \nPark\
+      \ your vehicle in a public parking lot and use public transport. Official parkinglots are connected\
+      \ \nwith bus routes in all municipalities of the Julian Alps. Choose Park&Ride for free or lower-priced\
+      \ parking \nlots close to train and bus stations. \n\nThe map in the backpack is essential as water.\
+      \ Choose a hiking trail regarding the hiking map and the Alpine Association of Slovenia apps https://mapzs.pzs.si\
+      \ or https://outdooractive.com. Ask at tourist information centres for the current conditions. For\
+      \ a multi-day hike, book accommodation in mountain huts. Don’t forget to wear the appropriate hiking\
+      \ shoes.\n\nFor safe hiking, carry enough water and food, additional clothing and winter protection\
+      \ in your backpack. \nCarry all waste back to the valley where we put them in the litter bin. \n\
+      \nChoose a suitable and safe trail for hiking with a dog. Due to high summer temperatures, start\
+      \ your hike early in the morning and avoid rocky trails - the surface can warm up similarly to asphalt.\
+      \ Lead your dog on a leash to protect wildlife. Carry fresh water for your friend as well - it is\
+      \ not recommended to drink water from ponds and livestock water tanks."
+    https://www.tnp.si/en/visiting-park/information-for-visitors/faqs/:
+      "### Activities in the park\n\n\
+      ### Is the use of drones allowed in the Triglav National Park?\n\nThe use of unmanned aerial vehicles\
+      \ (UAVs), or drones, in the area of the national park is restricted in line with the protective\
+      \ regime stipulated in the Triglav National Park Act (Official Gazette of RS, No. 52/10, 46/14-ZONC\
+      \ and 60/17), which prohibits flights of aerial vehicles under 1,000 feet (304.8m) above the current\
+      \ location or an obstacle detected during flight.\n\nThe use of UAVs without a previously acquired\
+      \ permit is allowed only for the purpose of protection, rescue and assistance in natural and other\
+      \ disasters, for the purpose of state defence, and for the purpose of the execution of police tasks.\n\
+      \nOn the basis of the consent obtained from the national park managing authority, the use of UAVs\
+      \ is permitted only for the purpose of:\n\n- **scientific and research activities,**\n- **land surveying,\
+      \ and**\n- **recording of films, videos and documentaries.**\n\nThe use of UAVs for film and video\
+      \ recording is allowed in areas of infrastructure and in settlements with previously obtained consent.\
+      \ In the natural environment UAVs can only be used for the purpose of recording documentary and\
+      \ promotional films which are intended for the promotion of the park and its local communities subject\
+      \ to the limitations on noise for such devices and the height of flight above the areas which are\
+      \ classified as particularly sensitive areas of nature and where such use has no significant effect\
+      \ on the elements of animate nature of the national park.\n\nThe use of UAVs is also subject to\
+      \ other relevant legislation applicable to the entire area of Slovenia.\n\n*People create a cultural\
+      \ landscape in order to survive and thrive, unintentionally creating art, a magnificent mosaic of\
+      \ the natural environment and cultural landscape, which is particularly diverse and exciting in\
+      \ the area of the national park. It is important that we respect the people who live and work in\
+      \ the park and co-create the area’s exceptional cultural landscape.*   \n\n### How to plan a safe\
+      \ visit to the mountains?\n\nThe conditions in the highlands are different from those in the valleys\
+      \ and lowlands. They require <u>**preparation**</u> and, above all, **<u>knowledge</u>** and <u>**experience**\
+      \ which cannot be acquired overnight</u>.\n\n\n**Julian Alps are a demanding area to hike, so please\
+      \ do not underestimate their difficulty!**\n\n\n\nChoose your hike according to the time of year:\n\
+      \n- **Summer** - long, warm or even hot days with rapid weather changes. Sudden cold fronts bring\
+      \ storms (wind, rain, lightning, sharp drop in air temperature). There are still snowfields in the\
+      \ high mountains which need to be managed, the risk of falling rocks is high due to the number of\
+      \ visitors, wind, animals, etc.\n- **Autumn** - shorter, colder days with less risk of storms. Cold\
+      \ snaps are possible, which can instantly lead to winter conditions. In shaded areas, the ground\
+      \ is wet. Even the best footwear slips.\n- **Winter** - very short days. Night brings icy cold.\
+      \ Snow cover means a risk of avalanches, slips, snowfall and fog reduce visibility and cause orientation\
+      \ problems.\n- **Spring** - the mountains are still thickly covered with snow, whose properties\
+      \ vary greatly from morning to evening; from frozen, hard snow (slips) to heavy, wet snow (avalanches).\
+      \ Despite sometimes quite summer-like daytime temperatures, it is also possible to have completely\
+      \ wintry conditions with snow and fog.\n\n<u>All this variety of weather means that the Julian Alps\
+      \ (TNP) are extremely beautiful, but also dangerous. Every tour is an experience, but you have to\
+      \ know how to prepare for it.</u>\n\n### \n\nPlanning a tour:\n\n- plans should be coordinated with\
+      \ psycho-physical fitness, health, experience, knowledge of the terrain, available equipment, forecasted\
+      \ weather (choose easier tours to start with),\n- weather forecasts for mountaineers are available\
+      \ on the internet, radio, TV. The official weather forecast is available on ARSO METEO.\n- when "
+    https://www.tnp.si/en/visiting-park/activities/hiking/mountain-safety/:
+      'You should be well equipped
+      and well prepared when you head to the mountains. HERE you can find are some recommendations you
+      should follow for a safe trip to the mountains to make planning your alpine and hiking tours easier.
+
+
+      Certainly, many images of the Slovenian mountains capture the breathtaking beauty you''d love to
+      share with the world. However, it is crucial to prioritize safety, fitness, and careful planning
+      before embarking on your journey. An old Slovenian saying wisely states, "The mountain isn''t crazy,
+      the person climbing it is." This especially applies to those who are not adequately equipped and
+      thus unprepared. Numerous hazards in the mountains can transform a wonderful experience of communing
+      with nature into an ordeal, leading to suffering, injury, or worse.
+
+
+      HERE you can find the latest information on current conditions in Triglav National Park, Slovenia’s
+      only national park.
+
+
+
+      Tell someone in the valley where you are going, what your destinations are and when you plan to
+      return.
+
+
+      Write in the summit log books, as this can be useful to mountain rescuers in case they need to look
+      for you.
+
+
+      Book your accommodation in a mountain hut in advance. If you are not going on the hike, cancel your
+      reservation. You can find a list of Slovenian mountain huts, their contact details and other useful
+      information HERE. Below, you can also view the mountain huts on the map provided by the Alpine Association
+      of Slovenia.
+
+
+      ### Choosing a trail
+
+
+      Choose trails suited to your **psycho-physical abilities, knowledge** and **experience,** and adapt
+      to the weakest participant on the tour.
+
+
+      <u>A route plan</u> is the first step towards safer mountain visits. Walking on ''spur of the moment''
+      is discouraged.
+
+
+      **DON''T GO OFF-TRAIL!** If you get lost, retrace your steps and look for the signpost.
+
+
+      **DO NOT continue into the unknown!**
+
+
+
+      **The Knafelč sign** marks mountain trails in Slovenia:
+
+
+
+
+
+      <u>Mountain trails are classified according to **difficulty** as:</u>
+
+
+      **Easy trails**
+
+
+      They are suitable for walking with trekking poles and do not require the use of your hands.
+
+
+      **Difficult trails**
+
+
+      There are parts where you need to use your hands to help yourself. Steel cables and other equipment
+      to increase safety are on the trail. The use of a helmet is recommended.
+
+
+      **Very difficult trails**
+
+
+      Use our hands to move forward is mandatory. Steel cables, iron pegs, and other equpment are on the
+      trail to facilitate upward movement. The use of a helmet, climbing harness and self-protection kit
+      is recommended.
+
+
+      You can check the current condition of mountain trails on the Alpine Association of Slovenia’s map
+      below.
+
+
+      ### Check the weather before you go
+
+
+      Always check the weather forecast before you go to the mountains. Weather conditions in the mountains
+      are very variable and extreme, even in summer.
+
+
+      Temperatures can change quickly, especially at higher altitudes. Even in the summer months we can
+      be surprised by very low temperatures, especially at night. Make sure you have enough warm clothes
+      with you.
+
+
+      In the summer months, afternoon thunderstorms are common in mountainous areas. Plan your trips so
+      that you return to the valley before the afternoon, when storms are most likely. Watch out for approaching
+      storm clouds.
+
+
+      ### Equipment in the mountains
+
+
+      We go to the mountains wearing <u>**quality soled mountaineering boots, semi-high or high**</u>,
+      to protect our ankles.
+
+
+      <u>Sandals, trainers and other lighter footwear can cause accidents!</u>
+
+
+
+      Whether walking, running or cycling, mountain equipment should always be in your rucksack:
+
+
+      - personal first aid kit
+
+      - head torch and spare batteries
+
+      - an aluminium foil or large black bag or bivy sack (for thermal protection in case of an accident
+      or unplanned bivouacking)
+
+      - mobile phone with full battery
+
+      - mountain map and compass
+
+      - iron food (food with high energy value and long shelf life)
+
+      - sufficient amount of water
+
+
+      ### What to do in case of an accident?
+
+
+      Members of the Mountain Rescue Association o'

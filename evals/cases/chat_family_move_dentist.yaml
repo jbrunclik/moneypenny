@@ -1,0 +1,16 @@
+id: chat_family_move_dentist
+description: Long family chat - move an existing calendar event, not create a duplicate
+history_from: family_logistics
+user: "Volali od zubare, Matejuv termin se posouva na 9:00 ten samy den. Prepis to prosim."
+expect:
+  rubric: >
+    Updates the existing "Zubar Matej" event to 9:00 (about 9:00-9:30, same
+    day) and confirms in Czech; may note Matej now reaches school later. Must
+    update the existing event rather than create a second one, and must not
+    claim success without the change.
+  required_tools: [google_calendar]
+  forbidden_arg_patterns:
+    google_calendar.action: ["^create_event$"]
+  required_actions:
+    calendar: ["^updated event 'Zubar Matej'"]
+  max_tool_rounds: 4

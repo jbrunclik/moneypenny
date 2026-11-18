@@ -1,0 +1,14 @@
+id: chat_strength_bench_rest
+description: Long strength chat - a small watch change (bench rest) goes to the saved workout
+history_from: strength_program
+user: "Jeste mi prosim zmen pauzu u benche na 2,5 minuty, ty 2 minuty mi nestaci."
+expect:
+  rubric: >
+    Changes the bench press rest in the saved Garmin workout "Sila A -
+    pondeli" to 150 s (reading the workout first for the current step ids)
+    and confirms in Czech what changed. Must not claim the change without
+    making it, nor change the squat rest.
+  required_tools: [garmin_workout]
+  required_actions:
+    garmin: ["^updated workout 'Sila A - pondeli'"]
+  max_tool_rounds: 4

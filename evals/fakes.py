@@ -289,19 +289,28 @@ def _workout_steps(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Exercise steps keyed by position (block.step): ids change on every save."""
     from src.agent.tools.garmin_workout_edits import slim_workout
 
-    return {
-        f"{b}.{s}": step
-        for b, block in enumerate(slim_workout(raw)["blocks"])
-        for s, step in enumerate(block["steps"])
-        if step.get("kind") == "exercise"
-    } | {
-        f"{b}.sets": {"sets": block.get("sets")}
-        for b, block in enumerate(slim_workout(raw)["blocks"])
-    }
+    return (
+        {
+            f"{b}.{s}": step
+            for b, block in enumerate(slim_workout(raw)["blocks"])
+            for s, step in enumerate(block["steps"])
+            if step.get("kind") == "exercise"
+        }
+        | {
+            f"{b}.sets": {"sets": block.get("sets")}
+            for b, block in enumerate(slim_workout(raw)["blocks"])
+        }
+        | {
+            f"{b}.{s}": {"rest_s": step.get("rest_s"), "exercise": f"rest after block {b + 1}"}
+            for b, block in enumerate(slim_workout(raw)["blocks"])
+            for s, step in enumerate(block["steps"])
+            if step.get("kind") == "rest"
+        }
+    )
 
 
 def _workout_changes(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
-    """One line per changed exercise field (exercise, reps, weight, sets)."""
+    """One line per changed field (exercise, reps, weight, sets, rest)."""
     old, new = _workout_steps(before), _workout_steps(after)
     changes: list[str] = []
     for key in sorted(old.keys() | new.keys()):
@@ -309,7 +318,7 @@ def _workout_changes(before: dict[str, Any], after: dict[str, Any]) -> list[str]
         label = b.get("exercise") or a.get("exercise") or f"block {key.split('.')[0]}"
         changes.extend(
             f"{label} {name} {a.get(name)}->{b.get(name)}"
-            for name in ("exercise", "reps", "weight_kg", "sets")
+            for name in ("exercise", "reps", "weight_kg", "sets", "rest_s")
             if a.get(name) != b.get(name)
         )
     return changes

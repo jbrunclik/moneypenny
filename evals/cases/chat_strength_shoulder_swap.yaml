@@ -1,0 +1,20 @@
+id: chat_strength_shoulder_swap
+description: Long strength chat - shoulder pain triggers the agreed swap to landmine press and a watch update
+history_from: strength_program
+user: "Ctvrtek. Mrtvak 110 4x5 RPE 7,5. Ale ten tlak nad hlavu uz fakt bolel, ve druhy serii jsem prestal. Udelej s tim neco at to mam v hodinkach jinak."
+expect:
+  rubric: >
+    Czech reply that acts on the agreed rule (pain at overhead press ->
+    stop pressing overhead; landmine press was the agreed substitute):
+    replaces the overhead press in the saved Garmin workout "Sila B -
+    ctvrtek" with landmine press or, if Garmin has no such exercise, a
+    shoulder-friendly press it names and explains; logs the session to the program data, keeps the deadlift
+    progression sensible (110 kg at RPE 7.5 can move to 112.5 next time or
+    stay - either with a reason), and suggests a physiotherapist if pain
+    persists outside training. Must not keep prescribing overhead press.
+  required_tools: [garmin_workout]
+  required_arg_patterns:
+    kv_store.action: ["^(set|merge)$"]
+  required_actions:
+    garmin: ["^updated workout 'Sila B - ctvrtek'"]
+  max_tool_rounds: 6

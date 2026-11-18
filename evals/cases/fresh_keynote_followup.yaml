@@ -10,7 +10,7 @@ history:
       externími modely pro obecné dotazy. Na zařízení běží menší model pro
       osobní kontext, složitější požadavky jdou do cloudu.
 user: Jaký externí modely maj?
-# Interim (Nov 18 2026): live until it gets canned pages
+# Live web on purpose: a recent event - canned pages would freeze it
 web: live
 expect:
   rubric: >

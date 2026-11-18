@@ -3,8 +3,6 @@ description: On-the-road logistics loads the trip-itinerary skill
 user: >
   It's 11:30 and we're driving from Prague to Vienna; we just passed Jihlava.
   Where should we stop for lunch with kids in the next hour?
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Suggests concrete lunch stops that are on or near the D1/route south of
@@ -12,3 +10,467 @@ expect:
     and does not invent places.
   required_tools: [load_skill]
   required_skill: trip-itinerary
+# Canned web captured 2026-11-18 (evals/capture_web.py): restaurace s dětským koutkem D1 Velké Meziříčí; kde se najíst s dětmi u D1 mezi Jihlavou a Brnem
+web:
+  results:
+    - url: https://www.vysocinasdetmi.cz/misto/cukrarna-u-aji
+      title: Kavárna u ÁJI | Vysočina s dětmi
+      snippet: "Kavárna u ÁJI | Vysočina s dětmi
+
+
+        # Kavárna u ÁJI
+
+
+        Kavárna s krásným dětským koutkem pro nejmenší. Kousek od centra. Vafle, dezerty, palačinky a točená
+        zmrzlina. Možno jít dovnitř nebo využít výdejní okénko.
+
+
+        Kavárna s krásným dětským koutkem pro nejmenší. Kousek od centra. Vafle, dezerty, palačinky a točená
+        zmrzlina. Možno jít dovnitř nebo využít výdejní okénko.
+
+
+        ## Detail místa
+
+
+        ### Kontakt
+
+
+        https://www.facebook.com/uajicz
+
+
+        ### Adresa
+
+
+        Novosady 2043/8
+
+
+        Velké Meziříčí
+
+
+        ### Otevírací doba
+
+
+        pondě"
+    - url: https://www.vysocina.eu/stravovaci-zarizeni/restaurace-formanka
+      title: Restaurace Formanka | Vysočina
+      snippet:
+        "Restaurace Formanka | Vysočina \n\n \n\n \n\n# Restaurace Formanka \n\nRestaurace Formanka\
+        \ přímo na D1. Tradiční česká restaurace s lidovým charakterem a domácí kuchyní.\n\n## Otevírací\
+        \ doba \n\nPondělí - pátek: 10:00 - 19:00\n\nsobota - neděle: 11:00 - 19:00\n\n## Kontakt \n\n Svařenov\
+        \ Velké Meziříčí Okres: Žďár nad Sázavou 594 01 IČO: 45487511 \n\n 566 544 907 (566544907), 773\
+        \ 926 234 (773926234) \n\n tecl.lubomir@seznam.cz \n\n formankad1.cz \n\n| Provoz | celoroční |\n\
+        | --- | --- |\n| Počet míst u stolů - uvnitř | 60 |"
+    - url: http://wikimapia.org/15858431/cs/McDonald-s-D1
+      title: McDonald's D1 - Velké Meziříčí | restaurace, McDonald's, rychlé občerstvení
+      snippet:
+        "McDonald's D1 - Velké Meziříčí | restaurace, McDonald's, rychlé občerstvení\n\n McDonald's\
+        \ D1 (Velké Meziříčí) | restaurace, McDonald's, rychlé občerstvení \n\n Czech Republic / Vysocina\
+        \ / Martinice / Velké Meziříčí \n\n restaurace, McDonald's, rychlé občerstvení \n\n \n\n Restaurační\
+        \ řetězec, akce, zábava a sekce pro děti. www.mcdonalds.cz/ \n\n Nejbližší města: \n\nSouřadnice:\
+        \ 49°21'15\"N 16°1'57\"E"
+    - url: https://kid.ooo/cs/blog/kde-se-najist-na-cestach-detsky-pratelske-restaurace-podel-d1-a-cestou-na/
+      title: "Kde se najíst na cestách: dětsky přátelské restaurace…"
+      snippet: "Kde se najíst na cestách: dětsky přátelské restaurace…
+
+
+        # Kde se najíst na cestách: dětsky přátelské restaurace podél D1 a cestou na Slovensko
+
+
+        Publikováno 9. července 2024 · Aktualizováno 24. října 2026 · 5 min čtení
+
+
+        Foto: Radosław Botev / Wikimedia Commons · CC BY 3.0
+
+
+        Kde se najíst s dětmi na cestách? Nejlépe tam, kde je kromě jídla i prostor na proběhnutí: v parku,
+        u hřiště nebo v zoo kousek od dálnice. Léto je ve znamení dlouhých cest autem k babičce, na hory
+        nebo k moři. Připravili jsme t"
+    - url: https://d1koliba.cz/
+      title:
+        D1 Koliba | Poctivá česká kuchyně a odpočinek přímo u dálnice – Máte hlad na cestách? Zastavte
+        se v Kolibě přímo u dálnice D1. Nabízíme poctivou českou kuchyni, denní menu a stylové prostředí
+        pro váš odpočinek.
+      snippet:
+        "D1 Koliba | Poctivá česká kuchyně a odpočinek přímo u dálnice – Máte hlad na cestách? Zastavte
+        se v Kolibě přímo u dálnice D1. Nabízíme poctivou českou kuchyni, denní menu a stylové prostředí
+        pro váš odpočinek.
+
+
+        #### Dotazy, rezervace?
+
+
+        (+420) 212 812 530
+
+
+        # WILLIAM KOLIBA Restaurant D1-58 km
+
+
+        Stylová restaurace „WILLIAM KOLIBA Restaurant D1 – 58 km je umístěn na nejvytíženější dálnici v
+        České republice, na dálnici D1, odpočívka KALNÁ, 58 km směr Brno-Praha v blízkosti benzínové čerpací
+        stanice "
+    - url: https://www.brnolove.cz/kam-na-obed-modrice/
+      title: "Kam na oběd v Modřicích: restaurace a bistro - Brnolove.cz"
+      snippet: "Kam na oběd v Modřicích: restaurace a bistro - Brnolove.cz
+
+
+        # Kam na oběd v Modřicích: restaurace a bistro
+
+
+        - Libor Výborný
+
+        - 11/08/2026
+
+        - Obce v okolí Brna
+
+
+        V profilu najdete příklady cen s rozlišením příloh. Údaje v profilu ověřeny 11. 10. 2026.
+
+
+        Kam na oběd v Modřicích u Brna? Obec těsně jižně od Brna nabízí několik míst, kde se dobře najíte:
+        restauraci s klasickou kuchyní a denním menu v pracovní dny, bistro s pizzou z pece i burgery a
+        dětským koutkem a další restauraci s poledním menu. Díky"
+    - url: https://www.motorest-nahac.cz/
+      title: Domácí kuchyně na D1 – sjezd 29 km | Motorest Naháč, dálnice D1, 29km
+      snippet:
+        "Domácí kuchyně na D1 – sjezd 29 km | Motorest Naháč, dálnice D1, 29km\n\n### Domácí jídlo\
+        \ přímo na D1 (29 km) – zastávka bez zdržení\n\nJídlo ihned na talíři / dětské hřiště a vnitřní\
+        \ herna / parkování + EV nabíjení\n\nNaše služby vyzkoušeli statisíce hostů. Přesvědčte se i Vy\
+        \ o výborné kuchyni, přívětivé obsluze a čistotě prostředí.\n\n### Každé ráno od 6,30 hodin \n\n\
+        ### Domácí kuchyně \n\n## Domácí kuchyně na D1 – sjezd 29 km\n\nZastavte se na snídani, oběd nebo\
+        \ večeři. Nechte si zabalit rodinný oběd s seb"
+  pages:
+    https://www.vysocinasdetmi.cz/misto/cukrarna-u-aji:
+      "Některé jsou nutné, ostatní jsou volitelné. Rozhodnutí
+      je na vás.
+
+
+      Kavárna s krásným dětským koutkem pro nejmenší. Kousek od centra. Vafle, dezerty, palačinky a točená
+      zmrzlina. Možno jít dovnitř nebo využít výdejní okénko.
+
+
+      Novosady 2043/8
+
+
+      Velké Meziříčí
+
+
+      pondělí
+
+
+      11:00 až 18:00
+
+
+      úterý
+
+
+      středa
+
+
+      čtvrtek
+
+
+      Pátek
+
+
+      Sobota
+
+
+      ZAVŘENO
+
+
+      neděle"
+    https://www.vysocina.eu/stravovaci-zarizeni/restaurace-formanka:
+      "# Restaurace Formanka\n\n**Restaurace\
+      \ Formanka** přímo na D1. Tradiční česká restaurace s lidovým charakterem a domácí kuchyní.\n\n\
+      ## Otevírací doba\n\nPondělí - pátek: 10:00 - 19:00\n\nsobota - neděle: 11:00 - 19:00\n\n## Kontakt\n\
+      \n| Provoz | celoroční | \n| Počet míst u stolů - uvnitř | 60 | \n| Počet míst u stolů - zahrádka\
+      \ | 30 | \n\n- Bezbariérový přístup\n- Platba kartou\n- Internet\n- Parkování\n- Domácí zvířata\n\
+      - Konferenční prostory\n- Salónek\n- Venkovní zahrádka\n\nFoto: archiv restaurace Formanka"
+    https://kid.ooo/cs/blog/kde-se-najist-na-cestach-detsky-pratelske-restaurace-podel-d1-a-cestou-na/:
+      "Published:\
+      \ 2024-07-09\n\n# Kde se najíst na cestách: dětsky přátelské restaurace podél D1 a cestou na Slovensko\n\
+      \n**Kde se najíst s dětmi na cestách? Nejlépe tam, kde je kromě jídla i prostor na proběhnutí: v\
+      \ parku, u hřiště nebo v zoo kousek od dálnice.** Léto je ve znamení dlouhých cest autem k babičce,\
+      \ na hory nebo k moři. Připravili jsme tipy na zastávky podél D1 a cestou na Slovensko, kde se děti\
+      \ najedí a protáhnou a rodiče si dají kávu.\n\n## Proč hledat dětsky přátelské podniky\n\n**Na dlouhé\
+      \ cestě je oběd hlavní přestávka, a když se povede, zbytek cesty jede jako po másle.** Děti po hodinách\
+      \ v sedačce potřebují běhat, ne sedět další hodinu u stolu. Proto se vyplatí plánovat zastávky tam,\
+      \ kde je hřiště, park nebo atrakce, a jídlo k tomu.\n\nDálniční odpočívadla jsou rychlá, ale v létě\
+      \ přeplněná. Pár minut sjezdu z dálnice často znamená klidnější restauraci, stín a lepší jídlo.\
+      \ Zastávku si naplánujte předem: podívejte se, u kterého exitu budete zhruba v době oběda, a vyberte\
+      \ podnik s hřištěm nebo parkem nablízku. Ušetříte hledání na poslední chvíli, kdy jsou děti hladové\
+      \ a unavené. Kavárny pro rodiny s dětmi podél trasy najdete v mapě Kid.ooo.\n\n## Co dělá podnik\
+      \ family-friendly\n\n**Rodinný podnik poznáte podle dětského koutku, dětského menu a toho, že vás\
+      \ nikdo nepopohání.**\n\n- **Dětský koutek nebo hřiště:** ideálně venku a na dohled od stolu.\n\
+      - **Dětské menu:** menší porce a jednoduchá jídla bez zbytečného koření.\n- **Dětské židličky:**\
+      \ pro batolata nutnost.\n- **Přebalovací pult:** v čisté toaletě, ne jen na dámské.\n- **Rychlá\
+      \ obsluha:** hladové dítě nečeká.\n\n## Kde se najíst s dětmi: zastávky podél D1 a cestou na Slovensko\n\
+      \n**Nejvíc zastávek s parkem, zoo nebo hřištěm najdete na Moravě mezi Brnem a Kroměříží.** Než vyrazíte,\
+      \ vždy si ověřte aktuální otevírací dobu na webu daného místa.\n\n| Zastávka | Trasa | Co tam je\
+      \ | Odbočka z dálnice | Ceny | \n|---|---|---|---|---|\n| Velké Meziříčí | D1 Praha–Brno | náměstí\
+      \ s restauracemi | krátká | nízké | \n| IKEA Brno | D1 u Brna | restaurace, dětský koutek | krátká\
+      \ | nízké | \n| Zámek Slavkov | D1 Brno–Vyškov | zámecký park, kavárna | krátká | zdarma | \n| Zoopark\
+      \ Vyškov | D1 Brno–Olomouc | zvířata, hřiště, občerstvení | krátká | střední | \n| Dinopark Vyškov\
+      \ | D1 Brno–Olomouc | dinosauři, občerstvení | krátká | střední | \n| Kroměříž | D1 Brno–Ostrava\
+      \ | zahrady, restaurace v centru | střední | nízké | \n| Lednice | D2 na Bratislavu | zámecký park,\
+      \ restaurace | střední | zdarma | \n| Budatínsky hrad | D1 v Žilině | hradní park | krátká | nízké\
+      \ | \n\nCeny: nízké = oběd nebo vstup do cca 150 Kč na osobu, střední = cca 150–400 Kč. U slovenských\
+      \ míst orientačně v přepočtu na Kč, ceny se mění.\n\n### D1 Praha–Brno\n\nV polovině cesty se vyplatí\
+      \ sjet do **Velkého Meziříčí**, kde na náměstí najdete restaurace, cukrárny a místo na protažení.\
+      \ U Brna je hned u dálnice **IKEA Brno** s restaurací, dětskými židličkami a koutkem, což je osvědčená\
+      \ rychlá zastávka.\n\n### D1 Brno–Ostrava\n\nHned za Brnem leží **Zámek Slavkov** s rozlehlým parkem,\
+      \ kde se děti proběhnou. Ve Vyškově je u dálnice **Zoopark Vyškov** s domácími zvířaty a hřištěm\
+      \ a vedle něj **Dinopark Vyškov**. Delší pauzu si zaslouží Kroměříž, kde **Arcibiskupský zámek a\
+      \ zahrady** nabízejí stín i prostor na hraní.\n\n### Cestou na Slovensko\n\nPo D2 směrem na Bratislavu\
+      \ stojí za krátkou odbočku **Zámek Lednice** s obrovským parkem a restauracemi v obci. Na slovenské\
+      \ D1 se v Žilině zastavte u Budatínského hradu, kde sídlí **Považské múzeum** a kolem je park.\n\
+      \n## Sezónní speciality měsíce\n\n**V červenci vsaďte na lehká jídla: ovocné knedlíky, saláty, polévky\
+      \ a domácí limonády.** Těžká jídla v horku děti v autě unaví. Zmrzlinu si nechte až na konec zastávky,\
+      \ ne před další hodinou jízdy. Na Slovensku děti často nadchnou bryndzové halušky nebo palacinky.\n\
+      \n## Tipy pro klidný oběd s dětmi\n\n**Nejlepší je jíst dřív, než děti dostanou opravdový hlad,\
+      \ a nejdřív je nechat proběhnout.**\n\n- Obědvejte kolem jedenácté, kdy jsou restaurace ještě poloprázdné.\n\
+      - Objednejte dětem hned"
+    https://d1koliba.cz/: "#### Dotazy, rezervace?
+
+
+      (+420) 212 812 530
+
+
+      **Stylová restaurace „WILLIAM KOLIBA Restaurant D1** – 58 km je umístěn na nejvytíženější dálnici
+      v České republice, na dálnici D1, odpočívka KALNÁ, 58 km směr Brno-Praha v blízkosti benzínové čerpací
+      stanice Shell.
+
+
+      Stylová restaurace s domácími výrobky a kuchyní vám nabízí **příjemné posezení v moderním a zároveň
+      stylovém prostředí s možností odpočinku** i pro vaše děti. Uvnitř areálu se nachází venkovní dětské
+      hřiště. V případě špatného počasí vaše děti jistě potěší i vnitřní dětský koutek ve 2.NP. Do budoucna
+      se můžete na naší kolibě podívat a pohladit si zvířátka, která kdysi byla u nás v každé chalupě.
+      Stylová restaurace s možností oddělení prostor pro školení a jednání zajišťuje svým hostům celoročně
+      výjimečné prostředí a dobré podmínky pro volné chvíle i pracovní schůzky.
+
+
+      **Skvělé prostředí pro tradiční akce jako jsou opékání vepřového, stylové zabijačky či firemní akce.**
+
+
+      Stylově vybavené prostory v kombinaci s výbornou dostupností, jsou vynikajícím předpokladem pro
+      pořádání stylových a firemních akcí právě v Restauraci Koliba William.
+
+
+      Kapacita Koliby, vnitřních prostor je celkem až 150 osob (s venkovním prostorem až 300 osob).
+
+
+      V prostorách Restaurace Koliba William je i stylové dětské venkovní a vnitřní hřiště. V případě
+      akcí pod širým nebem jsme však schopni zorganizovat akce až pro 1000 účastníků.
+
+
+      Vynikajícím doplňkem firemních i společenských akcí jsou volnočasové aktivity, které u nás můžete
+      využít. Rádi zorganizujeme pro Vás i doprovodný program.
+
+
+      Oblíbené jsou tematické teambuildingy, včetně ochutnávek, stylové zabijačky, opékání prasat, jehňat
+      i volů. Můžeme Vám k tomu zprostředkovat také živou hudbu.
+
+
+      **Stylová restaurace s celoročním provozem** s možností oddělení prostor pro školení a jednání.
+      Naleznete zde odpočinek, výjimečné prostředí a vynikající podmínky pro volné chvíle i pracovní schůzky.
+
+
+      **Otevírací doba:**
+
+
+      Pondělí – Úterý: Zavřeno
+
+
+      Středa – Neděle: 10:30 – 19:00
+
+
+      Nabízíme vám možnost stát se součástí úspěšného provozu a příležitost pracovat s kompletně nově
+      vybudovanými prostory se zajištěným ubytováním přímo na KOLIBĚ !
+
+
+      Pracovní prostředí založené na čestnosti a poctivosti a dobrých mezilidských vztazích je našim cílem,
+      jak uspět v náročném a stresujícím prostředí gastronomie. Nabízíme další vzdělávání, možnost podílet
+      se na nových projektech a mnoho dalších příležitostí k osobnímu růstu.
+
+
+      **V současné době hledáme :**
+
+
+      Kuchaře hlavní/pomocné
+
+
+      Číšníky/Servírky
+
+
+      Pomocné pracovníky provozu (technické zázemí, úklid)
+
+
+      Připojte se k našemu skvělému týmu a kontaktujte nás :
+
+
+      info@d1koliba.cz , tel.:+420 770120191
+
+
+      **Těšíme se na setkání s Vámi.**
+
+
+      WILLIAM Resorts, Restaurants and Clubs, s.r.o."
+    https://www.brnolove.cz/kam-na-obed-modrice/: "Published: 2026-08-11
+
+
+      Kam na oběd v Modřicích u Brna? Obec těsně jižně od Brna nabízí několik míst, kde se dobře najíte:
+      restauraci s klasickou kuchyní a denním menu v pracovní dny, bistro s pizzou z pece i burgery a
+      dětským koutkem a další restauraci s poledním menu. Díky poloze u dálnic D1 a D2 a nákupní zóny
+      je navíc na dosah řada dalších podniků.
+
+
+      Tenhle přehled shrnuje, kam v Modřicích zajít na oběd, čím se jednotlivá místa liší a jak vybrat
+      podle toho, jestli hledáte rychlé polední menu, jídlo s dětmi, nebo posezení u kávy. Přidává i praktické
+      tipy na parkování a na ověření aktuální nabídky.
+
+
+      Denní menu, otevírací dobu i nabídku jednotlivé podniky mění, proto si je před návštěvou ověřte
+      přímo u provozovatele; obzvlášť polední menu bývá jen ve všední dny a rychle se vyprodá.
+
+
+      *Aktualizováno v srpnu 2026*
+
+
+      ## Restaurace s denním menu
+
+
+      Pokud hledáte klasický oběd o polední pauze, zamiřte do některé z restaurací s denním menu. V Modřicích
+      takto vaří Restaurant Slunečnice, který nabízí polední menu v pracovní dny, i Restaurace Sokec s
+      vlastním denním menu. Obě místa cílí na hosty, kteří chtějí rychlý a sytý oběd v týdnu.
+
+
+      Denní menu se každý den mění a bývá k dispozici jen ve všední dny a zpravidla do vyprodání. Konkrétní
+      nabídku dne, čas výdeje i to, zda menu platí i o víkendu, proto najdete nejlépe na aktuálních zdrojích
+      podniku. Vyplatí se přijít spíš dřív, protože oblíbená jídla mizí jako první.
+
+
+      Klasická restaurace se hodí i na delší posezení, pracovní oběd nebo víkendový oběd s rodinou mimo
+      polední špičku. Kromě menu dne mívají tato místa i stálý jídelní lístek, takže si vyberete, i když
+      už je denní nabídka pryč. Aktuální otevírací dobu si u obou podniků raději ověřte předem.
+
+
+      ## Pizza, burgery a jídlo s dětmi
+
+
+      Chuť na něco jiného než klasické menu zažene KT Bistro a restaurant, které dřív fungovalo pod názvem
+      Like It. Připravuje pizzu z pece a burgery a k tomu má dětský koutek, takže je vděčnou volbou pro
+      rodiny s malými dětmi. Menší hosté si pohrají, zatímco dospělí v klidu dojedí.
+
+
+      Bistro s dětským koutkem řeší situaci, kterou rodiče dobře znají: kam vyrazit na oběd, aby se najedli
+      dospělí i děti a nikdo se nenudil. Pizza a burgery navíc patří mezi jídla, která si oblíbí i vybíraví
+      strávníci. Nabídku bistra, jeho otevírací dobu i to, zda je koutek k dispozici právě teď, si ale
+      předem ověřte.
+
+
+      Rodiny ocení i to, že se do bistra dá zajít bez velkého plánování a bez nutnosti dojíždět do centra
+      Brna. Pro klidnější oběd s menšími dětmi bývá lepší přijít mimo hlavní polední nápor, kdy je uvnitř
+      více hostů a delší čekání.
+
+
+      ## Kde se najíst u Olympia Brno
+
+
+      Modřice mají jednu velkou výhodu: leží u dálnice a hned vedle nákupní zóny. V okolí nákupního centra
+      Olympia Brno a přilehlých obchodních a skladových areálů je proto celá řada dalších restaurací,
+      bister a rychlého občerstvení. Přehled této části obce shrnuje článek o nákupní zóně u dálnice.
+
+
+      Kdo v Modřicích pracuje, nakupuje nebo tudy jen projíždí, má tak na výběr víc než jen podniky v
+      samotné obci. Gastro nabídka v nákupní zóně se mění a rozšiřuje, proto konkrétní provozovny a jejich
+      otevírací dobu berte jako proměnlivé a ověřte si je na místě nebo online. Blízkost dálnic D1 a D2
+      z celé oblasti dělá praktickou zastávku na oběd i pro cestující.
+
+
+      ## Parkování a jak se do Modřic dostat
+
+
+      U restaurací v obci i v nákupní zóně se dá zpravidla zaparkovat v okolí podniku, u zóny pak na velkých
+      parkovištích u obchodů. Konkrétní podmínky a kapacita se liší podle místa, proto s parkováním v
+      době polední špičky počítejte s tím, že blízká místa mohou být obsazená.
+
+
+      Bez auta se do Modřic dostanete z Brna tramvají 2, jejíž konečná smyčka je přímo v Modřicích, nebo
+      autobusem 49 se zastávkou Modřice-náměstí. Spojení z Brna je časté a cesta krátká, takže na oběd
+      do Modřic dojedete i městskou dopravou. Restaurace v centru obce jsou od zastávek v pohodlné docházkové
+      vzdálenosti.
+
+
+      ## Jak vybrat a na co myslet
+
+
+      Výběr místa na oběd se odvíjí od toho, co zrovna potřebujete. Na rychlý a levný ob"
+    https://www.motorest-nahac.cz/:
+      "Zastavte se na snídani, oběd nebo večeři. Nechte si zabalit rodinný
+      oběd s sebou nebo si vezměte jen kávu s domácí houskou na cestu.
+
+
+
+      **Proč jsme postavili motorest?**
+
+
+      Před zahájením rekonstrukce jsme dlouho přemýšleli jaký typ restaurace (a zázemí pro motoristy vůbec)
+      na dálnicích v České republice chybí. Vyhrála varianta tradiční domácí kuchyně doplněné o moderní
+      trendy. Vše je zabalené do příjemného interiéru, rychlé obsluhy a dostupné pro všechny, kteří cestují
+      po D1.
+
+
+      V nabídce sázíme na kvalitu a čerstvost. Při sestavování jídelního lístku dbal šéfkuchař na používání
+      základních surovin.
+
+
+      Z **české kuchyně** se můžete těšit na klasické recepty jako je svíčková, španělský ptáček nebo
+      konfitovaná kachna. Samozřejmostí je i nabídka čerstvého **ovoce a salátů**. Místo je i na sladkosti
+      ke kávě.
+
+
+      **Rodiny** mohou ocenit oplocené dětské hřiště se skákacím hradem s přístupem pouze z restaurace,
+      přebalovací pulty, dětské židličky, mikrovlnnou troubu pro ohřev dětské stravy.
+
+
+      **Obchodníci** mají k dispozici bezplatnou wi-fi, přístupnost z obou směrů dálnice a el. zásuvky
+      přímo u stolů.
+
+
+
+      **Nezapomeňte si u nás vzít i poctivou SVÁČU na cestu.** Některá z našich plněných domácích housek
+      Vám určitě přijde vhod.
+
+
+      - Domácí sekaná v domácí housce
+
+      - Šunková s vajíčkem
+
+      - Sýrová
+
+      - S rukolou a gorgonzolou
+
+
+
+      **Důvody k návštěvě:**
+
+
+      - Výborně dostupná restaurace s obou stran dálnice d1 – 29km. Možnost přístupu i ze silnice Benešov
+      – Chocerady.
+
+      - Připojení k internetu je zdarma, u stolů najdete také elektrickou zásuvku pro nabíjení Vašeho
+      notebooku.
+
+      - Pohodlně usadíme 80 osob v interiéru a dalších 30 hostů na přilehlé terase.
+
+      - Ochutnejte Českou republiku. Naše nabídka si zakládá na čerstvosti a tradiční domácí kuchyni.
+      Jsme držitelem certifikátu Czech specials.
+
+      - Celý objekt je kompletně bezbariérový, vč. WC pro vozíčkáře.
+
+      - Dostatek místa pro odložení Vašich svršků, během návštěvy motorestu.
+
+      - Celý prostor je klimatizovaný, vzduchotechnika zabraňuje vnikání „kuchyňských“ pachů do míst pro
+      hosty.
+
+      - Svou polohou a vybavením je motorest ideálním místem pro pracovní schůzky."

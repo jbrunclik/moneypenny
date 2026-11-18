@@ -1,0 +1,16 @@
+id: chat_cycling_log_deload
+description: Long cycling chat - log the deload session (KV write) and comment on the knee
+history_from: cycling_program
+user: "Utery odjety, 2x12 na 214 a 216 W, tep 147 a 150. Kadenci jsem drzel kolem 88 a koleno ani neceklo. Kufry jsem posunul podle tvyho navodu."
+expect:
+  rubric: >
+    Czech coach feedback using the numbers (214/216 W in the 210-218 W band,
+    HR similar to week 3) that links the quiet knee to the cleat adjustment
+    and lower cadence, and SAVES the session to the program data (kv_store
+    write of progress and/or last_session). Encouraging and concise; reminds
+    what comes next in the deload week (Thursday Z2 45 min) or the ramp test
+    after it.
+  required_tools: [kv_store]
+  required_arg_patterns:
+    kv_store.action: ["^(set|merge)$"]
+  max_tool_rounds: 4

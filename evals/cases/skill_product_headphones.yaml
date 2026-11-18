@@ -3,8 +3,6 @@ description: A product recommendation loads the product-research skill first
 user: >
   I need noise-cancelling headphones for the train commute, budget up to
   6000 CZK, ideally buyable in a Czech shop. What should I get?
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Recommends 2-4 specific real models within budget in a comparison (price in
@@ -12,3 +10,666 @@ expect:
     products or shops.
   required_tools: [load_skill]
   required_skill: product-research
+# Canned web captured 2026-11-18 (evals/capture_web.py): best noise cancelling headphones 2026 review; sluchátka s ANC do 6000 Kč
+web:
+  results:
+    - url: https://www.soundguys.com/best-noise-cancelling-headphones-5220/
+      title: I lab-tested the best noise cancelling headphones, and these are what I'd buy in 2026 - SoundGuys
+      snippet:
+        "I lab-tested the best noise cancelling headphones, and these are what I'd buy in 2026 -
+        SoundGuys
+
+
+        # I lab-tested the best noise cancelling headphones, and these are what I'd buy
+
+
+        If you're trying to block out the noise, go with one of these.
+
+
+        Christian Thomas Adam Birney
+
+
+        Oct 30, 2026 — 4:30 PM ET
+
+
+        Sony WH-1000XM6 MSRP: $458.00
+
+
+        8.3
+
+
+        Positives Excellent ANC Good sound quality Excellent microphone Device compatibility
+
+
+        Negatives
+
+
+        No USB listening
+
+
+        No ingress protection rating
+
+
+        Price
+
+
+        Read more.."
+    - url: https://www.nytimes.com/wirecutter/reviews/best-noise-cancelling-headphones/
+      title: The 4 Best Noise-Cancelling Headphones of 2026 | Reviews by Wirecutter
+      snippet: "The 4 Best Noise-Cancelling Headphones of 2026 | Reviews by Wirecutter
+
+
+        # The Best Noise-Cancelling Headphones
+
+
+        Updated November 3, 2026
+
+
+        Michael Murtaugh/NYT Wirecutter
+
+
+        By Lauren Dragan
+
+
+        Lauren Dragan writes about audio tech and OTC hearing aids. She has tested over 2,000 headphones
+        and earbuds in her decade at Wirecutter.
+
+
+        FYI
+
+
+        We’ve added the Bose Noise Cancelling Wired Earbuds as our pick for someone who prefers wired earbuds.
+
+
+        November 2026
+
+
+        For frequent flyers or commuters on public trans"
+    - url: https://au.pcmag.com/headphones/3341/the-best-noise-cancelling-headphones
+      title: The Best Noise-Cancelling Headphones for 2026
+      snippet:
+        "The Best Noise-Cancelling Headphones for 2026\n\n# The Best Noise-Cancelling Headphones\
+        \ for 2026\n\nUpdated Oct 19, 2026\n\n## Block out the world and simply enjoy your music, media,\
+        \ or the sweet sound of silence with the best noise-cancelling headphones we've tested.\n\n \n\n\
+        \ & Eric Zeman Managing Editor, Consumer Electronics \n\n Our team tests, rates, and reviews more\
+        \ than 1,500 products each year to help you make better buying decisions and get more from technology.\
+        \ \n\n LOOK INSIDE PC LABS HOW WE TEST \n\n"
+    - url: https://www.techradar.com/audio/headphones/best-noise-cancelling-headphones
+      title: The best noise cancelling headphones for all budgets, all real-world tested | TechRadar
+      snippet:
+        "The best noise cancelling headphones for all budgets, all real-world tested | TechRadar\n\
+        \n# I've picked the best noise cancelling headphones for all budgets, based on real-world testing\
+        \ of nearly 20 models\n\n Best \n\n By Matt Bolton Contributions by Becky Scarrott \n\n last updated\
+        \ 30 October 2026 \n\nGo radio silent with the best noise cancelling headphones\n\n (Image credit:\
+        \ Future) \n\nThe best picks reviewed by\n\nMy #1 pick 1. Bose QuietComfort Ultra Headphones\n\n\
+        Best under $100 / £100 3. 1More Sonoflow "
+    - url: https://www.srovname.cz/sony-wf-1000xm5-stribrna/srovnani-cen/k.6047303
+      title: Sony WF-1000XM5, stříbrná cena od 4 647 Kč | SROVNAME.cz
+      snippet:
+        "1 / 2 \n\n Sony WF-1000XM5, stříbrná \n\nSony WF-1000XM5, stříbrná\n\n od 4 647 Kč \n\n\
+        \ Sony WF-1000XM5 stříbrná – prémiová true wireless sluchátka s ANC, 8,4mm Dynamic Driver X, Bluetooth\
+        \ 5.3, LDAC/LC3, až 8 h s ANC (až 24 h s pouzdrem), bezdrátové nabíjení a IPX4 odolnost. \n\n Doprava\
+        \ zdarma Skladem \n\n Doporučená nabídka 6 999 Kč \n\nFotografie produktu\n\n Sony WF-1000XM5, stříbrná\
+        \ \n\n Doporučené nabídky \n\n Skladem \n\n 6 999 Kč \n\n \n\n Skladem \n\n 4 647 Kč \n\n \n\n Za\
+        \ dopravu 99 Kč \n\n Skladem \n\n 4 990 Kč \n\n \n\n Za"
+    - url: https://www.sencor.cz/bezdratova-sluchatka-sep-sleeper-anc
+      title: Bezdrátová sluchátka SEP Sleeper ANC | Sencor
+      snippet:
+        "Bezdrátová sluchátka SEP Sleeper ANC | Sencor\n\n +420 323 204 060 (+420323204060) Po -\
+        \ Pá: 9:00 - 17:00h (mimo svátky) \n\n# SEP Sleeper ANC Bezdrátová sluchátka \n\n (15) \n\n \n\n\
+        \ \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n4.6\n\n2 recenze\n\n\
+        Bezdrátová sluchátka, okolo uší, Bluetooth 5.3, aktivní potlačení hluku (ANC) i při hovorech, redukce\
+        \ šumu, ambientní zvuk, doba přehrávání až 30 h, doba nabíjení sluchátek 3 h, skládací, USB-C\n\n\
+        999 Kč\n\nIhned k odeslání\n\n### Bezdrátová sluchátka Sencor SEP Sleeper\n\n-"
+    - url: https://www.mironet.cz/sony-noise-cancelling-wf1000xm5-cerna-bezdratova-slluchatka-s-mikrofonem-bt-53+dp599439/
+      title: SONY Noise Cancelling WF-1000XM5 černá / Bezdrátová slluchátka s  | Mironet.cz
+      snippet:
+        "SONY Noise Cancelling WF-1000XM5 černá / Bezdrátová slluchátka s | Mironet.cz\n\n Zákaznická\
+        \ linka +420 234 700 800 (+420234700800) Email callcentrum@mironet.cz \n\nStav zboží: Nové Garance\
+        \ vrácení\n\n# SONY Noise Cancelling WF-1000XM5 černá\n\n Bezdrátová slluchátka s mikrofonem / BT\
+        \ 5.3 \n\n 4 000 Kč 3 306 Kč bez DPH Transparentní historie ceny \n\nProdukt je vyprodaný - na dotaz\n\
+        \n 4 000 Kč 3 306 Kč bez DPH Transparentní historie ceny \n\nVýrobce: Sony Záruka: 24 měsíců P/N:\
+        \ WF1000XM5B.CE7\n\n## SONY Noise Ca"
+    - url: https://sluchatka.heureka.cz/alzapower-boost-pro-anc/
+      title: AlzaPower Boost PRO ANC od 599 Kč - Heureka.cz
+      snippet:
+        "AlzaPower Boost PRO ANC od 599 Kč - Heureka.cz\n\n# AlzaPower Boost PRO ANC\n\n94 %\n\n\
+        (23×)\n\nPohodlný poslech, který vydrží celý den — spojení dobrého zvuku, jistého fitu a přirozeného\
+        \ potlačení hluku... Celý popis \n\n599 Kč \n\nCENOPÁD -14% \n\nDoprava 49 Kč, Skladem\n\nAlzaPower\
+        \ Boost PRO ANC\n\n## AlzaPower Boost PRO ANC\n\n 95% (392 299×)\n\nSkladem 3 ocenění Prodloužená\
+        \ záruka AlzaPower Boost PRO ANC černá APW-BTEB1B\n\n599 Kč- 14 % Doprava od 49 Kč\n\nAlzaPower\
+        \ Boost PRO ANC černá APW-BTEB1B\n\n 93% (7 382×)\n\nSkl"
+  pages:
+    https://www.soundguys.com/best-noise-cancelling-headphones-5220/: "Published: 2026-10-30
+
+
+      All products featured are independently chosen by us. However, SoundGuys may receive a commission
+      on orders placed through its retail links. See our ethics statement.
+
+
+      The Sony WH-1000XM6 is every bit a worthy successor to Sony's other ANC headphones as you'd hope.
+      They sound very good, have excellent ANC, and are equipped to handle demanding users. However, the
+      lack of cutting-edge connection options might be an issue as the years go by.Read full review...
+
+
+      The Apple AirPods Max 2 inherits the best and worst of the original, but packs a new H2 chip to
+      improve noise cancellation and unlock new software features. An iterative update for existing AirPods
+      Max customers, but a compelling option for Apple device owners willing to pay a premium.Read full
+      review...
+
+
+      If you want some of the best-sounding ANC headphones of all time, the Sennheiser HDB 630 fit the
+      bill. With excellent sound quality, comfort, and connection options, these cans should be in the
+      conversation for anyone's next headphones.Read full review...
+
+
+      The Bose QuietComfort Ultra Headphones (2nd Gen.) are a solid set ofheadphones that compete well
+      with the current ANC leaders. Though there are some rough edges, these are good headphones for those
+      who don't want to tinker too much.Read full review...
+
+
+      Despite some foibles, the JBL Tour One M3 is a great showcase for the future of wireless ANC headphones.
+      Making the most of an internal DAC and Auracast, these headphones can be used with pretty much anything
+      at any time. Its SMART Tx accessory can even share audio with other devices.Read full review...
+
+
+      The Beats 360 are the pair I'd grab for the gym, a commute, or a long flight. They're comfortable,
+      sweatproof, and fun to customize. They just can't play music over a cable, and the sound gets bass-heavy
+      with ANC on. If sound quality matters most to you, the Studio Pro is still the smarter buy. If you
+      want one pair of headphones for (almost) everything, don't be afraid to grab the Beats 360.Read
+      full review...
+
+
+      As far as inexpensive ANC headphones go, the JLab JBuds Lux ANC are one of the best of 2024. They
+      focus on the fundamentals, and not fighting the spec wars.Read full review...
+
+
+      The Sonos Ace Ultra don’t venture far from the original Ace in terms of design, but the new 8-band
+      EQ and replaceable battery are meaningful upgrades. You still get excellent ANC and a premium build,
+      but you’ll get the most for your $449 if you already have Sonos gear at home.
+
+
+      The Sennheiser MOMENTUM 5 Wireless is a set of ANC headphones that improve in many ways over its
+      predecessor. Offering a user-replaceable battery, improved ANC, and very low distortion, the headphones
+      will make the #buyitforlife crowd very happy.Read full review...
+
+
+      As people who ride subways and buses every day, we know how necessary it is to block out the world
+      sometimes just to keep your sanity — and hearing — intact. Whether you’re always in crowded areas,
+      working at your desk, or a frequent commuter, noise canceling can be a much-needed feature. But
+      unlike most other commuters, we have a lab where we can test the best noise cancelling headphones’
+      performance objectively. As I’m the guy who runs all these tests here at SoundGuys, I have a unique
+      perspective on this product category that few else are fortunate to have. Here are the best noise
+      canceling headphones currently on offer based on our experience and testing.
+
+
+      October 19, 2026: Updated picks, format.
+
+
+      April 17, 2026: Updated picks.
+
+
+      March 2, 2026: Updated context, considered new models for inclusion.
+
+
+      October 21, 2025: New format, new picks.
+
+
+      July 16, 2025: Cleaned up language.
+
+
+      May 23, 2025: Added the Sony WH-1000XM6, JBL Tour One M3.
+
+
+      April 2, 2025: Updated formatting, information.
+
+
+      February 14, 2025: Added the Marshall Monitor III ANC as a notable mention, and removed the Monoprice
+      BT-600ANC.
+
+
+      February 5, 2025: We ensured the timeliness of the information in the article for the new year.
+
+
+      December 12, 2024: We fixed links, assets,"
+    https://www.nytimes.com/wirecutter/reviews/best-noise-cancelling-headphones/:
+      "The 4 Best Noise-Cancelling
+      Headphones of 2026 | Reviews by Wirecutter
+
+
+      # The Best Noise-Cancelling Headphones
+
+
+      Updated November 3, 2026
+
+
+      Michael Murtaugh/NYT Wirecutter
+
+
+      By Lauren Dragan
+
+
+      Lauren Dragan writes about audio tech and OTC hearing aids. She has tested over 2,000 headphones
+      and earbuds in her decade at Wirecutter.
+
+
+      FYI
+
+
+      We’ve added the Bose Noise Cancelling Wired Earbuds as our pick for someone who prefers wired earbuds.
+
+
+      November 2026
+
+
+      For frequent flyers or commuters on public transit, reducing the noise around you is the difference
+      between enduring a trip and enjoying it. Immersing yourself in the hush created by a great pair
+      of noise-cancelling headphones, combined with the opening chords of your favorite song, can make
+      your muscles relax faster than slipping under a weighted blanket. And they’re easier to pack, too.
+
+
+      The Sony WH-1000XM6 is our favorite pair of noise-cancelling headphones, but we also have recommendations
+      for people who prefer earbuds or who want to spen"
+    https://au.pcmag.com/headphones/3341/the-best-noise-cancelling-headphones:
+      "Published: 2026-10-19\n\
+      \nHeadphones are ideal for enjoying your favorite music, podcasts, or audiobooks, but sometimes\
+      \ the outside world can bleed through. If you want to avoid distracting noise, consider using headphones\
+      \ or earphones with active noise cancellation (ANC). We've been testing noise-cancelling headphones\
+      \ for around 17 years, so you can trust that our analysis is comprehensive and informed. Our coverage\
+      \ is, and has always been, free of manufacturer influence. The Sony WH-1000XM6, Bose's second-generation\
+      \ QuietComfort Ultra Earbuds, and Apple's AirPods Pro 3 are our top picks. At the more affordable\
+      \ end, the EarFun Air Pro 4+ earphones outpace everything else around $100. It's still worth clicking\
+      \ through to our detailed reviews of each model to find the one that best suits your needs, since\
+      \ each has particular strengths. We also cover everything you need to know during your search below.\n\
+      \n## The Best Headphones Deals in Australia - Live Now\n\n- AirPods Pro 3 – **A$326** *(was $429,\
+      \ 24% off)*\n- Audio Technica ATH-CKS50TW2BK Wireless Noise Cancelling Earbuds – **A$199** *(was\
+      \ $299, save $100)*\n- Sennheiser ACCENTUM Wireless ANC Headphones – **A$199** *(was $299.95, 34%\
+      \ off)*\n- Soundcore by Anker Q20i Hybrid ANC Headphones – **A$69.99** *(was $119.95, 42% off)*\n\
+      \n*Check out more Australian electronics deals here.*\n\n#### Overview\n\n- \n            Best Noise-Cancelling\
+      \ Earphones Overall #### Apple AirPods Pro 3 Jump To Details\n- \n            Best Cross-Platform\
+      \ Noise Cancellation #### Bose QuietComfort Ultra Earbuds (2nd Gen) Jump To Details\n- \n      \
+      \      Best Noise-Cancelling Headphones Overall #### Sony WH-1000XM6 Jump To Details\n- \n     \
+      \       Best Headphones for iPhone Users #### Apple AirPods Max 2 Jump To Details\n- \n        \
+      \    Best Affordable Noise Cancellation #### EarFun Air Pro 4+ Jump To Details\n- \n           \
+      \ Best Battery Life #### Nothing Headphone (a) Jump To Details\n- \n            Best Open-Ear Earphones\
+      \ #### EarFun Clip 2 Jump To Details\n- \n            Best Bose Headphones #### Bose QuietComfort\
+      \ Ultra Headphones (2nd Gen) Jump To Details\n- \n            Best Earphones for Audiophiles ####\
+      \ Sony WF-1000XM6 Jump To Details\n- \n            Most Stylish Headphones #### Marshall Monitor\
+      \ III ANC Jump To Details\n\n### Deeper Dive: Our Top Tested Picks\n\n- \n                    Credit:\
+      \ Eric ZemanBest Noise-Cancelling Earphones Overall ## Apple AirPods Pro 3 ### Pros & Cons ### Why\
+      \ We Picked It The third-generation AirPods Pro deliver top-quality noise cancellation, wiping out\
+      \ deep, low-frequency rumble and more complex, higher-frequency sounds. Beyond the improved ANC,\
+      \ Apple's Adaptive Audio mode gives you a more natural way to monitor your surroundings without\
+      \ letting loud noises harm your hearing. Their audio is still rich but more balanced than before,\
+      \ providing a first-class listening experience. In addition, they include advanced features such\
+      \ as live translation, heart rate monitoring, workout tracking, and a range of hearing health tools—all\
+      \ for the same price as the previous model. ### Who It’s For **Apple lovers**: First and foremost,\
+      \ if you want seamless integration between your earphones and iPhone or Mac, you will enjoy the\
+      \ AirPods Pro experience. Pairing is as simple as opening the case, while the iOS settings menu\
+      \ provides all the necessary controls and features.\n**Fitness enthusiasts**: These earbuds can\
+      \ also serve as active, transparent earplugs and a fitness-tracking tool that doesn't require a\
+      \ smartwatch, thanks to their built-in heart rate monitoring sensors.\n### Specs & ConfigurationsActive\
+      \ Noise Cancellation Battery Life Up to 8 hours for earbuds, and 24 hours with case Charging Support\
+      \ Lightning, MagSafe, Qi Wireless, USB-C Chip H3 headphone chip; U2 chip for case Connection Type\
+      \ Bluetooth Hands-Free Siri In-Canal Seal On-Ear Controls Volume swipes; press and press-and-hold\
+      \ gestures (ANC/Transparency selection, calls, playback, Siri, track navigation) Spatial Audio Personalized\
+      \ Spatial audio with He"
+    https://www.techradar.com/audio/headphones/best-noise-cancelling-headphones:
+      "Published: 2025-11-26
+
+
+      I've spent many, many hours testing the best noise-cancelling headphones so that I can curate this
+      guide. It's a definitive list, bringing all my comparative testing of the most important models
+      covering a variety of different price points. If you're looking for some new ANC headphones, then
+      you're in the right place.
+
+
+      You won't just hear it from ourselves, either. I've spoken with a hearing expert, Dr Ross Cushing,
+      who can tell you all about the health implications and what you should be looking for when buying
+      a pair of noise-cancelling headphones. You'll find Cushing's advice below my four picks in this
+      guide, and I highly recommend giving his thoughts a read before committing to a purchase.
+
+
+      If you just want a quick heads-up, my top pick right now are the Bose QuietComfort Ultra Headphones.
+      While these do have a successor, the upgrades are marginal, and the originals simply offer unbeatable
+      value for money today while still offering best-in-class noise cancellation. You can read more about
+      them just below, so let's get into it!
+
+
+      ### Why you can trust TechRadar's choices
+
+
+      Our team of audio experts, chiefly Audio Editor Becky Scarrott and Managing Editor of Home Tech
+      Matt Bolton, have a collective **15+ years** of reviewing headphones, earbuds, turntables, and other
+      music listening tech. Well over **2,400** audio reviews later, we've (literally) heard it all.
+
+
+      **We use these products as our own for weeks, if not months.** Incorporating the best noise cancelling
+      headphones into our daily lives is a crucial part of the testing process. Whether we're sat at
+      our desks, commuting, or generally out and about, we take our headphones with us.
+
+
+      **We cross-reference specs with value for money.** As the end-user, you want to be confident in
+      the products you're spending money on. That's why we endeavor to highlight noise cancelling headphones
+      all across the budget spectrum.
+
+
+      **We subject noise cancelling headphones to real-world tests.** That means really putting them through
+      their paces in busier environments like cafes, roadsides, gyms, offices, airports, and the like.
+
+
+      **We enlist industry experts for buying advice and second opinions.** In this very guide, you'll
+      find supplementary information from those who work with headphones and hearing on a daily basis.
+      Don't just take it from us; we go the extra mile to highlight extra advice to help support your
+      purchasing decisions.
+
+
+      ## My list of the best noise-cancelling headphones, in-depth
+
+
+      Why you can trust TechRadar
+
+      We spend hours testing every product or service we review, so you can be sure you're buying the
+      best. Find out more about how we test.
+
+
+      ### The best noise cancelling headphones overall
+
+
+      #### Specifications
+
+
+      #### Reasons to buy
+
+
+      #### Reasons to avoid
+
+
+      ✅ **Noise cancellation as good as anything else, but cheaper**
+
+
+      These scored joint-top in my noise-cancellation tests, matching the Bose Ultra 2nd Gen and marginally
+      beating the Sony WH-1000XM6, but can be found for around $100 less than those models.
+
+
+      ✅ **Comfortable and portable**
+
+
+      I love the design of the Bose Ultras. They're very light, you can wear them for long periods without
+      any fatigue, and they fold down small for travel.
+
+
+      ✅ **Fun and energetic sound**
+
+
+      These give you really punchy and dynamic audio, with big (but not overly heavy) bass, zinging treble,
+      and great clarity through the mid-range. I've loved the sound since their launch.
+
+
+      ❌ **Battery life isn't great**
+
+
+      The 24-hour battery life is below average by modern standards. If you want 30 hours or more, the
+      Sony WH-1000XM6 or Bose QuietComfort Ultra 2nd Gen will give this to you with the same level of
+      noise cancellation.
+
+
+      ❌ **You want a more refined sound**
+
+
+      The Sony WH-1000XM6 offer a little more detail, a balance of bass/mid/treble that's closer to 'neutral',
+      and a little better cohesion from bass through to mids.
+
+
+      Let me sum this up quickly: Bose's first-gen Ultra Headphones offer noise cancellation that's
+      basically indistinguishable from"
+    https://www.srovname.cz/sony-wf-1000xm5-stribrna/srovnani-cen/k.6047303:
+      "Product data (page markup):
+      Sony WF-1000XM5, stříbrná - price 4399–6999 CZK
+
+
+      Sluchátka Bluetooth Sony WF-1000XM5, stříbrná 198591
+
+
+      Sony WF-1000XM5 stříbrná
+
+
+      Sony Noise Cancelling WF-1000XM5, stříbrná
+
+
+      Sony WF-1000XM5 bezdrátová sluchátka stříbrná
+
+
+      #### Jak vybíráme doporučené nabídky
+
+
+      Především pečlivě vážíme mezi **cenou** produktu, **kvalitou** a **reputací** eshopu.
+
+
+      ### Specifikace
+
+
+      #### Klíčové vlastnosti
+
+
+      **Název produktu:**Sony WF-1000XM5, stříbrná
+
+
+      **Minimální cena:**4 399 Kč
+
+
+      **Maximální cena:**6 999 Kč
+
+
+      **Ušetříte až:**2 600 Kč
+
+
+      #### Parametry
+
+
+      **Hmotnost:**5,9 g
+
+
+      **Krytí:**
+
+
+      **Dosah:**10 m
+
+
+      **Frekvence do:**40 000 Hz
+
+
+      **Frekvence od:**20 Hz
+
+
+      **Materiál náušníků:**
+
+
+      **Režim propustnosti:**
+
+
+      **Mobilní aplikace:**
+
+
+      **Bluetooth kodeky:**
+
+
+      **Mikrofon s potlačením šumu:**
+
+
+      **Multipoint:**
+
+
+      **Typ měniče:**
+
+
+      **Velikost měniče:**8,4 mm
+
+
+      **True Wireless (TWS):**
+
+
+      **Počet sluchátek:**
+
+
+      **Bluetooth profily:**
+
+
+      **Podporované formáty:**
+
+
+      **Hlasový asistent:**
+
+
+      **Ovládání hlasitosti:**
+
+
+      **Pouzdro v balení:**
+
+
+      **Přepínání skladeb:**
+
+
+      **Přijímání hovorů:**
+
+
+      **Vyměnitelné náušníky:**
+
+
+      **Vyměnitelné špunty:**
+
+
+      **Směrová charakteristika mikrofonu:**
+
+
+      #### Vlastnosti
+
+
+      **Využití:**
+
+
+      **Kompatibilita:**
+
+
+      **Do vody:**
+
+
+      **Výdrž sluchátek:**8 h
+
+
+      #### Popis produktu
+
+
+
+      **Sony WF-1000XM5** jsou prémiová true wireless sluchátka navržená pro maximální kvalitu zvuku a
+      účinné potlačení okolního hluku. Díky 8,4mm měničům Dynamic Driver X a pokročilému zpracování zvuku
+      poskytují čisté vokály i hluboké basy v širokém frekvenčním rozsahu.
+
+
+      **Hlavní výhody:**
+
+
+      - Pokročilé aktivní potlačení hluku (ANC) s dedikovanými procesory pro výrazné ztišení okolních
+      zvuků.
+
+      - Vysoká kvalita bezdrátového přenosu – Bluetooth 5.3 a podpora kodeků LDAC, LC3, AAC, SBC.
+
+      - Dlouhá výdrž: až 8 hodin přehrávání s aktivním ANC a až 24 hodin celkem s nabíjecím pouzdrem (8
+      h + 16 h).
+
+      - Komfort a stabilní usazení díky ergonomickému tvaru a sadě různých pěnových nástavců v balení.
+
+      - Praktické funkce: rychlé bezdrátové nabíjení Qi a USB‑C, multipoint připojení, aplikace Sony Headphones
+      Connect pro ladění zvuku a režimy Okolní zvuk/Quick Attention.
+
+
+      WF-1000XM5 kombinují špičkové technologie potlačení šumu, věrné podání zvuku a pohodlí při nošení,
+      což je vhodné pro každodenní poslech i cestování."
+    https://www.sencor.cz/bezdratova-sluchatka-sep-sleeper-anc:
+      "Bezdrátová sluchátka SEP Sleeper ANC\
+      \ | Sencor\n\n +420 323 204 060 (+420323204060) Po - Pá: 9:00 - 17:00h (mimo svátky) \n\n# SEP Sleeper\
+      \ ANC Bezdrátová sluchátka \n\n (15) \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n \n\n\
+      \ \n\n \n\n \n\n \n\n \n\n4.6\n\n2 recenze\n\nBezdrátová sluchátka, okolo uší, Bluetooth 5.3, aktivní\
+      \ potlačení hluku (ANC) i při hovorech, redukce šumu, ambientní zvuk, doba přehrávání až 30 h, doba\
+      \ nabíjení sluchátek 3 h, skládací, USB-C\n\n999 Kč\n\nIhned k odeslání\n\n### Bezdrátová sluchátka\
+      \ Sencor SEP Sleeper\n\n- Bluetooth V5.3\n- hybridní funkce ANC\n- frekvenční rozsah 20–20 000 Hz\n\
+      - citlivost 110 dB\n- impedance 32 ohm\n- velikost reproduktoru 40 mm\n- dosah 10 m\n- až 30 hodin\
+      \ přehrávání\n- baterie 500 mAh\n\n### Muzika na maximum a bez rušení\n\nChcete ztratit pojem o\
+      \ světě a zapomenout na realitu? V tom případě si nasaďte bezdrátová sluchátka Sencor SEP Sleeper\
+      \ a ponořte se do čistých tónů svých oblíbených singlů. Doma i na cestách si užijete kvalitní zvuk\
+      \ bez okolního hluku. Sluchátka Sencor totiž využívají inovativní hybridní funkci ANC. Tato vychytávka\
+      \ aktivně potlačuje hluk a eliminuje zvuky okolního prostředí. To vše pro zajištění perfektního\
+      \ zážitku z poslechu. Pohodlí pak zaručuje odlehčená konstrukce a měkké náušníky.\n\n### Nekonečné\
+      \ hodiny zábavy\n\nPřipojte sluchátka ke svému smartphonu a celý den si užívejte poslech podcastů\
+      \ nebo oblíbených playlistů. Stabilní připojení zajišťuje bezdrátová technologie Bluetooth V5.3\
+      \ s dosahem až 10 m. Nekonečné hodiny zábavy obstarává 500mAh baterie. Ta vydrží až 30 hodin. Když\
+      \ sluchátkům dojde šťáva, snadno je dobijete pomocí přiloženého USB-C kabelu. Za pouhé 3 hodiny\
+      \ jsou zase připravena k použití. Dají se navíc snadno složit, takže vám nezaberou místo v kabelce\
+      \ ani v batohu. Můžete je tak mít stále po ruce.\n\n### Kvalita bez kompromisů\n\nSe sluchátky Sencor\
+      \ si dosyta vychutnáte vysoké tóny i nízké basy. Frekvenční rozsah 20–20 000 Hz vám zprostředkuje\
+      \ veškeré detaily jakéhokoliv hudebního žánru. I při poslechu na maximum si užijete ničím nezkreslené\
+      \ tóny díky citlivosti 110 dB. Samotné ovládání hlasitosti je pak velmi intuitivní. Nachází se přímo\
+      \ na těle sluchátek, a proto ho máte stále na dosah ruky.\n\n## Ke stažení\n\n Návod k použití Ke\
+      \ stažení \n\nSEP Sleeper ANC\n\n## Hodnocení produktu\n\n4,6 z 5\n\nhodnotili celkem\n\n 4 ověření\
+      \ zákazníci \n\n5\n\n3 ×\n\n4\n\n1 ×\n\n3\n\n2\n\n1"
+    https://www.mironet.cz/sony-noise-cancelling-wf1000xm5-cerna-bezdratova-slluchatka-s-mikrofonem-bt-53+dp599439/:
+      "Díky
+      algoritmu redukce šumu, který využívá umělou inteligenci a je založen na zpracování hluboké neuronové
+      sítě (DNN), a snímačům kostního vedení bude váš hlas zřetelný a přirozenější, dokonce i v hlučném
+      prostředí. A pokud jste venku, struktura pro redukci šumu bude minimalizovat jakékoli šumění větru,
+      abyste měli vždy jistotu, že vás bude slyšet.
+
+
+
+      ### Malé a nádherné provedení
+
+
+      Tato sluchátka do uší s vylepšenou lesklou strukturou a působící luxusnějším dojmem vám budou pohodlně
+      sedět v uších a zároveň nepropustí vnější zvuky. Díky zmenšení těla a optimalizaci rozmístění jednotlivých
+      komponent jsou nyní sluchátka do uší přibližně o 25 % menší a o 20 % lehčí než model WF-1000XM4.
+      Zmenšili jsme také velikost nabíjecího pouzdra, takže bude ve vaší kapse působit ještě elegantněji."
+    https://sluchatka.heureka.cz/alzapower-boost-pro-anc/:
+      "AlzaPower Boost PRO ANC od 599 Kč - Heureka.cz\n\
+      \n# AlzaPower Boost PRO ANC\n\n94 %\n\n(23×)\n\nPohodlný poslech, který vydrží celý den — spojení\
+      \ dobrého zvuku, jistého fitu a přirozeného potlačení hluku... Celý popis \n\n599 Kč \n\nCENOPÁD\
+      \ -14% \n\nDoprava 49 Kč, Skladem\n\nAlzaPower Boost PRO ANC\n\n## AlzaPower Boost PRO ANC\n\n 95%\
+      \ (392 299×)\n\nSkladem 3 ocenění Prodloužená záruka AlzaPower Boost PRO ANC černá APW-BTEB1B\n\n\
+      599 Kč- 14 % Doprava od 49 Kč\n\nAlzaPower Boost PRO ANC černá APW-BTEB1B\n\n 93% (7 382×)\n\nSkladem\
+      \ 1 ocenění AlzaPower Boost PRO ANC černá APW-BTEB1B (APW-BTEB1B)\n\n761 Kč Doprava od 69 Kč\n\n\
+      AlzaPower Boost PRO ANC černá APW-BTEB1B (APW-BTEB1B)\n\n## AlzaPower Boost PRO ANC\n\n22 zákazníků\
+      \ doporučuje produkt 1 zákazník nedoporučuje produkt\n\n94 %\n\nprůměr z 33 hodnocení\n\n5\n\n25\
+      \ ×\n\n4\n\n8 ×\n\n3\n\n2\n\n1\n\n#### Zákazníci nejčastěji zmiňují\n\n- cena (6)\n- zvuk (4)\n\
+      - pohodlné nošení (4)\n- baterie (3)\n- basy (3)\n- poměr cena/výkon (3)\n- izolace hluku z okolí\
+      \ (2)\n\n- zvuk (2)\n- mikrofon (2)\n- izolace hluku z okolí (1)\n- ovládání (1)\n- konstrukce (1)\n\
+      - cena (1)\n\n### Zkušenosti ostatních v kostce\n\nShrnuto z našich recenzí pomocí AI\n\nUživatelé\
+      \ chválí pohodlné nošení, jisté držení a solidní zvuk s basy. Oceňují dlouhou výdrž baterie a funkční\
+      \ ANC pro běžné prostředí.\n\nČastěji zaznívá slabší účinek ANC a průměrný mikrofon, vítr zhoršuje\
+      \ hovory. Kritika míří na nepřesné ovládání, pomalé přepínání a nešikovné pouzdro, sluchátka větší.\n\
+      \nVhodné pro poslech podcastů a audioknih venku i při dojíždění. Spíše do kanceláře a cestování,\
+      \ méně na sportovní aktivity.\n\nSiesta - Ověřený nákup\n\npřidáno 5. května 2026, zakoupeno v Alza.cz\n\
+      \n80 %\n\n- Aktivní potlačení hluku (ANC) funguje překvapivě dobře v dané ceně\n- Velmi pohodlné\
+      \ nošení, měkké náušníky\n- Dlouhá výdrž baterie, vhodné na cestování\n- Solidní zvuk s výraznějšími\
+      \ basy\n- USB‑C nabíjení, moderní provedení\n- Dobrá cena vzhledem k funkcím (koupeno v akci za\
+      \ bezkonkurenční cenu)\n\n- ANC není na úrovni dražších značek (Sony/Bose)\n- Při vyšší hlasitosti\
+      \ může být zvuk méně čistý\n- Mikrofon je spíše průměrný\n- Konstrukce je lehká, ale ne působivě\
+      \ prémiová\n- Nejsou ideální pro sport – spíše na kancelář a cestování\n- Špatné přepínání zvukových\
+      \ profilů a ovládání na sluchátku.\n\nAlzaPower Boost PRO ANC jsou sluchátka, která překvapí hlavně\
+      \ tím, jak dobře kombinují cenu a funkce. Aktivní potlačení hluku funguje spolehlivě při běžném\
+      \ používání, takže se hodí do kanceláře, do MHD nebo na cestování, kde dokážou výrazně omezit okolní\
+      \ ruch. Zvuk je laděný spíše do basů, což ocení uživatelé, kteří mají rádi plnější a teplejší charakter.\
+      \ Konstrukce je lehká a pohodlná, takže se dají nosit delší dobu bez nepříjemného tlaku. Je ale\
+      \ potřeba počítat s tím, že ANC ani celkový zvuk nedosahují úrovně dražších modelů a mikrofon je\
+      \ spíše průměrný, takže nejsou ideální na profesionální hovory. Celkově působí jako velmi dobrá\
+      \ volba pro ty, kteří chtějí dostupná sluchátka s ANC, solidním zvukem a pohodlným nošením, aniž\
+      \ by museli investovat do prémiových značek.\n\nCelá recenze \n\nOvěřený nákup\n\npřidáno 9. ledna\
+      \ 2026, zakoupeno v Alza.cz\n\n- Pohodlná\n- Dobře drží\n- Výdrž\n- ANC\n\nPoužívám především pro\
+      \ poslech podcastů a audioknih venku. Spokojenost.\n\nCelá recenze \n\nOvěřený nákup\n\npřidáno\
+      \ 14. září 2025, zakoupeno v Alza.cz\n\nNedoporučuje produkt\n\n- ANC nefunguje 100%\n- Zvládne\
+      \ být připojené jen k jednomu zařízení\n- Vítr fouká do mikrofonu, takže pak neslyším protistranu\
+      \ a oni neslyší mě\n- Dotykové ovládání by mohlo být přesnější\n\nZákladní sluchátka odpovídající\
+      \ ceně. Nepochopil jsem, k čemu je Game Mode. Přepínání mezi ANC, Off a Transparent trvá dlouho\
+      \ a bylo by možná rychlejší přes aplikaci, kdyby existovala.\n\nOvěřený nákup\n\npřidáno 11. listopadu\
+      \ 2026, zakoupeno v Alza.cz\n\n- Pohodlné nošení (několik hodin)\n- Dobré potlačení hluku (hovory\
+      \ kolem)\n\nOvěřený nákup\n\npřidáno 26. září 2026, zakoupeno v Alza.cz\n\nLibor Seidl - Ověřený\
+      \ nákup\n\npřidáno 16. června 2026, zakoupeno v Alza.cz\n\nPanda - Ověřený nákup\n\npřidáno 15.\
+      \ května 2025, zakoupeno v Alza.cz\n\n- The"

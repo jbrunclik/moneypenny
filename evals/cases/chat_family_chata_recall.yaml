@@ -1,0 +1,13 @@
+id: chat_family_chata_recall
+description: Long family chat - a detail only in the summarized part (fire-lighting kit for the cottage)
+history_from: family_logistics
+user: "Co jsi rikal ze mame vzit na chatu na zatopeni v kamnech? Klara se pta."
+expect:
+  rubric: >
+    Czech answer with the fire-lighting items from the earlier packing list:
+    fire starters (podpalovac), matches, newspapers - optionally the rest of
+    the "na chatu" part (extension cord, chargers, food for the first evening).
+    It may look the detail up in the earlier conversation. Must not say it
+    cannot remember or invent a different list.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 3

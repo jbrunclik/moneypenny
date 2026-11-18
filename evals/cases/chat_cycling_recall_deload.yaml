@@ -1,0 +1,13 @@
+id: chat_cycling_recall_deload
+description: Long cycling chat - recall the agreed deload Tuesday from the plan, no tools needed
+history_from: cycling_program
+user: "Co mam presne zitra v utery? Uz jsem zapomnel."
+expect:
+  rubric: >
+    Czech answer giving the deload Tuesday from the stored routine / chat:
+    sweet spot 2x12 min at 210-218 W with 5 min easy between (not the full
+    3x12), and - because of the knee discussed at the end of the chat -
+    cadence around 85-90. Short and specific. Must not invent a different
+    workout or ask the user for the plan.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 1

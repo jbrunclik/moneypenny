@@ -4,8 +4,6 @@ description: Asking where to buy something loads the product-research skill
 # verified results. Failed 1/5 under prompt rules alone (Sep 30 2026); 4/5 with
 # the post-answer grounding check marking unverified specifics (Oct 2026).
 user: "Where can I buy a Brompton folding bike in Czechia and what does it cost?"
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Names real shops or dealers that sell Brompton in Czechia with prices or
@@ -16,3 +14,394 @@ expect:
     BY SOURCE]).
   required_tools: [load_skill]
   required_skill: product-research
+# Canned web captured 2026-11-18 (evals/capture_web.py): Brompton skládací kolo prodejce Česko; Brompton cena Kč
+web:
+  results:
+    - url: https://www.cyklospeciality.cz/skladaci-kola/f/brompton/
+      title: Skládací kola (skládačky) BROMPTON - Cyklospeciality
+      snippet:
+        "Skládací kola (skládačky) BROMPTON - Cyklospeciality\n\n# Skládací kola BROMPTON\n\n \n\n\
+        ## Brompton\n\n \n\n \n\n \n\n### Skládací elektrokolo Brompton Electric C Line, Black \n\n 89 990\
+        \ Kč \n\nSkladem\n\n \n\n \n\n### Skládací kolo Brompton C Line 12Speed, Black/Black \n\n 47 800\
+        \ Kč \n\n \n\n \n\n### Skládací kolo Brompton C Line dvoubarevné Black Edice, Flame Laquer \n\n\
+        \ 50 700 Kč \n\n \n\n \n\n### Skládací kolo Brompton C Line dvoubarevné, Fire Coral/Black \n\n 44\
+        \ 400 Kč \n\n Nový Brompton 12 speed \n\n \n\n### Skládací kolo Brompton C Li"
+    - url: https://www.cyklospeciality.cz/skladaci-kola-brompton/
+      title: Skládací kola Brompton - Cyklospeciality
+      snippet:
+        "Skládací kola Brompton - Cyklospeciality\n\n# Skládací kola Brompton\n\nObjevte špičkové\
+        \ kolo Brompton, které je legendou mezi skládacími koly. Je ideální volbou pro dojíždění do práce,\
+        \ cestování a svobodné prozkoumávání měst. Vyniká jedinečným designem a sofistikovaným skládacím\
+        \ systémem, díky kterému ho kdekoli uskladníte nebo snadno přepravíte v autě, ve vlaku.\n\nTip:\
+        \ Přečtěte si, jak vybrat skládací kolo Brompton.\n\n \n\n## C Line\n\nOcelový rám\n\n \n\n## P\
+        \ Line\n\nLehký titanovo - ocelový rám\n\n \n\n## T Lin"
+    - url: https://www.velorama.cz/skladaci-kolo-brompton:brompton/
+      title: Skládací kola Brompton
+      snippet:
+        "Skládací kola Brompton\n\n Zákaznická podpora: velorama@velorama.cz \n\n# Skládací kola\
+        \ Brompton Brompton\n\n## Nejprodávanější\n\n Skládací kolo Brompton H6R RG/RG \n\n Na objednávku\
+        \ \n\n 47 900 Kč \n\n(39 587 Kč bez DPH)\n\n Skládací kolo Brompton H6L RG/RG \n\n DO TÝDNE \n\n\
+        \ 44 990 Kč \n\n(37 182 Kč bez DPH)\n\n Skládací kolo Brompton M6 HRD/HRD \n\n DO TÝDNE \n\n 41\
+        \ 990 Kč \n\n(34 702 Kč bez DPH)\n\n## Výpis produktů\n\n Elektrokolo Brompton s pohonem Pendix\
+        \ eDrive 300 \n\n67 686 Kč bez DPH 81 900 Kč / ks \n\n Skládací elektroko"
+    - url: https://www.cyklospeciality.cz/skladaci-kolo-brompton-p-line-v2-4speed-pacific-lacquer_z3732/
+      title: Brompton P Line 4-Speed – ultralehké skládací kolo od 9,86 kg - Cyklospeciality
+      snippet:
+        "Brompton P Line 4-Speed – ultralehké skládací kolo od 9,86 kg - Cyklospeciality\n\n \n\n\
+        \ \n\n# Skládací kolo Brompton P Line V2 4Speed, Pacific Lacquer\n\nVýrobce: BROMPTON\n\n## Barva\n\
+        \n M \n\n74 000 Kč\n\nSkladem 1ks\n\nProdejna Brno Lužánky\n\nDodáme do 3 dnů\n\nProdejna Praha\n\
+        \nDodáme do 3 dnů\n\nProdejna Hradec Králové\n\nDodáme do 3 dnů\n\n| Odběrová místa a boxy | | Datum\
+        \ doručení | Cena dopravy |\n| --- | --- | --- | --- |\n| | Osobní odběr | dnes | zdarma |\n| Doručení\
+        \ na adresu | | Datum doručení | Cena dopravy |\n| "
+    - url: https://www.citybikes.cz/skladaci-kola-brompton/
+      title: Skládací kola Brompton
+      snippet:
+        "# Skládací kola Brompton\n\n## Legendární, kompaktní a špičkově zpracované skládací kolo\
+        \ Brompton z Velké Británie je geniální dopravní prostředek, se kterým je možné kombinovat jízdu\
+        \ na kole a cestování hromadnou dopravou, vlakem či taxíkem ve složeném stavu jako s příručním zavazadlem.\n\
+        \n## Řazení produktů\n\n11 položek celkem\n\n## Výpis produktů\n\n Skládací kolo Brompton H6R RG/RG\
+        \ \n\nNa objednávku\n\n39 587 Kč bez DPH\n\n47 900 Kč\n\nKód: 4576\n\n Skládací kolo Brompton M6L\
+        \ černé \n\nNa objednávku\n\n34 702 Kč b"
+    - url: https://www.cyklodesign.cz/skladaci-kolo-brompton-c-line-12speed--black-black/
+      title: Skládací kolo Brompton C Line 12Speed, Black/Black
+      snippet:
+        "Neohodnoceno Podrobnosti hodnocení \n\n# Skládací kolo Brompton C Line 12Speed, Black/Black\n\
+        \nSkládací kolo Brompton C Line s 12stupňovou převodovkou je originální kolo zrozené pro objevování\
+        \ města, ale i výlety do přírody. Za méně než 20 sekund se promění z dopravního prostředku na malý\
+        \ kompaktní balíček. Snadno se zvedá, přenáší i skladuje. Kolo složíte během 20 sekund a vezmete\
+        \ s sebou do vlaku, auta, kanceláře nebo do bytu.\n\n```\n   Varianta\n\n```\n\n- Typ řídítek: H\
+        \ - Skladem 3 ks (47 800 Kč) Může"
+    - url: https://jizdni-kola.heureka.cz/brompton-h6-2024/
+      title: Brompton H6 2024 od 44 400 Kč - Heureka.cz
+      snippet:
+        "Brompton H6 2024 od 44 400 Kč - Heureka.cz\n\n- +10\n\n- Další fotky (10)\n\n# Brompton\
+        \ H6 2024\n\n100 %\n\nSkládací kolo do města, které zvládne každodenní dojíždění i víkendové výlety\
+        \ — spolehlivé, snadno skladné a opravitelné... Celý popis \n\n44 400 Kč Doprava zdarma, Skladem\n\
+        \nBrompton H6 2024\n\n## Brompton H6 2024\n\nSkladem • Více variant 1 ocenění Brompton H6 2024\n\
+        \n44 400 Kč Doprava zdarma\n\nBrompton H6 2024\n\n## Brompton H6 2024\n\n47 490 Kč Doprava od 178\
+        \ Kč\n\n## Brompton H6 2024\n\n1 zákazník doporučuje pro"
+  pages:
+    https://www.cyklospeciality.cz/skladaci-kola/f/brompton/: "**STĚHUJEME SE - INFO K EXPEDICI**
+
+
+      V termínu 10.–20. 11. 2026 nebudeme expedovat objednávky z důvodu stěhování. Objednávky vytvořené
+      během této doby začneme opět expedovat od 20. 11. 2026.
+
+
+      Ještě u nás nemáte účet?
+
+
+      Výhody registrace
+
+
+      Zaregistrujte se a využívejte naše benefity
+
+
+      Vytvořit účet"
+    https://www.cyklospeciality.cz/skladaci-kola-brompton/: "# Skládací kola Brompton
+
+
+      Objevte špičkové kolo Brompton, které je legendou mezi skládacími koly. Je ideální volbou pro dojíždění
+      do práce, cestování a svobodné prozkoumávání měst. Vyniká jedinečným designem a sofistikovaným skládacím
+      systémem, díky kterému ho kdekoli uskladníte nebo snadno přepravíte v autě, ve vlaku.
+
+
+      **Tip:** Přečtěte si, jak vybrat skládací kolo Brompton."
+    https://www.velorama.cz/skladaci-kolo-brompton:brompton/:
+      "## Výpis produktů\n\n                 \
+      \           \n        \n                                                            \n    \n   \
+      \                 \n                \n                                    \n                   \
+      \                                                                                              \
+      \                                                                   POSLEDNÍ KUS\n\n           \
+      \ \n            \n                \n                \n                    \n                   \
+      \                                                             \n                        \n     \
+      \                   \n                        \n        67 686 Kč bez DPH\n\n                  \
+      \                      **81 900 Kč**\n                    \n            \n    \n        \n     \
+      \       / ks\n\n                    \n                                            \n\nSkládací elektrokolo\
+      \ Brompton s výkonným středovým pohonem Pendix. Nominální výkon motoru 250W při napětí baterie 48V\n\
+      \n            \n        \n        \n    \n                    \n            Kód: 2487\n        \n\
+      \    \n    \n                                        \n    \n                    \n            \
+      \    \n                                                                                        \
+      \                                                                                            POSLEDNÍ\
+      \ KUS\n\n            \n            \n                \n                \n                    \n\
+      \                                                                                \n            \
+      \            \n                        \n                        \n        70 992 Kč bez DPH\n\n\
+      \                                        **85 900 Kč**\n                    \n            \n   \
+      \ \n        \n            / ks\n\n                    \n                                       \
+      \     \n\nSkládací elektrokolo Brompton s výkonným středovým pohonem Pendix. Nominální výkon motoru\
+      \ 250W při napětí baterie 48V a kapacitě 500Wh\n\n            \n        \n        \n    \n     \
+      \               \n            Kód: 2488\n        \n    \n    \n                                \
+      \        \n    \n                    \n                \n                                      \
+      \                                                                                              \n\
+      \    \n    \n            \n        \n        \n            \n            \n                \n  \
+      \              \n                    \n                                                        \
+      \                        \n                        \n                        \n                \
+      \        \n        39 248 Kč bez DPH\n\n                                        **47 490 Kč**\n\
+      \                    \n            \n    \n        \n            / ks\n\n                    \n\
+      \                                            \n\nČerné skládací kolo Brompton H6R, s blatníky, šesti\
+      \ převody, vyššími řídítky, zadním nosičem a nabíjecím LED osvětlením\n\n            \n        \n\
+      \        \n    \n                    \n            Kód: 621100\n        \n    \n    \n         \
+      \                               \n    \n                    \n                \n               \
+      \                                                                                              \
+      \                       \n    \n    \n            \n        \n        \n            \n         \
+      \   \n                \n                \n                    \n                               \
+      \                                                 \n                        \n                 \
+      \       \n                        \n        39 587 Kč bez DPH\n\n                              \
+      \          **47 900 Kč**\n                    \n            \n    \n        \n            / ks\n\
+      \n                    \n                                            \n\nSkládací kolo Brompton H6R\
+      \ v barvě racing green má široký rozsah převodů obdobný jako osmikolečka na konkurenčních skládacích\
+      \ kolech, je vybaven blatníky a nosičem a je osazen...\n\n            \n        \n        \n   \
+      \ \n                    \n            Kód: 4576\n        \n    \n    \n                        \
+      \                \n    \n              "
+    https://www.cyklospeciality.cz/skladaci-kolo-brompton-p-line-v2-4speed-pacific-lacquer_z3732/:
+      "Product\
+      \ data (page markup): Skládací kolo Brompton P Line V2 4Speed, Pacific Lacquer - price 74000–74000\
+      \ CZK\n\nSkládací kolo Brompton P Line V2 4Speed, Pacific Lacquer\n\nSkladem 1 ks Koupit\n\n**STĚHUJEME\
+      \ SE - INFO K EXPEDICI**\n\nV termínu 10.–20. 11. 2026 nebudeme expedovat objednávky z důvodu stěhování.\
+      \ Objednávky vytvořené během této doby začneme opět expedovat od 20. 11. 2026.\n\n| Odběrová místa\
+      \ a boxy |  | Datum doručení | Cena dopravy | \n|---|---|---|---|\n|  | **Osobní odběr** | dnes\
+      \ | zdarma | \n| Doručení na adresu |  | Datum doručení | Cena dopravy | \n|  | **PPL** | dnes |\
+      \ 89 Kč | \n|  | **TopTrans** | dnes | 100 Kč | \n|  | **DPD** | dnes | 99 Kč | \n|  | **Zásilkovna**\
+      \ | dnes | 59 Kč | \n|  | **Zásilkovna - Dodání na adresu** | dnes | 99 Kč | \n|  | **DPD Pickup**\
+      \ | dnes | 59 Kč | \n|  | **PPL ParcelShop** | dnes | 59 Kč | \n\nTermíny doručení závisí na aktuální\
+      \ situaci a kapacitách přepravních společností.\n\nJeště u nás nemáte účet?\n\nVýhody registrace\n\
+      \nZaregistrujte se a využívejte naše benefity\n\nVytvořit účet"
+    https://www.citybikes.cz/skladaci-kola-brompton/: "# Skládací kola Brompton
+
+
+      ## Legendární, kompaktní a špičkově zpracované skládací kolo Brompton z Velké Británie je geniální
+      dopravní prostředek, se kterým je možné kombinovat jízdu na kole a cestování hromadnou dopravou,
+      vlakem či taxíkem ve složeném stavu jako s příručním zavazadlem.
+
+
+      ## Řazení produktů
+
+
+      **11**položek celkem
+
+
+      ## Výpis produktů
+
+
+      ### Ovládací prvky výpisu
+
+
+      **11**položek celkem
+
+
+      Skládací kola jsou v současnosti velkým hitem a kola značky Brompton tomu velmi napomáhájí, neboť
+      se jedná o tradiční výrobek, který se vyrábí již více než 35 let. Značka Brompton sídlí a vyrábí
+      svá kola v Anglii, což je sice důvodem vyšší ceny, ta je však výsledkem prvotřídního ručního zpracování
+      materiálů. Navíc jsou tato anglická skládací kola velmi elegantní a stylová, jezdci na Bromptnu
+      často jezdí v obleku s cilindrem, dámy v retro pumpkách nebo šatech. Brompton komunita se pravidelně
+      účastní závodů skládacích kol Brompton v Londýně nebo podniká expedice, zkrátka být Bromptnista
+      je hrdost. Toto skládací kolo je také ověnčeno cenou britské královny Alžběty II. za přínos v zahraničním
+      obchodu.
+
+
+      **Proč si vybrat skládací kolo Brompton**
+
+
+      Jednoduchost, funkčnost, rychlost, variabilita a nízká poruchovost. To jsou všechno faktory, které
+      zaručeně přesvědčí zákazníky o koupi skládacího kola Brompton. V jedné minutě svižné kolo, s kterým
+      nemusíte stát kolonu cestou na vlakové nádraží, a za dalších 10 sekund složené kolo o velikosti
+      větší nákupní tašky, které se vejde do kufru i malého auta, nepřekáží ve vlaku a dobře ho uskladníte
+      i v malém bytě. Veškeré prvky na této skládačce dávají smysl a jsou důmyslně propracované pro pohodlné
+      a časté používání. Aby složený Brompton nepadal, má na rámu návarky s připevněnými kolečky, a tak
+      i složené kolo můžete vézt a není třeba ho nosit. Pokud se Brompton složí jen částečně a nechají
+      se nesložená řídítka, lze díky zmíněným kolečkům táhnout skládačku za sebou jako kufr na kolečkách,
+      což ocení zvláště dámy na dlouhých nástupištích nebo třeba v supermarketu.
+
+
+      Cyklisté, kteří používají jízdní kolo jako dopravní prostředek, potřebují i přepravní prostor. Na
+      to samozřejmě u Bromptna mysleli, a tak lze kolo již rovnou zakoupit s originálním zadním nosičem,
+      šikovně je i vymyšleno připevňování přední brašny S-bag nebo skládacího košíku na adaptér s nacvakáváním.
+      Pro jezdce z vyšší postavou nad 190 cm doporučujeme teleskopickou sedlovou trubku a pro pohodlnou
+      přepravu kola lehký obal. Žádný z doplňků nebrání skládání tohoto v pravdě geniálního skládacího
+      kola.
+
+
+      Ačkoli má skládací kolo Brompton odpruženou zadní stavbu, lépe se hodí do měst a na rovné povrchy
+      silnic a cest, kde určitě oceníte velmi nízký valivý odpor a snadnou, rychlou jízdu. Kvalita zpracování
+      je prvotřídní s důrazem na dlouhodobou životnost veškerých komponentů. Skládačky Brompton mají minimum
+      závad a reklamací, a tak lze směle říci, že toto je skládací kolo na celý život!"
+    https://www.cyklodesign.cz/skladaci-kolo-brompton-c-line-12speed--black-black/:
+      "Product data (page
+      markup): price 47800 CZK
+
+
+      Skládací kolo Brompton C Line s 12stupňovou převodovkou je originální kolo zrozené pro objevování
+      města, ale i výlety do přírody. Za méně než 20 sekund se promění z dopravního prostředku na malý
+      kompaktní balíček. Snadno se zvedá, přenáší i skladuje. Kolo složíte během 20 sekund a vezmete s
+      sebou do vlaku, auta, kanceláře nebo do bytu.
+
+
+      ## Skládací kolo Brompton C Line 12Speed, Black/Black
+
+
+      **Brompton C Line 12Speed je špičkové skládací kolo**, které kombinuje ikonický design značky **Brompton**
+      a široký rozsah převodů. Je ideální pro městské dojíždění, delší výlety a kombinaci s veřejnou dopravou.
+
+
+      **Za méně než 20 sekund se promění z dopravního prostředku na malý kompaktní balíček**. Snadno se
+      zvedá, přenáší i skladuje. Můžete si ho vzít do vlaku, zastrčit do kufru auta nebo pod stůl v restauraci.
+      Můžete na něj přidat zavazadla, nosič a dokonce i uložit sadu nářadí uvnitř rámu.
+
+
+      **Spojením 3stupňové nábojové převodovky a 4stupňové přehazovačky vznikl rozsah převodů 402 %**,
+      který se vyrovná klasickým trekingovým kolům. S tímto kolem zvládnete prudká stoupání i městské
+      sprinty bez kompromisů.
+
+
+      Přenositelnost klasického kola Brompton posouvá na zcela novou úroveň díky pokročilému zadnímu rámu,
+      který umožňuje **přesouvat složené se sedlovkou zajištěnou v polovině výšky.**
+
+
+      **Upozornění:** Foto je pouze ilustrativní, příslušenství se může lišit.
+
+
+
+      ### **Hlavní přednosti:**
+
+
+      **1) Jedinečný skládací systém**
+
+
+      Jednou z největších předností jízdního kola Brompton je unikátní skládací systém, díky kterému se
+      vejde i do kufru velmi malého auta. Se složeným kolem Brompton navíc můžete cestovat vlakem bez
+      potřeby příplatku za zavazadlo. Složení a rozložení kola Brompton je navíc velmi jednoduché a intuitivní,
+      takže jej zvládne opravdu každý.
+
+
+      **2) Praktické příslušenství**
+
+
+      Kola Brompton lze doplnit o řadu praktického příslušenství, které vám usnadní život. Mezi nejoblíbenější
+      doplňky patří zadní nosič, přední brašny a světla. Pro jezdce vyšší postavy nad 190 cm doporučujeme
+      pořízení teleskopické sedlovky Brompton.
+
+
+      **3) 12stupňová převodovka**
+
+
+      Kombinací 3stupňové nábojové převodovky a 4stupňové přehazovačky získáte široký rozsah převodů.
+      Ideální do kopců, na dlouhé cesty i svižné přelety městem.
+
+
+      **4) Nový zadní rám**
+
+
+      Brompton nyní můžete přesouvat pohodlně se sedlovkou zajištěnou v polovině. Nová, větší a lepší
+      kolečka Roller Wheels snadněji překonávají překážky.
+
+
+
+      #### **Zvolte si správnou velikost**
+
+
+
+      Velikost jízdního kola se odvíjí od výšky řídítek. V nabídce jsou zpravidla tři typy, ze kterých
+      můžete vybírat.
+
+
+
+
+      **Typ S** má rovná řídítka a je vhodný pro jezdce menšího vzrůstu nebo ty, kteří preferují více
+      sportovní posed. Výška řídítek je 925 mm.
+
+
+
+
+      **Typ M** s výše posazenými řídítky vyhovuje většině uživatelů. Výška řídítek je 1015 mm.
+
+
+
+
+      **Typ H** nabízí nejvíce vzpřímený posed a je tak vhodnou volbou pro vyšší postavy. Výška řídítek
+      je 1075 mm.
+
+
+
+
+
+      **Pozor:** Jednotlivé typy (velikosti) skládacího kola Brompton jsou dodávány s různou délkou sedlovky.
+      Pro jezdce vyšší postavy nad 175 cm doporučujeme pořízení prodloužené sedlovky a v případě výšky
+      nad 185 zvolte teleskopickou sedlovku Brompton. Z toho důvodu si ověřte, jaká délka sedlovky je
+      na vámi objednaném kole.
+
+
+      **Specifikace:**
+
+
+      - **Dostupné velikosti (typy):** S, M, H
+
+      - **Celkový počet rychlostí:** 12
+
+      - **Provedení:** řada C Line znamená, že rám, zadní stavba i vidlice jsou vyrobeny z oceli
+
+      - **Hmotnost kola:** od 12 kg
+
+      - **Dodáváno bez nosiče**
+
+      - **Příslušenství:** blatníky, integrovaný zvonek
+
+      - **Rozměry kola ve složeném stavu:** 64 × 58 × 27 cm
+
+
+
+      ## Hodnocení produktu
+
+
+      Buďte první, kdo napíše příspěvek k této položce.
+
+
+      **Legendární kola BROMPTON**
+
+
+      Skládací kola **BROMPTON** se vyrábí ručně v Londýně a jsou obrovským fenoménem na celém světě.
+      Jedním z důkazů jsou **fankluby** v mnoha zemích a Mistrovství světa BROMPTON, které se koná pravidelně
+      každý rok v Blenheim Palace poblíž Oxfordu ve Velké Británii. Brompton je jed"
+    https://jizdni-kola.heureka.cz/brompton-h6-2024/:
+      "Brompton H6 2024 od 44 400 Kč - Heureka.cz\n\n\
+      - +10\n\n- Další fotky (10)\n\n# Brompton H6 2024\n\n100 %\n\nSkládací kolo do města, které zvládne\
+      \ každodenní dojíždění i víkendové výlety — spolehlivé, snadno skladné a opravitelné... Celý popis\
+      \ \n\n44 400 Kč Doprava zdarma, Skladem\n\nBrompton H6 2024\n\n## Brompton H6 2024\n\nSkladem •\
+      \ Více variant 1 ocenění Brompton H6 2024\n\n44 400 Kč Doprava zdarma\n\nBrompton H6 2024\n\n##\
+      \ Brompton H6 2024\n\n47 490 Kč Doprava od 178 Kč\n\n## Brompton H6 2024\n\n1 zákazník doporučuje\
+      \ produkt 0 zákazníků nedoporučuje produkt\n\n100 %\n\nprůměr z 3 hodnocení\n\n5\n\n3 ×\n\n4\n\n\
+      0 ×\n\n3\n\n2\n\n1\n\nPavel Bednařík - Ověřený nákup\n\npřidáno 8. října 2025, zakoupeno v CYKLOSPECIALITY.CZ\n\
+      \n100 %\n\n- rychlé složení\n- kompaktnost\n- výborné jízdní vlastnosti\n- 6 převodů\n\nCelá recenze\
+      \ \n\nOvěřený nákup\n\npřidáno 2. října 2026, zakoupeno v CYKLOSPECIALITY.CZ\n\n- Pecka\n\n## Popis\
+      \ produktu\n\nSkládací kolo do města, které zvládne každodenní dojíždění i víkendové výlety — spolehlivé,\
+      \ snadno skladné a opravitelné.\n\nModel Brompton H6 (2024) kombinuje ocelový rám, kompaktní skládací\
+      \ systém a přehledný 1×6 převod. Díky osazení plášti Schwalbe Marathon Racer a konstrukci určené\
+      \ pro každodenní použití poskytuje kolo pohodlí, spolehlivost a snadnou opravitelnost. Hodí se pro\
+      \ ty, kdo hledají praktické a odolné skládací řešení.\n\n### Rychlé složení a kompaktní uskladnění\n\
+      \nDíky unikátnímu skládacímu systému Brompton kolo rychle složíte a pohodlně přenesete nebo uložíte\
+      \ v kanceláři či dopravním prostředku. Složené zabírá minimum místa, takže šetří prostor bez kompromisů\
+      \ v jízdních vlastnostech.\n\n### Ocelový rám, který vydrží\n\nKonstrukce s ocelovým rámem nabízí\
+      \ pohodlný posed a vyšší odolnost proti poškození. Ocel se snadněji opravuje než některé jiné materiály,\
+      \ což prodlužuje životnost kola a zjednodušuje servisní zásahy.\n\n### Převody pro městský provoz\n\
+      \nSystém 1×6 převodů dává přehledné řazení, které stačí pro většinu městských tras. Jednoduchá konstrukce\
+      \ převodů snižuje potřebu údržby a usnadňuje používání při každodenním dojíždění.\n\n### Pohodlné\
+      \ a spolehlivé pláště\n\nKolo je vybaveno plášti Schwalbe Marathon Racer, které jsou volbou zaměřenou\
+      \ na spolehlivost v běžném provozu. Pláště podporují stabilní a předvídatelnou jízdu při každodenním\
+      \ používání.\n\n### Řídítka a přizpůsobení posedu\n\nBrompton nabízí různé typy řídítek, které ovlivní\
+      \ vzpřímenost a komfort posedu. Výběrem vhodného typu si přizpůsobíte kolo svému stylu jízdy, ať\
+      \ už preferujete sportovnější nebo pohodlnější nášlap.\n\n### Klíčové vlastnosti\n\n- Jednoduché\
+      \ a kompaktní skládání pro snadné přenášení\n- Pevný ocelový rám poskytující pohodlí a opravitelnost\n\
+      - 1×6 převod pro přehledné řazení a nižší nároky na údržbu\n- Pláště Schwalbe Marathon Racer pro\
+      \ spolehlivou jízdu\n- Patří do střední hmotnostní kategorie – rovnováha mezi váhou a odolností\n\
+      \n#### Je toto kolo vhodné na dojíždění?\n\nAno. Brompton H6 je navržen pro každodenní dojíždění\
+      \ i kratší výlety: složíte ho rychle a díky ocelovému rámu získáte pohodlný posed a dlouhou životnost.\n\
+      \n#### Jak rychle se kolo složí a přenáší?\n\nSložení zabere jen pár sekund a kolo je po složení\
+      \ velmi kompaktní. Unikátní skládací systém umožní snadné přenášení i uložení v malém prostoru.\n\
+      \n#### Obsahuje balení nosič nebo světla?\n\nV základní specifikaci nejsou nosič ani světla. Kolo\
+      \ lze ale doplnit o originální příslušenství — nosiče, brašny nebo osvětlení podle potřeby.\n\n\
+      #### Dá se kolo snadno opravit a najdu díly?\n\nAno. Díky ocelovému rámu a rozšířené servisní síti\
+      \ jsou dostupné náhradní díly a opravy u specializovaných servisů pro Brompton.\n\nChybí či je nepravdivý\
+      \ některý důležitý parametr? Uvedené informace jsou pouze orientační, před zakoupením ve vybraném\
+      \ obchodě doporučujeme ověřit, že prodávaný model má klíčové vlastnosti dle vašich požadavků. I\
+      \ když se snažíme o maximální přesnost informací, bohužel nemůžeme zaručit jejich 100% správnost.\
+      \ Ceny produktů jsou uváděny včetně DPH.\n\n## Parametry produktu\n\nTyp\n\nskládací \n\nModelový\
+      \ rok\n\n2024 \n\nbez odpružení \n\nHmotnost\n\n12.2 kg\n\nMateri"

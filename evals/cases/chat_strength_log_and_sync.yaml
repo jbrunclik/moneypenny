@@ -1,0 +1,19 @@
+id: chat_strength_log_and_sync
+description: Long strength chat - a terse session report must be saved to KV AND pushed to the Garmin workout (the Nov 13-17 missed-write failure)
+history_from: strength_program
+user: "Pondeli hotovo. Drep 87,5 4x5, posledni serie RPE 8,5. Bench 67,5 vsechno 6, RPE 7. Pritahy 26 v pohode."
+expect:
+  rubric: >
+    Czech coach reply that applies the program's own progression rule from the
+    stored routine (lower body +2.5 kg only when every set is RPE <= 8; upper
+    body +2.5 kg after two weeks): squat stays at 87.5 kg (last set RPE 8.5),
+    bench moves to 70 kg (RPE 7, second week at 67.5). It saves the session
+    (kv_store write of progress/last_session) and updates the bench weight in
+    the saved Garmin workout "Sila A - pondeli", saying what changed. Must not
+    raise the squat, must not ask for data it was given.
+  required_tools: [kv_store]
+  required_arg_patterns:
+    kv_store.action: ["^(set|merge)$"]
+  required_actions:
+    garmin: ["^updated workout 'Sila A - pondeli'.*BARBELL_BENCH_PRESS weight_kg 67.5->70"]
+  max_tool_rounds: 6

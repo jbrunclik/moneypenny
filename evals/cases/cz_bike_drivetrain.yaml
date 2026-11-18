@@ -4,8 +4,6 @@ user: |
   mam gravel se shimano grx 1x11 a chtel bych vetsi rozsah na kopce.
   co koupit - vetsi kazetu nebo mensi prevodnik? a na co si dat pozor
   ohledne kompatibility?
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Technically sound Czech answer: both options explained (smaller chainring
@@ -14,3 +12,669 @@ expect:
     cage extender/goatlink and possibly a longer chain). Mentions chain length
     and 11-speed compatibility. Concrete, no invented incompatible parts.
   max_tool_rounds: 4
+# Canned web captured 2026-11-18 (evals/capture_web.py): Shimano GRX RX812 max cassette 42T; GRX 1x11 větší kazeta nebo menší převodník
+web:
+  results:
+    - url: https://www.universalcycles.com/shopping/product_details.php?id=99427
+      title: Universal Cycles -- Shimano RD-RX812 GRX Rear Derailleur - 1 x 11 Speed [IRDRX812]
+      snippet:
+        "Universal Cycles -- Shimano RD-RX812 GRX Rear Derailleur - 1 x 11 Speed [IRDRX812]\n\n#\
+        \ Shimano RD-RX812 GRX Rear Derailleur - 1 x 11 Speed\n\nYour message has been sent. We will get\
+        \ back to you as soon as possible!\n\n \n\nSHIMANO GRX - Rear Derailleur - SHIMANO SHADOW RD+ -\
+        \ 42T max low sprocket - 1x11-speed. Compatible with MTB cassettes with a 42T low sprocket max \n\
+        \nSHIMANO SHADOW RD+ (11-speed) \n\nAdjustable chain stabilizer prevents chain slapping and drops\
+        \ \n\nSwitch stabilizer ON/OFF to match the te"
+    - url: https://www.lecomptoirbikeshop.com/transmission/9836-derailleur-arriere-shimano-grx-rd-rx812-1x11v-max-42t-4550170448882.html
+      title: Dérailleur arrière SHIMANO GRX - RD-RX812 - 1x11v - Max 42T
+      snippet:
+        "Dérailleur arrière SHIMANO GRX - RD-RX812 - 1x11v - Max 42T\n\n \n\n \n\n# Dérailleur arrière\
+        \ SHIMANO GRX - RD-RX812 - 1x11v - Max 42T\n\n Prix: 118,99 € \n\nConçu pour les pratiques gravel\
+        \ engagées, le SHIMANO GRX RD-RX812 est un dérailleur arrière spécifique aux transmissions 1x11\
+        \ vitesses, offrant une tension optimisée de la chaîne et une excellente compatibilité avec les\
+        \ cassettes larges, jusqu’à 42 dents.\n\nInspiré de la technologie SHADOW RD+, ce dérailleur intègre\
+        \ un système de stabilisation de la c"
+    - url: https://www.cyclingboutique.in/products/shimano-rear-derailleur-grx-rd-rx812-11-speed-shadow-plus-design-42t-max-low-sprocket
+      title: Shimano Rear Derailleur | GRX RD-RX812, 11-Speed, Shadow Plus Design, 42T Max Low Sprocket
+      snippet:
+        "# Shimano Rear Derailleur | GRX RD-RX812, 11-Speed, Shadow Plus Design, 42T Max Low Sprocket
+
+        Sold by: cyclingboutique.in
+
+
+        ## Specifications
+
+        Cage Length: SS (Short Cage); Mount Type: Direct Attachment
+
+
+        ## Pricing & Reviews
+
+        Price: 10200 INR.
+
+
+        ## Description
+
+        Shimano GRX - Rear Derailleur - Shimano Shadow RD+ - 42T Max Low Sprocket - 11-speed RD-RX812 With
+        an integrated chain stabilizer mechanism, the SHIMANO GRX derailleur provides a quieter experience,
+        shifting security, and precision on mixed ter"
+    - url: https://www.specshift.bike/components/rear-derailleurs/shimano-grx-800-rd-rx812
+      title: Shimano RD-RX812 | Compatibility & Specs
+      snippet: "Shimano RD-RX812 | Compatibility & Specs
+
+
+        # Shimano GRX 800 RD-RX812 Rear Derailleur / Rear Mech
+
+
+        The Shimano GRX 800 RD-RX812 is a high-end tier, 11-speed rear derailleur. It uses Mechanical shifting,
+        features a clutch to stabilize the chain in rough conditions, and is intended for gravel cycling.
+
+
+        ## Cassette & Drivetrain Compatibility
+
+
+        Standard
+
+
+        11-speed Hyperglide-series
+
+
+        Largest cog
+
+
+        40–42T
+
+
+        Smallest cog
+
+
+        11T
+
+
+        Drivetrain
+
+
+        1× only (no front derailleur)
+
+
+        ### Cassettes that match
+
+
+        - Shimano De"
+    - url: https://www.bike-forum.cz/forum/1x11-grx-810-nebo-812
+      title: 1x11 grx 810, nebo 812 - Diskuse - Bike-forum.cz
+      snippet:
+        "1x11 grx 810, nebo 812 - Diskuse - Bike-forum.cz \n\n# 1x11 grx 810, nebo 812\n\n- \n\n\
+        \ Megan79 17.11.2025 18:15\n\nAhoj, na cyklokrosce potřebují vyměnit Ultegru šaltr, za grx a teď\
+        \ jaký 810,nebo 812, vzadu zůstane kazeta 34z, což dá i 810, ale ta 812 má nějak jinak kladku horní?\
+        \ Díky za info\n\n 0 0 \n\n Zpět Reagovat \n\n- Singlespeed 17.11.2025 19:00\n\n812 je pro jednoplacku\
+        \ 11–40 nebo 11–42z. Pro 34 zubů je 810.\n\n 0 0 \n\n Zpět Reagovat \n\n- Megan79 17.11.2025 19:07\n\
+        \nChápu to rozdělení, jen nevím zda tam nen"
+    - url: https://bike-forum.cz/forum/gravel-1x11-1x12
+      title: Gravel 1x11 --> 1x12 - Diskuse - Bike-forum.cz
+      snippet:
+        "Gravel 1x11 --> 1x12 - Diskuse - Bike-forum.cz \n\n# Gravel 1x11 --> 1x12\n\n- \n\n Kinky\
+        \ 16.11.2022 12:05\n\nZdravím!\n\nZamiloval jsem se do jízdy na gravelu u nás v Jizerkách.. super\
+        \ požitek, kdy si naplno užiju přejezdy na silnici, panelové cesty, šotolinu, perk a štěrk a zážitek\
+        \ nezkazí ani občasný kořen, šutr nebo drenážní žlab.\n\nMám Giant Revolt Advanced 1 a jediné co\
+        \ mě začíná trápit je řazení – malý rozsah převodů. Shimano GRX RX600, převody 1×11, převodník 40\
+        \ zubů, kazeta Shimano M7000, 11–42 zu"
+    - url: https://www.bike-forum.cz/forum/odstupnovani-kazety-1x11
+      title: Odstupňování kazety 1x11 - Diskuse - Bike-forum.cz
+      snippet:
+        "Odstupňování kazety 1x11 - Diskuse - Bike-forum.cz \n\n# Odstupňování kazety 1x11\n\n- \n\
+        \n Florenc 10.8.2021 00:40\n\nPředcházím z gravelu 2×9 Sora na nový gravel 1×11 GRX. Přehazovačka\
+        \ GRX má správně mít kazetu 11z-42z, což se shoduje s mým stávajícím rozsahem 2×9 Sora. Pro stávající\
+        \ 9s kazetu jsem si ale kombinoval pastorky ze 2 různých kazet do výsledku 13–14–15–16–18–20–23–28–34\
+        \ a podobného odstupňování bych chtěl dosáhnout i nyní pro 1×11, tzn. zbavit se zbytečného množství\
+        \ lehkých převodů a jemně"
+    - url: https://www.velozine.nl/reviews/test-11-42t-cassette-op-shimano-grx-groep-dankzij-wolf-tooth-goat-link/
+      title: Test | 11/42t-cassette op Shimano GRX-groep dankzij Wolf Tooth Goat-link
+      snippet:
+        "Test | 11/42t-cassette op Shimano GRX-groep dankzij Wolf Tooth Goat-link\n\n## Makkelijker\
+        \ klimmen met je gravelbike met grotere cassette en derailleur-tuning\n\n Gepost in Reviews door\
+        \ Redactie op 24 februari 2025 12 december 2025 | 4 reacties \n\nWil je in de bergen gaan gravelen\
+        \ en zou je daarvoor eigenlijk lichtere verzetten willen hebben dan je gravelbike af fabriek in\
+        \ huis heeft? Kan niet, zegt Shimano tegen de gebruikers van de populaire GRX 800 2×11-gravelgroep.\
+        \ Kan wel, zegt onze kilometervre"
+  pages:
+    https://www.universalcycles.com/shopping/product_details.php?id=99427:
+      "Product data (page markup):
+      Shimano RD-RX812 GRX Rear Derailleur - 1 x 11 Speed - Medium Cage (Grey/Black) - price 119.99 USD,
+      InStock
+
+
+      SHIMANO GRX - Rear Derailleur - SHIMANO SHADOW RD+ - 42T max low sprocket - 1x11-speed. Compatible
+      with MTB cassettes with a 42T low sprocket max
+
+
+
+      - SHIMANO SHADOW RD+ (11-speed)
+
+      - Adjustable chain stabilizer prevents chain slapping and drops
+
+      - Toggle clutch ON/OFF to match the terrain
+
+      - Switch stabilizer ON/OFF to match the terrain
+
+      - Gravel-tuned clutch tension
+
+      - Silent and uninterrupted rear shifting on rough terrain
+
+      - Series: Shimano GRX 11-speed
+
+      - Top Sprocket Max: 11T/Min. 11T
+
+      - Low sprocket: Max. 42T/Min. 41T
+
+      - Total capacity: 31T
+
+      - Smooth and reliable mixed surface shifting
+
+      - Compatible with current road DUAL CONTROL LEVER
+
+      - Top sprocket: Max. 11T/Min. 11T
+
+      - Compatible Chain: HG-EV 11-speed/HG-X11
+
+      - Pulley Teeth: 11t
+
+      - Rear Speeds: 11 speed
+
+      - Weight: 267g."
+    https://www.lecomptoirbikeshop.com/transmission/9836-derailleur-arriere-shimano-grx-rd-rx812-1x11v-max-42t-4550170448882.html:
+      'Product data (page markup): Dérailleur arrière SHIMANO GRX - RD-RX812 - 1x11v - Max 42T - price
+      118.99 EUR, InStock
+
+
+      Conçu pour les pratiques gravel engagées, le SHIMANO GRX RD-RX812 est un dérailleur arrière spécifique
+      aux transmissions 1x11 vitesses, offrant une tension optimisée de la chaîne et une excellente compatibilité
+      avec les cassettes larges, jusqu’à 42 dents.
+
+
+      Inspiré de la technologie SHADOW RD+, ce dérailleur intègre un système de stabilisation de la chaîne
+      qui limite efficacement les claquements et les déraillements, même sur les terrains les plus cassants.
+      Son design compact et épuré est pensé pour résister aux chocs et assurer une fiabilité maximale
+      en conditions extrêmes.
+
+
+      Idéal pour les cyclistes en quête de simplicité, de silence et de robustesse sur des parcours gravel,
+      bikepacking ou ultra-distance.
+
+
+      En Stock : Le produit est stock et il sera expédié généralement dans les 24 heures, mais nous laissons
+      une marge de manœuvre entre 2 et 5 jours.
+
+
+      Disponibles \* : Le produit est disponible chez le fournisseur il sera généralement expédié sous
+      7 jours, mais nous préférons vous annoncer entre 5 et 15 jours ouvrés.
+
+
+      Pré-commande : Tout dépend des fournisseurs et nous vous indiquons les informations que le fournisseur
+      nous transmet
+
+
+      Délais de livraison : Entre 2 et 5 joursCatégorie : TransmissionMarqueSHIMANORéférenceIRDRX812EAN134550170448882
+
+
+
+      Nombre de dents
+
+
+      42t
+
+
+      Nombre de vitesse
+
+
+      11 Vitesses
+
+
+      Type de Chape : Dérailleur
+
+
+      Chape Longue
+
+
+      Groupe
+
+
+      SHIMANO GRX
+
+
+      Dérailleur arrière SHIMANO GRX RD-RX812 – 1x11V – Max 42T
+
+
+      Conçu pour les pratiques gravel engagées, le SHIMANO GRX RD-RX812 est un dérailleur arrière spécifique
+      aux transmissions 1x11 vitesses, offrant une tension optimisée de la chaîne et une excellente compatibilité
+      avec les cassettes larges, jusqu’à 42 dents.
+
+
+      Inspiré de la technologie SHADOW RD+, ce dérailleur intègre un système de stabilisation de la chaîne
+      qui limite efficacement les claquements et les déraillements, même sur les terrains les plus cassants.
+      Son design compact et épuré est pensé pour résister aux chocs et assurer une fiabilité maximale
+      en conditions extrêmes.
+
+
+      Idéal pour les cyclistes en quête de simplicité, de silence et de robustesse sur des parcours gravel,
+      bikepacking ou ultra-distance.
+
+
+      Caractéristiques techniques :
+
+
+      Transmission : 1x11 vitesses
+
+
+      Capacité maximale de cassette : 42 dents
+
+
+      Technologie : SHADOW RD+ pour une meilleure stabilité de chaîne
+
+
+      Compatibilité : cassettes VTT type 11-42 / 11-40 / 11-36'
+    https://www.cyclingboutique.in/products/shimano-rear-derailleur-grx-rd-rx812-11-speed-shadow-plus-design-42t-max-low-sprocket:
+      "Product data (page markup): Shimano Rear Derailleur | GRX RD-RX812, 11-Speed, Shadow Plus Design,\
+      \ 42T Max Low Sprocket - price 10200.00 INR, InStock\n\nNo Products in the Cart\n\n **Shimano GRX\
+      \ - Rear Derailleur - Shimano Shadow RD+ - 42T Max Low Sprocket - 11-speed RD-RX812** \n\nWith an\
+      \ integrated chain stabilizer mechanism, the SHIMANO GRX derailleur provides a quieter experience,\
+      \ shifting security, and precision on mixed terrain. For rides on smooth surfaces, the derailleur\
+      \ features an ON/OFF switch for the chain tensioner. The RD-RX812 rear derailleur is compatible\
+      \ with MTB cassettes with a 42T low sprocket max.\n\nSKU#\n\n| IRDRX812 | REAR DERAILLEUR,RD-RX812,\
+      \ GRX, 11-SPEED, TOP NORMAL, SHADOW PLUS DESIGN, DIRECT ATTACHMENT, W/OT-RS900(BLACK) 240MM X1,\
+      \ LONG NOSE CAP X1, IND.PACK | \n\n*\\*Note: Images are for representational purposes only. Actual\
+      \ size/packaging varies with product type/size.*\n\n**Cycling Boutique is The Shimano - The official\
+      \ sales, support, and warranty services for Shimano in India.**\n\nWhen you buy a new bicycle in\
+      \ India or already riding a bicycle, you must have noted that Bike brands love this - Be it Trek,\
+      \ Specialized, Cannondale, Giant, Scott, Polygon, Merida, Marin, Bergamont, Btwin, Schwinn, Ridley\
+      \ - you will see all brands bicycles with an Altus component in use. The giant Shimano Gearing Systems\
+      \ and Components collection is in ready stock at Cycling Boutique.\n\nCycling Boutique is a fully\
+      \ certified and authorized sales and service center for Shimano products in India. Cycling Boutique\
+      \ is well-versed with Shimano components, extensive service track records, and top-notch bicycle\
+      \ mechanics in its service support center. Shimano's cutting-edge technology and service operations\
+      \ directly train and certify our employees.\n\nWhen buying Shimano bicycle components in India,\
+      \ be assured that Cycling Boutique is the go-to place with 100% original, genuine Shimano components\
+      \ with trustable authenticity and trust. Our friendly technical support staff will be able to address\
+      \ any of your technical issues - be it a silly-looking beginner question to the most challenging\
+      \ solvable bicycle mechanical problems.\n\n| Buy the finest Cycling products from Cycling Boutique,\
+      \ India's 1st and most trusted Online Bike Store - Established in 2012. | \n\n2"
+    https://www.specshift.bike/components/rear-derailleurs/shimano-grx-800-rd-rx812:
+      "Shimano RD-RX812\
+      \ | Compatibility & Specs\n\n# Shimano GRX 800 RD-RX812 Rear Derailleur / Rear Mech\n\nThe Shimano\
+      \ GRX 800 RD-RX812 is a high-end tier, 11-speed rear derailleur. It uses Mechanical shifting, features\
+      \ a clutch to stabilize the chain in rough conditions, and is intended for gravel cycling.\n\n##\
+      \ Cassette & Drivetrain Compatibility\n\nStandard\n\n11-speed Hyperglide-series\n\nLargest cog\n\
+      \n40–42T\n\nSmallest cog\n\n11T\n\nDrivetrain\n\n1× only (no front derailleur)\n\n### Cassettes\
+      \ that match\n\n- Shimano Deore XT CS-M8000 11 speed, 11‑42 teeth Cassette\n- Shimano Deore XT CS-M8000\
+      \ 11 speed, 11‑40 teeth Cassette\n- Shimano SLX CS-M7000-11 11 speed, 11‑42 teeth Cassette\n- Shimano\
+      \ SLX CS-M7000-11 11 speed, 11‑40 teeth Cassette\n\n## Specifications\n\n- Model no.\n\nRD-RX812\
+      \ \n- Brand\n\nShimano \n- Series\n\nGRX 800 \n- Groupset\n\nGRX RX810 \n- Intended use\n\nGravel\
+      \ cycling \n- Tier\n\n2 — High-End \n\n### Tier levels (highest to lowest)\n\n1. Flagship\n2. High-End\n\
+      3. Performance\n4. Mid-Range\n5. Value\n6. Budget\n\nLearn more about our tier classification\n\
+      - Weight (claimed average)\n\n267g \n\nThis is the manufacturer’s claimed average weight; actual\
+      \ weights may differ.\n- Shifting type\n\nMechanical \n\nGear shifting can be mechanical or electronic.\
+      \ Mechanical systems use cables to move derailleurs, while electronic ones rely on battery-powered\
+      \ motors. Wired electronic setups connect shifters and derailleurs with wires; semi-wireless systems\
+      \ use wireless links from shifter to junction box, then wires to the derailleur; fully wireless\
+      \ systems link shifter and derailleur directly.\n- Rear speeds\n\n11 \n\nNumber of cogs on the cassette.\n\
+      - Single chainring only (1X system)\n\nYes \n\nA single chainring/1X system is a system where the\
+      \ derailleur is only compatible with a single chainring on the crankset.\n- Cage length\n\n- \n\n\
+      The cage length refers to the length of a derailleur’s arm that holds the jockey wheels, influencing\
+      \ how much chain it can wrap around the gears. Even so, cage length by itself doesn’t specify the\
+      \ exact numerical capacity, so you should check both the total capacity and cassette capacity to\
+      \ ensure everything fits together properly.\n- Total capacity\n\n31 \n\nThe total capacity of a\
+      \ rear derailleur refers to the maximum amount of chain slack it can take up. This determines the\
+      \ maximum difference in teeth between the largest and smallest cassette cogs plus the largest and\
+      \ smallest chainrings that the derailleur can handle.\n- Cassette capacity\n\n31 \n\nCassette capacity\
+      \ is the range between the largest and smallest cassette cogs that a rear derailleur can support.\
+      \ Unlike \"total capacity\", it excludes chainring differences. Always verify the \"low sproc\"\
+      \ and \"top sproc\" specs to ensure compatibility between the derailleur and cassette.\n- Max front\
+      \ diff\n\n0 \n\nThe max front diff is the largest tooth count gap between chainrings a rear derailleur\
+      \ can manage. A greater difference requires a longer rear derailleur cage to handle extra chain\
+      \ slack. On a single chainring system, the difference will be 0.\n- Low sproc max\n\n42 \n\nLow\
+      \ sproc max is the maximum number of teeth of the largest cog on the cassette that a rear derailleur\
+      \ can accommodate.\n- Low sproc min\n\n40 \n\nLow sproc is to the minium number of teeth of the\
+      \ largest cog on the cassette that a rear derailleur can accommodate. Selecting a cassette with\
+      \ a low sprocket below this value may result in poor shifting performance or incompatibility with\
+      \ the derailleur.\n- Top sproc max\n\n11 \n\nTop sproc max is the maximum number of teeth of the\
+      \ smallest cog on the cassette that a rear derailleur can accommodate.\n- Top sproc min\n\n11 \n\
+      \nTop sproc min is the minimum number of teeth of the smallest cog on the cassette that a rear derailleur\
+      \ can accommodate.\n- Pulley teeth\n\n11 \n\nPulley teeth refer to the number of teeth on the rear\
+      \ derailleurs jockey wheels (also called pulley wheels). A higher number of pulley teeth gives a\
+      \ marginal improvement to the efficiency of a drivetrain.\n- Clutch\n\nYes \n\nA clutch maintains\
+      \ chain tension, thereby significantly re"
+    https://www.bike-forum.cz/forum/1x11-grx-810-nebo-812:
+      "Ahoj, na cyklokrosce potřebují vyměnit Ultegru
+      šaltr, za grx a teď jaký
+
+      810,nebo 812, vzadu zůstane kazeta 34z, což dá i 810, ale ta 812 má nějak
+
+      jinak kladku horní? Díky za info
+
+
+      Chápu to rozdělení, jen nevím zda tam není něco víc za rozdíl
+
+      v těch šaltrech, našel jsem něco o excentrické kladce u 812. Mě jde
+
+      o to abych tam nedával zbytečně dlouhé ramínko , (třeba dnes by to tahal
+
+      v písku ve Veselý zbytečně ????) protože jsem hádal rozdíl jen v délce
+
+      ramének, ale jistý si nejsem, tak si nechám tady rád poradit????
+
+
+      Obě ramínka jsou hodně dlouhá. Excentrická kladka 812 je tam kvůli
+
+      lepšímu kopírování tvaru 40+ kazety v režimu jednoplacky. Pokud nemáš
+
+      40z+ zubovou kazetu, použij 810 jak doporučuje výrobce.
+
+
+      No já jsem mu vyndal Ultegrové kliky a dál grx, stim že mu to
+
+      zjednoduším v krosu a ono mu to už 2× spadlo během závodu z toho
+
+      převodníku, po prvním spadnutí,jsem tam dal vodítko a ono to dokáže
+
+      zapadnout mezi něj a převodník a nejde to vyndat a nasadit zpátky do zubů
+
+      ???? tak snad to vyřeší ta hazka"
+    https://bike-forum.cz/forum/gravel-1x11-1x12:
+      'Zamiloval jsem se do jízdy na gravelu u nás v Jizerkách..
+      super
+
+      požitek, kdy si naplno užiju přejezdy na silnici, panelové cesty, šotolinu,
+
+      perk a štěrk a zážitek nezkazí ani občasný kořen, šutr nebo
+
+      drenážní žlab.
+
+
+      Mám Giant Revolt Advanced 1 a jediné co mě začíná trápit je
+
+      řazení – malý rozsah převodů. Shimano GRX RX600, převody 1×11,
+
+      převodník 40 zubů, kazeta Shimano M7000, 11–42 zubů.
+
+
+      Na silnicí z kopce chybí fakt těžký převod, v terénu do kopce bych
+
+      zase ocenil o trochu lehčí převod.
+
+
+      Přemýšlím tedy o přechodu z 11s na 12s, asi ideálně s co
+
+      největším rozsahem (třeba 10–52?).
+
+
+      Nemám s takovým upgradem žádnou zkušenost – neměl byste někdo
+
+      prosím tipy / triky / zkušenosti jak to nejlépe nakonfigurovat?
+
+
+      Takže i se spotřebákem máš pod 4 litry vyřešený lehký převody.
+
+      Z kopce zapracuj na kadenci šlapání a nad 50 km/h nech pracovat gravitaci.
+
+      Nebo dej ještě větší převodník, ale to ti zase ubere ty lehké
+
+      převody.
+
+
+      Doporučuji použít jeden z mnoha kalkulátorů převodů. Protože počet
+
+      kombinací převodů nezaručuje, že krajní převody nebudou dostačovat.
+
+      O progresivního, lineárním, nebo degresivní odstupňování zpřevodovaním
+
+      nemluvě.
+
+
+      To musíte spočítat sám. Rozhodně není možné si poskládat kazetu tak
+
+      jako za dob 2×9 , stejně rám má omezení jak minimalni tak maximální
+
+      velikosti převodníku. Stejně není normální menší pastorek než 10z a
+
+      největší je omezený přehazovačkou. A to ten 10z pastorek počítá
+
+      ještě s jiným ořechem/nábojem.
+
+
+      Není problém si to dát do Excelu a spol a vybrat jednu z možných
+
+      variant.
+
+
+      Vyměnit vodítko na saltru a dat kazetu s větším rozsahem, ale zachovat
+
+      11s. Pak nejtěžší převod doladit prevodnikem. Sram řešení je, nevím
+
+      jestli je to i na Shimano
+
+
+      Tragédie to není, ale nesmíš být tlustý a musíš mít něco naslapano.
+
+      Jezdil jsem tak několik let. Teď s plus třemi lety, plus patnácti kily a
+
+      mínus 3000km za rok jsem rád za 40/10–44. ;)
+
+
+      42 prevodnik a 10–42T kazeta je uplna pohoda na normalni jezdeni i pro
+
+      hobika, nevidim sebemensi problem, pokud to kolo nevazi tunu a nejezdi se dlouhe
+
+      stojky. A ten minimalismus a funkcnost je top.
+
+
+      Tohle je prostě hodně individuální. Desítky let jsem zvyklý točit na
+
+      silnici 11–25 na desítce a teď 11/28 na jedenáctce, což je úplně to
+
+      stejné, jen s jedním pastorkem navíc. Takže větší skoky pak vnímám
+
+      okamžitě a po letošní hodně silniční sezoně mi najednou hodně začala
+
+      vadit i 12 spd kazeta na MTB.
+
+
+      Rozsah 1× 9,10,11,12 vůbec nevypovídá jestli převodový poměr je
+
+      vyhovující. Zatímco u starého 9×3(9×2) šlo skládat převody velice
+
+      dobře u nového třeba 1×12 omezenim na straně rámu = omezený výběr
+
+      převodníků. Tak konstrukční provedení kazety. To dává buď kombinace na
+
+      rovinaté tratě , nebo na kopcovité. Chybí tam ta univerzálnost 2× 3× a
+
+      budou chybět jak lehké tak těžké převody. Jezdec/mechanik může vybírat
+
+      jen nějaký kompromis.
+
+
+      A opet spatne :) ja z 3×9 prechazel na 1×12 a krasne jsem si to nastavil
+
+      tak, aby mi zustaly prevody ktere jsem na 3×9 pouzival a prisel jsem jen
+
+      o jeden prevod, ktery jsem na 3×9 vyuzival nejmene. Takze to jde…
+
+
+      Tvl tak kdyz uz posilas kalkulator tak si to tam nacvakej ne? Kola 29" gumy
+
+      treba 57mm:
+
+
+      3×9 – prevodniky 22/32/42 a kazeta 11–32, celkovy rozsah 555%, rychlost
+
+      pri prednastavene kadenci 8,5 – 48 km/h
+
+
+      1×12 – prevodnik 34, kazeta 10–50, rozsah 500%, rychlost pri
+
+      prednastavene kadenci 8,5 – 43 km/h.
+
+
+      Takze jsem s 1×12 prisel o jeden nejtezsi prevod, ktery jsem vyuzival
+
+      nejmene. Nevim jaky dalsi dukaz potrebujes. Oba pohony jsou nastavene tak, aby
+
+      mi vyhovovaly.
+
+
+      Výrok …krasne jsem si to nastavil tak, aby mi zůstaly převody
+
+      které jsem na 3×9 používal a přisel jsem jen o jeden převod, ktery jsem
+
+      na 3×9 využíval nejméně… není pravdivý.
+
+
+      Převodový poměr u 1×12 Vám vyhovuje, Vám stačí a podobně. Nikoliv
+
+      že ty převodové poměry shodné s 3×9. V rámci kombinací není problém
+
+      až se neshodovali v žádném zařazeném stupni.
+
+
+      Výrok …Oba pohony nejsou nastavené tak aby Vám vyhobovaly…
+
+      není pravdivý. 12S kazetu na prání Vám rozhodně nikdo nevyráběl
+
+      stejně SRAM\Shimano nedělá podle Vám.'
+    https://www.bike-forum.cz/forum/odstupnovani-kazety-1x11:
+      'Předcházím z gravelu 2×9 Sora na nový gravel
+      1×11 GRX. Přehazovačka
+
+      GRX má správně mít kazetu 11z-42z, což se shoduje s mým stávajícím
+
+      rozsahem 2×9 Sora. Pro stávající 9s kazetu jsem si ale kombinoval pastorky
+
+      ze 2 různých kazet do výsledku 13–14–15–16–18–20–23–28–34 a
+
+      podobného odstupňování bych chtěl dosáhnout i nyní pro 1×11, tzn.
+
+      zbavit se zbytečného množství lehkých převodů a jemněji odstupňovat ty
+
+      těžké, např. 11–12–13–14–15–17–19–23–28–34–42.
+
+
+      Protože bývají 3 velké pastorky kazety snýtovány na společným
+
+      nosiči, bude potřeba koupit velký pastorek kazety 42t samostatně, takový
+
+      bude fungovat? https://www.axit.cz/…ange\_ex\_42\_/
+
+      Pro další menší kolečka už je na AE poměrně dobrý výběr, nebo jsem
+
+      něco přehlédnul?
+
+
+      Napadlo mě pak ještě přeskočit ladění 11s a na HG ořechu rovnou
+
+      vyšvihnout 12s 11–46. Pro Sram se 12s upravuje podle https://cyclingtips.com/…upgrade-kit/
+
+      Jak bastlit GRX na 12s nevím, to jsem nenašel, bude vlastní tvořivost. Nebo
+
+      mám pro 12s spíše vyměnit HG ořech za XD a pak si udělat větší
+
+      rozsah 10–42?
+
+
+      Jak z hlediska napasování kombinace koleček shledáváte 11s vs.
+
+      upgradovaný GRX na 12s?
+
+
+      Pokud chceš zachovat řadící páky GRX, pak 12s možnosti můžeš rovnou
+
+      vyškrtnout – GRX páky na 12s nepřekopeš. Nebo pokud víš jak na to,
+
+      pravděpodobně budeš první průkopník, protože návod jsem na internetech
+
+      ještě neviděl :)
+
+
+      Nebo při 1×11 omezit rozsah. Sám jezdím 36/11–32 a nemám v úmyslu
+
+      obětovat jemnost za rozsah. Možná mi trochu chybí jeden těžší převod a
+
+      jeden lehčí převod, ale to jsou tak minoritní okamžiky, že to zatím
+
+      nemíním řešit. Zajímavý kompromis by pro tebe mohla být kazeta
+
+      Sunrace 11–36.'
+    https://www.velozine.nl/reviews/test-11-42t-cassette-op-shimano-grx-groep-dankzij-wolf-tooth-goat-link/:
+      "Published:
+      2025-02-24
+
+
+      *Tekst: Remco van den Heuvel // Foto’s: Arjan Kruik*
+
+
+      *Met speciale dank aan onze fijne vrienden van Klein Tweewielers voor hun assistentie bij het prepareren
+      van de testfiets.*
+
+
+      ## Vrijwel álle gravelbikes zijn *overgeared…*
+
+
+      We hebben het op deze site al vaker gezegd en we zullen het blijven zeggen: in onze optiek zijn
+      vrijwel álle gravelbikes *overgeared*. Wat we daarmee bedoelen? Simpel: de zware versnellingen op
+      de huidige gravelbikes hebben zijn te zwaar. Kijk maar eens goed op welke snelheden je uitkomt als
+      je bij een gemiddelde cadans de kleinste drie kransjes schakelt. Maar wie rijdt er werkelijk zó
+      snel op een gravelbike?
+
+
+      Aan de andere kant merken we dat we in steile buitenlandse beklimmingen regelmatig tekortkomen.
+      Ja, we fietsen hier op de redactie graag en veel. Maar we hebben ondanks dat niet de bovenbenen
+      van André Greipel of het talent van Tadej Pogačar. Als je het fijne wilt weten over het versnellingengebeuren
+      op gravelbikes, dan loont het de moeite het artikel even te lezen dat collega Jeroen daarover heeft
+      geschreven!
+
+
+      Alhoewel ik met een dikke 10 duizend kilometer per jaar best wel een veelfietser ben en ik over
+      de kracht die m’n benen kunnen leveren eigenlijk niks te klagen heb, overkomt het ook mij zo nu
+      en dan dat ik een tandje lichter zou willen schakelen dan m’n versnellingssysteem toelaat. Ik rij
+      op een Trek Checkpoint met een Shimano GRX 800-groep. Aan de voorkant zit een dubbel met buiten
+      een 48 en binnen een 31. En achteraan is een 11/34-cassette gestoken. Helemaal niks mee op de Brabantse
+      zand- en boswegen, mijn gebruikelijke jachtgebied. En ook prima in bijvoorbeeld het Limburgse Heuvelland.
+      Maar verder weg, als de beklimmingen langer en steiler worden, dan loop ik met m’n GRX-groep soms
+      tegen m’n grenzen aan.
+
+
+
+      ## Shimano GRX 800 met 11/42t-cassette?
+
+
+      Als ik me heb ingeschreven voor de 11 Stuwmerentocht, een tocht van 210 kilometer door de Belgische
+      en Duitse Eifel, besluit ik dat ik m’n fiets hiervoor wil uitrusten met lichtere verzetten. Immers,
+      die tocht in het midden van de natte en koude herfst is ook met passende versnellingen al zwaar
+      genoeg! Maar hoe maak ik de versnellingen op m’n Checkpoint lichter? Natuurlijk, een cassette bestellen
+      met grotere kransen is simpel zat. Maar wordt de grootste krans groter dan 34 tanden, dan kan m’n
+      GRX 800-derailleur het niet meer aan. Terwijl ik het liefst een 11/40t of zelfs 11/42t-cassette
+      zou monteren.
+
+
+      Een Goat-Link van de Amerikaanse *tuner* Wolf Tooth blijkt de oplossing. Dit aluminium koppelstukje
+      tussen de deraileurhanger en de derailleur brengt deze laatste iets verder naar achteren en naar
+      benden dan het originele verbindingselement. Daardoor zou de derailleur wél in staat zijn de ketting
+      rond grotere kransen te leggen. Wolf Tooth brengt zelfs meerdere Goat-links: de Goat-link 10 is
+      iets langer dan de originele Shimano-link, de Goat-link 11 is op zijn beurt weer iets langer dan
+      de Goat-link 10. Hoe langer de link, hoe groter de kransen die je derailleur aan zou moeten kunnen.
+      De Goat-link 10 zou kransen tot 42 tanden aankunnen, de Goat-link 11 zelfs kransen tot 44 tanden!
+      Het onderdeeltje kost 35 euro.
+
+
+      Naast de twee Goat-links heb ik ook twee cassettes besteld. Een 11/40t en 11/42t, beide van het
+      Taiwanese Sunrace. Al eerder had collega Arjan hier goede ervaringen mee opgedaan op zijn 10-speed-gravelbike.
+      In de werkplaats van mijn vaste fietsenmaker Klein Tweewielers heb ik alle potentieel zinvolle combinaties
+      uitgeprobeerd. Om te beginnen natuurlijk de 11/40t-cassette met de originele derailleur, daarna
+      de 11/40t-cassette met een Goat-link 10, dan de 11/42t-cassette met een Goat-link 10 en vervolgens
+      diezelfde cassette met de iets langere Goat-link 11.
+
+
+
+      ## Snelle een eenvoudige installatie
+
+
+      Het verruilen van de originele cassette voor een groter exemplaar van Sunrace is uiteraard een routineklusje.
+      Maar ook het monteren van de Goat-link is een werkje van niks. Twee inbusbouten loshalen en weer
+      vastzetten, dat is all"

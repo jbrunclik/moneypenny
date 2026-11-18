@@ -9,8 +9,6 @@ integrations:
     tasks:
       - { id: t1, content: "Send quarterly report", project_id: p1, section_id: s1 }
 user: "Give me my short morning briefing for today."
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: A short briefing for today (under ~250 words) covering today's tasks; not a weekly retrospective or planning session.
   forbidden_tools: [load_skill]

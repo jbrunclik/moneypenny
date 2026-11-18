@@ -1,0 +1,13 @@
+id: chat_project_neighbor_noise
+description: Long project chat - reuse earlier noise numbers for the neighbour's question
+history_from: project_research
+user: "Soused se ptal, jestli ho to nebude v noci budit. Je od te jednotky asi 9 metru. Co mu mam rict?"
+expect:
+  rubric: >
+    Czech answer the user can pass on, consistent with the chat's figures:
+    the ~48 dB(A) in the catalogue is sound power, the level falls with
+    distance (about 6 dB per doubling), so at ~9 m it is very quiet and well
+    under the 40 dB night limit at the neighbour's; reassuring, and ideally
+    one practical point (night/quiet mode or placement). Must not contradict
+    the earlier figures.
+  max_tool_rounds: 2

@@ -12,6 +12,8 @@ model's own query wording (a recording replayed by query would not).
 Review what it wrote: drop a page that is a cookie wall or off-topic, and
 keep cases about TODAY's facts (who holds an office, today's rate) live.
 Pages are trimmed (default 4 000 characters) and keep their source URLs.
+Then run Prettier on the case (`make lint` checks evals/cases/*.yaml); it
+only re-indents a few lines inside page text.
 
 Usage:
     PYTHONPATH=. python evals/capture_web.py <case-id> "query one" ["query two" ...]

@@ -1,7 +1,7 @@
 id: cz_local_lookup
 description: Local opening-hours lookup - needs fresh web data, Czech
 user: "do kolika ma dneska otevreno zoo praha?"
-# Interim (Nov 18 2026): live until it gets canned pages
+# Live web on purpose: today's opening hours, a Czech query - canned pages would freeze it
 web: live
 expect:
   rubric: >

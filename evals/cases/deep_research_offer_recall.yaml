@@ -2,8 +2,6 @@ id: deep_research_offer_recall
 description: A multi-option purchase decision gets an answer and a deep-research offer
 user: |
   Chci koupit sluchátka do 7 000 Kč na běhání a do MHD, co mi doporučíš?
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Answers right away in Czech with a few concrete headphone suggestions
@@ -11,3 +9,1190 @@ expect:
     and noise cancelling are the relevant tradeoffs). The answer stays
     reasonably brief because a deep-research offer was made alongside it.
   required_tools: [propose_deep_research]
+# Canned web captured 2026-11-18 (evals/capture_web.py): nejlepší sluchátka na běhání 2026; sluchátka do MHD s ANC do 7000 Kč
+web:
+  results:
+    - url: https://homescreen.cz/blog/sluchatka-k-behani
+      title: "Sluchátka na běhání: žebříček open-ear a kostních [2026] | Home Screen"
+      snippet: "Sluchátka na běhání: žebříček open-ear a kostních [2026] | Home Screen
+
+
+        +48 793 237 970 (+48793237970)
+
+
+        8. října 2026 12 min čtení
+
+
+        # Sluchátka na běhání: žebříček otevřených a kostních sluchátek
+
+
+        Jaká sluchátka na běhání? Porovnáváme sluchátka s klipem, s háčkem za uchem a kostní: voděodolnost
+        IPX, baterie, stabilita. Zjistěte, která vybrat.
+
+
+        Nejlepší sluchátka na běhání jsou ta, která nezaplní ucho. Slyšíš hudbu, ale také auto, kolo a běžce
+        za sebou. Na běhání venku si vyber otevřená sluchátka"
+    - url: https://toply.cz/sluchatka/sportovni/
+      title: 17 nejlepších sportovních sluchátek (2026) na běhání, do posilovny
+      snippet: "17 nejlepších sportovních sluchátek (2026) na běhání, do posilovny
+
+
+        # 17 nejlepších sportovních sluchátek (2026) na běhání a do posilovny
+
+
+        naposledy aktualizováno 8.10.2026 porovnával a vybíral Jan Šimečík
+
+
+        Hledáte sportovní sluchátka na běhání nebo do posilovny?
+
+
+        Taková sluchátka by měla být dostatečně odolná, stabilní v uších nebo na hlavě a v neposlední řadě
+        také dobře hrát. A přesně taková jsme našli!
+
+
+        Vybrali jsme tak ta vůbec nejlepší sportovní sluchátka, ať už s uchycením do uší, za uši, "
+    - url: https://www.critica.cz/sportovni-sluchatka/
+      title: Nejlepší sluchátka na běhání i do posilovny (2026)
+      snippet: "Nejlepší sluchátka na běhání i do posilovny (2026)
+
+
+        # Nejlepší sluchátka na běhání i do posilovny
+
+
+        Sportovní sluchátka jsou vhodná pro všechny, kteří se při jakékoliv pohybové aktivitě neobejdou
+        bez hudby nebo mluveného slova, tedy audio knížek. Pro sport jsou daleko vhodnější sportovní bezdrátová
+        sluchátka než kabelové provedení. Sluchátka na běhání a další sporty by měla být odolná vůči potu,
+        případně dešti a dobrou zprávou je, že většina modelů takto odolná je.
+
+
+        Můj pohled v rychlosti...
+
+
+        U s"
+    - url: https://www.techradar.com/best/best-running-headphones
+      title: "The best running headphones 2026: top audio for running | TechRadar"
+      snippet:
+        "The best running headphones 2026: top audio for running | TechRadar\n\n# The best running\
+        \ headphones 2026: find your match, from earbuds to bone conduction\n\n Best \n\n By Matt Evans\
+        \ Contributions by Jessica Downey \n\n last updated 9 October 2026 \n\nGrab a pair of the best running\
+        \ headphones now\n\n (Image credit: Future / Shokz) \n\n- Best overall \n- Best value \n- Best for\
+        \ a secure fit \n- Best for comfort \n- Best for endurance \n- Best for workout tracking \n- Best\
+        \ for triathletes \n- How to choose \n- How we"
+    - url: https://www.comfor.cz/lamax-buds1-anc
+      title: COMFOR - LAMAX Buds1 ANC
+      snippet:
+        "COMFOR - LAMAX Buds1 ANC\n\n# LAMAX Buds1 ANC \n\n LAMAX Buds1 ANC Vypni hluk, užij si hudbu.\
+        \ LAMAX Buds1 ANC – Vypni hluk, užij si hudbu Chceš někdy vypnout lidi v MHD nebo pouliční ruch?\
+        \ Díky špičk... Celý popis \n\nZjistit dostupnost na prodejnách\n\n Skladem 5 a více kusů \n\n 699\
+        \ Kč \n\nNejnižší cena za posledních 30 dnů před poskytnutím slevy\n\n 1 499 Kč \n\n Objednejte\
+        \ do 18:45 → Zítra přijde\n\n Česká pošta 15:45 | Zásilkovna do 14:45 | PO-ČT DPD do 18:45 hod.\
+        \ * Standardní dodací lhůta; výjimečně se může"
+    - url: https://www.homago.cz/p/lamax-dots3-anc-5
+      title: LAMAX Dots3 ANC | Homago.cz
+      snippet:
+        "LAMAX Dots3 ANC | Homago.cz\n\n# LAMAX Dots3 ANC \n\n- \n\n 999 Kč Přejít do obchodu \n\n\
+        \ LAMAX Dots3 ANC Stop hluku. Play hudbě Slyšíš to ticho? Žádný děti v MHD, žádný ruch ve vlaku\
+        \ ani na ulici. Jen ty, špičkový sluchátka LAMAX Dots3 ANC a tvůj libovej playlist, co tě dostane\
+        \ do pohody. Zapni aktivní potlačování hluku a přenes se do světa, kde existuje jenom hudba. Díky\
+        \ luxusní výdrži 10 hodin tam můžeš zůstat pěkně dlouho. Do kabelů se s nejnovějším Bluetooth 5.3\
+        \ určitě nezamotáš, všestrannost doplň"
+    - url: https://sluchatka.heureka.cz/lamax-dots3-anc/?haff=278002
+      title: LAMAX Dots3 ANC od 490 Kč - Heureka.cz
+      snippet: "LAMAX Dots3 ANC od 490 Kč - Heureka.cz
+
+
+        +8
+
+
+        Další fotky (8)
+
+
+        Video (1)
+
+
+        # LAMAX Dots3 ANC
+
+
+        92 %
+
+
+        32 recenzíSouhrn recenzí
+
+
+        TWS sluchátka s aktivním potlačením hluku vám poskytnou až 10 hodin poslechu. Disponují rozhraním
+        Bluetooth 5.3, kvalitním mikrofonem a nechybí ani herní režim... Celý popis
+
+
+        1 041 Kč
+
+
+        Doprava 59 Kč,Skladem
+
+
+        Garantovaný nákup z Spořílek.CZ. Vždy něco navíc
+
+
+        Koupit přes HeurekuKoupit
+
+
+        LAMAX Dots3 ANC
+
+
+        - Filtry
+
+        - Doporučené nabídky
+
+        - Nejlevnější
+
+        - Nejlevnější včetně dopravy
+
+        - "
+    - url: https://www.srovname.cz/sony-wf-1000xm5-stribrna/srovnani-cen/k.6047303
+      title: Sony WF-1000XM5, stříbrná cena od 4 647 Kč | SROVNAME.cz
+      snippet:
+        "1 / 2 \n\n Sony WF-1000XM5, stříbrná \n\nSony WF-1000XM5, stříbrná\n\n od 4 647 Kč \n\n\
+        \ Sony WF-1000XM5 stříbrná – prémiová true wireless sluchátka s ANC, 8,4mm Dynamic Driver X, Bluetooth\
+        \ 5.3, LDAC/LC3, až 8 h s ANC (až 24 h s pouzdrem), bezdrátové nabíjení a IPX4 odolnost. \n\n Doprava\
+        \ zdarma Skladem \n\n Doporučená nabídka 6 999 Kč \n\nFotografie produktu\n\n Sony WF-1000XM5, stříbrná\
+        \ \n\n Doporučené nabídky \n\n Skladem \n\n 6 999 Kč \n\n \n\n Skladem \n\n 4 647 Kč \n\n \n\n Za\
+        \ dopravu 99 Kč \n\n Skladem \n\n 4 990 Kč \n\n \n\n Za"
+  pages:
+    https://homescreen.cz/blog/sluchatka-k-behani:
+      "Published: 2026-10-08\n\n**Nejlepší sluchátka na běhání**\
+      \ jsou ta, která nezaplní ucho. Slyšíš hudbu, ale také auto, kolo a běžce za sebou. Na běhání venku\
+      \ si vyber otevřená sluchátka (open-ear): s klipem na ušní boltec, s háčkem za uchem nebo s kostním\
+      \ vedením.\n\nNaším tipem pro většinu běžců jsou UGREEN FitBuds WS213: háček za uchem, odolnost\
+      \ IPX5 a až 8 hodin hraní na jedno nabití. Pokud preferuješ něco menšího, vyber si sluchátka s klipem\
+      \ QCY Crossky C30S.\n\nNíže vysvětlujeme, čím se liší tři druhy otevřených sluchátek, co znamenají\
+      \ třídy voděodolnosti a zda lze ve sluchátkách startovat v závodech. Dále porovnáváme sedm modelů\
+      \ dostupných v obchodě.\n\n## Proč na běhání otevřená sluchátka, a ne in-ear\n\nBěžná in-ear sluchátka,\
+      \ např. AirPods Pro, zaplňují zvukovod. K tomu část z nich má aktivní potlačení hluku. Na běžeckém\
+      \ pásu je to výhoda, ale na ulici nebo cyklostezce slyšíš okolí výrazně hůře, pokud nezapneš režim\
+      \ kontaktu s okolím.\n\nRiziko není vymyšlené. Studie publikovaná v časopise *Injury Prevention*\
+      \ popsala 116 nehod, při kterých byli chodci ve sluchátkách sraženi vlakem nebo jiným vozidlem.\
+      \ V téměř každém třetím případě před událostí zazněl varovný signál, např. klakson nebo siréna vlaku.\
+      \ Autoři nedokazují, že za to mohou samotná sluchátka, ale poukazují na rozptýlení pozornosti jako\
+      \ možný důvod.\n\n*Na ulici a stezce ve městě je třeba slyšet auta, kola a koloběžky. Fotografie:\
+      \ Trac Vu, Zoshua Colah / Unsplash.*\n\nOtevřené sluchátka hrají vedle zvukovodu, ne v něm. Zvuk\
+      \ z okolí se dostává do ucha bez překážek. Je tu také druhá výhoda: nic netlačí na zvukovod, což\
+      \ mnoho lidí ocení při dlouhých bězích.\n\n## Druhy sluchátek na běhání: klips, háček nebo kostní\n\
+      \nVšechny tři typy nechávají ucho otevřené. Liší se tím, jak se drží na hlavě a odkud zvuk přichází.\n\
+      \n| Vlastnost | S klipem (ear-clip) | S háčkem za uchem (ear-hook) | S kostním vedením | \n|---|---|---|---|\n\
+      | Jak se drží | klip se zaklesne na okraji ucha | oblouk obepíná ucho zezadu | páska kolem zadní\
+      \ části hlavy | \n| Odkud zvuk | reproduktor u vstupu do ucha | reproduktor u vstupu do ucha | vibrace\
+      \ přes kosti lebky | \n| Stabilita při běhu | dobrá | nejlepší | dobrá | \n| Pohodlí s brýlemi a\
+      \ čepicí | ✅ | závisí na modelu | ❌ páska koliduje s kapucí | \n| Zvuk | plný | plný | slabší bas\
+      \ | \n| Nabíjecí pouzdro | ✅ | ✅ | ❌ nabíjení kabelem | \n\n*Vlevo sluchátka s háčkem za uchem,\
+      \ vpravo s klipem na okraj ucha.*\n\n**Sluchátka s klipem** jsou nejmenší a nejlehčí, váží přibližně\
+      \ 5 g na kus. Vkládáš je na okraj ucha jako náušnici. Vhodné jsou pro klidné běhání a na každodenní\
+      \ nošení, ale na velkém uchu se nemusí vejít.\n\n**Sluchátka s háčkem za uchem** obklopují celé\
+      \ ucho zezadu. Hůře se strhávají při rychlém běhu, skocích nebo intervalovém tréninku. Jsou o něco\
+      \ větší než klipsy.\n\n**Kostní sluchátka** nezakrývají ucho. Oblouk se opírá o boltec, a měniče\
+      \ leží na lícních kostech před uchem a přenášejí vibrace skrze kostra lebky. Zvukovod je zcela volný,\
+      \ ale basy jsou slabší a při vyšší hlasitosti je cítit mírné šimrání.\n\n## Voděodolnost IPX: co\
+      \ znamená IPX4, IPX5 a IPX8\n\nSluchátka na běhání mají stálý kontakt s potem a často také s deštěm.\
+      \ Proto věnujte pozornost třídě IP podle normy IEC 60529. Písmeno X znamená, že odolnost proti prachu\
+      \ nebyla testována.\n\n*Na podzim musí sluchátka na běhání odolat dešti a potu. Foto: Idean Azad\
+      \ / Unsplash.*\n\n- **IPX4**: odolnost proti stříkající vodě ze všech stran. Stačí na pot a mírný\
+      \ déšť.\n- **IPX5**: odolnost proti proudění vody z trysky. Sluchátka vydrží liják a opláchnutí\
+      \ pod kohoutkem.\n- **IPX7**: ponoření do hloubky 1 m po dobu 30 minut.\n- **IPX8**: delší nebo\
+      \ hlubší ponoření, za podmínek uvedených výrobcem.\n\nJedna past: třídy IPX7 a IPX8 automaticky\
+      \ nezahrnují IPX5. To jsou samostatné testy. Sluchátka odolná proti ponoření nemusí vydržet proud\
+      \ vody, pokud nemají dvojité označení, např. IPX5/IPX7.\n\n## Mohu běhat se sluchátky na závodech?\n\
+      \nZáleží na pravidlech závodu. Předpisy World Athletics zakazují sluchátka a přehrávače závodníkům\
+      \ startující"
+    https://toply.cz/sluchatka/sportovni/: "Published: 2026-09-10
+
+
+      Hledáte sportovní sluchátka na běhání nebo do posilovny?
+
+
+      Taková sluchátka by měla být dostatečně odolná, stabilní v uších nebo na hlavě a v neposlední řadě
+      také dobře hrát. A přesně taková jsme našli!
+
+
+      Vybrali jsme tak ta vůbec nejlepší sportovní sluchátka, ať už s uchycením do uší, za uši, na klip
+      nebo přes hlavu, která lze v současnosti koupit.
+
+
+      ## Nejlepší bezdrátová sportovní sluchátka ve zkratce
+
+
+      ## Nejlepší bezdrátová sluchátka na běhání
+
+
+      ### Beats Powerbeats Pro 2
+
+
+      - Pevné uchycení za uši
+
+      - Dlouhá výdrž baterie
+
+      - ANC a propustný režim
+
+      - Ovládání tlačítky během běhu
+
+
+      - Vyšší cena
+
+      - Jen IPX4
+
+      - ANC není z nejlepších
+
+
+      #### Proč se nám líbí?
+
+
+      Powerbeats Pro 2 si nás získaly především stabilním a pohodlným uchycením díky lehkým háčkům za
+      uši. Při běhu tak drží perfektně, i při intenzivním tempu. Navíc potěší skvělou výdrží až 10 hodin
+      (bez ANC). Aktivní potlačení hluku a transparentní režim přidávají na univerzálnosti, zatímco zabudovaný
+      měřič srdečního tepu je docela unikát a fyzická tlačítka se skvěle ovládají i za pohybu.
+
+
+      #### Co bychom zlepšili?
+
+
+      Cena je vyšší, což může některé zájemce odradit. Stupeň krytí dosahuje pouze IPX4 a ačkoliv je pouzdro
+      menší než u předchozí verze, stále zabere v kapse více místa než konkurence. ANC sice funguje, ale
+      nedosahuje úrovně špičkových modelů.
+
+
+      #### Pro koho bude nejlepší?
+
+
+      Pokud často běháte a chcete sluchátka, která při pohybu opravdu drží, Powerbeats Pro 2 jsou přesně
+      pro vás. Hodí se také pro sportovce, kteří ocení odolnost vůči potu nebo zabudovaný senzor srdečního
+      tepu.
+
+
+      ## Nejlepší otevřená sluchátka na běhání
+
+
+      ### Shokz OpenFit 2+
+
+
+      - Bezpečné díky otevřené konstrukci
+
+      - Pevně a stabilně drží
+
+      - Skvělá výdrž 11 hodin
+
+      - Pohodlné a netlačí
+
+
+      - Okolní hluk snadno přehluší hudbu
+
+      - Slabší basy než u špuntů
+
+      - Vyšší cena
+
+
+      #### Proč se nám líbí?
+
+
+      Shokz OpenFit 2+ nabízí běžcům to hlavní: kombinaci bezpečí a svobody. Díky otevřené konstrukci,
+      která neucpe zvukovod, uslyšíte kolem projíždějící auta i cyklisty, což se především ve městě rozhodně
+      hodí. Spolehnout se můžete i na vylepšený háček za ucho ze slitiny niklu a titanu. Sluchátka díky
+      němu drží na místě, i když sprintujete nebo běžíte v náročném terénu. Skvělá je taky baterie, která
+      na jedno nabití vydrží hrát 11 hodin. Klidně tak odběhnete maraton nebo celý týden tréninku a zásuvku
+      vůbec nebudete potřebovat.
+
+
+      #### Co bychom zlepšili?
+
+
+      Otevřená sluchátka jsou sice bezpečná, ale musíte počítat s horším zvukem. Když běžíte podél rušné
+      silnice, auta vaši hudbu snadno přehluší. Basům navíc chybí síla, na kterou jste zvyklí u klasických
+      špuntů. Pokud vás při běhu ženou dopředu dunivé beaty, bude vám energie chybět. Počítejte taky s
+      vyšší cenou.
+
+
+      #### Pro koho bude nejlepší?
+
+
+      Shokz OpenFit 2+ ocení hlavně městští běžci, kteří chtějí mít přehled o okolí a obětují tomu zvukovou
+      reprodukci. Hodí se i pro vytrvalce a ultramaratonce, kteří hledají parťáka s obří výdrží. Sluchátka
+      jsou tak pohodlná, že vás nebudou tlačit ani po hodinách pohybu. Pokud tedy hledáte nástroj na sport
+      a nevadí vám vyměnit silné basy za pohodlí a bezpečí, je to volba pro vás.
+
+
+      ## Lehčí alternativa s háčky, i pro Android
+
+
+      ### Sony LinkBuds Fit
+
+
+      - Háčky drží i při skocích
+
+      - Nízká hmotnost 4,9 g na sluchátko
+
+      - Podpora LDAC a multipoint pro Android
+
+      - Velmi přirozený režim propustnosti
+
+
+      - Základní krytí pouze IPX4
+
+      - Výdrž s ANC jen 5,5 hodiny
+
+      - Občas nespolehlivé dotykové ovládání
+
+
+      #### Proč se nám líbí?
+
+
+      Sony LinkBuds Fit nás zaujaly tím, jak jistě drží v uchu. Duté silikonové háčky se přizpůsobí uchu
+      a netlačí, takže sluchátka nevypadnou ani při skocích na bednu, planku nebo desetikilometrovém běhu.
+      Každé váží pouhých 4,9 gramu, takže v uších skoro necítíte, že je máte. V balení najdete čtyři velikosti
+      špuntů pro přesné usazení. Režim propustnosti navíc zní velmi přirozeně, takže na křižovatce prohodíte
+      pár slov, aniž byste sluchátka vytahovali z uší.
+
+
+      #### Co bychom zlepšili?
+
+
+      Krytí IPX4 zvládne pot a stříkající vodu, do prudkého lijáku se ale sl"
+    https://www.critica.cz/sportovni-sluchatka/:
+      "Published: 2025-07-22\n\nSportovní sluchátka jsou vhodná\
+      \ pro všechny, kteří se při jakékoliv pohybové aktivitě neobejdou bez hudby nebo mluveného slova,\
+      \ tedy audio knížek. Pro sport jsou daleko vhodnější sportovní bezdrátová sluchátka než kabelové\
+      \ provedení. Sluchátka na běhání a další sporty by měla být odolná vůči potu, případně dešti a dobrou\
+      \ zprávou je, že většina modelů takto odolná je.\n\n## Nejlepší sportovní sluchátka – TOP 10\n\n\
+      Zde je výběr 10 nejlepších sportovních sluchátek z testů a hodnocení pro rok 2026.\n\n| Pořadí |\
+      \ Vzhled | Model | Info |  | \n|---|---|---|---|---|\n| TOP 1 |  | **Niceboy Hive Sport** | Pro\
+      \ sportovce: Bezdrátová svoboda a odolnost vůči potu |  | \n| TOP 2 |  | **Xiaomi Mi Sports bluetooth\
+      \ ZBW4378GL** | Pro náročné: Ultralehká sluchátka s čistým zvukem a tlumením |  | \n| TOP 3 |  |\
+      \ **Bose SoundSport Wireless** | Prémiová volba: Komfort, NFC a odolnost ve stylovém balení |  |\
+      \ \n| TOP 4 |  | **Sony MDR-AS210AP** | Cenově dostupné: Stabilita v uchu a překvapivě silný zvuk\
+      \ |  | \n| TOP 5 |  | **QCY Phantom QY19** | Pro audiofily: Kvalitní odhlučnění a podpora aptX |\
+      \  | \n| TOP 6 |  | **Beats Powerbeats3 Wireless** | Pro intenzivní trénink: Výdrž 12 hodin a špičkový\
+      \ zvuk |  | \n| TOP 7 |  | **BML E-series E3** | Do fitka: Magnetické spojení a jednoduché ovládání\
+      \ |  | \n| TOP 8 |  | **Samsung Gear IconX** | Pro samostatné: Hrají i bez telefonu, sledují výkon\
+      \ |  | \n| TOP 9 |  | **JBL Reflect Mini BT** | Pro bezpečný trénink: Reflexní kabel a čistý zvuk\
+      \ |  | \n| TOP 10 |  | **Koss BT190i** | Pro citlivé uši: Výjimečná hlasitost a tři velikosti nástavců\
+      \ |  | \n\n### Niceboy Hive Sport\n\n### Pro sportovce: Bezdrátová svoboda a odolnost vůči potu\n\
+      \nIntraaurální sportovní sluchátka Niceboy Hive Sport jsou spojená s možností využití na celou řadu\
+      \ sportovních aktivit. Jejich velkou výhodou je, že jsou bezdrátová a s přehrávacím zařízením se\
+      \ párují pomocí Bluetooth 4.1. Jejich celkový dosah činí až 10 metrů a zaujmou také odolností, stupeň\
+      \ krytí IPX4 zaručí odolnost proti prachu, vodě a samozřejmě také potu.\n\nMají velmi příznivou\
+      \ hmotnost, která činí jen 80 gramů. Na jedno plné nabití baterie dokážou hrát až po dobu 8 hodin\
+      \ a doba plného nabití trvá přibližně 2 hodiny. Akumulátor je integrovaný, jedná se o typ Li-Ion\
+      \ s kapacitou 110 mAh.\n\nSluchátka mají běžný frekvenční rozsah 20 Hz–20 kHz. Standardní je také\
+      \ impedance 32 ohmů a zaujme rovněž citlivost, která je 102 dB. Mají vestavěný mikrofon a po propojení\
+      \ s mobilním telefonem je lze využívat jako praktické handsfree.\n\n### Xiaomi Mi Sports bluetooth\
+      \ ZBW4378GL\n\n### Pro náročné: Ultralehká sluchátka s čistým zvukem a tlumením\n\nSluchátka na\
+      \ běhání Xiaomi Mi Sports bluetooth ZBW4378GL jsou samozřejmě využitelné i na celou řadu jiných\
+      \ sportovních aktivit. Mají velmi elegantní vzhled, jsou velmi lehké – pouze 17,8 g a netypická\
+      \ hliníková zvuková komora podporuje kvalitu produkce. Unikátem je také tlumicí systém 3. generace,\
+      \ který se stará o velmi čistý zvuk a výborné odhlučnění okolí.\n\nSluchátka jsou bezdrátová a jsou\
+      \ kompatibilní s iOS i Android. Pomocí stisku 1 tlačítka lze ovládat pouštění hudby, ale také přijímat,\
+      \ stejně jako zavěšovat příchozí hovory. Mají protiskluzový design, díky kterému velmi dobře a bez\
+      \ problémů drží v uších.\n\nDisponují certifikací IPX4, která zajišťuje odolnost vůči dešti a dalším\
+      \ možným negativním vlivům, jako je zejména prach a pot. Výdrž baterie je v celku dobrých 7 hodin\
+      \ a v pohotovostním režimu vydrží 280 hodin. Hodnota citlivosti činí 88 dB a jejich frekvenční rozsah\
+      \ je 20 – 20000 Hz.\n\n### Bose SoundSport Wireless\n\n### Prémiová volba: Komfort, NFC a odolnost\
+      \ ve stylovém balení\n\nSportovní bezdrátová sluchátka Bose SoundSport Wireless jsou typu intraaural,\
+      \ tedy sluchátka určená přímo do uší. Spojení s mobilem nebo jiným zařízením je realizováno prostřednictvím\
+      \ Bluetooth a samozřejmostí je také bytelné provedení, které odolá jak drobnému dešti, tak potu.\n\
+      \nJejich součástí je vestavěná Li-Ion baterie, která na jedno nabití dodává energii po dobu 6 hodin."
+    https://www.techradar.com/best/best-running-headphones: "Published: 2022-08-05
+
+
+      There’s nothing particularly enjoyable about stopping mid-run to fix a loose earbud or discovering
+      your headphones are almost out of battery. The right pair should stay put, sound good and give you
+      one less thing to think about, whether you’re heading out for an easy jog, tackling speed sessions
+      or wearing them on race day.
+
+
+      One of the biggest decisions is how you want your headphones to fit into your run. Open-ear and
+      bone-conduction models leave your ears unobstructed, making it easier to hear traffic and other
+      runners, while traditional earbuds offer a more immersive listening experience. Fit matters just
+      as much as sound, even the best-sounding pair is little use if you're constantly pushing it back
+      into place.
+
+
+      Our expert team has tested the best running headphones on everything from easy miles to harder sessions,
+      assessing how securely they stay put, how long their batteries last and whether their sound holds
+      up when you're working hard. The Shokz OpenRun Pro 2 currently leads our lineup, but we've also
+      picked out alternatives for different budgets and running preferences.
+
+
+      With Black Friday around the corner, now is a good time to work out which pair is right for you.
+      Running headphones are often included in seasonal sales, so do your research now, find your ideal
+      match and keep checking this guide as Black Friday (November 27th) deals start rolling in. That
+      way, you'll know what you're looking for when prices drop, rather than being tempted by a discount
+      on a pair that won't suit your runs.
+
+
+      ## The best running headphones in 2026
+
+
+      Why you can trust TechRadar
+
+      We spend hours testing every product or service we review, so you can be sure you're buying the
+      best. Find out more about how we test.
+
+
+      In our guide below, you'll find more information about each of the best running headphones that
+      made our list.
+
+
+      ## The best running headphones overall
+
+
+      #### Specifications
+
+
+      #### Reasons to buy
+
+
+      #### Reasons to avoid
+
+
+      The Shokz OpenRun Pro 2 supplant the OpenRun Pro as our top pick for the best running headphones
+      in 2026. They build on the successful formula of the previous version, great bone conduction headphones
+      with solid audio, comfortable and secure fit, and good battery life.
+
+
+      Shokz has boosted the battery life of the new OpenRun Pro 2 to up to 12 hours, and we found the
+      battery life in our review to be pretty excellent. When you do run out of juice, the OpenRun Pro
+      2 offer faster charging that'll get you two and a half hours of use with just five minutes plugged
+      in. A full charge takes one hour.
+
+
+      The on-device controls are a little confusing until you get the hang of them, however, Shokz has
+      delivered significant audio quality upgrades over the previous model. They feature Shokz's 10th-generation
+      bone conduction technology and also feature air conduction, which complements the bone conduction
+      to provide better audio. While the usual limitations of bone-conducted audio apply, they sound excellent
+      for the form factor. Audio call quality is also good.
+
+
+      **Read our full Shokz OpenRun Pro 2 review**
+
+
+      ## The best value running headphones
+
+
+      #### Specifications
+
+
+      #### Reasons to buy
+
+
+      #### Reasons to avoid
+
+
+      It's very rare to see a pair of earbuds so cheap tick all the right things. And yet, the Jlab Go
+      Air Sport beat the odds, proving once and for all that you can get more for less. This isn't the
+      first time Jlab has released affordable headphones that punch above their weight, but this time
+      around, it might have just mastered the art.
+
+
+      Our time with the Jlab Go Air Sport has been full of wonderful surprises. We found it to be much
+      more comfortable to wear than the pricier Beats Fit Pro, our previous favorite. We also found its
+      sound quality, while not audiophile-level, to boast frequencies that are all well-represented, particularly
+      the bass, which is banging yet not overwhelming. We also found its controls – particularly the volume
+      control that Apple has only just started implementing on the AirPods Pro 2 – to b"
+    https://www.comfor.cz/lamax-buds1-anc:
+      "Product data (page markup): LAMAX Buds1 ANC - price 699.00
+      CZK, InStock
+
+
+      ## Detailní popis produktu
+
+
+      ## **Lamax Buds1 ANC**
+
+
+      True Wireless sluchátka LAMAX Buds1 ANC, aktivní potlačení hluku (ANC) až o -40 dB, Transparency
+      mode (mód propustnosti), výdrž 10 hodin na jedno nabití a celkem 42 hodin, nejnovější Bluetooth
+      5.3, herní a filmový režim s nízkou latencí, kvalitní mikrofon, LAMAX BeatBass® technologie, USB-C,
+      dotykové ovládání, podpora iOS a Android, instantní párování, podpora mobilních asistentů, malé
+      skladné rozměry.
+
+
+      ## Zavři se do svýho světa
+
+
+      Každý sluchátko je vybavený třemi mikrofony, který umí dokonale potlačit okolní hluk (ANC), ale
+      nijak nezkreslí přehrávanou hudbu. Komu by se chtělo poslouchat otravný hovory v MHD nebo hluk na
+      ulici, teď je čas užít si parádní zvuk tvýho playlistu. Občas ale nastanou chvíle, kdy je lepší
+      vnímat i okolí a od toho je tady transparency režim. Ten umí zesílit cizí zvuky, takže na pokladně
+      v obchodě nebo při přecházení ulice není potřeba sluchátka sundávat.
+
+
+      ## Udrží s tebou krok
+
+
+      Powerbanku nech klidně doma, špunty ti po vyndání z krabičky vydrží až parádních 10 hodin a dalších
+      32 hodin máš připravených ve skladným pouzdře. Dej si to dohromady a vyjde ti už slušný maraton.
+      Když pak šťáva dojde, přes USB-C ji zase doplníš a z 0 na 100 to dáš za slabé dvě hodinky.
+
+
+      ## Zvuk, co tě ohromí
+
+
+      Nedůležitější je u sluchátek čistota a vyrovnanost zvuku, a ta je tady dokonalá. Vše ještě doplňují
+      citlivý mikrofony, takže můžeš v klidu volat a obě ruce mít volný. Super mikrák se hodí jak při
+      on-line schůzkách, tak při hraní. Herní režim navíc zaručuje sesekání zpoždění na minimum, takže
+      si naopak na maximum užiješ herní turnaj i filmovej maraton. Výpadky ani zamotání do kabelu nehrozí,
+      Bluetooth 5.3 všechno přenese bezdrátově až na vzdálenost 15 metrů.
+
+
+      ## Vypni hluk, užij si hudbu
+
+
+      Chceš někdy vypnout lidi v MHD nebo pouliční ruch? Díky špičkovým sluchátkům LAMAX Buds1 ANC to
+      není žádný problém. Zapni aktivní potlačování hluku a ponoř se do hudby až na luxusních 10 hodin,
+      tolik totiž vydrží baterie na jedno nabití. Kabelům dávno odzvonilo, nejnovější Bluetooth 5.3 zvládá
+      přenos bezdrátově. Kvalitní mikrofon a herní mód dávají prostor k širokému využití sluchátek od
+      pouhého poslechu přes vyřizování pracovních hovorů až po chvíle pohody u her či filmů. Navíc je
+      super malý rozměr nabíjecí krabičky, kterou snadno schováš i do kapsy.
+
+
+      ## Upozornění:
+
+
+      **Popis, obrázky a jednotlivé parametry se mohou lišit v závislosti na zvoleném modelu a konfiguraci.**"
+    https://www.homago.cz/p/lamax-dots3-anc-5: "LAMAX Dots3 ANC
+
+
+      Stop hluku. Play hudbě
+
+
+      Slyšíš to ticho? Žádný děti v MHD, žádný ruch ve vlaku ani na ulici. Jen ty, špičkový sluchátka
+      LAMAX Dots3 ANC a tvůj libovej playlist, co tě dostane do pohody. Zapni aktivní potlačování hluku
+      a přenes se do světa, kde existuje jenom hudba. Díky luxusní výdrži 10 hodin tam můžeš zůstat pěkně
+      dlouho. Do kabelů se s nejnovějším Bluetooth 5.3 určitě nezamotáš, všestrannost doplňuje herní mód
+      i kvalitní mikrák a díky malým rozměrům nabíjecí krabičky je dáš v klidu do kapsy.
+
+
+      Soustřeď se na svý
+
+
+      Do každýho sluchátka jsme dali tři mikrofony, co umí dokonale potlačit okolní hluk (ANC), a přitom
+      vůbec nezkreslit přehrávanou hudbu. Otravných zvuků v MHD, letadle nebo ve škole a v práci už bylo
+      dost. Teď je čas poslouchat, co chceš – samozřejmě v parádní kvalitě. Někdy je kvůli bezpečí lepší
+      okolí vnímat. Od toho tu je transparency režim, který cizí zvuky zesiluje a ty si ani při placení
+      v krámu nebo na rušný křižovatce nemusíš sluchátka sundavat.
+
+
+      Zvuk, který tě dostane
+
+
+      Čistej a vyrovnanej zvuk je u sluchátek to nejdůležitější. My ho doplnili ještě o citlivý mikrofony,
+      se kterýma můžeš přes sluchátka volat a navíc mít obě ruce volný. Super mikrák oceníš nejen při
+      online schůzkách, ale i gamingu. S herním režimem navíc sluchátka sesekají zpoždění na minimum,
+      takže prožiješ každej moment naplno – ve střílečce i u filmu. To všechno bez kabelů, výpadků a na
+      vzdálenost až 15 metrů díky nejnovějšímu Bluetooth 5.3.
+
+
+      Zvládnou tvoje tempo
+
+
+      Pryč jsou časy, kdy jsi potřeboval na každou cestu powerbanku. Samotný špunty vydrží po vyndání
+      z krabičky až 10 hodin a energii na dalších 32 hodin budeš mít v super skladným pouzdře. Dohromady
+      tě čeká solidní maraton, co bude stát za to. Kdyby přece jenom došla šťáva, s USB-C špunty nabiješ
+      z 0 na 100 % ani ne za dvě hodinky.
+
+
+      Hybridní ANC
+
+
+      3 speciální mikrofony neustále poslouchají okolí a všechny cizí zvuky umí ztlumit až o 40 decibelů.
+      Aktivní potlačení hluku navíc nijak nezkresluje sound a ty se můžeš plně soustředit na svou hudbu
+      nebo podcast a šetřit svůj sluch. ANC se hodí i v rušným kanclu, když chceš mít klid na práci.
+
+
+      Boží zvuk
+
+
+      Kvalitní měniče, LAMAX BeatBass® technologie, správně navržená konstrukce a hi-tech kodeky jsou
+      zárukou vyváženýho soundu, co si poradí s každým žánrem i mluveným slovem.
+
+
+      Brutální výdrž
+
+
+      Samotný sluchátka vydrží až 10 hodin na jedno nabití a dalších 32 hodin ti přidá krabička. Dohromady
+      získáš 42 hodin poslechu na jedno nabití. Na tak malý a skladný pouzdro naprostá pecka!
+
+
+      Bluetooth 5.3
+
+
+      Samozřejmostí je nejnovější Bluetooth 5.3, který se postará, aby přenos běžel naprosto bezchybně
+      na vzdálenost až 15 metrů.
+
+
+      Transparency režim
+
+
+      V tomhle módu ti ANC mikrofony naopak okolí zesílí – ideální při placení v obchodě nebo při sportování
+      na rušný cestě. Nech si sluchátka v uších a neztrácej kontakt se světem, když ho potřebuješ.
+
+
+      Mikrofon pro volání
+
+
+      Kvalitní mikrofony ti zajistí volný ruce při každým callu i hraní. Pokecáš přes ně i s hlasovýma
+      asistentama a budou fungovat, i když máš v uších jenom jedno sluchátko.
+
+
+      Herní mód
+
+
+      Všichni hráči a vyznavači filmů můžou jásat, sluchátka mají gaming mode! Minimální zpoždění a špičkovej
+      zvuk z nich dělají prvotřídního univerzála.
+
+
+      Malý přenosný pouzdro
+
+
+      Sluchátka s trendy designem můžeš využít jak k obleku, tak na svůj ranní běh. Nabíjecí pouzdro jsme
+      navíc tak zmenšili, že tě vůbec nebude otravovat v kapse a můžeš ho nosit všude sebou.
+
+
+      Praktický USB-C
+
+
+      Pouzdro kdykoliv nabiješ přes univerzální USB-C. Z kompletního vybití se na 100 % dostaneš za hodinu
+      a půl.
+
+
+      Technické parametry:
+
+
+      Typ sluchátek: Do uší, špunty, true wireless
+
+
+      Ovládání: Dotykové
+
+
+      Bezdrátová technologie: Bluetooth 5.3
+
+
+      Podporované kodeky: AAC, SBC
+
+
+      Dosah Bluetooth: Až 15 m
+
+
+      Frekvenční rozsah: 20 Hz – 20 kHz
+
+
+      Velikost měniče: 10 mm
+
+
+      Kapacita baterie nabíjecí stanice: 350 mAh
+
+
+      Kapacita baterie ve sluchátku: 40 mAh
+
+
+      Doba přehrávání: Hlasitost 50 % - 10 h, Hlasitost 80 % - 7,5 h
+
+
+      Celková doba poslechu: 42 h
+
+
+      Doba nabíjení sluchá"
+    https://sluchatka.heureka.cz/lamax-dots3-anc/?haff=278002:
+      "LAMAX Dots3 ANC od 490 Kč - Heureka.cz
+
+
+      +8
+
+
+      Další fotky (8)
+
+
+      Video (1)
+
+
+      # LAMAX Dots3 ANC
+
+
+      92 %
+
+
+      32 recenzíSouhrn recenzí
+
+
+      TWS sluchátka s aktivním potlačením hluku vám poskytnou až 10 hodin poslechu. Disponují rozhraním
+      Bluetooth 5.3, kvalitním mikrofonem a nechybí ani herní režim... Celý popis
+
+
+      1 041 Kč
+
+
+      Doprava 59 Kč,Skladem
+
+
+      Garantovaný nákup z Spořílek.CZ. Vždy něco navíc
+
+
+      Koupit přes HeurekuKoupit
+
+
+      LAMAX Dots3 ANC
+
+
+      - Filtry
+
+      - Doporučené nabídky
+
+      - Nejlevnější
+
+      - Nejlevnější včetně dopravy
+
+      - Hodnocení obchodu
+
+      - Všechny filtry
+
+
+      ## Doporučené nabídky (2)
+
+
+      ## LAMAX Dots3 ANC
+
+
+      Skladem1 ocenění
+
+
+      Bezdrátová sluchátka do uší Lamax Dots3 ANC
+
+
+      863 Kč Doprava zdarma
+
+
+      Bezdrátová sluchátka do uší Lamax Dots3 ANC
+
+
+      Skladem2 ocenění
+
+
+      LAMAX Dots3 ANC - bezdrátová sluchátka
+
+
+      1 146 Kč Doprava od 59 Kč
+
+
+      LAMAX Dots3 ANC - bezdrátová sluchátka
+
+
+      ## Nejlevnější nabídky (26)
+
+
+      ## LAMAX Dots3 ANC
+
+
+      Skladem3 oceněníDárek
+
+
+      Lamax Dots3 ANC
+
+
+      699 Kč Doprava od 69 Kč
+
+
+      Lamax Dots3 ANC
+
+
+      Skladem2 ocenění% Slevový kód
+
+
+      LAMAX Dots3 ANC, černá 8594175359145
+
+
+      699 Kč se slevovým kódemDoprava od 59 Kč
+
+
+      LAMAX Dots3 ANC, černá 8594175359145
+
+
+      Skladem1 ocenění
+
+
+      LAMAX Dots3 ANC bezdrátová sluchátka
+
+
+      LAMAX Dots3 ANC bezdrátová sluchátka
+
+
+      Skladem1 ocenění
+
+
+      Sluchátka LAMAX Dots3 ANC (LXDOTS3ABA)
+
+
+      699 Kč Doprava zdarma
+
+
+      Sluchátka LAMAX Dots3 ANC (LXDOTS3ABA)
+
+
+      Skladem1 ocenění
+
+
+      Bezdrátová sluchátka do uší Lamax Dots3 ANC
+
+
+      863 Kč Doprava zdarma
+
+
+      Bezdrátová sluchátka do uší Lamax Dots3 ANC
+
+
+      Do 3 dnů1 oceněníDoplňkové služby
+
+
+      Lamax Dots3 ANC LXIHMDOTS3ABA Barva: černá
+
+
+      890 Kč Doprava od 48 Kč
+
+
+      Lamax Dots3 ANC LXIHMDOTS3ABA Barva: černá
+
+
+      Skladem
+
+
+      LAMAX Dots3 ANC - bezdrátová sluchátka
+
+
+      960 Kč Doprava od 89 Kč
+
+
+      LAMAX Dots3 ANC - bezdrátová sluchátka
+
+
+      Skladem2 ocenění
+
+
+      Lamax Dots3 ANC
+
+
+      966 Kč Doprava od 79 Kč
+
+
+      Lamax Dots3 ANC
+
+
+      Skladem
+
+
+      LAMAX Dots3 ANC, černá
+
+
+      989 Kč Doprava od 59 Kč
+
+
+      LAMAX Dots3 ANC, černá
+
+
+      Skladem2 ocenění
+
+
+      LAMAX Dots3 ANC bezdrátová sluchátka
+
+
+      999 Kč Doprava od 49 Kč
+
+
+      LAMAX Dots3 ANC bezdrátová sluchátka
+
+
+      Zobrazit další nabídky
+
+
+      ### Podobné produkty
+
+
+      ## Recenze
+
+
+      ## LAMAX Dots3 ANC
+
+
+      Ověřený zákazník
+
+
+      přidáno 30. dubna 2026, zakoupeno v Mobil Pohotovost
+
+
+      LAMAX Dots3 ANC
+
+
+      Doporučuje produkt
+
+
+      80 %
+
+
+      - Solidní zvuk
+
+      - Solidní ANC
+
+      - Velmi kompaktní
+
+      - Dobrá výdrž
+
+
+      - Ovládání
+
+
+      Výhody převažují, viz výše. Cením si hlavně dobrou výdrž.Asi největší nevýhodou je ovládání. Proč
+      vůbec existuje gesto...
+
+
+      Ověřený zákazník
+
+
+      přidáno 14. června 2025, zakoupeno v Lékárna.cz
+
+
+      LAMAX Dots3 ANC
+
+
+      Doporučuje produkt
+
+
+      100 %
+
+
+      - Hrajou super
+
+      - Cena
+
+      - Lehké
+
+
+      - Trochu větší
+
+
+      Jsou sice větší ale hrajou suprově. Krabička je lehká baterka vydrží dlouho a ovládání chvilku trvá
+      než si na to člověk...
+
+
+      ### LAMAX (značka)
+
+
+      přidáno 3. listopadu 2025
+
+
+      Dobrý den,děkujeme za recenzi a za projevenou důvěru ve značku LAMAX.Přejeme pohodový den,Tým LAMAX
+
+
+      Ověřený zákazník
+
+
+      přidáno 12. května 2025, zakoupeno v Alza.cz
+
+
+      LAMAX Dots3 ANC
+
+
+      Doporučuje produkt
+
+
+      100 %
+
+
+      - potlačení hluku
+
+
+      ### LAMAX (značka)
+
+
+      přidáno 3. listopadu 2025
+
+
+      Dobrý den,děkujeme za Váš čas a hodnocení. Jsme rádi, že jste s produktem spokojeni.Hezký den,Tým
+      LAMAX
+
+
+      Zobrazit všechny recenze (32)
+
+
+      ## Popis produktu
+
+
+      To ticho jé téměř hmatatelné! Žádné křičící děti v MHD, žádní hluční cestující ve vlaku ani běžné
+      zvuky z ulice. Jste tu jen vy se sluchátky LAMAX Dots3 ANC v uších a váš oblíbený playlist, který
+      vám vždy dodá energii. Stačí zapnout aktivní potlačování hluku a přenést se do světa, kde existuje
+      jenom skvělá hudba. Jelikož sluchátka mají na jedno nabití výdrž až 10 hodin, můžete tam zůstat
+      pěkně dlouho. Díky bezdrátovému rozhraní Bluetooth 5.3 si nemusíte dělat starosti s kabely, přičemž
+      všestrannost sluchátek doplňuje herní a filmový mód nebo kvalitní mikrofon pro vyřizování hovorů.
+      Elegantní nabíjecí pouzdro má navíc velmi malé rozměry, takže sluchátka snadno vložíte do každé
+      kapsy.
+
+
+      ### Soustřeďte se na poslech
+
+
+      V každém ze sluchátek jsou tři mikrofony, které dokážou potlačit okolní hluk (ANC), aniž by došlo
+      ke zkreslení hudby. Otrav"
+    https://www.srovname.cz/sony-wf-1000xm5-stribrna/srovnani-cen/k.6047303:
+      "Product data (page markup):
+      Sony WF-1000XM5, stříbrná - price 4399–6999 CZK
+
+
+      Sluchátka Bluetooth Sony WF-1000XM5, stříbrná 198591
+
+
+      Sony WF-1000XM5 stříbrná
+
+
+      Sony Noise Cancelling WF-1000XM5, stříbrná
+
+
+      Sony WF-1000XM5 bezdrátová sluchátka stříbrná
+
+
+      #### Jak vybíráme doporučené nabídky
+
+
+      Především pečlivě vážíme mezi **cenou** produktu, **kvalitou** a **reputací** eshopu.
+
+
+      ### Specifikace
+
+
+      #### Klíčové vlastnosti
+
+
+      **Název produktu:**Sony WF-1000XM5, stříbrná
+
+
+      **Minimální cena:**4 399 Kč
+
+
+      **Maximální cena:**6 999 Kč
+
+
+      **Ušetříte až:**2 600 Kč
+
+
+      #### Parametry
+
+
+      **Hmotnost:**5,9 g
+
+
+      **Krytí:**
+
+
+      **Dosah:**10 m
+
+
+      **Frekvence do:**40 000 Hz
+
+
+      **Frekvence od:**20 Hz
+
+
+      **Materiál náušníků:**
+
+
+      **Režim propustnosti:**
+
+
+      **Mobilní aplikace:**
+
+
+      **Bluetooth kodeky:**
+
+
+      **Mikrofon s potlačením šumu:**
+
+
+      **Multipoint:**
+
+
+      **Typ měniče:**
+
+
+      **Velikost měniče:**8,4 mm
+
+
+      **True Wireless (TWS):**
+
+
+      **Počet sluchátek:**
+
+
+      **Bluetooth profily:**
+
+
+      **Podporované formáty:**
+
+
+      **Hlasový asistent:**
+
+
+      **Ovládání hlasitosti:**
+
+
+      **Pouzdro v balení:**
+
+
+      **Přepínání skladeb:**
+
+
+      **Přijímání hovorů:**
+
+
+      **Vyměnitelné náušníky:**
+
+
+      **Vyměnitelné špunty:**
+
+
+      **Směrová charakteristika mikrofonu:**
+
+
+      #### Vlastnosti
+
+
+      **Využití:**
+
+
+      **Kompatibilita:**
+
+
+      **Do vody:**
+
+
+      **Výdrž sluchátek:**8 h
+
+
+      #### Popis produktu
+
+
+
+      **Sony WF-1000XM5** jsou prémiová true wireless sluchátka navržená pro maximální kvalitu zvuku a
+      účinné potlačení okolního hluku. Díky 8,4mm měničům Dynamic Driver X a pokročilému zpracování zvuku
+      poskytují čisté vokály i hluboké basy v širokém frekvenčním rozsahu.
+
+
+      **Hlavní výhody:**
+
+
+      - Pokročilé aktivní potlačení hluku (ANC) s dedikovanými procesory pro výrazné ztišení okolních
+      zvuků.
+
+      - Vysoká kvalita bezdrátového přenosu – Bluetooth 5.3 a podpora kodeků LDAC, LC3, AAC, SBC.
+
+      - Dlouhá výdrž: až 8 hodin přehrávání s aktivním ANC a až 24 hodin celkem s nabíjecím pouzdrem (8
+      h + 16 h).
+
+      - Komfort a stabilní usazení díky ergonomickému tvaru a sadě různých pěnových nástavců v balení.
+
+      - Praktické funkce: rychlé bezdrátové nabíjení Qi a USB‑C, multipoint připojení, aplikace Sony Headphones
+      Connect pro ladění zvuku a režimy Okolní zvuk/Quick Attention.
+
+
+      WF-1000XM5 kombinují špičkové technologie potlačení šumu, věrné podání zvuku a pohodlí při nošení,
+      což je vhodné pro každodenní poslech i cestování."

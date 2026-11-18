@@ -1,0 +1,11 @@
+id: chat_family_party_pickup
+description: Long family chat - answer when and where to pick Matej up from the party
+history_from: family_logistics
+user: "V kolik mam v sobotu vyzvednout Mateje a kde to bylo?"
+expect:
+  rubric: >
+    Czech answer: Saturday at 17:00 (party 14:00-17:00) at Bongo Olomouc; may
+    mention parking at Šantovka and the LEGO gift. Short. Must not give a
+    different time or place.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 2

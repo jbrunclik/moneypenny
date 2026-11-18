@@ -166,6 +166,9 @@ class EvalCase:
     frozen_summary: str | None = None
 
 
+_WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+
 def _placeholder_date(placeholder: str, today: date) -> date | None:
     """The day a date placeholder names ("today", "in_3_days"...), or None."""
     if placeholder == "today":
@@ -178,13 +181,30 @@ def _placeholder_date(placeholder: str, today: date) -> date | None:
         return today + timedelta(days=int(m.group(1)))
     if m := re.fullmatch(r"(\d+)_days_ago", placeholder):
         return today - timedelta(days=int(m.group(1)))
+    if m := re.fullmatch(rf"({'|'.join(_WEEKDAYS)})(?:_plus_(\d+))?", placeholder):
+        # The next such weekday after today (prose that says "on Tuesday")
+        ahead = (_WEEKDAYS.index(m.group(1)) - today.weekday() - 1) % 7 + 1
+        return today + timedelta(days=ahead + int(m.group(2) or 0))
     return None
+
+
+_CZECH_WEEKDAYS = ("pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle")
+
+
+def _english_weekday(day: date) -> str:
+    return day.strftime("%A")
+
+
+def _czech_weekday(day: date) -> str:
+    return _CZECH_WEEKDAYS[day.weekday()]
 
 
 def _resolve_dates(value: Any) -> Any:
     """Replace {today}, {tomorrow}, {yesterday}, {in_N_days}, {N_days_ago}
     placeholders in fixture strings, so date-relative fixtures stay valid.
-    A `_weekday` suffix ({today_weekday}) gives the English weekday name."""
+    A `_weekday` suffix ({today_weekday}) gives the English weekday name,
+    `_cs` ({tomorrow_cs}) the Czech one - prose that names days then agrees
+    with the fixture's dates whatever day the suite runs."""
     if isinstance(value, dict):
         return {k: _resolve_dates(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -195,11 +215,12 @@ def _resolve_dates(value: Any) -> Any:
 
     def sub(match: re.Match[str]) -> str:
         placeholder = match.group(1)
-        weekday = placeholder.endswith("_weekday")
-        day = _placeholder_date(placeholder.removesuffix("_weekday"), today)
-        if day is None:
-            return match.group(0)
-        return day.strftime("%A") if weekday else day.isoformat()
+        for suffix, name in (("_weekday", _english_weekday), ("_cs", _czech_weekday)):
+            if placeholder.endswith(suffix):
+                day = _placeholder_date(placeholder.removesuffix(suffix), today)
+                return name(day) if day else match.group(0)
+        day = _placeholder_date(placeholder, today)
+        return day.isoformat() if day else match.group(0)
 
     return re.sub(r"\{([a-z0-9_]+)\}", sub, value)
 

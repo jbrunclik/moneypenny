@@ -1,7 +1,7 @@
 id: fresh_office_holder
 description: Who holds a role now is looked up (Prague council, Oct 2026 report)
 user: Kdo je teď v Praze náměstek primátora pro dopravu?
-# Interim (Nov 18 2026): live until it gets canned pages
+# Live web on purpose: who holds an office now - canned pages would freeze it
 web: live
 expect:
   rubric: >

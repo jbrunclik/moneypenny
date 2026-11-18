@@ -1,0 +1,14 @@
+id: chat_cycling_knee_recall
+description: Long cycling chat - recall the knee findings for a bikefitter booking
+history_from: cycling_program
+user: "Objednal jsem se na bikefitting. Co mu mam rict, at nezapomenu nic dulezityho ohledne toho kolena?"
+expect:
+  rubric: >
+    Czech checklist built from the chat: pain/pull on the OUTER side of the
+    (left) knee at high cadence and under load (tempo), started around
+    November, new cleats fitted "by eye" in October, saddle height 76.5 cm,
+    same shoes for 3 years, no pain on stairs. May add sensible goals for the
+    fit (200 km brevet in May, Mallorca week). Must not invent facts that are
+    not in the chat.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 1

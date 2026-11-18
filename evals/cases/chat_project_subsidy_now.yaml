@@ -1,0 +1,14 @@
+id: chat_project_subsidy_now
+description: Long project chat - the promised check of the current subsidy (canned web) changes an earlier number
+history_from: project_research
+user: "Muzes ted overit tu aktualni vysi dotace, jak jsi slibil? A plati pro nas nejaky bonus?"
+expect:
+  rubric: >
+    Looks it up and answers in Czech from the source: air-water heat pump
+    90 000 Kc in 2026 (down from 100 000 Kc), NO bonus for replacing a GAS
+    boiler (the +40 000 bonus is for coal/wood boilers), child bonus +10 000 Kc
+    per dependent child (they have kids), conditions (SVT list, listed
+    installer, expert opinion, apply up to 2 years after commissioning).
+    Corrects the earlier "100 000 Kc" figure it gave. Cites the source.
+  required_tools: [research, web_search, fetch_url]
+  max_tool_rounds: 3

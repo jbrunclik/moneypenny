@@ -1,0 +1,13 @@
+id: chat_family_add_football
+description: Long family chat - add a recurring-sounding event to the family calendar
+history_from: family_logistics
+user: "Matej zacina chodit na fotbal, vzdycky v patek od 17:00 do 18:00 na Androve stadionu. Dej mi tam ten prvni tenhle patek."
+expect:
+  rubric: >
+    Creates a calendar event this Friday 17:00-18:00 for Matej's football at
+    Andrův stadion (title and location sensible) and confirms in Czech. May
+    offer to make it recurring. Must not claim it was added without creating it.
+  required_tools: [google_calendar]
+  required_actions:
+    calendar: ["^created event .*(?i:fotbal)"]
+  max_tool_rounds: 3

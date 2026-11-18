@@ -3,8 +3,6 @@ description: Grounding-check scope - history and background knowledge are never 
 # "Zajímavosti o Radobýlu": Mácha's death, a cross from 1658 and a WWII
 # factory were underlined as unsourced, sentence by sentence.
 user: "Dohledej mi nějaké zajímavosti o Radobýlu"
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Gives several interesting facts about Radobýl (the hill near Litoměřice):
@@ -15,3 +13,394 @@ expect:
     BY SOURCE] - such facts are out of the check's scope - or if any mark
     covers a whole sentence.
   required_tools: [research, web_search, fetch_url]
+# Canned web captured 2026-11-18 (evals/capture_web.py): Radobýl zajímavosti historie
+web:
+  results:
+    - url: https://www.novinky.cz/clanek/cestovani-tipy-na-vylety-nekorunovany-kral-ceskeho-stredohori-v-hlubinach-malebneho-vrchu-ukryvali-naciste-obri-tovarnu-40486361
+      title:
+        Nekorunovaný král Českého středohoří. V hlubinách u malebného vrchu ukrývali nacisté obří továrnu
+        - Novinky
+      snippet:
+        "Nekorunovaný král Českého středohoří. V hlubinách u malebného vrchu ukrývali nacisté obří
+        továrnu - Novinky
+
+
+        # Nekorunovaný král Českého středohoří. V hlubinách u malebného vrchu ukrývali nacisté obří továrnu
+
+
+        Michael Švarc
+
+
+        6. 9. 2024, 5:57
+
+
+        Už na první pohled se od okolních vrchů odlišuje. Místo pravidelného kuželovitého tvaru je hora
+        Radobýl ze západní strany useknutá, díky čemuž získává nezaměnitelnou siluetu. Kopec tyčící se nad
+        Žalhosticemi v srdci Českého středohoří je ale zajímavý i z mn"
+    - url: https://www.stredohori.cz/detail/rozcesti-zalhostice
+      title: Vinice pod Radobýlem | České středohoří
+      snippet: "Vinice pod Radobýlem | České středohoří
+
+
+        # Vinice pod Radobýlem
+
+
+        Právě se nacházíte pod čedičovým vrchem Radobýl. Ten je výraznou dominantou Litoměřicka a blízkého
+        okolí.
+
+
+        Svůj netypický tvar získal Radobýl vlivem těžby kamene. Západní stěna je dnes odtěžena a v oblasti
+        někdejšího kamenolomu jsou vidět pozoruhodné čedičové sloupce. Vrch Radobýl však nebyl v minulosti
+        využíván jen pro těžbu kamenu. V oblasti kolem Radobýlu byly totiž už ve 14. století vybudovány
+        vinice. Král Karel IV. totiž v roc"
+    - url: https://www.novinky.cz/clanek/cestovani-tipy-na-vylety-radobyl-kopec-nad-litomericemi-ze-ktereho-si-karel-hynek-macha-dobehl-pro-smrt-40377750
+      title: Radobýl, kopec nad Litoměřicemi, ze kterého si Karel Hynek Mácha doběhl pro smrt - Novinky
+      snippet:
+        "Radobýl, kopec nad Litoměřicemi, ze kterého si Karel Hynek Mácha doběhl pro smrt - Novinky
+
+
+        # Radobýl, kopec nad Litoměřicemi, ze kterého si Karel Hynek Mácha doběhl pro smrt
+
+
+        Vratislav Konečný
+
+
+        12. 11. 2021, 16:47
+
+
+        Byla neděle 23. října roku 1836. Na vrcholu Radobýlu nad Litoměřicemi seděl koncipient u litoměřického
+        justiciára Josefa Filipa Durase, 26letý Karel Hynek Mácha. Do konečné verze upravuje svoji poslední
+        báseň Cesta z Čech. Na kopec chodí rád, z vrcholu je vidět velký kus Čech. Zvlášt"
+    - url: https://itras.cz/radobyl/
+      title: Radobýl – památná hora českého poutnictví
+      snippet: "Radobýl – památná hora českého poutnictví
+
+
+        # Radobýl
+
+
+        ## památná hora českého poutnictví
+
+
+        Radobýl je dominantní čedičový vrch u Žalhostic v Českém středohoří a památné místo všech českých
+        poutníků – na jeho vrcholu dne 23. 10. 1836 velký český básník a poutník Karel Hynek Mácha psal
+        svoji poslední báseň Cesta z Čech; při psaní spatřil požár v Litoměřicích, kam se hned rozběhl na
+        pomoc; při hašení se nakazil cholerinou, na kterou 6. 11. zemřel. Z holého temene, kde stojí mohutný
+        kříž, je perfektn"
+  pages:
+    https://www.novinky.cz/clanek/cestovani-tipy-na-vylety-nekorunovany-kral-ceskeho-stredohori-v-hlubinach-malebneho-vrchu-ukryvali-naciste-obri-tovarnu-40486361:
+      "Published: 2024-09-06
+
+
+      ###### Článek
+
+
+      Na vrcholu příjemně pofukuje. Zářijové slunce sice stále neúprosně praží, ale dopolední teplota
+      přece jen ještě nestihla vyšplhat tak vysoko. Trocha nepohodlí navíc za místní výhledy stojí, ačkoli
+      řadu vzdálenějších dominant halí mlžný opar. Dobře jsou vidět Lovosice a za nimi i silueta hradu
+      Hazmburk, směrem na sever se pak rýsuje malebné kaňonovité údolí Labe zvané brána Čech či Porta
+      Bohemica. Dohlédnout lze i na bájný Říp.
+
+
+      Samotný Radobýl patří v Českém středohoří mezi nižší vrchy; měří 399 metrů a nejvyšší Milešovce
+      s jejími 837 metry tak konkurovat rozhodně nemůže. Přesto je v okolí králem, byť nekorunovaným.
+      Není to jen vlivem jeho ikonického tvaru, ale především díky zmiňovanému titulu nejseverněji položených
+      vinic v Česku. Ty tu rostou od středověku díky Karlu IV., jenž okolní pozemky k pěstování révy daroval.
+
+
+      Původní vinice jsou už samozřejmě dávno zaniklé, nahradily je však nové. Táhnou se od úpatí Radobýlu
+      směrem na sever přes Velké Žernoseky. Nedaleké Litoměřice byly ve středověku druhým největším vinařským
+      městem hned po Praze, tradice pěstování révy je tedy v okolí skutečně dlouhá. Dnes však stojí oblast
+      ve stínu Moravy, což je škoda, protože České středohoří se pyšní neméně okouzlujícími panoramaty.
+
+
+      Když na chvíli skončím s kocháním se krajinou, upřu svůj zrak k vysokému ocelovému kříži, který
+      na vrcholu Radobýlu stojí. Je v pořadí už osmý. První, který byl z dubového dřeva, tu vztyčili 3.
+      května 1622 a vydržel stát dlouhých 250 let. Kříž je patrný i při pohledu od úpatí neovulkanické
+      hory.
+
+
+      ## Křovím na vrchol
+
+
+      Cesty na vrchol vedou dvě a obě mají svá pro a proti. Nejkratší trasa je ze Žalhostic přímo z nádraží
+      a je tedy dost strmá. Obklopuje ji navíc velmi divoký porost, který je v končícím létě už dost suchý,
+      a tak pěkně píchá do nohou. Tato konkrétní trasa, značená žlutou barvou, vede po stráních v místech,
+      kde stávaly původní středověké vinice. Druhá možná cesta je z Litoměřic. Je delší, pozvolnější,
+      ale část vede po silnici, což není po pravdě nic příjemného.
+
+
+      Při chůzi ze Žalhostic se navíc turisté dostanou přímo pod západní svah Radobýlu, kde jsou vlivem
+      těžby kamene vidět čedičové sloupce. Z několika informačních tabulí se dozvídám, že je okolí významné
+      také z hlediska fauny a flóry. Vyskytují se zde chráněné rostliny jako třeba kozinec bezlodyžný
+      či bělozářka liliovitá, ale také vzácné druhy motýlů, mimo jiné okáč metlicový nebo modrásek východní.
+
+
+      Pod odtěženým svahem a v začínajícím lesním porostu se nacházejí také ruiny budov. Vzhledem k historii
+      oblasti odhaduji, že jde o někdejší důlní zařízení, patrně využívaná i nacisty.
+
+
+      Radobýl je nicméně spojen také s básníkem Karlem Hynkem Máchou, který v nedalekých Litoměřicích
+      žil. V neděli 23. října 1836 upravoval na vrcholu hory, ve stínu kříže, svou poslední báseň Cesta
+      z Čech, když si povšiml, že v jeho domovském městě hoří. Běžel tedy zpět, aby pomohl s hašením.
+      Nalokal se však přitom vody, která mohla být zdrojem jeho následného infekčního onemocnění, na nějž
+      o dva týdny později, 6. listopadu, zemřel.
+
+
+      ## Největší v Česku
+
+
+      Poskočme o zhruba sto let dopředu, tedy do období druhé světové války. To pod nedalekým vrchem Bídnice
+      vznikla zmiňovaná podzemní továrna nacistů. Komplex B5-Richard postavili Němci ze tří bývalých hlubinných
+      vápencových dolů a daleko od fronty tu vyráběli vybavení, včetně spalovacích motorů pro tanky či
+      stíhačů tanků.
+
+
+      K výstavbě komplexu se uchýlili z důvodu, že se továrny na povrchu čím dál častěji stávaly terčem
+      amerických a britských náletů. Hitlerův dvorní architekt Albert Speer tak přišel s nápadem, jak
+      výrobu zachovat. V celé rozpadající se říši začaly vznikat podzemní továrny, Richard byl tou největší
+      na českém území.
+
+
+      Práce na továrně začaly na jaře roku 1944 a bylo na ně nasazeno 1200 civilních zaměstnanců i vězni
+      z nedalekého koncentračního tábora v Terezíně a z litoměřické pobočky tábora Flossenbürg. Pro třetí
+      říši šlo o významný projekt, což dokazuje, že do útrob komplexu vedl"
+    https://www.stredohori.cz/detail/rozcesti-zalhostice:
+      "Svůj netypický tvar získal Radobýl vlivem těžby
+      kamene. Západní stěna je dnes odtěžena a v oblasti někdejšího kamenolomu jsou vidět pozoruhodné
+      čedičové sloupce. Vrch Radobýl však nebyl v minulosti využíván jen pro těžbu kamenu. V oblasti kolem
+      Radobýlu byly totiž už ve 14. století vybudovány vinice. Král Karel IV. totiž v roce 1359 věnoval
+      městu Litoměřice vrch Radobýl právě za účelem pěstování vinné révy. Víno se pod Radobýlem pěstuje
+      dodnes. Vinice, u kterých se nyní nacházíte, patří vinařství Víno Hrabkovský a spadají pod vinařskou
+      obec Žalhostice. Vína z oblasti kolem Radobýlu jsou vlivem netypického složení půdy unikátní. Víno
+      Hrabskovský nabízí jak sudová, tak lahvová vína, a to od vín jakostních až po výběry z hroznů. Mezi
+      odrůdami jsou zastoupeny jak tradiční Müller Thurgau a Ryzlink rýnský, tak také Chardonnay, Hibernal
+      a Muškát moravský (tzv. MOPR). Z modrých odrůd jsou zde pěstovány např. Dornfelder, Modrý Portugal
+      nebo Svatovavřinecké.
+
+
+      Relativně nedávno (v roce 2012) vzniklo na úpatí Radobýlu další a zatím poměrně malé vinařství,
+      které nese název Vinařství pod Radobýlem. Toho vinařství disponuje tradičními odrůdami, jako jsou
+      Ryzlink rýnský či Rulandské bílé, dále má ale také méně tradiční odrůdy pro tuto oblast, jako je
+      např. Fratava. Třetím vinařstvím v těsné blízkosti Radobýlu je vinařství Milan a Miroslav Singer.
+      Tito malovinaři obhospodařují menší vinice v trati Nad Školou a v trati Pod Radobýlem. Produkce
+      vinařství je velmi malá (necelý 1 hl za rok), a tak jsou vína určená jen pro rodinu a blízké či
+      pro speciální příležitosti, jako jsou výstavy a košty.
+
+
+      ## Radobýl
+
+
+      Radobýl je mimo vinic také zajímavým turistickým cílem. Na samotný vrchol vede žlutá turistická
+      stezka a to buď ze Žalhostic, nebo z Litoměřic. Vrcholná část Radobýlu je místem, ze kterého je
+      dobrý rozhled do širokého okolí, a to na všechny světové strany. Je možné spatřit většinu Českého
+      středohoří, města Litoměřice a Lovosice, bájnou horu Říp nebo také Píšťanské (Žernosecké) jezero.
+      Radobýl je také atraktivní z hlediska fauny a flóry. Vzhledem k výskytu chráněných rostlin (jako
+      je např. kozinec bezlodyžný, bělozářka liliovitá nebo divizna brunátná) a živočichů (např. motýlů)
+      byla zdejší krajina již od roku 1966 chráněna. Od roku 1992 je pak Radobýl přírodní památkou. Též
+      z geologického hlediska je Radobýl zajímavý. Skalní stěny bývalého lomu jsou tvořeny pozoruhodnou
+      sloupcovitou odlučností čediče. Zajímavostí také je, že pod vrcholem Radobýl se v minulosti nacházela
+      podzemní nacistická továrna Richard.
+
+
+      ## KUDY DÁL?
+
+
+      Dalším zastavením Litoměřické vinařské stezky jsou vinice Klášterních vinných sklepů Litoměřice
+      mezi vinařskými obcemi Žalhostice a Velké Žernoseky. Pokračujte tedy dále po stezce, a těšte se
+      na návštěvu Velkých Žernosek.
+
+
+      Pokud jste právě vystoupali směrem od Žalhostic, můžete pokračovat na samotný vrchol Radobýlu a
+      dále do Litoměřic, kde vás Litoměřická vinařská stezka zavede do litoměřického hradu s expozicí
+      o českém vinařství.
+
+
+      ## Tipy na turistické cíle v okolí
+
+
+      - **Naučná stezka Hlinná - Kamýk**
+
+      - **Bílé stráně**
+
+      - **Katedrála sv. Štěpána na Dómském náměstí v Litoměřicích**"
+    https://www.novinky.cz/clanek/cestovani-tipy-na-vylety-radobyl-kopec-nad-litomericemi-ze-ktereho-si-karel-hynek-macha-dobehl-pro-smrt-40377750:
+      "Published: 2021-11-12
+
+
+      ###### Článek
+
+
+      Najednou ve městě pod sebou spatří požár. Rozbíhá se, aby pomohl hasit. Běh se mu stává osudným.
+      Uřícený, z jedné strany prudký žár ohně, z druhé promočený od stříkající vody. Má žízeň, pije, a
+      to se mu zřejmě stává osudným (voda mohla být zdrojem jeho infekčního onemocnění). Dál dochází do
+      kanceláře, ale je mu velmi špatně... Vyčerpaný Mácha 6. listopadu umírá.
+
+
+      ## Pravděpodobná příčina úmrtí
+
+
+      V úmrtním listě je příčina uvedena jako Brechdurchfall, tedy cholerina, lehčí forma cholery. Ta
+      tehdy řádila i v Praze, kde byl básník krátce před svým skonem, aby viděl svého syna. Možná ovšem
+      byla zdrojem nákazy zmíněná voda na hašení.
+
+
+      ## Po básníkovi ani stopa
+
+
+      Na vrcholu vulkanického čedičového kopce (399 m n. m.), který vznikl ve třetihorách, se tyčí velký
+      kovový kříž. Předchozí v roce 1992 zničil blesk. Od kříže, v pořadí už osmého, je vidět zrovna jako
+      v Máchových dobách kol dokola. Jen přibyla sídliště, železnice, a hlavně haly fabrik a rozličných
+      skladů.
+
+
+      Po jediné značené cestě, turistické žluté značce, se dostanete od asfaltky vedoucí z Litoměřic do
+      Michalovic. Cesta je dlouhá necelý kilometr, zpočátku půjdete po mírně svažité stepní louce, od
+      úpatí kopce lesní cestou vinoucí se v traverzovitém stoupání na vrchol. Převýšení je asi 80 metrů.
+      Ale panoramata určitě stojí za trochu zadýchání se.
+
+
+      Mácha hodně cestoval, navštěvoval s oblibou zříceniny, ale pěšky se vypravil i do Itálie. Na řadě
+      našich památek najdete většinou na tabulích zmínku, že se tu Mácha zastavil. Nikoliv ale na Radobýlu.
+      Přitom ve městě je v ulici nesoucí básníkovo jméno světnička, kde pobýval. I hrob, ve kterém přes
+      sto let ležel, tu je označen, ale kopec, který ho stál život, mlčí...
+
+
+      Možná tu tabule není z obavy před zničením nebo zcizením. Básník, kterého jsme si vzali za symbol
+      mládí, lásky, jehož pozdější pohřeb na vyšehradském Slavíně se stal celonárodní protiněmeckou manifestací,
+      na Radobýlu připomenut není.
+
+
+      ## Ač mlád, přesto nesmrtelný
+
+
+      Bylo mu pouhých 26 let, přitom jeho dílo je nesmrtelné. Máj byla jediná kniha, která za jeho krátkého
+      života vyšla. Narodil se jako Ignác Mácha, jméno Karel si přidal v duchu tehdejšího obrozenectví,
+      Ignáce na Hynka si změnil pár let před skonem.
+
+
+      ## Zemský ráj to napohled
+
+
+      Z vrcholu Radobýlu, se otevírá nádherné panorama Českého středohoří. Přes řeku začouzené Lovosice,
+      Žernosecké jezero, dvojvrch Lovoše, tady se tvrdě bojovalo v sedmileté válce, Milešovka, Boreč,
+      Oltářík, Házmburk, Říp, v oparu se občas objevilo Ralsko, Polabí k Mělníku… Krajina přímo rajská,
+      pokud si odmyslíme industriální zásahy, a není jich málo.
+
+
+      Na druhé straně vidíte zříceninu Kamýka, vpravo na Labi místo zvané Porta Bohemica (Brána Čech),
+      vše pokračuje pahorky přecházející k Ústí nad Labem.
+
+
+      Severozápadní stěna je lomově odtěžena, odkryl se nádherný pohled na čedičové výlevy, dá se sejít
+      do Žalhostic, kolem několika oskeruší, jeřábu, který se vyskytuje hlavně na Slovácku a má výborné
+      jedlé plody.
+
+
+      Velký kus kopce ukousl ze strany přivrácené k Lovoši kamenolom, který byl jedním z největších v
+      severních Čechách. V odtěžené stěně se objevily různě směřující sloupce čediče. Na úpatí je velké
+      kamenné pole z malých čedičových sloupů.
+
+
+      ## Podzemí neslo smrt
+
+
+      Koncem druhé světové války umíraly pod Radobýlem tisíce vězňů, kteří dřeli v nacistických tajných
+      podzemních továrnách.
+
+
+      Obří plocha mezi vrchy Radobýlem a Bídnicí skrývá vchody do podzemí. Bývalá továrna Richard I. -
+      III. se začala budovat v roce 1944, vyráběly se tu tankové motory, posléze snad i součásti proudové
+      stíhačky Me 262, pracovali tu převážně vězni KL Terezín a Litoměřice plus totálně nasazení. Podzemí
+      je zavřené.
+
+
+      Na konci Litoměřic narazíte na podlouhlou budovu a komín. Bývalé krematorium, kde v plamenech skončily
+      tisíce zemřelých z podzemních fabrik. Pietní místo s pomníkem zoufalství a utrpení. Vždycky smutné
+      místo, nyní ale ve stavu naprostého nezájmu. Vždyť je to tak dávno…
+
+
+      Cestou k Radobýlu narazíte ještě na jedno místo hrůzy. Stojí v"
+    https://itras.cz/radobyl/:
+      "**Radobýl** je dominantní **čedičový vrch** u Žalhostic v Českém středohoří
+      a **památné místo** všech českých poutníků – na jeho vrcholu dne 23. 10. 1836 velký český básník
+      a poutník **Karel Hynek Mácha** psal svoji poslední báseň *Cesta z Čech;* při psaní **spatřil požár**
+      v Litoměřicích, kam se hned rozběhl na pomoc; při hašení se nakazil cholerinou, na kterou 6. 11.
+      zemřel. Z holého temene, kde stojí **mohutný kříž,** je perfektní výhled. **Přírodní památka.**
+
+
+      **Autor článku:** Luboš Moravec | poslední aktualizace: 14. října 2013
+
+
+      **Kategorie:** Zajímavosti
+
+
+      V neděli 23. října 1836 Karel Hynek Mácha na Radobýlu psal svoji **poslední báseň** *Cesta z Čech.*
+      Během psaní si **všiml požáru** v nedalekých Litoměřicích, kam se okamžitě rozběhl a celý uřícený
+      **pomáhal s hašením.** Při hašení se nalokal vody, z které se nakazil cholerinou; ta společně se
+      silným nachlazením vedla k Máchově smrti – **zemřel** 6. 11. 1836.
+
+
+      Dne 24. 10. 1836 si Mácha **do svého deníku zapsal:** *„V neděli večer jsem ležel na Radobýlu, na
+      jednom velkém vrchu za Litoměřicemi, už byla tma; a v tom vyšel v Litoměřicích oheň. To jsem viděl
+      z toho vrchu. Tak jsem běžel honem do Litoměřic; asi 3/4 hodiny jsem měl co běžet než jsem tam doběhl,
+      a přece jsem byl jeden z nejprvnějších u ohně. To byl ale oheň; jedenáct stodol, samé obilí, najednou
+      hořely, a vítr do toho foukal až hrůza…“*
+
+
+      Na západní straně Radobýlu se v minulosti těžil **čedič s výraznou sloupcovitou odlučností;** čedičové
+      sloupce se vozily až do Nizozemska jako odolný materiál pro **zpevňování hrází.** Bývalý kamenolom
+      je dnes součástí přírodní památky *Radobýl.*
+
+
+      *Novoroční výstup na Radobýl; YouTube.com, 1:50 min*
+
+
+      *Radobýl – vrchol s mohutným křížem*
+
+
+      *Radobýl – bývalý kamenolom na čedičové sloupce*
+
+
+      **zahrada Čech** — Zdejší ovocnářství dosáhlo tak vysoké úrovně, že se dnes Českému středohoří přezdívá
+      zahrada Čech. Z rovin vystupují obdivuhodné vulkanické kupy.
+
+
+      **nejvyšší hora Českého středohoří** — Na Milešovce je každoročně zaznamenáno nejvíce bouří na našem
+      území, proto se jí často přezdívá Hromová hora.
+
+
+      **zřícenina s typickou dvouvěžovou siluetou** — Nepřehlédnutelná dominanta dolního Poohří. Ze zříceniny
+      jsou fantastické výhledy do krajiny Českého středohoří.
+
+
+      **Brána Čech** — Kaňonovité údolí, kterým řeka Labe vstupuje do Českého středohoří. Břehy lemují
+      skály s vyhlídkami  do samotného kaňonu a okolní vulkanické kopce. Z této oblasti pochází proslulé
+      žernosecké víno.
+
+
+      **křížem krážem Českým středohořím z Ústí nad Labem do Bíliny** — Přibližně 127kilometrový trek
+      sopečnou krajinou CHKO České středohoří. Mj. navštívíte hromovou horu Milešovku, mystický vrch Raná,
+      12metrový Vaňovský vodopád, kaňon Labe Porta Bohemica, svezete se motorovou lodí a možná si odnesete
+      i české granáty.
+
+
+      **jediný český štít** — Kopec s natolik exponovaným vrcholovým hřebínkem, že jeho přechod se dá
+      srovnat s poměry na hrotech mnoha tatranských štítů. Pravděpodobně jediné místo v ČR, které se pyšní
+      titulem „štít“.
+
+
+      **symbol češství** — Nejvýznamnější místo a symbol české národní historie. K Řípu se váže základní
+      pověst o příchodu našich předků vedených praotcem Čechem do Čech.
+
+
+      **poutní místo na strmém sopečném kopci** — Kalvárie si zahrála ve filmech jako Mág či 3 sezóny
+      v pekle. Mmonumentální schodiště poutního místa kdysi poutníci zdolávali po kolenou.
+
+
+      **průvodce severočeskou industriální krajinou** — Zvu vás na offroad safari – zážitkové poznávací
+      vyjížďky severočeskou industriální krajinou. Dostanu vás do míst, kam se běžný turista nepodívá.
+
+
+      **skalní vyhlídka nad meandrem Labe** — Skvělý výhled do údolí Labe a na východní část Českého středohoří.
+      Na vyhlídce stojí několikametrový kovový kříž. Na dohled odsud je Porta Bohemica – Brána Čech."

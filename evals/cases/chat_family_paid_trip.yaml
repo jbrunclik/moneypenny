@@ -1,0 +1,12 @@
+id: chat_family_paid_trip
+description: Long family chat - mark the school trip payment done in Todoist
+history_from: family_logistics
+user: "Ten vylet pro Anicku jsem uz zaplatil, odskrtni to."
+expect:
+  rubric: >
+    Completes the Todoist task "Zaplatit skolni vylet Anicka (450 Kc)" and
+    confirms in Czech. Must not create a new task or complete a different one.
+  required_tools: [todoist]
+  required_actions:
+    todoist: ["^completed task 'Zaplatit skolni vylet"]
+  max_tool_rounds: 3

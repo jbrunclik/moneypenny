@@ -1,0 +1,12 @@
+id: chat_strength_creatine_recall
+description: Long strength chat - recall from the frozen summary what to check before creatine
+history_from: strength_program
+user: "Byl jsem u doktora, ale uz nevim co presne jsem mel nechat zmerit kvuli tomu kreatinu. Co to bylo?"
+expect:
+  rubric: >
+    Czech answer recalling the earlier advice: blood tests at the GP -
+    creatinine and eGFR (kidney function) - as a baseline before starting
+    creatine, because of the father's kidney stones; creatine 3-5 g/day after
+    that. Must not claim it does not know or ask the user to repeat it.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 2

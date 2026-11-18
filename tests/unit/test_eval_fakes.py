@@ -184,3 +184,14 @@ def test_garmin_unknown_workout_fails_loudly() -> None:
     with fake_integrations({"garmin": {"state": "connected", "workouts": []}}):
         result = garmin_workout.invoke({"action": "get", "workout_id": "999"})
     assert "error" in json.loads(result)
+
+
+def test_garmin_rest_change_is_recorded() -> None:
+    from src.agent.tools.garmin_workout import garmin_workout
+
+    spec = {"garmin": {"state": "connected", "workouts": [_workout()]}}
+    with fake_integrations(spec) as fakes:
+        edits = json.dumps([{"step_id": 12, "rest_s": 150}])
+        garmin_workout.invoke({"action": "update", "workout_id": "501", "edits": edits})
+    [action] = fakes["garmin"].actions
+    assert "rest" in action and "90" in action and "150" in action

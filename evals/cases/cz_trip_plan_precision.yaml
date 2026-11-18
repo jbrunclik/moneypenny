@@ -1,8 +1,6 @@
 id: cz_trip_plan_precision
 description: Grounding-check precision on a trip plan - no unsourced annotations on the answer's own timeline or on well-known places (prod, Oct 2026)
 user: "naplanuj nam na sobotu vylet s detmi: rano odjezd ze Zlicina, Medovinobrani na zamku Patek, odpoledne Litomerice. Dej mi casovy plan."
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Gives a Czech day plan with its own timeline (departure, stops, travel
@@ -15,3 +13,374 @@ expect:
     region (Litoměřice, Libochovice, Radobýl, České středohoří), or if there
     are more than 2 of them in total.
   required_tools: [research, web_search, fetch_url]
+# Canned web captured 2026-11-18 (evals/capture_web.py): Medovinobraní zámek Pátek; Litoměřice s dětmi co navštívit
+web:
+  results:
+    - url: https://zatecky.denik.cz/zpravy-region/medovinobrani-a-dalsi-expozice-zapomenuty-zamek-v-patku-chce-vic-lakat/
+      title:
+        Medovinobraní a další expozice. Zapomenutý zámek v Pátku chce víc lákat – Žatecký a lounský
+        deník
+      snippet:
+        "Medovinobraní a další expozice. Zapomenutý zámek v Pátku chce víc lákat – Žatecký a lounský\
+        \ deník\n\n# Medovinobraní a další expozice. Zapomenutý zámek v Pátku chce víc lákat\n\nPetr Kinšt\
+        \ Reportér\n\nŽatecko a Lounsko 4. 10. 2019\n\n Venkovský barokní zámek v Pátku nad Ohří na Lounsku\
+        \ dosud stojí mimo zájem turistů. V okrese jsou mnohem známější zámky v Krásném Dvoře na Podbořansku,\
+        \ Stekníku na Žatecku nebo Jimlíně na Lounsku, kam během roku zamíří tisícovky návštěvníků. Vlastník\
+        \ i nový kastelán památk"
+    - url: https://www.sermiri.cz/akce/medovinobrani/36371
+      title: Medovinobraní, Pátek (zámek) | www.sermiri.cz
+      snippet:
+        "Medovinobraní, Pátek (zámek) | www.sermiri.cz\n\n Pohodová akce s medovinou... historický\
+        \ šerm * dobová hudba * tanečnice * kovárna * rytířská zbrojnice * hadí mág * tržiště * soutěže\
+        \ pro děti \n\n Pořadatel akce: Petr Rasken Chaloupka - https://www.facebook.com/Rasken1467 \n\n\
+        Pátek (zámek)\n\nZámek\n\nBarokní zámek na vysokém pravém břehu Ohře, uvnitř areálu starých i novějších\
+        \ hospodářských budov, které jej z návsi téměř zakrývají. Vznikl přestavbou letohrádku roku 1697.\
+        \ Pozoruhodná centrální disposice "
+    - url: https://www.zamekpatek.cz/akce.html
+      title: Zámek Pátek
+      snippet: "Zámek Pátek
+
+
+        ### Akce na zámku
+
+
+        Pořádáme akce pro děti, koncerty, kostýmované noční prohlídky, šermířská vystoupení a pod. Od června
+        do začátku září je na zámku (téměř) každou sobotu od 18 hod. živá hudba. Dosud se většina koncertů
+        odehrávala na zahradě zámku, postupně se přesunujeme na sýpku, kde se snažíme vytvořit hudební klub
+        s galerií a rozhlednou... Některé akce mohou být zpoplatněny, na většinu koncertů je vstupné dobrovolné.
+        Možnost stanování přímo v areálu, místa pro karavany. Občerstve"
+    - url: https://www.sermiri.cz/akce/medovinobrani/28626
+      title: Medovinobraní, Pátek (zámek) | www.sermiri.cz
+      snippet:
+        "Medovinobraní, Pátek (zámek) | www.sermiri.cz\n\n Ochutnávky medoviny, OKOŘSKÁ GARDA - historický\
+        \ šerm, ERGO - dobová hudba, KANCIONETA - historické tance, DIVADLO KUBKO - loutková pohádka Perníková\
+        \ chaloupka, hadí mág CAVE, kovárna, zbrojnice, prohlídky zámku \n\n Pořadatel akce: Zámek Pátek\
+        \ \n\nPátek (zámek)\n\n okres Louny, Ústecký kraj \n\nZámek\n\nBarokní zámek na vysokém pravém břehu\
+        \ Ohře, uvnitř areálu starých i novějších hospodářských budov, které jej z návsi téměř zakrývají.\
+        \ Vznikl přestavbou letoh"
+    - url: https://www.litomerice.cz/aktuality-infocentrum/litomerice-nabizi-novou-trasu-pro-rodiny-s-detmi-laka-na-hadanky-a-objevovani
+      title: Litoměřice nabízí trasu pro rodiny s dětmi. Láká na hádanky a objevování - www.litomerice.cz
+      snippet:
+        "Litoměřice nabízí trasu pro rodiny s dětmi. Láká na hádanky a objevování - www.litomerice.cz\n\
+        \n podatelna@litomerice.cz +420 416 916 111 \n\n \n\n# Litoměřice nabízí trasu pro rodiny s dětmi.\
+        \ Láká na hádanky a objevování\n\n: Michaela Rozsypalová\n: 5. únor 2025 \n: Zobrazení: 4538\n\n\
+        Město Litoměřice nabízí originální pěší trasu určenou především rodinám s malými dětmi. Vydat se\
+        \ na ni mohou jak návštěvníci města, tak i místní obyvatelé. Děti během procházky čeká plnění úkolů\
+        \ a řešení tajenky.\n\nNenáročná t"
+    - url: https://www.vsude.cz/litomerice-kalich-hrad-podzemi-vylet/
+      title: "Litoměřice: vstupné na Kalich, hrad, podzemí a parkování - Vsude.cz"
+      snippet: "Litoměřice: vstupné na Kalich, hrad, podzemí a parkování - Vsude.cz
+
+
+        Fotografie: Dům U Kalicha na Mírovém náměstí, Karelj, Wikimedia Commons, volné dílo. Zmenšení a
+        ořez; fotografovaný obsah zachován.
+
+
+        # Litoměřice: vstupné na Kalich, hrad, podzemí a parkování
+
+
+        Litoměřice na jeden den: věž Kalich, hrad s expozicí vína, katedrála sv. Štěpána, podzemí, vstupné,
+        parkování, vlak a výlet s dětmi.
+
+
+        - Lenka Váhová
+
+        - 14/06/2026
+
+        - Cestování, Volný čas
+
+
+        Litoměřice na jeden den zvládnete pěšky: Mírové námě"
+    - url: https://kampocesku.cz/clanek/32400/do-litomeric-s-detmi-za-zazitky
+      title: Do Litoměřic s dětmi za zážitky
+      snippet:
+        "Do Litoměřic s dětmi za zážitky \n\n## Do Litoměřic s dětmi za zážitky \n\n 24.06.2023 |\
+        \ 17:18 \n\nVítejte v Litoměřicích, kde se opravdu nudit nebudete. Váš úžasný den právě začíná.\n\
+        \nMěsto s nadhledem Odkud budete mít město jako na dlani? No jasně, z výšky! Výzvou pro děti bude\
+        \ zdolání schodů, ale pak už budou moci vychutnávat úžasný výhled. Možností je v Litoměřicích více.\
+        \ Přivítá vás unikátní věž Kalich na budově radnice či 65 metrů vysoká věž katedrály sv. Štěpána.\n\
+        \nZa tajemstvím podzemních chodeb"
+    - url: https://toulavyskritek.cz/vylety/okres/litomerice/
+      title: "Výlety s dětmi v okrese Litoměřice: 33 tipů"
+      snippet: "Výlety s dětmi v okrese Litoměřice: 33 tipů
+
+
+        # Výlety s dětmi v okrese Litoměřice
+
+
+        33 tipů na výlet: rozhledny a vyhlídky (10), muzea a věda (8), hrady a památky (7), příroda (4),
+        pod zemí (4). Další místa najdete v kraji Ústecký kraj.
+
+
+        - ### Vodní hrad Budyně nad Ohří s alchymistickou dílnou
+
+
+        Budyně nad Ohří · okres Litoměřice 5–12 let do deště 1,5 h★ tahák
+
+        - ### Dětský svět Méďa Bohušovice nad Ohří
+
+
+        Bohušovice nad Ohří · okres Litoměřice 1–12 let kočárek do deště 3 h★ tahák
+
+        - ### Muzeum čertů "
+  pages:
+    https://zatecky.denik.cz/zpravy-region/medovinobrani-a-dalsi-expozice-zapomenuty-zamek-v-patku-chce-vic-lakat/:
+      "Published:
+      2019-10-03
+
+
+      První vlaštovkou je rozšířená otevírací doba až do října a sobotní medovinobraní na zámku. „Chtěli
+      bychom, aby zámek ožil. Aby se zvýšila jeho propagace a zároveň aby toho turistům nabídl víc,“ sdělil
+      místostarosta Peruce Jan Vnouček. Vlastníkem zámku je právě městys Peruc, pod kterou Pátek nad Ohří
+      spadá. Od druhé poloviny 20. století jej obec využívá spolu s tamními zemědělci.
+
+
+      Od roku 2003 byla památka vždy o prázdninových víkendech otevřena veřejnosti díky Mileně Hubičkové,
+      dobré duši páteckého zámku. Letos se stal správcem zámku Petr Rasken Chaloupka, který má zkušenosti
+      z jiných památek. „Přesvědčil nás svou koncepcí, jak zámek oživit. Sami se tím zabývat nemůžeme,
+      v současné době řešíme prioritnější věci. Nový správce nás moc nestojí, jeho plat z velké části
+      hradí Úřad práce. Městys přispívá menší částkou,“ vysvětlil perucký místostarosta.
+
+
+      Petr Rasken Chaloupka se pustil s vervou do práce, která spočívá hlavně ve vyklízení a oprav dosud
+      nevyužívaných místností zámku. „Chtěl bych je dát do podoby, kterou mohly mít zhruba před sto lety.
+      Vystavíme tam historický nábytek z mých sbírek, který mám zapůjčený,“ vysvětlil.
+
+
+      Má ale i další plány, sám je prý zvědavý, co přinese sklepení, které se postupně vyklízí. Nově mohou
+      zájemci na zámku nebo v jeho zahradě také přespat. „A kdo chce, může nám pomoc,“ pousmál se nový
+      správce.
+
+
+      Zámek začal s pořádáním akcí pro širší veřejnost, dřív tam probíhaly výstavy a koncerty.
+
+
+      ## Medovina a víno už v sobotu
+
+
+      První akce se chystá tuto sobotu, jde o medovinobraní. K ochutnání bude medovina i víno, chystá
+      se program v historickém duchu. „Zazní dobová hudba, vystoupí skupina historického šermu, alchymista,
+      kouzelník, hadí mág, komentovanou prohlídku svých nástrojů chystá kat. Děti si budou moci vyzkoušet
+      historické kostýmy a možné budou samozřejmě prohlídky zámku, kde je několik výstav,“ popsal Petr
+      Rasken Chaloupka.
+
+
+      V současné době jsou tam k vidění staré hračky, historické vybavení domácnosti a oblečení z přelomu
+      19. a 20. století, výtvarné práce malířky Hany Štroblové, ilustrace výtvarnice Kateřiny Brabcové,
+      fotografie krajiny Jany Kučerové, část expozice je věnována významným páteckým osobnostem a historii
+      zámku a obce. Další akci pro veřejnost zámek chystá v adventním čase v prosinci, na příští rok se
+      plánují noční karneval nebo menší country festival.
+
+
+      Městys Peruc před několika lety nechal opravit střechu zámku, v plánu je výměna oken. „Rozpočet
+      na okna je přibližně milion korun, uvidíme, jak na to budeme mít peníze,“ doplnil perucký místostarosta.
+
+
+      Zámek v Pátku vznikl na místě tvrze, která stála na ostrohu řeky Ohře. První písemná zmínka je z
+      roku 1374, na zámek se přestavěla v polovině 16. století. Po únoru 1948 byla v zámku okresní politická
+      škola, později zemědělský archiv. Od roku 1961 v něm byly kanceláře místního národního výboru, knihovna
+      a vývařovna zemědělského družstva, stanice SNB a později školka."
+    https://www.sermiri.cz/akce/medovinobrani/36371:
+      "Medovinobraní, Pátek (zámek) | www.sermiri.cz\n\n\
+      \ Pohodová akce s medovinou... historický šerm * dobová hudba * tanečnice * kovárna * rytířská zbrojnice\
+      \ * hadí mág * tržiště * soutěže pro děti \n\n Pořadatel akce: Petr Rasken Chaloupka - https://www.facebook.com/Rasken1467\
+      \ \n\nPátek (zámek)\n\nZámek\n\nBarokní zámek na vysokém pravém břehu Ohře, uvnitř areálu starých\
+      \ i novějších hospodářských budov, které jej z návsi téměř zakrývají. Vznikl přestavbou letohrádku\
+      \ roku 1697. Pozoruhodná centrální disposice vrcholící střešním polopatrem se stanovou střechou\
+      \ a věžičkou."
+    https://www.zamekpatek.cz/akce.html: "## Akce v roce 2026
+
+
+      ### 5.12.2026 16:00
+
+
+      ## VÁNOČNÍ PLAVBA
+
+
+      Vánoční plavba po Ohři libovolnými plavidly po trase Radonice - Pátek. Start 16:00 v Radonicích
+      u mostu. Během cesty teplá medovina. V cíli posezení v klubovně zámku Pátek.
+
+
+
+      ### 12.12.2026 12:00
+
+
+      ## ADVENTNÍ KOŠT VÍN
+
+
+
+
+      ### 19.12.2026 17:00
+
+
+      ## PŘEDVÁNOČNÍ POSEZENÍ
+
+
+      Posezení v barokním refektáři s irskou hudbou. Kapacita max. 30 míst, rezervace nutná.
+
+
+      ## Akce v roce 2026
+
+
+      ### ???"
+    https://www.sermiri.cz/akce/medovinobrani/28626:
+      "Medovinobraní, Pátek (zámek) | www.sermiri.cz\n\n\
+      \ Ochutnávky medoviny, OKOŘSKÁ GARDA - historický šerm, ERGO - dobová hudba, KANCIONETA - historické\
+      \ tance, DIVADLO KUBKO - loutková pohádka Perníková chaloupka, hadí mág CAVE, kovárna, zbrojnice,\
+      \ prohlídky zámku \n\n Pořadatel akce: Zámek Pátek \n\nPátek (zámek)\n\n okres Louny, Ústecký kraj\
+      \ \n\nZámek\n\nBarokní zámek na vysokém pravém břehu Ohře, uvnitř areálu starých i novějších hospodářských\
+      \ budov, které jej z návsi téměř zakrývají. Vznikl přestavbou letohrádku roku 1697. Pozoruhodná\
+      \ centrální disposice vrcholící střešním polopatrem se stanovou střechou a věžičkou."
+    https://www.litomerice.cz/aktuality-infocentrum/litomerice-nabizi-novou-trasu-pro-rodiny-s-detmi-laka-na-hadanky-a-objevovani:
+      "Published: 2025-02-05
+
+
+      Město Litoměřice nabízí originální pěší trasu určenou především rodinám s malými dětmi. Vydat se
+      na ni mohou jak návštěvníci města, tak i místní obyvatelé. Děti během procházky čeká plnění úkolů
+      a řešení tajenky.
+
+
+      Nenáročná trasa o délce přibližně dva a půl kilometru vznikla ve spolupráci s odborem komunikace,
+      marketingu a cestovního ruchu. Její autorkou je Lucie Nachtigallová, tvůrkyně populárního Deníku
+      fejsbukové matky, která se dlouhodobě věnuje přípravě krátkých a atraktivních výletů pro rodiny
+      s malými dětmi po celé republice. Tyto výlety si oblíbili také prarodiče, kteří je rádi absolvují
+      se svými vnoučaty.
+
+
+      Trasa výletu s názvem *Za K. H. Máchou a pány kluky do Litoměřic* začíná na Mírovém náměstí a vede
+      kolem památníku Karla Hynka Máchy, katedrály, přes Rybářské a Mariánské náměstí, dále k hvězdárně
+      a hradu a končí opět na Mírovém náměstí.
+
+
+      „Při krátké procházce městem budeme hledat domovní znamení a také světničku, kde žil básník Karel
+      Hynek Mácha. Potkáme draka, jelena, rytíře, hrad i jedno kamenné dvojče,“ popisuje autorka Lucie
+      Nachtigallová.
+
+
+      Výlet s tajenkou obsahuje kreslenou mapu, doplňovačku s tajenkou, praktické rady na cestu, zábavné
+      úkoly a doprovodný text. Materiály jsou k dispozici ke stažení na webových stránkách města Litoměřice **tomto
+      odkazu**"
+    https://www.vsude.cz/litomerice-kalich-hrad-podzemi-vylet/: "Published: 2026-06-14
+
+
+      **Litoměřice na jeden den zvládnete pěšky: Mírové náměstí s domem U Kalicha, vyhlídková věž ve tvaru
+      vinného kalichu, gotický hrad s expozicí českého vinařství a katedrála sv. Štěpána na Dómském pahorku
+      leží v historickém centru jen pár minut chůze od sebe.** Výlet se hodí pro milovníky památek a vína,
+      pro rodiny s dětmi, které baví věže a podzemní chodby, i pro všechny, kdo chtějí den na soutoku
+      Labe a Ohře spojit s návštěvou Terezína.
+
+
+      O plánu dne rozhodují hlavně prohlídky s průvodcem. Na věž Kalich i do podzemní expozice Důl Richard
+      se chodí jen s průvodcem z informačního centra a ve věži je místo nejvýš pro dvanáct lidí. Hrad
+      si naopak projdete sami kdykoli během otevírací doby. Auto je nejlepší nechat na parkovišti pod
+      hradbami, náměstí patří do nejdražší parkovací zóny.
+
+
+      ## Ve zkratce
+
+
+      - **Kde:** historické centrum Litoměřic nad soutokem Labe a Ohře, infocentrum s vchodem na věž Kalich
+      je v přízemí radnice na Mírovém náměstí.
+
+      - **Věž Kalich:** 80 Kč dospělí, 30 Kč děti od 6 do 15 let, 50 Kč studenti, důchodci a držitelé
+      ZTP, jen s průvodcem, nejvýš 12 osob.
+
+      - **Hrad Litoměřice:** 150 Kč dospělí, 135 Kč studenti a senioři, 100 Kč děti do 15 let, vstupné
+      platí pro všechny expozice.
+
+      - **Podzemí:** expozice Důl Richard pod radnicí s průvodcem z infocentra a v létě historické sklepy
+      pod vinárnou Radniční sklípek.
+
+      - **Vyhlídky:** věž Kalich, parkány José Rizala, věž na Mostné hoře a zvonice u katedrály.
+
+      - **Doprava:** placené parkovací zóny, v neděli a o svátcích zdarma, MHD bez jízdného.
+
+
+      ## Co v Litoměřicích stihnete za jeden den
+
+
+      Jádro výletu tvoří čtyři místa v okruhu několika set metrů. Rozlehlé Mírové náměstí s renesančním
+      domem U Kalicha a vyhlídkovou věží, bývalý královský hrad u Tyršova náměstí s expozicí českého vinařství,
+      Dómský pahorek s barokní katedrálou sv. Štěpána a litoměřické podzemí pod domy kolem náměstí. Zdarma
+      jsou náměstí, Dómský pahorek i parkány, platí se věž, hrad a podzemí.
+
+
+      ## Mapa a recenze návštěvníků
+
+
+      Dům U Kalicha s vyhlídkovou věží a městským informačním centrem stojí na Mírovém náměstí v historickém
+      centru Litoměřic, hrad je u Tyršova náměstí a katedrála na Dómském pahorku, vše pár minut pěšky.
+      Do města se dostanete vlakem do stanice Litoměřice město nebo Litoměřice horní nádraží, autem nejlépe
+      na parkoviště u hradeb Na Valech nebo v Mezibraní.
+
+
+      **Recenze a hodnocení:** hodnocení návštěvníků a jejich fotky ukazuje karta místa v mapě. Recenze
+      čtěte podle data, protože ceny a otevírací doba se mění.
+
+
+      ## Mírové náměstí a dům U Kalicha
+
+
+      Podle Města Litoměřice tvoří náměstí jádro města už od první třetiny 13. století, kdy vládl Přemysl
+      Otakar I. Má nepravidelný obdélníkový tvar, měří zhruba 75 až 90 krát 180 až 195 metrů a zabírá
+      asi dva hektary. Tak velká plocha dokládá význam středověkého města, náměstí sloužilo jako hlavní
+      tržiště. Většina domů je v jádře gotická, na fasádách i uvnitř ale najdete projevy všech slohů od
+      gotiky po 20. století.
+
+
+      ### Kdo postavil dům U Kalicha
+
+
+      Dům, který podle města patří mezi nejoriginálnější národní kulturní památky v Česku, postavil Ital
+      Ambrosio Balli pro rod Mrázů z Milešovky a stavba byla hotová v roce 1581. Mrázové zastávali úřad
+      perkmistra hor viničních, proto dům zakončuje věž s bání ve tvaru sklenice na víno. Po Bílé hoře
+      připadl dům městu, později v něm sídlil solní úřad a škola a od 19. století slouží jako radnice.
+      V přízemí je infocentrum s bezbariérovým vstupem.
+
+
+      ## Vyhlídky: věž Kalich, parkány a Mostná hora
+
+
+      Věž Kalich zpřístupňuje informační centrum Města Litoměřice a podle infocentra je z ní vidět celé
+      město, hrad Hazmburk i hora Říp. Chodí se výhradně s průvodcem, ve skupině je místo nejvýš pro dvanáct
+      lidí a prohlídka trvá zhruba půl hodiny. Její součástí je výstava v krovu otevřená v roce 2022 po
+      dvouleté obnově, se starým hodinovým strojem, který poháněl hodiny až do roku 1991.
+
+
+      ### Kdy je věž Kalich otevřená
+
+
+      V letní sezóně je věž přístupná denně a přesné časy prohlídek určuje personál informačního centra.
+      V zimních mě"
+    https://kampocesku.cz/clanek/32400/do-litomeric-s-detmi-za-zazitky:
+      "**Vítejte v Litoměřicích, kde\
+      \ se opravdu nudit nebudete.** \n\n**Váš úžasný den právě začíná.**\n\n**Město s nadhledem**\n\n\
+      Odkud budete mít město jako na dlani? No jasně, z výšky! Výzvou pro děti bude zdolání schodů, ale\
+      \ pak už budou moci vychutnávat úžasný výhled. Možností je v Litoměřicích více. Přivítá vás unikátní\
+      \ věž Kalich na budově radnice či 65 metrů vysoká věž katedrály sv. Štěpána.\n\n**Za tajemstvím\
+      \ podzemních chodeb**\n\nV litoměřickém podzemí vás čeká 366 metrů chodeb, které v dobách nebezpečí\
+      \ sloužily Litoměřickým jako úkryt a v dobách blahobytu jako sklady. Nebo můžete vstoupit s průvodcem\
+      \ do expozice Důl Richard v proměnách času. Tady se celá rodina dozví informace o bývalém vápencovém\
+      \ dolu Richard, nacházejícím se pod nedalekým vrchem Bídnice.\n\n**Křišťálový dotek**\n\nV unikátní\
+      \ litoměřické galerii si můžete prohlédnout otisky rukou Karla Gotta, Jaromíra Jágra a mnoha dalších\
+      \ českých i světových známých osobností.\n\n**Pro šikovné ruce**\n\nKdo ví, jak se vyrábí papír?\
+      \ Každý, kdo navštívil Dílnu ručního papíru v Litoměřicích! Útulné místo ve věži hradeb není jen\
+      \ výstavou. Naopak, vše si tu vlastníma rukama vyzkoušíte a svůj výtvor si odnesete.\n\n**Kouzelný\
+      \ svět loutek**\n\nVěž, ve které se skrývá pohádkový svět, najdete u parku Václava Havla. Místní\
+      \ divadelní spolek Sváťovo dividlo tu provozuje Galerii marionet, která je rájem pro malé i velké.\
+      \ Najdete zde přes 250 loutek a pohádkových dekorací. Děti si můžou některé loutky půjčit a pohrát\
+      \ si.\n\n**Plavíme se po Labi**\n\nLitoměřice jsou městem ležícím v krásné oblasti na soutoku řek\
+      \ Labe a Ohře. Nastupte na palubu lodi označené číslem T91 a vydejte se do Lovosic, Velkých Žernosek,\
+      \ Libochovan, Dolních Zálezel či do Ústí nad Labem. Více informací najdete na www.dopravauk.cz.\n\
+      \n**Vodní radovánky**\n\nVe vodě je prima zábava. V Litoměřicích můžete v hezkém počasí navštívit\
+      \ místní koupaliště. Tady se v krásném prostředí na břehu Labe vyřádí rodiče i děti. Za zády budete\
+      \ mít litoměřické památky a nebudete chtít odejít!\n\n**Káva s párou**\n\nKavárna v idylickém prostředí\
+      \ bývalého nádraží rozhodně nezaujme jen starší ročníky. Pro děti i dospělé milovníky mašinek je\
+      \ tu připravena zahradní modelová železnice, obklopená miniaturami litoměřických památek.\n\n**Bonusová\
+      \ knížka**\n\nPokud si chcete užít Litoměřice výhodněji, pak si pořiďte bonusovou knížku, s níž\
+      \ můžete ušetřit tisíce korun. Využijte slevy na gurmánské, kulturní i sportovní zážitky, ale i na\
+      \ ubytování. Více než třicet míst, které byste v Litoměřicích neměli minout, nyní poznáte výhodněji.\
+      \ Bonusová knížka je k dostání v informačním centru na Mírovém náměstí za pouhých 45 korun.\n\n\
+      text a foto © Město Litoměřice\n\nVíce o Litoměřicích na\n\nwww.litomerice.cz\n\n**Nesouhlas** se\
+      \ zpracováním Vašich osobních údajů byl zaznamenán.\n\nVáš záznam bude z databáze Vydavatelstvím\
+      \ KAM po Česku s.r.o. vymazán neprodleně, nejpozději však v zákonné lhůtě."

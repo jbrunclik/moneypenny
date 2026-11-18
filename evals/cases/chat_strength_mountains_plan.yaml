@@ -1,0 +1,13 @@
+id: chat_strength_mountains_plan
+description: Long strength chat - recall the bodyweight plan for the mountain trip
+history_from: strength_program
+user: "Zitra odjizdim na ty hory k nasim. Pripomen mi co mam delat, at o silu neprijdu."
+expect:
+  rubric: >
+    Czech answer consistent with the earlier plan: 2-3 sessions of ~30 min
+    over the 10 days with bodyweight/bands (Bulgarian split squats, elevated
+    push-ups, single-leg hip thrust, band rows, face pulls and rotations for
+    the shoulder, plank), lots of walking, and coming back at ~90 % of the
+    weights the first week. Must not invent a gym or equipment.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 2

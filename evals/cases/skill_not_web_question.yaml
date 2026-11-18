@@ -2,8 +2,354 @@ id: skill_not_web_question
 smoke: true
 description: A factual web question must not load a skill
 user: "Who is the current president of Czechia?"
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: Answers with the current president of the Czech Republic.
   forbidden_tools: [load_skill]
+# Canned web captured 2026-11-18 (evals/capture_web.py): current president of Czechia
+web:
+  results:
+    - url: https://www.hrad.cz/en/president-of-the-cr/current-president-of-the-cr
+      title: Petr Pavel <BR>President of the Czech Republic - Prague Castle
+      snippet:
+        "Petr Pavel President of the Czech Republic - Prague Castle\n\n# Petr Pavel President of\
+        \ the Czech Republic\n\n- Curriculum Vitae \n- Public addresses and interviews \n- Presidential\
+        \ powers \n\n## Prague Castle / President of the CR"
+    - url: https://www.cia.gov/resources/world-leaders/foreign-governments/czechia/
+      title: Czechia - World Leaders
+      snippet: "Czechia - World Leaders
+
+
+        # Czechia
+
+
+        ## Leaders and Cabinet Members
+
+
+        Last Updated: 2/25/2026
+
+
+        #### Pres.
+
+
+        Petr PAVEL
+
+
+        #### Prime Min.
+
+
+        Andrej BABIS
+
+
+        #### First Deputy Prime Minister
+
+
+        Karel HAVLICEK
+
+
+        #### Deputy Prime Minister
+
+
+        Petr MACINKA
+
+
+        #### Deputy Prime Minister
+
+
+        Jaromir ZUNA
+
+
+        #### Deputy Prime Minister
+
+
+        Alena SCHILLEROVA
+
+
+        #### Min. for Agriculture
+
+
+        Martin SEBESTYAN
+
+
+        #### Min. of Culture
+
+
+        Oto KLEMPIR
+
+
+        #### Min. of Defense
+
+
+        Jaromir ZUNA
+
+
+        #### Min. for Education, Youth, & Sport
+
+
+        Robert PLAGA
+
+
+        "
+    - url: https://en.wikipedia.org/wiki/President_of_the_Czech_Republic
+      title: President of the Czech Republic
+      snippet: "President of the Czech Republic
+
+
+        | President of the Czech Republic | |
+
+        | --- | --- |
+
+        | Prezident České republiky | |
+
+        | Presidential Flag | |
+
+        | Incumbent Petr Pavel since 9 March 2023 | |
+
+        | Head of state of the Czech Republic Executive branch Military Office of the President | |
+
+        | Style | Mr. President (informal) His Excellency (diplomatic) |
+
+        | Type | Head of state Commander-in-chief |
+
+        | Residence | Prague Castle (ceremonial) Lumbe's Villa (residential) Lány Castle (summer residence)
+        |
+
+        | Appointe"
+    - url: https://vlada.gov.cz/en/media-centrum/aktualne/the-czech-republic-has-a-new-president--petr-pavel-took-office-204424/
+      title: The Czech Republic has a new president. Petr Pavel took office | Government of the Czech Republic
+      snippet:
+        "The Czech Republic has a new president. Petr Pavel took office | Government of the Czech\
+        \ Republic\n\n# The Czech Republic has a new president. Petr Pavel took office\n\n9. 3. 2023 19:06\n\
+        \n: The inauguration of the new president took place in the Vladislav Hall of Prague Castle, 9 March\
+        \ 2023.\n\n The new President of the Czech Republic, Petr Pavel, took the oath of office on Thursday\
+        \ 9 March 2023. This took place at a joint meeting of both chambers of Parliament in Vladislav Hall,\
+        \ which was also attende"
+  pages:
+    https://www.hrad.cz/en/president-of-the-cr/current-president-of-the-cr:
+      "# Petr Pavel   \nPresident\
+      \ of the Czech Republic\n\n  * [ Curriculum Vitae ](/en/president-of-the-cr/current-president-of-the-cr/curriculum-vitae)\n\
+      \n  * [ Public addresses and interviews ](/en/president-of-the-cr/current-president-of-the-cr/public-addresses-and-interviews)\n\
+      \n  * [ Presidential powers ](/en/president-of-the-cr/current-president-of-the-cr/presidential-powers)"
+    https://www.cia.gov/resources/world-leaders/foreign-governments/czechia/:
+      "## Leaders and Cabinet
+      Members
+
+
+      **Last Updated**: 2/25/2026
+
+
+      #### Pres.
+
+
+      Petr PAVEL
+
+
+      #### Prime Min.
+
+
+      Andrej BABIS
+
+
+      #### First Deputy Prime Minister
+
+
+      Karel HAVLICEK
+
+
+      #### Deputy Prime Minister
+
+
+      Petr MACINKA
+
+
+      #### Deputy Prime Minister
+
+
+      Jaromir ZUNA
+
+
+      #### Deputy Prime Minister
+
+
+      Alena SCHILLEROVA
+
+
+      #### Min. for Agriculture
+
+
+      Martin SEBESTYAN
+
+
+      #### Min. of Culture
+
+
+      Oto KLEMPIR
+
+
+      #### Min. of Defense
+
+
+      Jaromir ZUNA
+
+
+      #### Min. for Education, Youth, & Sport
+
+
+      Robert PLAGA
+
+
+      #### Min. for the Environment
+
+
+      Igor CERVENY
+
+
+      #### Min. of Finance
+
+
+      Alena SCHILLEROVA
+
+
+      #### Min. of Foreign Affairs
+
+
+      Petr MACINKA
+
+
+      #### Min. of Health
+
+
+      Adam VOJTECH
+
+
+      #### Min. of Industry & Trade
+
+
+      Karel HAVLICEK
+
+
+      #### Min. of the Interior
+
+
+      Lubomir METNAR
+
+
+      #### Min. of Justice
+
+
+      Jeronym TEJC
+
+
+      #### Min. of Labor & Social Affairs
+
+
+      Ales JUCHELKA
+
+
+      #### Min. for Regional Development
+
+
+      Zuzana MRAZOVA
+
+
+      #### Min. for Sport, Prevention, & Health
+
+
+      Boris STASTNY
+
+
+      #### Min. of Transport
+
+
+      Ivan BEDNARIK
+
+
+      #### Governor, Czech National Bank
+
+
+      Ales MICHL
+
+
+      #### Ambassador to the US
+
+
+      Miloslav STASEK
+
+
+      #### Permanent Representative to the UN, New York
+
+
+      Jakub KULHANEK"
+    https://en.wikipedia.org/wiki/President_of_the_Czech_Republic:
+      "| President of the Czech Republic\
+      \ |  | \n|---|---|\n| *Prezident České republiky* |  | \n| Style |  | \n| Type |  | \n| Residence\
+      \ |  | \n| Appointer |  | \n| Term length |  | \n| Constituting instrument | Constitution of the\
+      \ Czech Republic (1992) | \n| Precursor | President of Czechoslovakia | \n| Formation | 2 February\
+      \ 1993 | \n| First holder | Václav Havel | \n| Succession | Line of succession | \n| Salary | 341,200\
+      \ Kč per month <sup>\\[1\\]</sup> | \n| Website | www.hrad.cz | \n\nThe **president of the Czech\
+      \ Republic** (Czech: *Prezident České republiky*), constitutionally defined as the **President of\
+      \ the Republic** (*Prezident republiky*), is the head of state of the Czech Republic and the commander-in-chief\
+      \ of the Czech Armed Forces.<sup>\\[2\\]</sup>\n\nThe presidency has largely been shaped by its\
+      \ inaugural holder, Tomáš Garrigue Masaryk, who assumed the office after the Czechoslovak declaration\
+      \ of independence was proclaimed in 1918. The 1920 Constitution granted the president substantial\
+      \ powers and Masaryk's political strength and popularity enabled the presidency to exert considerable\
+      \ influence over the Czech public life.<sup>\\[3\\]</sup><sup>\\[4\\]</sup><sup>\\[5\\]</sup><sup>\\\
+      [6\\]</sup> In modern times, the president is largely a ceremonial figure with limited powers as\
+      \ the day-to-day business of the executive government is entrusted to the prime minister, and  many\
+      \ of the president's actions require prime ministerial approval. Nevertheless, as the bearer of\
+      \ the nation's \"Truth prevails\" motto, the presidency is widely viewed to be a significant source\
+      \ of prestige, power and moral authority in both domestic and foreign affairs.<sup>\\[7\\]</sup><sup>\\\
+      [8\\]</sup><sup>\\[9\\]</sup> The president, seated at the Prague Castle, has oftentimes been perceived\
+      \ through the prism of the nation's monarchical past.<sup>\\[10\\]</sup><sup>\\[11\\]</sup> The\
+      \ office has retained the power to grant full pardons, commute criminal penalties and issue amnesties.\
+      \ The president possesses with a suspensory veto power which can be overridden by an absolute majority\
+      \ of the Chamber of Deputies.\n\nThe Constitution provides that the president cannot be held responsible\
+      \ for his own conduct, except in cases of treason or high violation against the Constitution.<sup>\\\
+      [12\\]</sup> The Parliament maintains the sole power of impeachment and the president may only be\
+      \ removed from office by a trial before the Constitutional Court.<sup>\\[13\\]</sup> The president\
+      \ is solely responsible for appointing the prime minister, the Cabinet ministers, as well as the\
+      \ members of the board of the Czech National Bank, and nominating justices to the Constitutional\
+      \ Court, who are subject to Senate approval, among others.\n\nThe president is elected directly\
+      \ using the two-round system to a five-year term. Prior to 2013, the president was selected by a\
+      \ joint session of the Parliament. Under Article 57 of the Constitution, no individual may be elected\
+      \ to more than two consecutive terms. The current president, Petr Pavel, was elected in the 2023\
+      \ election, and assumed office on 9 March 2023.<sup>\\[14\\]</sup><sup>\\[15\\]</sup><sup>\\[16\\\
+      ]</sup>\n\nThe framers of the Constitution of the Czech Republic intended to set up a parliamentary\
+      \ system, with the prime minister as the country's leading political figure and the de facto chief\
+      \ executive and the president as a ceremonial head of state. However, the stature of the first president,\
+      \ Václav Havel, was such that the office acquired greater influence than the framers intended, although\
+      \ not nearly as powerful as the Czechoslovak presidency.<sup>\\[17\\]</sup>\n\nThe president of\
+      \ the Czech Republic has the authority to act independently in a number of substantive areas. One\
+      \ of the office's strongest powers is that of veto, which returns a bill to parliament. Although\
+      \ the veto may be overridden by parliament with an absolute majority vote (over 50%) of all deputies,<sup>\\\
+      [18\\]</sup> the ability to refuse to sign legislation acts as a check on the power of the legislature.\
+      \ Th"
+    https://vlada.gov.cz/en/media-centrum/aktualne/the-czech-republic-has-a-new-president--petr-pavel-took-office-204424/:
+      "#
+      The Czech Republic has a new president. Petr Pavel took office
+
+
+      **The new President of the Czech Republic, Petr Pavel, took the oath of office on Thursday 9 March
+      2023. This took place at a joint meeting of both chambers of Parliament in Vladislav Hall, which
+      was also attended by members of the Czech Government, including Prime Minister Petr Fiala.**
+
+
+      On Thursday, 9 March, shortly after 2 pm, the new president, Petr Pavel, took the oath of office
+      to the Constitution of the Czech Republic and thus became the new president. Prime Minister Petr
+      Fiala wished the new highest constitutional official to be a successful president and to fulfil
+      the great expectations that people have placed in him.
+
+
+      “President Petr Pavel wants to unite society, respect the Constitution and its spirit, and clearly
+      advocates the pro-Western orientation of our country. I look forward to our cooperation and I believe
+      that we will work together for the benefit of the Czech Republic and its citizens,” said Prime Minister
+      Petr Fiala.
+
+
+      The ceremonial act of inauguration of the new Czech President was concluded with a Te Deum opus
+      by Antonín Dvořák in the Cathedral of St Vitus, Wenceslas and Vojtěch at Prague Castle, accompanied
+      by a ceremony honouring the memory of St Wenceslas, the patron saint of the Czech Republic.
+
+
+      The term of office of the current Czech President Miloš Zeman expired at the stroke of midnight
+      on Wednesday, 8 March, to Thursday, 9 March 2023. Thus, his ten years as the highest constitutional
+      official of the Czech Republic were completed."

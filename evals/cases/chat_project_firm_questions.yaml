@@ -1,0 +1,14 @@
+id: chat_project_firm_questions
+description: Long project chat - recall the questions for installers (also saved in Todoist)
+history_from: project_research
+user: "Zitra mi prijede prvni firma na prohlidku. Na co se jich mam zeptat?"
+expect:
+  rubric: >
+    Czech list matching the earlier eight questions: heat-loss calculation,
+    proposed output (~8 kW, why not 12), water temperature / radiators (the
+    kids' room radiator), SVT list + registered installer in writing, help
+    with the subsidy and expert opinion, what the price includes, service
+    and winter response time, compressor warranty; may add PV-ready. Must not
+    drop the subsidy-eligibility question.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 2

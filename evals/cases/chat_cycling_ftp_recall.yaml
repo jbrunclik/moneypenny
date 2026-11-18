@@ -1,0 +1,12 @@
+id: chat_cycling_ftp_recall
+description: Long cycling chat - recall an earlier estimate (FTP in May) consistently
+history_from: cycling_program
+user: "Kamos se ptal na jaky FTP mirim do kvetna. Co jsme si rikali?"
+expect:
+  rubric: >
+    Czech answer consistent with the earlier estimate in the chat (from the
+    current 238 W, realistically 250-257 W by May; 260 W as the ambitious
+    goal) and why it matters for the brevet (higher Z2 ceiling). Must not
+    give a different estimate as if it were the agreed one.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 1

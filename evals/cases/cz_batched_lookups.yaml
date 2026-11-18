@@ -10,8 +10,6 @@ user: >
   Potřebuju na zítra otevírací dobu těchto čtyř míst: Národní technické muzeum
   v Praze, Technické muzeum v Brně, Dolní oblast Vítkovice v Ostravě
   a Techmania v Plzni. Stačí stručně ke každému.
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Gives opening hours (or a clear statement that it could not confirm them)
@@ -20,3 +18,676 @@ expect:
   # (CODE_SANDBOX_TOOL_CALLS) counts as batching too
   required_tools: [research, web_search, execute_code]
   max_tool_rounds: 3
+# Canned web captured 2026-11-18 (evals/capture_web.py): Národní technické muzeum otevírací doba; Technické muzeum v Brně otevírací doba; Dolní oblast Vítkovice otevírací doba; Techmania Plzeň otevírací doba
+web:
+  results:
+    - url: https://www.ntm.cz/pro-navstevniky/prehled-vstupneho
+      title: Přehled vstupného - Národní technické muzeum
+      snippet:
+        "Přehled vstupného - Národní technické muzeum\n\nKostelní 42, Praha 7, Česká republika\n\n\
+        # Přehled vstupného\n\nVstupenky lze zakoupit na pokladnách NTM, případně ve vstupenkovém E-shopu\n\
+        \n Kompletní ceník NTM 0,3 MB \n\n Právě otevřeno, dnes do 18:00 \n\n## Otevírací doba \n\n| Středa\
+        \ ( dnes ) | 09:00 - 18:00 |\n| --- | --- |\n| Čtvrtek ( zítra ) | 09:00 - 18:00 |\n\n## Vstupné\
+        \ \n\n| Plné | 330 Kč |\n| --- | --- |\n| Snížené (studenti 15 – 26 let; senioři nad 65 let) ? Pro\
+        \ seniory (nad 65 let), držitele průkazu ZTP"
+    - url: https://www.ntm.cz/
+      title: Národní technické muzeum
+      snippet:
+        "Národní technické muzeum\n\nKostelní 42, Praha 7, Česká republika\n\nHlavní budova v Praze\
+        \ \n\nOtevíráme za méně než hodinu, v 09:00, bude otevřeno do 18:00\n\nPoštovní muzeum Praha \n\n\
+        Otevíráme za méně než hodinu, v 09:00, bude otevřeno do 18:00\n\nPřejít na snímek č. 1 Přejít na\
+        \ snímek č. 2 Přejít na snímek č. 3 Přejít na snímek č. 4 Přejít na snímek č. 5 \n\n Poštovní muzeum\
+        \ v Praze ve Vávrově domě navštivte s pořadem ČT Toulavá kamera \n\n## Expozice\n\nRudný a uhelný\
+        \ důl\n\nTatra 77a – od zázraku k vraku a zp"
+    - url: https://www.ntm.cz/pro-navstevniky/oteviraci-doba
+      title: Otevírací doba - Národní technické muzeum
+      snippet:
+        "Otevírací doba - Národní technické muzeum\n\nKostelní 42, Praha 7, Česká republika\n\n#\
+        \ Otevírací doba\n\nPrávě otevřeno, dnes do 18:00\n\nHlavní budova v Praze\n\nV jedné z největších\
+        \ muzejních budov u nás jsou v 16 stálých expozicích a krátkodobých výstavách na 7 patrech k vidění\
+        \ sbírky muzea z mnoha oborů technické a průmyslové historie i současnosti. Budova muzea od architekta\
+        \ Milana Babušky ze 40. let 20. století je kulturní památkou.\n\nNavštívit \n\nDnes zavřeno\n\n\
+        Centrum stavitelského dědictví NTM v Pl"
+    - url: https://www.ntm.cz/pro-navstevniky/prehled-vstupneho/hlavni-budova-v-praze
+      title: Hlavní budova v Praze - Národní technické muzeum
+      snippet:
+        "Hlavní budova v Praze - Národní technické muzeum\n\nKostelní 42, Praha 7, Česká republika\n\
+        \n Právě otevřeno, dnes do 18:00 \n\n# Hlavní budova v Praze\n\nKostelní 1320/42, 170 00 Praha 7\
+        \ \n\n## Vstupné a otevírací doba\n\n| Typ | Jednorázový vstup |\n| --- | --- |\n| Plné | 330 Kč\
+        \ |\n| Snížené (studenti 15 – 26 let; senioři nad 65 let) ? Pro seniory (nad 65 let), držitele průkazu\
+        \ ZTP, ISIC, ITIC, studenty SŠ a VŠ (do 26 let) po předložení studijního průkazu s fotografií a\
+        \ vyznačenou dobou platnosti. | 200 Kč "
+    - url: https://www.tmbrno.cz/navstivte-nas/oteviraci-doba-vstupne/
+      title: Otevírací doba a vstupné - Technické muzeum v Brně
+      snippet: "Otevírací doba a vstupné - Technické muzeum v Brně
+
+
+        ## Otevírací doba
+
+
+        | pondělí | zavřeno | |
+
+        | --- | --- | --- |
+
+        | úterý | zavřeno | otevřeno pouze pro školní a zájmové skupiny, které se účastní předem objednaných
+        edukačních programů. |
+
+        | středa až pátek | 9.00–17.00 | |
+
+        | sobota a neděle | 10.00–18.00 | |
+
+        | státní svátky | 10.00–18.00 | pozn. pokud je muzeum v daný svátek otevřené |
+
+
+        Poslední vstup do budovy je 30 min. před koncem otevírací doby. Tel.: +420 541 421 411 (ústředna,
+        recepce)
+
+
+        V "
+    - url: https://www.tmbrno.cz/
+      title: Úvodní stránka - Technické muzeum v Brně
+      snippet:
+        "Úvodní stránka - Technické muzeum v Brně\n\nDouglas – král silnic\n\nKyberbezpečnost pro\
+        \ každého aneb jak chránit sebe a své blízké\n\nKomentované prohlídky výstavy „Evropský meč“\n\n\
+        Evropský meč\n\nTechnika v muzeu – film\n\n \n\nDnes máme zavřeno. \n\n| pondělí–úterý | zavřeno\
+        \ |\n| --- | --- |\n| středa–pátek | 9.00–17.00 |\n| sobota a neděle | 10.00–18.00 |\n\n90 Kč /\
+        \ 180 Kč\n\n Zlevněný a základní vstup \n\nKudy k nám?\n\n Tramvaj MHD č.12 Zastávka Technické muzeum\
+        \ \n\n 18 stálých expozic \n\n 11 výstav a akcí \n\n## Aktuál"
+    - url: https://www.tmbrno.cz/vsechny-aktuality/
+      title: Aktuality - Technické muzeum v Brně
+      snippet:
+        "Aktuality - Technické muzeum v Brně\n\n# Aktuality\n\n90 Kč / 180 Kč\n\n Zlevněný a základní\
+        \ vstup \n\n| pondělí–úterý | zavřeno |\n| --- | --- |\n| středa–pátek | 9.00–17.00 |\n| sobota\
+        \ a neděle | 10.00–18.00 |\n\n \n\n28. 10. 2026 – vstup ZDARMA\n\nDen vzniku samostatného československého\
+        \ státu – vstup zdarma Technické muzeum v Brně se připojuje k oslavám státního svátku dne 28. 10.\
+        \ 2026 – Den vzniku samostatného československého státu – vstup do muzea ZDARMA. Otevřeno bude od\
+        \ 10.00 do 18.00. Těšíme se na vaši"
+    - url: https://www.tmbrno.cz/aktuality/zmena-oteviraci-od-1-4-2023/
+      title: Změna otevírací doby - Technické muzeum v Brně
+      snippet: "Změna otevírací doby - Technické muzeum v Brně
+
+
+        S platností od 1. dubna 2023 se mění otevírací doba v Technickém muzeu v Brně, Purkyňova 105, 612
+        00 Brno – Královo Pole. Úterý bude pro veřejnost zavíracím dnem, bude vyhrazeno pro žáky a studenty
+        všech stupňů vzdělávání, členům zájmových skupin a kroužků, kteří se účastní předem objednaných
+        edukačních programů.
+
+
+        Muzeum bude otevřeno pro veřejnost následovně:
+
+
+        pondělí–úterý: ZAVŘENO středa–pátek: 9.00–17.00 sobota–neděle: 10.00–18.00 státní svátky"
+    - url: https://www.dolnivitkovice.cz/velky-svet-techniky
+      title: Velký Svět Techniky · Dolní Vítkovice
+      snippet:
+        "Velký Svět Techniky · Dolní Vítkovice\n\n# Velký Svět Techniky\n\n Zavřeno · Út–Ne 09:00–18:00\
+        \ \n\n## Co pro vás chystáme\n\n Celý program \n\n- 28–30 říj–čvn \n\n 09:00 – 18:00 Velký Svět\
+        \ Techniky Dlouhodobé expozice a výstavy \n\n### Modely z kostek LEGO® \n\nVe Velkém světě techniky\
+        \ v Dolních Vítkovicích si užijete interaktivní výstavu Czech RepuBRICK: Svět z LEGO® kostek. Modely\
+        \ z kostek LEGO® si můžete prohlédnout zblízka a zábavnou formou se při návštěvě i zapojit.\n\n\
+        Na webu pořadatele\n\n Vstupenky Přidat d"
+    - url: https://www.dolnivitkovice.cz/
+      title: Dolní Vítkovice — industriální srdce Ostravy
+      snippet:
+        "Dolní Vítkovice — industriální srdce Ostravy\n\n# Industriální srdce Ostravy plné hudby\
+        \ \n\nZ ostravských železáren je dnes areál, kam se chodí za hudbou, vědou i výhledem. Jeden areál\
+        \ — a desítky důvodů, proč přijet právě dnes.\n\n## Nenechte si ujít \n\n### Světelný park - Éra\
+        \ vynálezů \n\nSvětelný park Éra vynálezů rozzáří Dolní Vítkovice od 24. října do 31. prosince 2026.\
+        \ Na návštěvníky čekají stovky tisíc LED diod, velké světelné sochy a kilometry světelných řetězů\
+        \ od společnosti DECOLED. Park je urč"
+    - url: https://www.dolnivitkovice.cz/infocentrum
+      title: Infocentrum DOV · Dolní Vítkovice
+      snippet:
+        "Infocentrum DOV · Dolní Vítkovice\n\n# Infocentrum DOV\n\n Zavřeno · Po–Ne 09:00–18:00 \n\
+        \n## O objektu Infocentrum DOV\n\nNávštěvnické centrum Dolních Vítkovic. Návštěvnický servis, prodej\
+        \ suvenýrů a vstupenek do všech objektů včetně Hornického muzea na Landeku v Ostravě-Petřkovicích.\
+        \ Start většiny komentovaných prohlídek národní kulturní památky. Rychlý kontakt +420 724 955 121.\n\
+        \n### Kontakt na objekt\n\n Telefon \n\n+420 724 955 121 (+420724955121)\n\n E-mail \n\ninfocentrum@dolnivitkovice.cz\n\
+        \n## Co objekt n"
+    - url: https://rezervace.dolnivitkovice.cz/tourscombinations?mrsid=1
+      title: Kombinace okruhů - WebList
+      snippet:
+        "Kombinace okruhů - WebList\n\n# Dolní oblast Vítkovice, z.s.\n\n Dolní oblast Vítkovice,\
+        \ z.s. \n\n### Svět techniky a Malý svět U6\n\n \n\nMalý svět techniky U6\n\nE-vstupenka vás opravňuje\
+        \ k jednorázovému vstupu po dobu 30 dnů ode dne nákupu. Ověřte si aktuální otevírací dobu na webu\
+        \ dolnivitkovice.cz. S e-vstupenkou přistupte rovnou k turniketu a načtěte čárový kód. Vstupenku\
+        \ je nutné uschovat po dobu celé návštěvy. MOMENTÁLNĚ OTEVŘENO úterý - neděle - 9:00 - 18:00. Upozorňujeme\
+        \ návštěvníky, že v zimních "
+    - url: https://techmania.cz/kontakt/
+      title: Kontakt | Techmania Science Center
+      snippet:
+        "Kontakt | Techmania Science Center\n\n# Kontakt\n\n### Recepce\n\nút–pá 08:30–17:00\n\n\
+        so–ne 10:00–18:00\n\n- +420 737 247 581\n- recepce@techmania.cz\n\n### Rezervace pro školy\n\n-\
+        \ +420 734 283 922\n- skoly@techmania.cz\n\n## Fakturační údaje\n\nTechmania Science Center o. p.\
+        \ s. U Planetária 2969/1, 301 00 Plzeň\n\nČíslo účtu: 0117665743 / 0300 ID datové schránky: uvd7fks\n\
+        \nIČO: 26396645 DIČ: CZ26396645 Zápis u KS v Plzni oddíl O vložka 89\n\nOddělení\n\n- Kancelář ředitele\
+        \ / Administrace \n- Marketingové oddělení \n- Pro"
+    - url: https://www.info-plzen.cz/techmania-science-center-ops/index.html
+      title: Techmania Science Center, o.p.s. - Info-Plzeň
+      snippet:
+        "Techmania Science Center, o.p.s. - Info-Plzeň\n\n# Techmania Science Center, o.p.s.\n\n\
+        Adresa:\n\n Tylova 1/57 Plzeň-Jižní Předměstí, 301 00 Plzeňský kraj / okres Plzeň-město \n\n Provozní\
+        \ doba: \n\n| Po − Pá: | 08.30 − 17.00 |\n| --- | --- |\n| So − Ne: | 10.00 − 18.00 |\n\nWeb:\n\n\
+        \ techmania.cz \n\nSociální sítě:\n\n TechmaniaPlzen \n\nMobil:\n\n+420 737 247 585 (+420737247585)\n\
+        \nE-mail:\n\n Provoz vědeckého centra. Naleznete zde také 3D planetárium a expoziční halu. Poskytujeme\
+        \ dárkové poukázky. Rádi zodpovíme vaše dot"
+    - url: https://techmania.cz/blog/clanek/jarnaky-v-techmanii/
+      title: Jarňáky v Techmanii | Techmania Science Center
+      snippet:
+        "Jarňáky v Techmanii | Techmania Science Center\n\n# Jarňáky v Techmanii\n\n 16. 2. 2026\
+        \ \n\n \n\nBěhem plzeňských jarních prázdnin od 2. do 8. března můžete objevovat svět vědy i v pondělí.\n\
+        \nAť už si počasí vymyslí jakýkoliv scénář, my na vás budeme připraveni. Přijďte si užít zábavný\
+        \ program do Techmanie, prozkoumat interaktivní exponáty a třeba potkáte i naši robofenku Terru.\n\
+        \nPondělí až pátek: 8:30–17:00 Sobota a neděle: 10:00–18:00\n\n 6. 11. 2026 \n\n## Zvídavé hraní\
+        \ – Stromy \U0001F333 \n\nListopadové Zvídavé h"
+    - url: https://vizgu.com/cs/pilsen/techmania-science-center
+      title: "Techmania Science Center: otevírací doba — Plzeň | Vizgu"
+      snippet: "Techmania Science Center: otevírací doba — Plzeň | Vizgu
+
+
+        # Techmania Science Center
+
+
+        Techmania Science Center je interaktivní vědecké centrum v Plzni, které roku 2005 založila společnost
+        Škoda Transportation a Západočeská univerzita a které bylo roku 2008 otevřeno v bývalých halách
+        závodů Škoda. Návštěvníci si zkoušejí interaktivní exponáty z fyziky, matematiky a techniky a sledují
+        filmy ve 3D planetáriu.
+
+
+        ## Dobré vědět
+
+
+        Otevírací doba
+
+
+        Po zavřenoÚt–Pá 08:30–17:00 So–Ne 10:00–18:00
+
+
+        Otevírací "
+  pages:
+    https://www.ntm.cz/pro-navstevniky/prehled-vstupneho:
+      "# Přehled vstupného\n\n## Otevírací doba\n\n\
+      | Středa ( dnes ) | 09:00 - 18:00 | \n|---|---|\n| Čtvrtek ( zítra ) | 09:00 - 18:00 | \n\nZobrazit\
+      \ další dny\n\n## Vstupné\n\n| Plné | **330 Kč** | \n|---|---|\n| Snížené (studenti 15 – 26 let;\
+      \ senioři nad 65 let) ?  Pro seniory (nad 65 let), držitele průkazu ZTP, ISIC, ITIC, studenty SŠ\
+      \ a VŠ (do 26 let) po předložení studijního průkazu s fotografií a vyznačenou dobou platnosti. |\
+      \ **200 Kč** | \n| Děti do 6 let | **Zdarma** | \n| Dětské 6 až 15 let | **80 Kč** | \n| Rodinné\
+      \ vstupné (max. 2 dospělí a až 4 děti do 15 let) | **680 Kč** | \n\n## Vstupné\n\n| Plné | **220\
+      \ Kč** | \n|---|---|\n| Snížené (studenti 15 – 26 let; senioři nad 65 let) ?  Pro seniory (nad 65\
+      \ let), držitele průkazu ZTP, ISIC, ITIC, studenty SŠ a VŠ (do 26 let) po předložení studijního\
+      \ průkazu s fotografií a vyznačenou dobou platnosti. | **160 Kč** | \n| Dětské 6 až 15 let | **60\
+      \ Kč** | \n| Děti do 6 let | **Zdarma** | \n| Rodinné vstupné (max. 2 dospělí a až 4 děti do 15\
+      \ let) | **460 Kč** | \n\n## Vstupné\n\n| Plné | **200 Kč** | \n|---|---|\n| Snížené (studenti 15\
+      \ – 26 let; senioři nad 65 let) ?  Pro seniory (nad 65 let), držitele průkazu ZTP, ISIC, ITIC, studenty\
+      \ SŠ a VŠ (do 26 let) po předložení studijního průkazu s fotografií a vyznačenou dobou platnosti.\
+      \ | **150 Kč** | \n| Dětské 6 až 15 let | **60 Kč** | \n| Děti do 6 let | **Zdarma** | \n| Rodinné\
+      \ vstupné (max. 2 dospělí a až 4 děti do 15 let) | **440 Kč** | \n\n## Otevírací doba\n\n| Středa\
+      \ ( dnes ) | 09:00 - 18:00 | \n|---|---|\n| Čtvrtek ( zítra ) | 09:00 - 18:00 | \n\nZobrazit další\
+      \ dny\n\n## Vstupné\n\n| Plné | **100** | \n|---|---|\n| Snížené (studenti 15 – 26 let; senioři\
+      \ nad 65 let) ?  Pro seniory (nad 65 let), držitele průkazu ZTP, ISIC, ITIC, studenty SŠ a VŠ (do\
+      \ 26 let) po předložení studijního průkazu s fotografií a vyznačenou dobou platnosti. | **70** |\
+      \ \n| Dětské 6 až 15 let | **40** | \n| Rodinné vstupné (max. 2 dospělí a až 4 děti do 15 let) |\
+      \ **220** | \n| Děti do 6 let | **Zdarma** | \n\n## Otevírací doba\n\n| Středa ( dnes ) | Zavřeno\
+      \ | \n|---|---|\n| Čtvrtek ( zítra ) | Zavřeno | \n\nZobrazit další dny\n\n## Vstupné\n\n| Plné\
+      \ | **170** | \n|---|---|\n| Snížené (studenti 15 – 26 let; senioři nad 65 let) ?  Pro seniory (nad\
+      \ 65 let), držitele průkazu ZTP, ISIC, ITIC, studenty SŠ a VŠ (do 26 let) po předložení studijního\
+      \ průkazu s fotografií a vyznačenou dobou platnosti. | **120** | \n| Dětské 6 až 15 let | **60**\
+      \ | \n| Rodinné vstupné (max. 2 dospělí a až 4 děti do 15 let) | **370** | \n| Školní skupiny ?\
+      \  Pro školní skupiny (minimálně 5 žáků/studentů) ZŠ, SŠ a VŠ. 2 členové pedagogického doprovodu\
+      \ zdarma. | **60** |"
+    https://www.ntm.cz/:
+      "Výstava originálním způsobem prezentuje příběh moderní kolejové dopravy jako
+      jednoho z klíčových motorů proměny světa. Návštěvníci díky autentickým exponátům, interaktivním
+      prvkům i uměleckým dílům objeví její počátky, technické inovace a dopady na každodenní život společnosti.
+
+
+      Výstava přivádí návštěvníky do imaginárního elektrotechnického závodu v pražském Karlíně kolem roku
+      1920. Nabízí pohled na Františka Křižíka jako člověka, který dokázal technické vize proměňovat ve
+      skutečnost a jehož odkaz zůstává důležitou součástí českých dějin techniky.
+
+
+      Národní technické muzeum nově získalo do svých sbírek 15 cenných vozů značky Praga ze soukromé sbírky
+      Emila Příhody. Výběr osmi z nich nyní představuje ve výstavě umístěné v Dopravní hale.
+
+
+      Výstava Národního technického muzea a Státního oblastního archivu v Praze ukazuje příběhy ukryté
+      v domech, které vyprávějí archivy.
+
+
+      Výstava přibližuje příběh firmy Hainz, který není jen podnikatelskou cestou od řemeslných počátků
+      k moderní průmyslové výrobě hodin, ale zrcadlí v sobě také proměny a dramatické zvraty české společnosti.
+      Připomíná ho také péče o významné historické hodinové stroje, včetně Staroměstského orloje, o jehož
+      chod se stará již od 19. století."
+    https://www.ntm.cz/pro-navstevniky/oteviraci-doba: "**Hlavní budova v Praze**
+
+
+      V jedné z největších muzejních budov u nás jsou v 16 stálých expozicích a krátkodobých výstavách
+      na 7 patrech k vidění sbírky muzea z mnoha oborů technické a průmyslové historie i současnosti.
+      Budova muzea od architekta Milana Babušky ze 40. let 20. století je kulturní památkou.
+
+
+      **Navštívit**Dnes zavřeno
+
+
+      **Centrum stavitelského dědictví NTM v Plasích**
+
+
+      Moderní muzeum stavitelství naleznete v opraveném hospodářském areálu památkově hodnotného kláštera
+      v Plasích. Atraktivní formou seznamuje s jednotlivými etapami stavby domu, ale i středověkými stavebními
+      stroji. V rozsáhlém areálu se pořádají vzdělávací a vědecké akce.
+
+
+      **Navštívit**Dnes zavřeno
+
+
+      **Železniční depozitář NTM v Chomutově**
+
+
+      Depozitář je umístěn v původním železničním depu a muzeum ho otevírá pro veřejnost na letní sezónu.
+      Naleznete zde téměř 100 kolejových vozidel nejrůznějších typů: lokomotivy, salonní, osobní i motorové
+      vozy, elektrické a motorové lokomotivy i historické drezíny.
+
+
+      **Navštívit**Dnes zavřeno
+
+
+      **Letenský kolotoč v Praze**
+
+
+      Kolotoč se nachází v Letenských sadech již od roku 1894. Je jedním z nejstarších podlahových kolotočů
+      v Evropě a unikátní je díky figurám koní, které jsou potažené pravou koňskou kůží. NTM kolotoč po
+      celkové opravě zprovoznilo v roce 2022.
+
+
+      **Navštívit**Připravujeme
+
+
+      **Muzeum železnice a elektrotechniky v Praze**
+
+
+      Národní technické muzeum připravuje v prostorách nejstaršího nádraží v Praze, v památkově chráněných
+      objektech bývalých dílen Masarykova nádraží, velký expoziční projekt věnovaný tématům železnice
+      a elektrotechniky.
+
+
+      *Dokončení Muzea železnice a elektotechniky Národního technického muzea je plánováno na rok 2030.*
+
+
+      **Navštívit**"
+    https://www.ntm.cz/pro-navstevniky/prehled-vstupneho/hlavni-budova-v-praze:
+      "## Vstupné a otevírací\
+      \ doba\n\n| Typ | Jednorázový vstup | \n|---|---|\n| Plné | **330 Kč** | \n| Snížené (studenti 15\
+      \ – 26 let; senioři nad 65 let) ?  Pro seniory (nad 65 let), držitele průkazu ZTP, ISIC, ITIC, studenty\
+      \ SŠ a VŠ (do 26 let) po předložení studijního průkazu s fotografií a vyznačenou dobou platnosti.\
+      \ | **200 Kč** | \n| Děti do 6 let | **Zdarma** | \n| Dětské 6 až 15 let | **80 Kč** | \n| Rodinné\
+      \ vstupné (max. 2 dospělí a až 4 děti do 15 let) | **680 Kč** | \n| Školní skupiny ?  Pro školní\
+      \ skupiny (minimálně 5 žáků/studentů) ZŠ, SŠ a VŠ. 2 členové pedagogického doprovodu zdarma. | **60\
+      \ Kč** | \n\nProdej vstupenek končí 30 minut před koncem otevírací doby. Vstupenka je jednorázová\
+      \ a platí pro vstup do všech expozic kromě expozice Rudného a uhelného dolu (speciální příplatkové\
+      \ vstupné). Neplatí po opuštění muzea. Vstupenky lze zakoupit na pokladně nebo online.\n\n*K využití\
+      \ šatních skříněk doporučujeme připravit minci v hodnotě 10 Kč nebo 50 centů.* \n\n**Vstupenky v\
+      \ hodnotě plné, snížené, dětské pro 6 až 15 let a rodinné lze zakoupit též ve formě dárkové vstupenky\
+      \ s platností 365 dní od zakoupení. Dárkovou vstupenku je možné zakoupit jak na pokladně, tak online\
+      \ (kategorie nečasované prohlídky).**\n\n**Vstup zdarma:** děti do 6 let, držitelé průkazu ZTP/P\
+      \ a jejich průvodce, MŠ včetně 2 členů pedagogického doprovodu, hromadné návštěvy z dětských domovů,\
+      \ SOS dětských vesniček, Fondu ohrožených dětí (Klokánek), držitelé průkazu AMG, ICOM, ICOMOS, držitelé\
+      \ příslušného QR kódu Ministerstva kultury ČR, držitelé čestného poukazu na volnou vstupenku, Vědecká\
+      \ rada NTM, Výstavní rada NTM, Rada pro sbírkotvornou činnost NTM, Redakční rada NTM. Lze uplatnit\
+      \ pouze na pokladně.\n\nPo předložení vstupenky z jiného objektu NTM (Plasy, Chomutov) ne starší\
+      \ 3 měsíců obdrží každý návštěvník 20% slevu na základní plné, snížené, zvláštní nebo rodinné vstupné.\n\
+      \n\n\n\n\n\n| Pondělí | Zavřeno | \n|---|---|\n| Úterý | 09:00 - 18:00 | \n| Středa | 09:00 - 18:00\
+      \ | \n| Čtvrtek | 09:00 - 18:00 | \n| Pátek | 09:00 - 18:00 | \n| Sobota | 09:00 - 18:00 | \n| Neděle\
+      \ | 09:00 - 18:00 | \n\nKdyž je v pondělí svátek, je otevřeno: 9:00–18:00.\n\n## Základní informace\n\
+      \n### Parkování\n\nU budovy muzea se nachází placené parkoviště. Cena je 65 Kč za každou započatou\
+      \ hodinu. Případně využijte před muzeem zóny placeného stání (parkovací automat je přímo před vchodem\
+      \ do muzea).\n\n### Bezbariérový přístup\n\nBezbariérový vstup do muzea pro návštěvníky s tělesným\
+      \ postižením nebo s kočárkem je umístěn pod rampou dole vpravo od hlavního vstupu. Infromace pro\
+      \ návštěvníky s omezením pohybu naleznete v sekci\n\n### Fotografování a filmování\n\nFotografovat\
+      \ i filmovat je možné zdarma pro soukromé účely. Je zakázáno používat stativ, selfie tyče, pomocná\
+      \ světla a jakkoliv omezovat pohyb ostatních návštěvníků.\n\n## Kudy k nám\n\nPokud cestujete prostředky\
+      \ městské hromadné dopravy, vystoupíte z tramvaje na zastávce Letenské náměstí. Nejbližší spojení\
+      \ metrem je na stanici Hradčanská na lince A nebo na stanici Vltavská na lince C. Z obou stanic\
+      \ můžete pokračovat tramvají na Letenské náměstí a dále pěšky směrem k Letenským sadům.\n\n## Plán\
+      \ budovy\n\n**Kompletní ceník NTM 2026**0,3 MB\n\n**Plán stálých expozic**0,1 MB\n\n**Map\\_ENGLISH**0,2\
+      \ MB\n\n**Karte\\_DEUTSCH**0,2 MB"
+    https://www.tmbrno.cz/navstivte-nas/oteviraci-doba-vstupne/:
+      "Published: 2026-10-29\n\n## Otevírací\
+      \ doba\n\n| **pondělí** | **zavřeno** |  | \n| **úterý** | **zavřeno** | otevřeno pouze pro školní\
+      \ a zájmové skupiny, které se účastní předem objednaných edukačních programů. | \n| **středa až\
+      \ pátek** | **9.00–17.00** |  | \n| **sobota a neděle** | **10.00–18.00** |  | \n| **státní svátky**\
+      \  | **10.00–18.00**  | *pozn. pokud je muzeum v daný svátek otevřené* | \n\nPoslední vstup do budovy\
+      \ je 30 min. před koncem otevírací doby.\n\nTel.: +420 541 421 411 (ústředna, recepce)\n\nV den\
+      \ státního svátku **17. 11. 2026** bude otevřeno v době **10.00–18.00**, vstupné dle běžného ceníku.\n\
+      \n\n### **VSTUP ZDARMA**\n\nOd září 2026 bude **každou první neděli v měsíci vstup ZDARMA** do všech\
+      \ **stálých expozic** v hlavní budově Technického muzea v Brně, Purkyňova 105, 612 00 Brno. Výstavy\
+      \ **Policejní ředitelství 1918–1945** a **Evropský meč** budou ve dnech volného vstupu uzavřeny.\n\
+      \nDo konce letošního roku se volné vstupy uskuteční ještě v těchto termínech:\n\n- **1. listopadu**\n\
+      - **6. prosince**\n\nJako projev solidarity s občany Ukrajiny nabízí Technické muzeum v Brně všem\
+      \ dospělým osobám s ukrajinskou státní příslušností po předložení cestovního pasu na pokladně muzea\
+      \ **zlevněné vstupné do hlavní budovy muzea i na mimobrněnské památky**. Všem dětem a studentům\
+      \ do 18 let s ukrajinskou státní příslušností po předložení jejich cestovního pasu nebo v doprovodu\
+      \ dospělé osoby, která se již pasem prokázala, poskytuje muzeum **vstupné zdarma** do hlavní budovy\
+      \ i na mimobrněnské památky.\n\n*На знак солідарності з громадянами України Технічний музей у Брно\
+      \ пропонує всім дорослим з українським громадянством знижку на вхід до головної будівлі музею та\
+      \ на відвідування пам’яток за межами Брно за умови пред’явлення паспорта в касі музею. Всі діти\
+      \ та студенти віком до 18 років з українським громадянством, при пред’явленні паспорта або в супроводі\
+      \ дорослого, який вже пред’явив паспорт, мають право на безкоштовний вхід до головної будівлі музею\
+      \ та до пам’яток за межами Брно.*\n\n\n## Vstupné – všechny expozice včetně Panorámy\n\n| **základní**\
+      \ vstupné  | **180 Kč** | \n| **zlevněné** vstupné**\\***  | **90 Kč** | \n| **rodinné** vstupné\
+      \ (2 dospělí + 1 až 3 děti) platí pro děti 6–15 let, každé další dítě zaplatí zlevněné vstupné \
+      \  | **430 Kč** | \n| **žáci/studenti** ve školních skupinách **(ZŠ, SŠ, VŠ)** *nezahrnuje vstupné\
+      \ na programy ve výtvarně-technické dílně*  | **50 Kč** | \n| **žáci MŠ** ve školních skupinách\
+      \ *nezahrnuje vstupné na programy ve výtvarně-technické dílně* | **30 Kč** | \n| **žáci/studenti**\
+      \ – vstupné na **programy ve výtvarně-technické dílně**  | **70 Kč** | \n| hudební loutková pohádka\
+      \ Dobrodružství Šroubka a Matičky   | **90 Kč**  | \n| **víkendové dílny** pro veřejnost | **150\
+      \ Kč**  | \n\nVstupenka do TMB je nepřenosná, platí k jednorázovému vstupu do všech expozic a výstav\
+      \ včetně externí expozice letounů (v zimním období je tato expozice uzavřená).\n\n### Vstupenky\
+      \ do TMB včetně dárkových je nově možné zakoupit také ONLINE.\n\n\n### Vstupné do samostatné expozice\
+      \ Panoráma (historická stereovize)\n\nvčetně výstav pořádaných v přilehlém prostoru ve foyer\n\n\
+      | **základní** vstupné | **40 Kč** | \n| **zlevněné** vstupné**\\*** | **20 Kč** | \n\nPlatit lze\
+      \ hotově (pouze v Kč) i platební kartou.\n\n**Fotografování** je zahrnuto v ceně vstupného, podle\
+      \ návštěvního řádu však není povoleno používat stativ.\n\nVstupenka je nepřenosná, platí k jednorázovému\
+      \ vstupu do muzea.\n\n#### \\*Zlevněné vstupné\n\n- děti od 6 let do 15 let\n- učni a studenti (po\
+      \ předložení dokladu o studiu)\n- držitelé karet ISIC, ITIC, IYTC, Eurobeds\n- senioři 60+\n\n####\
+      \ Volný vstup\n\n- děti do dovršení 6 let věku\n- držitelé karet ICOM, AMG, Zväz múzeí na Slovensku\n\
+      - držitelé průkazu zaměstnance Ministerstva kultury ČR a jeho příspěvkových organizací – průkaz\
+      \ s fotografií a přelepkou MK ČR\n- držitelé čestných vstupenek TMB, Kruh přátel TMB\n- pedagogický\
+      \ dozor při hromadných výpravách\n  - MŠ: na každých 10 dětí 1x pedagogický dozor zdarma\n  - ZŠ\
+      \ I. a II. stupeň a SŠ: na každých 15 žáků 1 x pedagog"
+    https://www.tmbrno.cz/:
+      "Výstava představuje historii legendární britské motocyklové značky Douglas,
+      která vyráběla motocykly v letech 1907–1957. Návštěvníci se seznámí nejen s vývojem značky a jejími
+      závodními a sportovními stroji, ale také s historií jejího zastoupení v Československu.
+
+
+      Více informací
+
+      Hlavní budova TMB
+
+
+      Více informací
+
+      Výstava prezentuje působnost, organizaci a strukturu státního policejního úřadu i sbory neuniformované
+      a uniformované stráže bezpečnosti v letech 1918–1945. Zachycuje vývoj výstroje, výzbroje, pomůcek
+      a prostředků používaných při výkonu služby.
+
+
+      Více informací
+
+      Vážení návštěvníci, expozice s názvem „Pozor, zákruta!“, která prezentuje automobily a motocykly
+      z dob reálného socialismu, bude od 30. 9. 2026 dočasně uzavřená. V...
+
+
+      Technické muzeum v Brně otevřelo nově instalovanou část expozice s názvem „Josef Tesař, Brno aneb
+      TIK-TAK hodiny do každé rodiny“, která tematicky rozšiřuje stálou...
+
+
+      Technické muzeum v Brně v říjnu otevřelo ve svých prostorách v Brně – Králově Poli, Purkyňova 105,
+      nový gastronomický provoz – Jean Paul’s bistro...."
+    https://www.tmbrno.cz/vsechny-aktuality/: 'Published: 2018-02-06
+
+
+      28\. 10. 2026 – vstup ZDARMA
+
+
+      Den vzniku samostatného československého státu – vstup zdarma Technické muzeum v Brně se připojuje
+      k oslavám státního svátku dne 28. 10. 2026 – Den vzniku samostatného československého státu – vstup
+      do muzea ZDARMA. Otevřeno bude od 10.00 do 18.00. Těšíme se na vaši návštěvu!
+
+
+      17\. 11. 2026 – bude OTEVŘENO
+
+
+      Den boje za svobodu a demokracii (1939, 1989), Mezinárodní den studentstva Technické muzeum v Brně
+      se připojuje k oslavám státního svátku dne 17. 11. 2026 – Den boje za svobodu a demokracii (1939,
+      1989), Mezinárodní den studentstva. V tento den bude v muzeu OTEVŘENO, a to od 10.00 do 18.00. Těšíme
+      se na vaši návštěvu! \[…\]
+
+
+      Expozice „Pozor, zákruta!“ od 30. 9. 2026 dočasně uzavřená
+
+
+      Vážení návštěvníci, expozice s názvem „Pozor, zákruta!“, která prezentuje automobily a motocykly
+      z dob reálného socialismu, bude od 30. 9. 2026 dočasně uzavřená. V prostorách, kde se nachází, budeme
+      od tohoto data připravovat výstava anglických motocyklů „Douglas – král silnic“, kterou zde pro
+      vás otevřeme už 14. 10. 2026. Výstava potrvá do 28. 3. 2027. \[…\]
+
+
+      28\. 9. 2026 bude zavřeno
+
+
+      V den státního svátku 28. 9. 2026 bude muzeum zavřené – pondělí je zavírací den.
+
+
+      Přehlídka automobilové techniky v depozitáři v Brně-Řečkovicích se letos nekoná
+
+
+      Všechny zájemce o každoroční Přehlídku automobilové techniky v muzejním depozitáři v Brně-Řečkovicích,
+      která se tradičně koná koncem dubna, chceme upozornit, že letos se tato akce z důvodu revitalizace
+      areálu neuskuteční. Děkujeme za pochopení.
+
+
+      Josef Tesař, Brno aneb TIK-TAK hodiny do každé rodiny
+
+
+      Technické muzeum v Brně otevřelo nově instalovanou část expozice s názvem „Josef Tesař, Brno aneb
+      TIK-TAK hodiny do každé rodiny“, která tematicky rozšiřuje stálou expozici Ulička řemesel. Návštěvníci
+      uvidí vybrané exponáty kuchyňských a nástěnných hodin, budíků a náramkových hodinek uvedené firmy
+      převážně ze 30.–50. let 20. století. Firma Josef Tesař, Brno má dlouhou historii. Byla založena
+      \[…\]
+
+
+      Nové muzejní bistro
+
+
+      Technické muzeum v Brně v říjnu otevřelo ve svých prostorách v Brně – Králově Poli, Purkyňova 105,
+      nový gastronomický provoz – Jean Paul’s bistro. Nové bistro vybudované v přízemí budovy muzea nabízí
+      občerstvení nejen návštěvníkům muzea, ale i široké veřejnosti. Vchod do bistra je zvenku budovy.
+      Návštěvníky muzea proto prosíme, aby si zakoupenou vstupenku ponechali \[…\]
+
+
+      Změna otevírací doby
+
+
+      S platností od 1. dubna 2023 se mění otevírací doba v Technickém muzeu v Brně, Purkyňova 105, 612
+      00 Brno – Královo Pole. Úterý bude pro veřejnost zavíracím dnem, bude vyhrazeno pro žáky a studenty
+      všech stupňů vzdělávání, členům zájmových skupin a kroužků, kteří se účastní předem objednaných
+      edukačních programů. Muzeum bude otevřeno pro veřejnost \[…\]
+
+
+      Solidarita s občany Ukrajiny – Солідарність з громадянами України
+
+
+      Jako projev solidarity s občany Ukrajiny nabízí Technické muzeum v Brně všem dospělým osobám s ukrajinskou
+      státní příslušností po předložení cestovního pasu na pokladně muzea zlevněné vstupné do hlavní budovy
+      muzea i na mimobrněnské památky. Všem dětem a studentům do 18 let s ukrajinskou státní příslušností
+      po předložení jejich cestovního pasu nebo v doprovodu dospělé \[…\]
+
+
+      Pocta neznámým vědeckotechnickým pracovníkům
+
+
+      Kinetická busta s názvem Neznámým vědeckotechnickým pracovníkům byla slavnostně odhalena realizátorským
+      týmem v budově Technického muzea v Brně – Králově Poli v pondělí 29. listopadu 2021. Autorem pamětní
+      busty je sochař a pedagog Fakulty výtvarných umění Vysokého učení technického v Brně Dušan Váňa.
+      Smyslem busty je připomenout práci technických odborníků, kteří se zasloužili o pokrok \[…\]
+
+
+      Muzeum nabízí původní loutkovou pohádku
+
+
+      K 60. výročí od svého založení, v roce 2021, připravilo Technické muzeum v Brně původní loutkovou
+      pohádku s názvem Dobrodružství Šroubka a Matičky. Tito hrdinové a maskoti muzea vyráží po stopách
+      svých předků, které hledají na malebných mimobrněnských technických památkách. Pohádka je určena'
+    https://www.tmbrno.cz/aktuality/zmena-oteviraci-od-1-4-2023/: "Published: 2025-05-06
+
+
+      S platností **od 1. dubna 2023** se mění otevírací doba v Technickém muzeu v Brně, Purkyňova 105,
+      612 00 Brno – Královo Pole. **Úterý** bude pro veřejnost zavíracím dnem, bude **vyhrazeno pro žáky
+      a studenty všech stupňů vzdělávání**, členům zájmových skupin a kroužků, kteří se účastní předem
+      objednaných edukačních programů.
+
+
+      Muzeum bude otevřeno **pro veřejnost** následovně:
+
+
+      **pondělí–úterý: ZAVŘENO**
+
+
+      středa–pátek: 9.00–17.00
+
+
+      sobota–neděle: 10.00–18.00
+
+
+      státní svátky: 10.00–18.00 (pokud je daný den otevřeno)"
+    https://www.dolnivitkovice.cz/velky-svet-techniky:
+      "Ve Velkém světě techniky v Dolních Vítkovicích\
+      \ si užijete interaktivní výstavu Czech RepuBRICK: Svět z LEGO® kostek. Modely z kostek LEGO® si\
+      \ můžete prohlédnout zblízka a zábavnou formou se při návštěvě i zapojit.\n\n- 28–30 říj–čvn Na\
+      \ webu pořadatele\n- 20–28 led–dub Kroužek Zdravotník aneb Kurz první pomoci pro děti ve věku 10-15\
+      \ let ve Světě techniky. Děti se v něm neučí z lavice, ale v akci prostřednictvím her, modelových\
+      \ situací a praktických úkolů. Odnesou si dovednost, která se jim může hodit kdykoli v životě. První\
+      \ lekce od 20. 1. 2027. 1800 · Na webu pořadatele\n\nO objektu\n\n## O objektu Velký Svět Techniky\n\
+      \nVelký svět techniky je populárně naučné centrum v Dolních Vítkovicích, které navrhl architekt\
+      \ Josef Pleskot a které se otevřelo v září 2014. Za zrcadlovou fasádou čekají čtyři interaktivní\
+      \ expozice se stovkami exponátů, kino, Divadlo vědy a střešní zahrada.\n\n- \n\t3. 10. 2026 ###\
+      \ Vodíková auta vyrazila do škol. Sady byly předány! Na H2 Fóru 2026 převzaly základní školy z Moravskoslezského\
+      \ kraje sady pro stavbu vodíkových modelů aut H2 GP Sprint. Projekt Vodíková auta do škol vede Svět\
+      \ techniky s Moravskoslezským vodíkovým klastrem a v únoru 2027 vyvrcholí závody.\n- \n\t1. 10.\
+      \ 2026 ### V pátek 2.10. jsou expozice Velkého Světa techniky zavřené! V pátek 2. října 2026 byly\
+      \ expozice Velkého Světa techniky v Dolních Vítkovicích zavřené kvůli výročnímu sjezdu České oftalmologické\
+      \ společnosti. Bez omezení jste mohli navštívit Dětský svět pro děti od 2 do 6 let nebo Malý Svět\
+      \ techniky U6.\n- \n\t30. 9. 2026 ### Seniorská akademie je v plném proudu! Účastníci Seniorské\
+      \ akademie Světa techniky navštívili partnera akademie, farmaceutickou společnost TEVA Czech Industries.\
+      \ V laboratořích si vyzkoušeli testování pilulek i plnění tablet do blistrů a program zakončil kvíz\
+      \ z chemie. Akademie pokračuje až do prosince."
+    https://www.dolnivitkovice.cz/:
+      "Světelný park Éra vynálezů rozzáří Dolní Vítkovice od 24. října do
+      31. prosince 2026. Na návštěvníky čekají stovky tisíc LED diod, velké světelné sochy a kilometry
+      světelných řetězů od společnosti DECOLED. Park je určen celé rodině, od dětí po babičku.
+
+
+      Dnes
+
+
+      16:00 – 21:00
+
+
+      —
+
+
+      Celý areál DOV"
+    https://www.dolnivitkovice.cz/infocentrum: "O objektu
+
+
+      ## O objektu Infocentrum DOV
+
+
+      Návštěvnické centrum Dolních Vítkovic. Návštěvnický servis, prodej suvenýrů a vstupenek do všech
+      objektů včetně Hornického muzea na Landeku v Ostravě-Petřkovicích. Start většiny komentovaných prohlídek
+      národní kulturní památky. Rychlý kontakt +420 724 955 121."
+    https://rezervace.dolnivitkovice.cz/tourscombinations?mrsid=1:
+      'E-vstupenka vás opravňuje k \<B>jednorázovému\</B>
+      vstupu po dobu \<B>30 dnů\</B> ode dne nákupu. Ověřte si aktuální otevírací dobu na webu dolnivitkovice.cz.
+      S e-vstupenkou přistupte rovnou k turniketu a načtěte čárový kód.\<B>Vstupenku je nutné uschovat
+      po dobu celé návštěvy.\</B>\<B>MOMENTÁLNĚ OTEVŘENO úterý - neděle - 9:00 - 18:00.\</B>Upozorňujeme
+      návštěvníky, že v zimních měsících není budova U6 (expozice) vytápěná, proto je zde chladněji. U6
+      disponuje plošinou pro vozíčkáře.\<B>\<U>
+
+
+      0 min
+
+
+      Svět techniky
+
+
+      E-vstupenka vás opravňuje k jednorázovému vstupu po dobu 30 dnů ode dne nákupu. Ověřte si aktuální
+      otevírací dobu na webu dolnivitkovice.cz. S e-vstupenkou přistupte rovnou k turniketu a načtěte
+      čárový kód.Vstupenku je nutné uschovat po dobu celé návštěvy.Vstupenka vám umožňuje vstup zdarma
+      do Galerie Gong.'
+    https://techmania.cz/kontakt/: "## Fakturační údaje
+
+
+      Techmania Science Center o. p. s.
+
+
+      U Planetária 2969/1, 301 00 Plzeň
+
+
+      Číslo účtu: 0117665743 / 0300
+
+
+      ID datové schránky: uvd7fks
+
+
+      IČO: 26396645
+
+
+      DIČ: CZ26396645
+
+
+      Zápis u KS v Plzni oddíl O vložka 89
+
+
+      ### Kancelář ředitele / Administrace
+
+
+      ### Ing. Jiří Královec
+
+
+      CEO"
+    https://techmania.cz/blog/clanek/jarnaky-v-techmanii/:
+      "**Během plzeňských jarních prázdnin od 2.
+      do 8. března můžete objevovat svět vědy i v pondělí.**
+
+
+
+      Ať už si počasí vymyslí jakýkoliv scénář, my na vás budeme připraveni. Přijďte si užít zábavný program
+      do Techmanie, prozkoumat interaktivní exponáty a třeba potkáte i naši robofenku Terru.
+
+
+
+      **Pondělí až pátek:** 8:30–17:00
+
+
+      **Sobota a neděle:** 10:00–18:00"
+    https://vizgu.com/cs/pilsen/techmania-science-center:
+      "Techmania Science Center: otevírací doba —
+      Plzeň | Vizgu
+
+
+      # Techmania Science Center
+
+
+      Techmania Science Center je interaktivní vědecké centrum v Plzni, které roku 2005 založila společnost
+      Škoda Transportation a Západočeská univerzita a které bylo roku 2008 otevřeno v bývalých halách
+      závodů Škoda. Návštěvníci si zkoušejí interaktivní exponáty z fyziky, matematiky a techniky a sledují
+      filmy ve 3D planetáriu.
+
+
+      ## Dobré vědět
+
+
+      Otevírací doba
+
+
+      Po zavřenoÚt–Pá 08:30–17:00 So–Ne 10:00–18:00
+
+
+      Otevírací doba ověřena 7. října 2026 · zdroj techmania.cz
+
+
+      Kdy vyrazit Dnešní otevírací doba Celý týden Skrýt týden
+
+
+      Po Zavřeno Út 08:30–17:00 St 08:30–17:00 Čt 08:30–17:00 Pá 08:30–17:00 So 10:00–18:00 Ne 10:00–18:00
+
+
+      ## Časté dotazy
+
+
+      ### Kdy má Techmania Science Center otevřeno?
+
+
+      Otevírací doba: Po zavřeno · Út–Pá 08:30–17:00 · So–Ne 10:00–18:00."

@@ -7,8 +7,6 @@ history:
   - role: assistant
     content: "Doporučuji okruh Moravským krasem: start u Skalního mlýna, pěšky k propasti Macocha (horní můstek), zpět přes Punkevní jeskyně. Celkem asi 9 km, s dětmi 4-5 hodin. Vstupenky do jeskyní doporučuji rezervovat předem."
 user: "a kdyz bude prset?"
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Understands the elliptical follow-up refers to the Saturday trip plan from
@@ -17,3 +15,505 @@ expect:
     aquapark, VIDA), keeps the kids' ages in mind. Does NOT restart planning
     from scratch or ask what the user means.
   max_tool_rounds: 3
+# Canned web captured 2026-11-18 (evals/capture_web.py): Punkevní jeskyně otevírací doba rezervace; Brno s dětmi když prší tipy
+web:
+  results:
+    - url: https://www.punkevni.caves.cz/oteviraci-doba
+      title: Punkevní jeskyně - otevírací doba | Správa jeskyní České republiky
+      snippet: "Punkevní jeskyně - otevírací doba | Správa jeskyní České republiky
+
+
+        # Punkevní jeskyně - otevírací doba
+
+
+        | Měsíc | Pondělí | Úterý - Pátek | Víkend |
+
+        | --- | --- | --- | --- |
+
+        | Leden | Zavřeno | 08:40-14:00 | 08:40-14:00 |
+
+        | Únor | Zavřeno | 08:40-14:00 | 08:40-14:00 |
+
+        | Březen | Zavřeno | 08:40-14:00 | 08:40-14:00 |
+
+        | Duben | 10:00-16:00 | 08:20-16:00 | 08:20-16:00 |
+
+        | Květen | 10:00-16:10 | 08:20-16:10 | 08:20-16:50 |
+
+        | Červen | 10:00-16:10 | 08:20-16:10 | 08:20-16:50 |
+
+        | Červenec | 10:00-16:"
+    - url: https://moravsky-kras.caves.cz/informace
+      title: Informace a rezervace - Moravský kras | Správa jeskyní České republiky
+      snippet: 'Informace a rezervace - Moravský kras | Správa jeskyní České republiky
+
+
+        # Informace a rezervace - Moravský kras
+
+
+        ## ÚSTŘEDNÍ INFORMAČNÍ SLUŽBA SKALNÍ MLÝN
+
+
+        678 01 Blansko - Skalní mlýn
+
+
+        tel.: +420 516 413 575, +420 516 410 024, +420 602 205 584 e-mail: info@caves.cz
+
+
+        GPS: 49°21''49"N, 16°42''32"E
+
+
+        MAPA
+
+
+        Pro nejvíce navštěvované Punkevní jeskyně doporučujeme zajistit si rezervaci. Rezervace je možná
+        i pro jednotlivé návštěvníky až na jeden rok dopředu. ÚIS SM zajišťuje rezervace i pro nedalekou
+        Kat'
+    - url: https://www.punkevni.caves.cz/
+      title: Punkevní jeskyně |  Správa jeskyní České republiky
+      snippet: "Punkevní jeskyně | Správa jeskyní České republiky
+
+
+        # Punkevní jeskyně
+
+
+        ## Otevírací doba 10.11.2026: 08:40-14:00
+
+
+        Punkevní jeskyně leží v severní části Moravského krasu v kaňonu Pustého žlebu, v národní přírodní
+        rezervaci Vývěry Punkvy. Suchá část byla zpřístupněna již v roce 1909. V březnu 1921 byla zprovozněna
+        první vodní část jeskyně s plavbou loděmi. Aktuálně jde o jedinou fungující plavbu motorovými loděmi
+        v přírodní jeskyni v kontinentální Evropě. Návštěvníci se podívají i na dno 138 metrů"
+    - url: https://www.punkevni.caves.cz/navstevni-rad
+      title: Punkevní jeskyně - návštěvní řád | Správa jeskyní České republiky
+      snippet: "Punkevní jeskyně - návštěvní řád | Správa jeskyní České republiky
+
+
+        ## ORGANIZOVÁNÍ VSTUPŮ DO JESKYNĚ
+
+
+        • Prohlídka jeskyně trvá přibližně 60 minut. • Nejvyšší počet návštěvníků v jedné skupině je 54
+        dospělých nebo 70 dětí. • Nevyzvednou-li si návštěvníci rezervované vstupenky nejpozději 40 min.
+        předem, rezervace propadá a vstupenky se uvolňují k dalšímu prodeji. • Z naléhavých provozních důvodů
+        mohou být návštěvníci (s rezervovanými nebo již zakoupenými vstupenkami) přesunuti na jiný, vhodný
+        čas "
+    - url: https://www.brnolove.cz/kam-v-brne-kdyz-prsi/
+      title: "Kam v Brně, když prší: tipy na deštivé dny - Brnolove.cz"
+      snippet: "Kam v Brně, když prší: tipy na deštivé dny - Brnolove.cz
+
+
+        # Kam v Brně, když prší: tipy na deštivé dny
+
+
+        - Libor Výborný
+
+        - 28/06/2026
+
+        - Průvodce Brnem, Volný čas
+
+
+        Deštivý den. Zdroj: Pixabay.
+
+
+        Počasí v Brně nevyšlo a venku leje? Nevadí – kam v Brně, když prší, je otázka, na kterou má město
+        spoustu odpovědí. Díky husté nabídce muzeí, podzemí, heren, bazénů i kaváren se dá deštivý den strávit
+        stejně příjemně jako ten slunečný, jen pod střechou. Tady je podrobný přehled tipů pro dospělé,
+        páry i rodi"
+    - url: https://www.brunofamilypark.cz/sluzby-a-aktivity/blog/kam-vyrazit-s-detmi-kdyz-prsi/
+      title: "Kam s dětmi, když prší: Tipy na výlety v Brně a okolí"
+      snippet: "Kam s dětmi, když prší: Tipy na výlety v Brně a okolí
+
+
+        # Kam vyrazit s dětmi, když prší
+
+
+        Deštivé dny mohou být pro rodiče výzvou, zejména když se děti doma začínají nudit. Brno a jeho okolí
+        naštěstí nabízí řadu skvělých míst, kde se celá rodina může zabavit i za špatného počasí. Pokud
+        přemýšlíte, co s dětmi podniknout, když prší, následující tipy vám mohou pomoci naplánovat den plný
+        zábavy.
+
+
+        ## 1. Moravské zemské muzeum
+
+
+        Skvělou volbou, kam se svými ratolestmi vyrazit, když prší, je Moravské zem"
+    - url: https://www.objevbrno.cz/cs/article/pet-tipu-na-aktivity-pro-deti-v-nepriznivem-pocasi
+      title: Tipy, jak zabavit děti, když venku prší | Objev Brno
+      snippet:
+        "Tipy, jak zabavit děti, když venku prší | Objev Brno\n\n# Tipy, jak zabavit děti, když venku\
+        \ prší\n\nAnna Sochorová 28. ledna 2025\n\nMáte konečně volný víkend a slíbili jste dětem, že vyrazíte\
+        \ za dobrodružstvím. Když se ale ráno vzbudíte venku je zataženo a prší jako z konve. Co dělat v\
+        \ Brně, když počasí úplně nepřeje?\n\n#### Za vědou a poznáním \n\nZábavní vědecký park VIDA! nabízí\
+        \ téměř 180 interaktivních exponátů, které vám i vašem dětem pomohou poznat svět kolem nás. Stálá\
+        \ expozice má šest tematický"
+    - url: https://www.idnes.cz/cestovani/po-cesku/brno-tipy-na-vylet-zabava-veveri-centrum-vida.A250416_154021_po-cesku_hrat
+      title: "Kam v Brně s dětmi: tipy na výlety pro celou rodinu - iDNES.cz"
+      snippet:
+        "Kam v Brně s dětmi: tipy na výlety pro celou rodinu - iDNES.cz\n\n# Bavte se v Brně, nuda\
+        \ tam není. Tipy na výlet pro celou rodinu\n\n \n\nTereza Hrabinová\n\n 24. dubna 2025 6:00 \n\n\
+        \ Fotogalerie 3 \n\n Brněnské centrum Vida! přibližuje zábavnou formou svět vědy. | foto: Filip\
+        \ Fojtík, MAFRA \n\n Brno a nuda, to nejde dohromady. Ať už hledáte únik před deštěm, výlet do přírody,\
+        \ dobrodružství pod zemí nebo zážitky pro malé i velké objevitele, máme pro vás pět osvědčených\
+        \ tipů, kam vyrazit s celou rodinou – a k"
+  pages:
+    https://www.punkevni.caves.cz/oteviraci-doba:
+      "# Punkevní jeskyně - otevírací doba\n\n| Měsíc | Pondělí\
+      \ | Úterý - Pátek | Víkend | \n|---|---|---|---|\n| **Leden** | Zavřeno | 08:40-14:00 | 08:40-14:00\
+      \ | \n| **Únor** | Zavřeno | 08:40-14:00 | 08:40-14:00 | \n| **Březen** | Zavřeno | 08:40-14:00\
+      \ | 08:40-14:00 | \n| **Duben** | 10:00-16:00 | 08:20-16:00 | 08:20-16:00 | \n| **Květen** | 10:00-16:10\
+      \ | 08:20-16:10 | 08:20-16:50 | \n| **Červen** | 10:00-16:10 | 08:20-16:10 | 08:20-16:50 | \n| **Červenec**\
+      \ | 10:00-16:10 | 08:20-16:10 | 08:20-16:50 | \n| **Srpen** | 10:00-16:10 | 08:20-16:10 | 08:20-16:50\
+      \ | \n| **Září** | 10:00-16:10 | 08:20-16:10 | 08:20-16:50 | \n| **Říjen** | Zavřeno | 08:40-14:00\
+      \ | 08:20-16:00 | \n| **Listopad** | Zavřeno | 08:40-14:00 | 08:40-14:00 | \n| **Prosinec** | Zavřeno\
+      \ | 08:40-14:00 | 08:40-14:00 | \n\n\nProhlídka je s průvodcem\n\nPoslední prohlídka je totožná\
+      \ s koncem otevírací doby. \n\n\n#### Výjimky\n\n1.1.2026 | Zavřeno\n\n\n10.10.2026 | Otevřeno 08:20\
+      \ \\~ 16:50\n\nVláček a lanovka budou jezdit do 18:00  \n\n24.12.2026 - 26.12.2026 | Zavřeno\n\n\
+      \n## VSTUPNÉ\n\n**mimosezóna – listopad až březen**\n\n| **Plné** | **350,- Kč** | \n| **Snížené**\
+      \ | **270,- Kč** | \n| **Dětské** | **160,- Kč** | \n\n**sezóna – duben až říjen**\n\n| **Plné**\
+      \ | **450,- Kč** | \n| **Snížené** | **350,- Kč** | \n| **Dětské** | **200,- Kč** | \n\n**sezóna\
+      \ – duben až říjen – Exkluzivní okruh**\n\n| **Plné** | **550,- Kč** | \n| **Snížené** | **420,-\
+      \ Kč** | \n| **Dětské** | **250,- Kč** | \n\n| **Rodinné vstupné  –** mimo sez. |  | v sezóně |\
+      \ v sez.-Exkl.o. | \n| **2 dosp.+2 děti** |   **980,- Kč** | **1260,- Kč** | **1410,- Kč** | \n\
+      | **2 dosp.+3 děti** | **1130,- Kč** | **1450,- Kč** | **1650,- Kč** | \n\n\nBez plavby **– pouze\
+      \ při zvýšené vodní hladině**!\n\n| *Plné* | *250,- Kč* | \n| *Snížené* | *210,- Kč* | \n| *Dětské*\
+      \ | *120,- Kč* | \n\n**V pokladně přijímáme platební karty.**\n\nPro nákup on-line vstupenek do\
+      \ jeskyní je vyhrazeno několik fixních časů prohlídek denně. Vstupenky na další prohlídky v otevírací\
+      \ době je možno zakoupit v pokladně jeskyní, ale pozor: v případě Punkevních jeskyní je v hlavní\
+      \ sezoně většina prohlídek předem vyprodána - doporučujeme REZERVACI předem přes ÚIS Skaln Mlýn.\n\
+      \n**SNÍŽENÉ VSTUPNÉ**\n\n- senioři od 65 a studenti do 26 let (po předložení dokladu).\n\n**DĚTSKÉ\
+      \ VSTUPNÉ**\n\n- děti ve věku od 3 do 15 let;\n- osoby ZTP a ZTP/P starší 15 let;\n- členové Českého\
+      \ svazu ochránců přírody a Stráže přírody po předložení členského průkazu.\n\n**50 % z dětského\
+      \ vstupného**\n\n- mateřské školy;\n- hromadné skupiny dětí ZTP ve věku 3–15.\n\n**Skupiny nad 40\
+      \ osob** - sleva 10 procent.\n\n**VOLNÝ VSTUP**\n\n- děti do 3 let, s výjimkou hromadných skupin;\n\
+      - průvodce osoby ZTP/P;\n- osoby ZTP ve věku od 3 do 15 let s výjimkou hromadných skupin;\n- členové\
+      \ České a Slovenské speleologické společnosti po předložení členského průkazu;\n- členové Českého\
+      \ svazu ochránců přírody mladší 15 let nebo po předložení průkazu Mladého ochránce přírody.\n\n\
+      Sleva pro skupiny více než 40 osob – 10 %. Jednotlivé slevy nelze kombinovat.\n\nDržitelé karty\
+      \ **Multisport** – dospělí a studenti sleva z ceny –140 Kč, děti –120 Kč (pouze při nákupu v pokladně\
+      \ nebo infocentrech Skalní mlýn či Macocha).\n\n\n**Fotografování během prohlídky jeskyní pouze\
+      \ pro osobní potřebu a bez použití blesku, stativu a selfie tyče. <u>Při vodní plavbě fotografování\
+      \ není možné</u>. Děkujeme za pochopení.**"
+    https://moravsky-kras.caves.cz/informace:
+      "# Informace a rezervace - Moravský kras\n\n \n\n **JESKYNĚ\
+      \ MORAVSKÉHO KRASU** \n\n **Ústřední informační služba Skalní mlýn** zajišťuje poskytování informací\
+      \ turistům, prodej\n\nvstupenek do Punkevních jeskyní, prodej jízdenek na silniční vláček a lanovku\
+      \ na Macochu.\n\n\n## ÚSTŘEDNÍ INFORMAČNÍ SLUŽBA SKALNÍ MLÝN\n\n678 01 Blansko - Skalní mlýn\n\n\
+      **tel.**: +420 516 413 575,\n\n+420 516 410 024,\n\n+420 602 205 584\n\n**e-mail:** info@caves.cz\n\
+      \nGPS: 49°21'49\"N, 16°42'32\"E\n\n**Pro nejvíce navštěvované Punkevní jeskyně doporučujeme zajistit\
+      \ si rezervaci**. Rezervace je možná i pro jednotlivé návštěvníky až na jeden rok dopředu. ÚIS SM\
+      \ zajišťuje rezervace i pro nedalekou **Kateřinskou jeskyni.** \n\n| Provozní doba Ústřední informační\
+      \ služby Skalní mlýn |  | \n|---|---|\n| IV.– IX. | 8:00–17:00 | \n| X.–III. | 8:00–15:00 | \n\n\
+      \n**(Sezonní) Informační středisko CHKO Moravský kras u propasti MACOCHA**\n\n| Provozní doba -\
+      \ Informační středisko MACOCHA |  | \n|---|---|\n| V.– IX. | 8:00–16:30 | \n| V.– IX. víkendy |\
+      \ 8:00–17:00 | \n| IV. a X. pouze o víkendech | 8:00–16:30 | \n\n\n## Informace ke stažení\n\nNejčastější\
+      \ jsou dotazy na otevírací doby, ceny, dopravu, informace pro školy. Proto zde naleznete soubory,\
+      \ které návštěvníkům právě tyto základní informace nabízejí.\n\n\n## Rezervace do ostatních jeskyní\
+      \ - pro organizované zájezdy či skupiny:\n\n- **Jeskyně Balcarka** - tel. +420 516 444 330\n- **Sloupsko-šošůvské\
+      \ jeskyně** - tel.+420 516 435 335, +420 730 575 973\n- **Jeskyně Výpustek** - tel. +420 516 439\
+      \ 111\n\n## Prodej online vstupenek:\n\n**Online vstupenky (eVstupenky)** se prodávají na některé **vybrané\
+      \ prohlídky**.\n\nVstupenky do jeskyní i na další prohlídky zakoupíte i nadále také klasicky přímo\
+      \ v pokladnách jednotlivých jeskyní.\n\nKromě eVstupenek se **vstupenky** do jeskyní dají koupit\
+      \ i přímo **v pokladnách** u jednotlivých jeskyní. Výjimkou jsou do **Punkevních jeskyní**, do kterých\
+      \ je možno vstupenky zakoupit kromě jejich **pokladny** i v **Ústřední informační službě** na Skalním\
+      \ mlýně a v sezóně **v informačním středisku** poblíž Horního můstku propasti Macocha. **V hlavní\
+      \ v sezóně** (duben-říjen) jsou vstupenky **do Punkevních jeskyní často vyprodány** a proto je vhodné\
+      \ si je **rezervovat** předem. Rezervaci lze provést až **rok dopředu** v Ústřední informační službě\
+      \ Skalní mlýn. Rezervované vstupenky je možné vyzvednout v ÚIS na Skalním mlýně a v sezóně v informačním\
+      \ středisku poblíž Horního můstku propasti Macocha..\n\n\n## **PARKOVÁNÍ V OBLASTI MORAVSKÉHO KRASU**\
+      \ **<u>- VÍCE ZDE</u>**\n\n\n## Slevy na vstupném\n\n**SNÍŽENÉ VSTUPNÉ**\n\n- senioři nad 65 let\
+      \ a studenti do 26 let (po předložení dokladu).\n\n**DĚTSKÉ VSTUPNÉ**\n\n- děti ve věku od 3 do\
+      \ 15 let,\n- osoby ZTP a ZTPP starší 15 let,\n- členové ČSOP po předložení členského průkazu.\n\n\
+      **50 % z dětského vstupného:**\n\n- mateřské školy,\n- hromadné skupiny dětí ZTP ve věku 3-15 let.\n\
+      \n**VOLNÝ VSTUP DO JESKYNÍ:**\n\n- děti do 3 let, vyjma hromadných zájezdů,\n- průvodce osoby ZTP/P,\n\
+      - osoby ZTP ve věku od 3 do 15 let s výjimkou hromadných skupin,\n- členové České a Slovenské speleologické\
+      \ společnosti po předložení průkazu ČSS resp. SSS,\n- členové ČSOP mladší 15 let nebo po předložení\
+      \ průkazu Mladého ochránce přírody.\n\n\nAktuální informace o změnách provozu či hygienických doporučení\
+      \ sledujte i na facebooku a instagramu organizace."
+    https://www.punkevni.caves.cz/: "# Punkevní jeskyně
+
+
+      Z kouzelného světa propasti po tajemných vodách
+
+
+      **cca 50 min**
+
+
+      **7–8 ˚C**
+
+
+      **99 %**
+
+
+      **1250 m**
+
+
+      **198**
+
+
+      Punkevní jeskyně leží v severní části Moravského krasu v kaňonu Pustého žlebu, v národní přírodní
+      rezervaci Vývěry Punkvy. Suchá část byla zpřístupněna již v roce 1909. V březnu 1921 byla zprovozněna
+      první vodní část jeskyně s plavbou loděmi. Aktuálně jde o jedinou fungující plavbu motorovými loděmi
+      v přírodní jeskyni v kontinentální Evropě. Návštěvníci se podívají i na dno 138 metrů hluboké propasti
+      Macocha.
+
+
+      **Prohlídka je s průvodcem.** V letní sezóně a celoročně o víkendech doporučujeme si vstupenky zakoupit
+      předem online, případně si je předem rezervovat přes infocentrum na Skalním Mlýně!
+
+
+      - Součástí **Exkluzivního okruhu** od dubna do října je i návštěva unikátního Masarykova dómu na
+      vodní plavbě.
+
+
+      ## Jak k nám
+
+
+      Auto či autobus zaparkujete na placených parkovištích na Skalním mlýně (denně) nebo u propasti Macocha
+      (více informací o provozní době zde). Ze Skalního mlýna buď pěšky po rovině 1,7 km či silničním
+      vláčkem od propasti Macocha lanovkou či pěšky 1,7 km s převýšením 130 m.
+
+
+      V zimě je třeba využít parkoviště na Skalním mlýně – lanovka od propasti Macocha je I-III mimo provoz.
+
+
+      **Punkevní jeskyně nejsou bezbariérové**. Vozíčkáři mohou navštívit suché části Punkevních jeskyní.
+      Ale z technických důvodů je to možné jen při první či poslední prohlídce v daný den a **je třeba
+      se s dispečinkem jeskyní domluvit na rezervaci a podmínkách předem**. Prohlídka s dětskými kočárky
+      není možná vůbec.
+
+
+      Stojany na kola jsou u vstupní budovy. Za odložená kola nenese Správa jeskyní zodpovědnost.
+
+
+      Autobusová zastávka Blansko, Skalní mlýn a následně sil. vláček či 1,6 km pěšky; nejbližší vlak
+      Blansko (7,5 km).
+
+
+      ## Aktuality
+
+
+      ## Ohlasy návštěvníků
+
+
+      #### Lenka , 9.5.2026, Punkevní jeskyně
+
+
+      Dnes jsme navštívili Macochu, bohužel skupina cca 45 návštěvníků na jedné prohlidce, velká katastrofa,byli
+      jsme na konci prohlídky a bohužel jsme neslyšeli žádný výklad, slečna mluvila docela potichu a velká
+      skupina lidí,je docela nešťastné řešení,výklad za 500 Kč a opravdu nic z toho člověk nemá, možná
+      by bylo lepší dělat menší skupinky😢
+
+
+      #### Ivana Prieložná , 5.5.2026, Punkevní jeskyně
+
+
+      Zároveň by som chcela v mene druhej polovice materskej školy v Strečne podotknúť,že v loďke sa plavila
+      rodinka s Max 3 mesačným bábātkom,ktoré celú cestu nie preplakalo,ale prevrieskalo,a teda kolegyne
+      z výkladu nemali absolútne nič,iba boľavé uši. Lístok máme od januára kúpený, cestujeme 3,5 hodín...a
+      skončia takto...týmto chcem apelovať na vedenie,aby pouvažovali nad vekovou kategóriou osôb, ktoré
+      môžu absolvovať jazdu v loďke. Teraz majú namiesto krásneho zážitka...ten opačný..čo mi je ako organizãtorke
+      zájazdu veľmi ľúto."
+    https://www.punkevni.caves.cz/navstevni-rad:
+      "# Punkevní jeskyně - návštěvní řád\n\n## \n\n**ORGANIZOVÁNÍ\
+      \ VSTUPŮ DO JESKYNĚ**\n\n• Prohlídka jeskyně trvá přibližně 60 minut.\n\n• Nejvyšší počet návštěvníků\
+      \ v jedné skupině je 54 dospělých nebo 70 dětí.\n\n• Nevyzvednou-li si návštěvníci rezervované vstupenky\
+      \ nejpozději 40 min. předem, rezervace propadá a vstupenky se uvolňují k dalšímu prodeji.\n\n• Z\
+      \ naléhavých provozních důvodů mohou být návštěvníci (s rezervovanými nebo již zakoupenými vstupenkami)\
+      \ přesunuti na jiný, vhodný čas prohlídky.\n\n• Návštěvníci se po zakoupení vstupenek shromáždí\
+      \ ve stanovenou dobu před vchodem do jeskyně.\n\n• Vstup do jeskyně organizuje průvodce podle pokynů\
+      \ vedoucího nebo dispečera provozu.\n\n• Vyžadují-li to bezpečnostní nebo jiné vážné důvody, mohou\
+      \ být jeskyně zcela nebo částečně uzavřeny.\n\n• **Návštěvníkům na invalidním vozíku**\n\n- je přístupná\
+      \ suchá část Punkevních jeskyní Tunelovou chodbou na dno propasti Macochy a zpět (celkem 930 m),\
+      \ po předchozí rezervaci a pouze v rámci prvního nebo posledního vstupu denní provozní doby.\n\n\
+      - Trasa nesplňuje přísné parametry bezbariérového přístupu (spád až 16 %), proto je podmínkou zdatnější\
+      \ doprovod.\n\n- Parkování vozidel vozíčkářů je povoleno přímo v areálu Punkevních jeskyní (příjezd\
+      \ přes Skalní mlýn).\n\n## **PROHLÍDKA JESKYNÍ**\n\n• Vstupovat do jeskyně se zvířaty je bez výjimky\
+      \ zakázáno.\n\n• Po dobu prohlídky jeskyně jsou návštěvníci povinni řídit se pokyny průvodce a kapitána\
+      \ lodě, a nerušit jejich výklad.\n\n• Na celé prohlídkové trase, zvláště na schodištích a v prostorách\
+      \ se zúženým nebo sníženým profilem je nutno dbát zvýšené opatrnosti, přidržovat se zábradlí a sledovat\
+      \ upozornění průvodce. Na vodní plavbě je zakázáno dávat ruce přes okraj lodě.\n\n• Při jakékoliv\
+      \ nepředvídané události (například výpadek elektrického proudu) musí návštěvníci zůstat na místě,\
+      \ zachovat klid a řídit se pokyny průvodce.\n\n• Jakékoliv poranění či nevolnost během prohlídky\
+      \ je návštěvník povinen neprodleně hlásit průvodci, který zajistí pomoc. \n\n• Pořizovat obrazové\
+      \ záznamy lze pouze bez stativu, selfie tyče a blesku, fotografující nesmí zdržovat prohlídku, vzdalovat\
+      \ se od skupiny a omezovat ostatní návštěvníky. Fotografování na vodní plavbě je zakázáno. Snímky\
+      \ ani videozáznamy nesmí být použity pro komerční účely bez souhlasu Správy jeskyní ČR.\n\n• S ohledem\
+      \ na chlad, vysokou vzdušnou vlhkost a náročnost prohlídkové trasy se nedoporučuje vstup dětem do\
+      \ 3 let a vážně nemocným osobám. Teplota v jeskyních se pohybuje okolo 8 °C – doporučuje se teplejší\
+      \ oblečení.\n\n### **Vstup do jeskyně je zakázán**\n\n• bez doprovodu průvodce,\n\n• osobám pod\
+      \ vlivem alkoholu či jiných návykových látek,\n\n• dětem do 10 let bez doprovodu dospělé osoby.\n\
+      \n## **OCHRANA PŘÍRODY A ZAŘÍZENÍ JESKYNĚ**\n\n### **V jeskyni je zakázáno**\n\n• dotýkat se, lámat\
+      \ či jiným způsobem poškozovat krápníkovou a sintrovou výzdobu a stěny jeskyně,\n\n• vzdalovat se\
+      \ od skupiny vedené průvodcem a vstupovat do prostor mimo chodník prohlídkové trasy,\n\n• odhazovat\
+      \ odpadky nebo jiným způsobem znečišťovat jeskynní prostory,\n\n• nosit do jeskyně objemná zavazadla,\
+      \ sportovní náčiní, turistické hole, deštníky, stativy apod.,\n\n• kouřit, pít, jíst,\n\n• dotýkat\
+      \ se elektrického a jiného technického zařízení,\n\n• rušit netopýry.\n\n## **ZÁVĚREČNÁ USTANOVENÍ**\n\
+      \n• Při nedodržení tohoto řádu může být prohlídka jeskyně předčasně ukončena bez náhrady vstupného.\n\
+      \n• Při závažném porušení tohoto řádu (zejména v případě poškozování krápníkové výzdoby) bude proti\
+      \ pachateli zahájeno přestupkové řízení nebo trestní stíhání.\n\n• Přání, pochvaly, připomínky a\
+      \ stížnosti mohou návštěvníci uplatnit písemně v Knize přání a stížností, která bude na požádání\
+      \ předložena v pokladně objektu.\n\n**Jeskyně jsou součástí zvláště chráněného území podle zákona\
+      \ ČNR č. 114/1992 Sb., o ochraně přírody a krajiny. Proto jsou návštěvníci povinni respektovat na\
+      \ povrchu i v podzemí všechny jeho ochranné podmínky, nepoškozovat přírodní jevy (skalní útvary,\
+      \ dřeviny, rostliny aj.) a pohybovat se jenom po veřejně přístupných komunikacích. Porušení ochr"
+    https://www.brnolove.cz/kam-v-brne-kdyz-prsi/:
+      "Published: 2026-06-28\n\n**Za deště vyberte v Brně\
+      \ jednu hlavní vnitřní aktivitu a další zastávku poblíž. Pro rodinu může být cílem věda nebo herna,\
+      \ pro dospělé výstava, tvoření či rezervovaná prohlídka. Rozhodujte podle věku, délky návštěvy a\
+      \ skutečně dostupného vstupu, nikoli jen podle seznamu atrakcí.**\n\n## Kam pod střechu podle typu\
+      \ programu\n\n| Hledáte | Konkrétní možnost | Před cestou zjistěte | \n|---|---|---|\n| Vědu a interaktivní\
+      \ program | VIDA! science centrum | Provoz expozice, ceník a případná omezení | \n| Výstavu a poznávání\
+      \ | Technické muzeum nebo Anthropos | Otevření konkrétního dne a rozsah vstupenky | \n| Pořad na\
+      \ pevný čas | Hvězdárna a planetárium | Věk u pořadu, začátek a dostupné vstupenky | \n| Dětskou\
+      \ hernu | BRuNO family park nebo Bongo | Pravidla doprovodu, věk a délku vstupu | \n| Tvoření |\
+      \ Keramické dílny a kurzy | Volné místo, techniku a cenu dokončení | \n| Kratší program v centru\
+      \ | Absurdia nebo Papilonia | Vhodnost pro skupinu a aktuální podmínky | \n\nTabulka je výběrem\
+      \ různých druhů programu, nikoli společnou vstupenkou nebo příslibem volného místa. Otevřete profil\
+      \ a poté oficiální informace zvoleného provozu. U více lidí nejprve sjednoťte hlavní cíl a délku\
+      \ návštěvy.\n\n## S dětmi: věk a délka mají přednost\n\nVyberte jednu aktivitu, kterou zvládne nejmladší\
+      \ účastník. Věková kategorie ve vstupném nemusí říkat, jak dlouho dítě vydrží u programu nebo zda\
+      \ smí na každou atrakci. U sportovních a herních míst ověřte také výškové limity, nutný doprovod\
+      \ a vybavení.\n\nPro výběr podle situace použijte hlavní přehled Brna s dětmi. Pokud chcete rovnou\
+      \ pořadí zastávek, navazuje rodinný plán na jeden den. S kočárkem kontrolujte vstup, ukládání a\
+      \ průchod konkrétním místem, ne pouze obecné označení „pro rodiny“.\n\n## Pro dospělé: tvoření,\
+      \ prohlídka nebo výstava\n\nSpolečný program může mít pevný začátek i volnější návštěvu. U workshopu\
+      \ si nejprve potvrďte místo a délku; v keramice může být potřeba vrátit se kvůli dokončení. Praktické\
+      \ rozdíly popisují ya sama na Kozí a Hlína srdcem v Židenicích.\n\nU prohlídky podzemí nebo vily\
+      \ si nechte čas na příchod před začátkem. Dostupnost rezervace ověřte ještě před cestou na místo.\
+      \ Pro širší výběr navazují brněnské vily a průvodce volným časem.\n\n## Menší rozpočet a jídlo mezi\
+      \ zastávkami\n\nPřehled Brno zdarma odlišuje volně přístupná místa a výdaje, které mohou přijít\
+      \ navíc. U muzea či galerie si ověřte konkrétní expozici: volný vstup do jedné části nemusí platit\
+      \ na celý program. Kavárna zase znamená nákup občerstvení, proto ji nepočítejte automaticky jako\
+      \ bezplatnou atrakci.\n\nJídlo vybírejte blízko hlavního cíle, abyste v dešti zbytečně nepřejížděli\
+      \ přes město. Pomůže přehled restaurací a kaváren. Pokud program závisí na rezervaci, domluvte jídlo\
+      \ podle potvrzeného času.\n\n## Jednoduchá sestava na deštivé odpoledne\n\n- Vyberte jednu hlavní\
+      \ aktivitu podle věku a zájmu.\n- Ověřte vstup, čas, konečnou cenu a podmínky doprovodu.\n- Přidejte\
+      \ oběd či svačinu v blízkosti a rezervu na přesun.\n- Druhou aktivitu nechte jako možnost, nikoli\
+      \ povinnou část dne.\n\nNa konkrétní datum prověřte také aktuální akce. Pro sobotu a neděli použijte\
+      \ víkendový rozcestník.\n\n## Zdroje a ověření\n\n- VIDA!: provoz a vstupné\n- BRuNO: podmínky rodinné\
+      \ návštěvy\n- ya sama: rezervace a dokončení keramiky\n- Hvězdárna: vstupenka na konkrétní veřejný\
+      \ pořad\n\nRozcestník aktualizován 17. října 2026. Ověření konkrétních ceníků a provozních údajů\
+      \ je datované v odkazovaných profilech.\n\n## Časté otázky a odpovědi\n\n### Kam v Brně s dětmi,\
+      \ když prší?\n\nZačněte výběrem mezi vědou, hernou a klidnějším programem podle věku dítěte. Potom\
+      \ ověřte omezení a pravidla konkrétního místa.\n\n### Musím si vstup rezervovat?\n\nZáleží na typu\
+      \ programu: veřejný pořad nebo kurz má vlastní kapacitu a čas. Před cestou projděte pokyny vybraného\
+      \ provozovatele.\n\n### Je kavárna bezplatný program do deště?\n\nPočítejte s útratou za objednané\
+      \ občerstvení. Pro místa bez povinného vstupného použijte samostatný přehled Brno zdarma.\n\n###\
+      \ Kolik zastávek naplánovat na odpoledne?"
+    https://www.brunofamilypark.cz/sluzby-a-aktivity/blog/kam-vyrazit-s-detmi-kdyz-prsi/:
+      "# Kam vyrazit\
+      \ s dětmi, když prší\n\nDeštivé dny mohou být pro rodiče výzvou, zejména když se děti doma začínají\
+      \ nudit. Brno a jeho okolí naštěstí nabízí řadu skvělých míst, kde se celá rodina může zabavit i\
+      \ za špatného počasí. Pokud přemýšlíte, co s dětmi podniknout, když prší, následující tipy vám mohou\
+      \ pomoci naplánovat den plný zábavy.\n\n## 1. Moravské zemské muzeum\n\nSkvělou volbou, kam se svými\
+      \ ratolestmi vyrazit, když prší, je Moravské zemské muzeum. Jeho expozice jsou pestré a zajímavé\
+      \ nejen pro dospělé, ale i pro děti. Doporučujeme navštívit například Pavilon Anthropos, kde se\
+      \ děti mohou dozvědět více o pravěku a vývoji člověka.\n\n## 2. Hvězdárna a planetárium Brno\n\n\
+      Pokud vaše děti zajímá vesmír, hvězdy a planety, pak je Hvězdárna a planetárium Brno ideálním výletním\
+      \ cílem. Zažijete zde poutavé představení o vesmíru a děti se mohou podívat na fascinující projekce\
+      \ noční oblohy. Kromě toho jsou v nabídce také různé interaktivní expozice.\n\n## 3. Labyrint pod\
+      \ Zelným trhem\n\nDalší zajímavou volbou, kam vzít děti, když prší, je Labyrint pod Zelným trhem.\
+      \ Tento podzemní komplex nabízí prohlídku historických sklepů a chodeb, které skýtají nejen zajímavý\
+      \ pohled do minulosti Brna, ale i dobrodružnou atmosféru, kterou děti jistě ocení.\n\n## 4. Muzeum\
+      \ hraček v Lednici\n\nJen kousek od Brna najdete Muzeum hraček, které je skvělým místem pro menší\
+      \ děti. Muzeum nabízí bohatou sbírku historických hraček, s nimiž si hrály děti v minulých stoletích.\
+      \ Děti se zde mohou podívat na panenky, autíčka, stavebnice a mnoho dalších zajímavých exponátů,\
+      \ které je nejen pobaví, ale také jim přiblíží historii.\n\n## 5. Expozice Technického muzea v Brně\
+      \ v Kuřimi\n\nNedaleko Brna v Kuřimi je umístěna expozice Technického muzea v Brně, která se zaměřuje\
+      \ na historii dopravy a strojírenství. Děti zde uvidí různé dopravní prostředky, jako jsou historické\
+      \ automobily či motocykly, a další technické zajímavosti. Výstava je vhodná i pro menší děti, které\
+      \ si jistě rády prohlédnou, jak v minulosti vypadaly dopravní prostředky.\n\n## 6. Zábavní park\
+      \ BRuNO\n\nPokud hledáte místo, kde děti skutečně zabavíte i za dlouhého deštivého dne, je náš zábavní\
+      \ park BRuNO jasnou volbou. Tento krytý park nabízí nespočet vnitřních atrakcí od tobogánů přes\
+      \ prolézačky až po kreativní dílny. Děti se zde mohou vyřádit, zatímco vy si v klidu vychutnáte\
+      \ kávu v přilehlém bistru Zobka.\n\n## Závěr\n\nDeštivé dny nemusejí být nudné. Brno a jeho okolí\
+      \ nabízí mnoho míst, kde se děti mohou zabavit i za špatného počasí. Ať už se rozhodnete pro návštěvu\
+      \ interaktivního muzea, hvězdárny, nebo se vydáte do některého zábavního parku, určitě nebudete\
+      \ litovat. Pokud chcete mít jistotu, že se děti vyřádí na maximum, určitě navštivte náš zábavní\
+      \ park BRuNO, kde na vás čeká celodenní zábava bez ohledu na počasí.\n\n### Naleznete uvnitř parku\n\
+      \n### Před návštěvou\n\n### Služby a aktivity\n\n### Otevírací doba\n\n| Pondělí: | 14:00 - 19:00\
+      \ | \n| Úterý: | 10:00 - 19:00 | \n| Středa: | 10:00 - 19:00 | \n| Čtvrtek: | 10:00 - 19:00 | \n\
+      | Pátek: | 10:00 - 19:00 | \n| Sobota: | 10:00 - 19:00 | \n| Neděle: | 10:00 - 19:00 | \n| Svátky/prázdniny:\
+      \ | 10:00 - 19:00 |"
+    https://www.objevbrno.cz/cs/article/pet-tipu-na-aktivity-pro-deti-v-nepriznivem-pocasi:
+      "# Tipy, jak\
+      \ zabavit děti, když venku prší\n\n#### **Za vědou a poznáním** \n\nZábavní vědecký park VIDA! nabízí\
+      \ téměř 180 interaktivních exponátů, které vám i vašem dětem pomohou poznat svět kolem nás. Stálá\
+      \ expozice má šest tematických celků: Planeta, Civilizace, Člověk, Mikrosvět, Venkovní expozice\
+      \ (otevřená pouze od května do září) a Dětské science centrum pro nejmenší návštěvníky od 2 do 6\
+      \ let. V Dětském centru si děti mohou vyzkoušet hrát na obrovské piano, otestovat své smysly nebo\
+      \ využít model vesmírné rakety. Část exponátů je nyní přesunuta do třetího patra parku z důvodu\
+      \ rekonstrukce.\n\nMůžete si vyzkoušet zmrazit vlastní stín, prozkoumat model obřího srdce, rozpoutat\
+      \ tornádo, postavit si magnetickou sochu a mnoho dalšího. V Divadle vědy si děti užijí science show\
+      \ nebo třeba promítání 3D filmů. Součástí doprovodného programu jsou také dílny s pokusy, šifrovačka\
+      \ nebo Bastlírna. VIDA! Roboti nabídne zábavný program s přehlídkou robotů a workshopy pro děti.\
+      \ Za rodinné vstupné dáte 650 korun.\n\nZa poznáním můžete s dětmi vyrazit i na Kraví horu do Hvězdárny\
+      \ a planetária Brno. Brněnská hvězdárna se od svého otevření rychle zařadila mezi špičkové instituce\
+      \ zaměřené na popularizaci vědy. Nabízí pozorování hvězdné oblohy, nejrůznější audiovizuální pořady,\
+      \ interaktivní představení i experimentální show. Vše je zpracováno srozumitelně a zábavně. Doporučujeme\
+      \ sledovat aktuální program. Snížené vstupné do digitária je 150 korun za osobu a za plné zaplatíte\
+      \ 200 korun.\n\nObzory dětem rozšíří i Technické muzeum v Králově poli. Stálé expozice nabízí zajímavosti\
+      \ o železářství, parních strojích nebo mechanické hudbě. Velkým lákadlem je nepochybně Technická\
+      \ herna, která svojí zábavnou a interaktivní formou seznamuje se zákony fyziky. To ale není vše.\
+      \ Muzeum se pyšní řemeslně-technickou dílnou, kde si děti mohou vyzkoušet tradiční řemeslné techniky.\
+      \ Za rodinné vstupné zaplatíte 350 korun.\n\n#### **Když se chcete trochu hýbat**\n\nPokud máte\
+      \ starší děti, které chtějí vybít nahromaděnou energii, tak se nabízí laser game. V Tron Laser Aréně\
+      \ na Jugoslávské. Jedna hra trvá patnáct minut a v jednu chvíli může hrát až 16 hráčů, takže se\
+      \ můžete domluvit s dalšími rodinami a vyrazit společně. Vybrat si můžete i hudbu, která vás bude\
+      \ provázet hrou a v nabídce je i extra mlha, abyste se mohli lépe skrývat před spoluhráči. Pro studenty\
+      \ a děti do 15 let je vstup za 140 korun. Plné vstupné je o 15 korun dražší. Pokud to vašim dětem\
+      \ stále nestačí a nechce se jim zpět domů, tak je vezměte na bowling do Židenic. Bowling Brno nabízí\
+      \ dvacet bowlingových drah a restauraci, pokud by vám po celém zážitku vyhládlo. Cena za dráhu se\
+      \ odvíjí dle doby návštěvy a času, kdy vyrazíte.\n\nAni jedno vaše ratolesti neláká? Zkuste motokáry.\
+      \ V Pisárkách najdete Kart Arenu. Tato krytá motokárová dráha měří 320 metrů. Nabízí pět levých\
+      \ a pět pravých zatáček, klopenou zatáčku ve tvaru písmene S a pokud vás a vaše děti láká rychlost,\
+      \ tak se vám určitě bude líbit široká 180 stupňová zatáčka. K dispozici je šest motokár, ochranné\
+      \ přilby, overaly a rukavice. Součástí areálu je také nekuřácká restaurace, dětský koutek a závodní\
+      \ trenažery. Pro děti je nutná rezervace dětských motokár a jízdu si mohou užít pouze ve vyhrazené\
+      \ časy.\n\nDalší alternativou je badminton ve sportovní hale Fit4All ve Starém Lískovci. Ve zděné\
+      \ klimatizované hale najdete čtyři badmintonové kurty. Můžete si zde také zapůjčit dané vybavení.\
+      \ Užít si můžete také tenis na jednom ze tří tenisových kurtů pokrytých umělou trávou.\n\n#### **Vzhůru\
+      \ do zábavního parku**\n\nBRuNO Family Park ve Slatině nabízí 4 000 metrů čtverečních plných zábavy.\
+      \ V dětském centru si děti mohou vybrat z více než 40 atrakcí. Naleznete tu třeba autodrom, 38 metrů\
+      \ dlouhý tobogán, lodičky, trampolíny nebo nejrůznější skákací atrakce. Nechybí ani stolní fotbálek.\
+      \ Nachází se zde také speciální herna pro matky s dětmi do čtyř let. Zajímavý je také čtrnáctipatrový\
+      \ labyrint a Čapí oko. Pokud děti dostanou hlad, tak se můžete zastavit v bistru Zobka. Celodenní\
+      \ ro"
+    https://www.idnes.cz/cestovani/po-cesku/brno-tipy-na-vylet-zabava-veveri-centrum-vida.A250416_154021_po-cesku_hrat:
+      "Published:\
+      \ 2025-04-24\n\n### iDNES a reklama\n\nPokud využijete místo platby udělení souhlasu s reklamou\
+      \ (tj. souhlas s využitím cookies a dalších síťových identifikátorů pro účely cílené reklamy), \n\
+      \                    budou Vám zobrazovány v rámci našich webů iDNES.cz, Lidovky.cz, Expres.cz a\
+      \ Antiyoutuber.cz<sup>2</sup> reklamy a to cílené i necílené. \n                    Cílení reklam\
+      \ probíhá na základě profilování Vašich zvyků a zájmů z údajů získaných o Vašich akcích na internetu\
+      \ tak, \n                    aby Vám byly zobrazovány reklamy, které Vás budou zajímat. Toto cílení\
+      \ bude provádět jak MAFRA, a.s., \n                    tak reklamní partneři (jichž je celkem 125),\
+      \ jejichž seznam a další informace naleznete \n                    zde.\n\nVáš souhlas s cílením\
+      \ reklamy můžete kdykoliv odvolat, pokud jej však odvoláte, budete vyzváni k přechodu na iDNES Premium\
+      \ bez reklam. Souhlas pro jiné účely, než je cílení reklam (např. zobrazování obsahu podle Vašich\
+      \ zájmů apod.), můžete změnit či odvolat, aniž byste museli přecházet na iDNES Premium bez reklam.\n\
+      \nNěkteré údaje (nikoliv však pro cílení reklamy) zpracováváme na základě tzv. oprávněného zájmu.\
+      \ Vznést námitku proti zpracování na základě oprávněného zájmu a provést další nastavení soukromí\
+      \ můžete v sekci Podrobné nastavení. Vámi zde provedené nastavení se použije pro webové stránky:\
+      \ iDNES.cz, Lidovky.cz, Expres.cz a Antiyoutuber.cz.\n\nMy a naši partneři zpracováváme údaje následujícím\
+      \ způsobem: \n                    **Použití omezených údajů k výběru reklam**, \n              \
+      \      **Používání profilů pro výběr personalizovaného obsahu**, **Vytváření profilů pro personalizovaný\
+      \ obsah**, \n                    **Měření výkonu reklam, **Porozumění publiku prostřednictvím statistik\
+      \ nebo kombinací údajů z různých zdrojů, \n                    **Používání profilů k výběru personalizované\
+      \ reklamy**, **Rozvoj a zlepšování služeb**, \n                    **Vytváření profilů pro personalizovanou\
+      \ reklamu**, **Měření výkonu obsahu**, **Technický provoz stránek******\n\nPokud se rozhodnete pro\
+      \ iDNES bez platby a udělíte nám souhlas s cílenou reklamou, \n                    **bude souhlas\
+      \ vždy udělen pro účely uvedené výše tučně**.\n\nBohužel z technických důvodů na straně poskytovatelů\
+      \ reklamy je nutné Váš nesouhlas s využitím k těmto účelům (u nichž z podstaty věci přichází do\
+      \ úvahy pouze použití ze strany naší společnosti):\n\n *(i) Používání profilů pro výběr personalizovaného\
+      \ obsahu, (ii) Vytváření profilů pro personalizovaný obsah,  \n                (iii) Měření výkonu\
+      \ obsahu a (iv) Technický provoz stránek,* vyjádřit tak, že vyjádříte nesouhlas \n             \
+      \   s příslušnou položkou v rámci nabídky „Zpracování údajů vydavateli a dalšími partnery“ či se\
+      \ zpracováním \n                pro tento účel jako celkem. Pak nebudeme takové zpracování provádět.\n\
+      \n- <sup>1</sup> Vyjma několika zvláštních reklamních formátů, kde je složité tyto formáty z obsahu\
+      \ odstranit, \n                        jakou jsou např. tzv. komerční sdělení či selfpromo naší\
+      \ společnosti a jejích dceřiných společností. \n                        Podrobnosti naleznete v\
+      \ našich obchodních podmínkách.\n- <sup>2</sup> Pro ostatní webové stránky naší společnosti si můžete\
+      \ zvolit nastavení zvlášť. \n                        Pokud však na nich udělíte souhlas s cílenou\
+      \ reklamou, budeme vycházet z toho, že jste jej udělili i pro stránky iDNES.cz, Lidovky.cz, Expres.cz\
+      \ a Antiyoutuber.cz."

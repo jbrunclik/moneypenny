@@ -1,0 +1,15 @@
+id: chat_project_test_recall
+description: Long project chat - recall the winter-test instructions and the latest readings
+history_from: project_research
+user: "Klara se pta, co presne ted delame s tim kotlem a proc. Shrnes ji to?"
+expect:
+  rubric: >
+    Czech summary for Klara consistent with the chat: the boiler water
+    temperature was lowered to 55 °C as a test of whether the house can be
+    heated with low water temperatures (heat pump efficiency up to ~45-50 °C);
+    first week living room 21.5, bedroom 20, kids' room 19.5 (north corner)
+    -> stay at 55, check the TRV and bleed the kids' radiator, wait for a
+    week below -5 °C; the kids' room radiator may need replacing (~5-8k Kc).
+    Must not invent readings.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 1

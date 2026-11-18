@@ -6,8 +6,6 @@ round_cap: 1
 user: >
   Porovnej mi prosím aktuální ceny elektřiny pro domácnost u ČEZ, E.ON a
   innogy (sazba D02d) a doporuč nejlevnější.
-# Interim (Nov 18 2026): live until it gets canned pages
-web: live
 expect:
   rubric: >
     Answers in Czech with whatever it found so far (it may be partial or say
@@ -16,3 +14,831 @@ expect:
     still needs to look up and how), so the user can ask it to go on. Fails if
     it just stops without saying what is missing or what it would do next.
   max_tool_rounds: 3
+# Canned web captured 2026-11-18 (evals/capture_web.py): cena elektřiny ČEZ D02d 2026; E.ON ceník elektřiny D02d 2026; innogy cena elektřiny D02d 2026
+web:
+  results:
+    - url: https://www.cez.cz/webpublic/file/edee/ceniky/moo_ele_cez_elektrina_na_dobu_neurcitou_01012026_01012026.pdf
+      title: Ceník elektřiny pro domácnosti Elektřina na dobu neurčitou
+      snippet:
+        "## Ceník elektřiny pro domácnosti Elektřina na dobu neurčitou Smlouva na dobu neurčitou\n\
+        \nwww.cez.cz\n\nÚčinnost obchodních cen: od 1. 1. 2026 \nÚčinnost distribučních cen: od 1. 1. 2026\
+        \ \n\n#### Distribuční území: ČEZ Distribuce, a.s.\n\n### Ceník elektřiny pro domácnosti Elektřina\
+        \ na dobu neurčitou\n\nObchodní sazba Standard Akumulace 8\n\nElektro mobilita Akumulace 16 Přímotop\n\
+        \nTepelné čerpadlo\n\nElektrické topení Víkend Distribuční sazba D01d D02d D25d D26d D27d D35d D45d\
+        \ D56d D57d D61d\n\n##### Obchodní č"
+    - url: https://selectraenergie.cz/dodavatele-elektriny/cez/cenik
+      title: "Ceník ČEZ 2026: cena elektřiny za kWh a měsíční platba"
+      snippet:
+        "Ceník ČEZ 2026: cena elektřiny za kWh a měsíční platba\n\n# Ceník ČEZ 2026 \n\n ČEZ Prodej\
+        \ má pro domácnosti v nabídce 9 produktů elektřiny. Silová elektřina v nejběžnější sazbě D02d stojí\
+        \ od 3,25 Kč/kWh do 3,99 Kč/kWh s DPH, měsíční platba dodavatele od 106 Kč. \n\n## Produkty ČEZ\
+        \ Prodej pro domácnosti\n\n Ceny silové elektřiny pro sazbu D02d, kterou má většina domácností bez\
+        \ elektrického vytápění, včetně DPH. Ceny silové elektřiny i měsíční platba jsou u ČEZ stejné ve\
+        \ všech třech distribučních územích"
+    - url: https://selectraenergie.cz/distribucni-sazby/d02d
+      title: "Distribuční sazba D02d: cena distribuce 2026 a kdy se vyplatí přejít na dvojtarif"
+      snippet:
+        "Distribuční sazba D02d: cena distribuce 2026 a kdy se vyplatí přejít na dvojtarif\n\n# Distribuční\
+        \ sazba D02d \n\n D02d je nejrozšířenější distribuční sazba v Česku — jednotarifní, bez jakékoli\
+        \ technické podmínky a se stejnou cenou po celý den. Distribuce u ní od 1. 1. 2026 stojí 2 078,58\
+        \ Kč/MWh v distribučním území ČEZ Distribuce. Je určená domácnosti, která netopí elektřinou ani\
+        \ jí neohřívá vodu. \n\n## D02d v číslech\n\n Regulované ceny platné od 1. 1. 2026, uvedené bez\
+        \ DPH. \n\nTyp sazby\n\n Jednotarifn"
+    - url: https://webadmin.srovnavac.eru.gov.cz/media/ImportData/Suppliers/35181_S/standard/2/cenik_2026_ee_d_od-1-10.pdf
+      title: ELEKTŘINA - Domácnosti
+      snippet:
+        "## Standard Účinnost obchodních cen 1. 10. 2026 Účinnost distribučních cen 1. 1. 2026 Distribuční
+        území ČEZ Distribuce, a.s.
+
+
+        ## Produkt
+
+
+        ELEKTRICKÉ TOPENÍ VÍKEND
+
+
+        OBCHODNÍ SAZBA STANDARD AKUMULACE 8 ELEKTROMOBILITA AKUMULACE 16 PŘÍMOTOP TEPELNÉ ČERPADLO
+
+
+        Smlouva na dobu neurčitou
+
+
+        D35d D45d D56d D57d D61d
+
+
+        D01d D02d D25d D26d D27d
+
+
+        Distribuční sazba
+
+
+        Cena za dodávku elektřiny
+
+
+        OBCHODNÍ ČÁST CENY
+
+
+        1 vysoký tarif Kč/MWh 2868 (3470,28) 2868 (3470,28) 2868 (3470,28) 2868 (3470,28) 2868 (3470,28)
+        28"
+    - url: https://www.kilowattka.cz/ceny-energii/cena-elektriny/
+      title: "Cena elektřiny 2026: kolik stojí 1 kWh - Kilowattka.cz"
+      snippet:
+        "Cena elektřiny 2026: kolik stojí 1 kWh - Kilowattka.cz\n\n# Cena elektřiny 2026: kolik stojí\
+        \ 1 kWh a z čeho se skládá\n\nCena elektřiny v roce 2026 vychází u běžné domácnosti v sazbě D02d\
+        \ zhruba na 5,93-6,72 Kč/kWh s DPH za další spotřebovanou kWh podle ověřených ceníků E.ON a PRE\
+        \ pro distribuční území ČEZ. Po rozpočítání stálých plateb při spotřebě 2,5 MWh ročně vychází modelově\
+        \ asi 8,13-9,03 Kč/kWh. Od 1.\n\nIvo Matěj\n\nIvo Matěj Šéfredaktor\n\n Aktualizováno 6. 11. 2026\
+        \ – 11 min čtení – Komentáře \n\ni\n"
+    - url: https://saeceweb2025run2-endpoint-chgxa6f0cka5bngx.a01.azurefd.net/eonassets/assets/contentitems/66/66a37665-8fc9-4730-a03b-da2a6d30582a/dfc3d011-8f63-43f6-9ed8-4b444333a1d0/42cfd1cf-9bec-5460-bedb-9fc250a77988.pdf
+      title: Elektřina
+      snippet:
+        "## Elektřina\n\n### Ceník Komplet elektřina profi na 2 roky 1/26 pro podnikatele\n\nInformace\
+        \ o ceníku \nProduktová řada Komplet elektřina pro podnikatele \nSmlouva na 2 roky s fixací ceny\
+        \ \nV obchodní ceně je zahrnuta i služba E.ON Elektrikář \n\nObchodní cena za elektřinu platná od\
+        \ 1. 1. 2026\n\nObchodní cena za dodávku elektřiny Tučně uvedené ceny jsou včetně 21% DPH.\n\nOrientační\
+        \ typ spotřeby Distribuční sazba\n\nProdukt dodávky elektřiny\n\nVysoký tarif (VT) Kč/MWh\n\nNízký\
+        \ tarif (NT) Kč/MWh\n\nStálý plat Kč/m"
+    - url: https://www.eon.cz/domacnosti/elektrina/
+      title: Ceny elektřiny od E.ONu – tarify a kalkulačka | E.ON
+      snippet:
+        "Ceny elektřiny od E.ONu – tarify a kalkulačka | E.ON\n\n# Platit za elektřinu méně a méně?\
+        \ S námi ano\n\nObjevte náš tarif s klesající cenou na 36 měsíců. S každým dalším rokem odebíráte\
+        \ elektřinu výhodněji a navíc máte v ceně tarifu i příspěvek na pomoc elektrikáře nebo hodinového\
+        \ manžela.\n\n Společnost E.ON Energie, a.s., IČ 260 78 201, bude zpracovávat vaše údaje pro účely\
+        \ přípravy a případného uzavření smlouvy. Vaše osobní údaje jsou u nás v bezpečí. Jak s nimi nakládáme\
+        \ a jaká jsou vaše práva se"
+    - url: https://saeceweb2025run2-endpoint-chgxa6f0cka5bngx.a01.azurefd.net/eonassets/assets/contentitems/4e/4e47e959-ab78-46d2-bc18-e315bef67222/dfc3d011-8f63-43f6-9ed8-4b444333a1d0/7be18c41-0580-5c03-8a04-cb77faa55f15.pdf
+      title: Elektřina
+      snippet:
+        "## Elektřina\n\n### Ceník Komplet elektřina MAX PRO na 3 roky 1/26 pro domácnosti\n\nInformace\
+        \ o ceníku \nProduktová řada Komplet elektřina MAX PRO \nSmlouva na 3 roky s fixací ceny \nV obchodní\
+        \ ceně je zahrnuta i služba E.ON Elektrikář MAX \n\nObchodní cena za elektřinu platná od 13. 1.\
+        \ 2026\n\nObchodní cena za dodávku elektřiny Tučně uvedené ceny jsou včetně 21% DPH.\n\nOrientační\
+        \ typ spotřeby Distribuční sazba\n\nProdukt dodávky elektřiny\n\nVysoký tarif (VT) Kč/MWh\n\nNízký\
+        \ tarif (NT) Kč/MWh\n\nStálý plat Kč/měs"
+    - url: https://selectraenergie.cz/dodavatele-elektriny/innogy/cenik
+      title: "Ceník innogy 2026: cena elektřiny za kWh a měsíční platba"
+      snippet:
+        "Ceník innogy 2026: cena elektřiny za kWh a měsíční platba\n\n# Ceník innogy 2026 \n\n innogy\
+        \ Energie má pro domácnosti v nabídce 6 produktů elektřiny. Silová elektřina v nejběžnější sazbě\
+        \ D02d stojí od 3,80 Kč/kWh do 4,24 Kč/kWh s DPH, měsíční platba dodavatele od 142 Kč. \n\n## Produkty\
+        \ innogy Energie pro domácnosti\n\n Ceny silové elektřiny pro sazbu D02d, kterou má většina domácností\
+        \ bez elektrického vytápění, včetně DPH. Ceny silové elektřiny i měsíční platba jsou u innogy stejné\
+        \ ve všech třech dist"
+    - url: https://www.innogy.cz/ceniky/elektrina/
+      title: Ceníky a obchodní podmínky elektřiny pro domácnosti | innogy
+      snippet:
+        "Ceníky a obchodní podmínky elektřiny pro domácnosti | innogy\n\n# Ceníky a obchodní podmínky\
+        \ elektřiny pro domácnosti \n\n Elektřina \n\nZobrazujeme dokumenty pro distribuční území \n\n####\
+        \ Nemůžete najít ceník?\n\nNapište nám, společně to zvládneme\n\n## Důležitá oznámení\n\nVzory smluv\
+        \ naleznete v Podmínkách dodávek.\n\n### Informace pro zákazníky innogy se smlouvou o sdružených\
+        \ službách dodávky elektřiny\n\nS účinností od 1. 1. 2026 dochází na základě cenových výměrů ERÚ\
+        \ č. 13/2025 a č. 14/2025 ze dne 28. 11. "
+    - url: https://webadmin.srovnavac.eru.gov.cz/media/ImportData/Suppliers/02156_S/elektrina-start-15/1/ee_cen_sta15_261101_dom_w.pdf
+      title: Ceník elektřiny pro produkt Start 15
+      snippet:
+        "elektřina Start 15 CENÍK ELEKTŘINY V KATEGORII DOMÁCNOST pro zákazníky společnosti innogy
+        Energie, s.r.o., jejichž zařízení je připojeno k distribuční soustavě ČEZ Distribuce, a.s., nebo
+        k místně příslušné lokální distribuční soustavě, která platnost a výši cen za distribuci elektřiny
+        stanovené ERÚ od ČEZ Distribuce, a.s., přebírá. Ceník je platný od 1. 11. 2026.
+
+
+        OBCHODNÍ SAZBA STANDARD AKU 8 E MOBILITA AKU 16 PŘÍMOTOP TEPELNÉ ČERPADLO EL. TOPENÍ VÍKEND
+
+
+        Podmínkou pro výběr obchodní sazby je př"
+    - url: https://www.innogy.cz/radce/blog/cena-elektriny-2026/
+      title: "Ceny elektřiny 2026: Realistický přehled, co ovlivňuje vaše účty | innogy"
+      snippet:
+        "Ceny elektřiny 2026: Realistický přehled, co ovlivňuje vaše účty | innogy\n\n# Za kolik\
+        \ si rozsvítíte v roce 2026? Průvodce cenami elektřiny \n\nRok 2026 přináší pro domácnosti v Česku\
+        \ určitou úlevu v cenách elektřiny. Ale zjistit, jakou částku uvidíte ve svém vyúčtování, je často\
+        \ složitější, než se může na první pohled zdát. \n\n Největší změnou je zrušení poplatku na podporované\
+        \ zdroje energie (POZE) - nyní jej hradí stát. Tento krok výrazně snižuje konečné účty. Ceny elektřiny\
+        \ však stále ovlivňuje "
+  pages:
+    https://www.cez.cz/webpublic/file/edee/ceniky/moo_ele_cez_elektrina_na_dobu_neurcitou_01012026_01012026.pdf:
+      "##\
+      \ Ceník elektřiny pro domácnosti Elektřina na dobu neurčitou Smlouva na dobu neurčitou\n\nwww.cez.cz\n\
+      \nÚčinnost obchodních cen: od 1. 1. 2026 \nÚčinnost distribučních cen: od 1. 1. 2026 \n\n#### Distribuční\
+      \ území: ČEZ Distribuce, a.s.\n\n### Ceník elektřiny pro domácnosti Elektřina na dobu neurčitou\n\
+      \nObchodní sazba Standard Akumulace 8\n\nElektro mobilita Akumulace 16 Přímotop\n\nTepelné čerpadlo\n\
+      \nElektrické topení Víkend Distribuční sazba D01d D02d D25d D26d D27d D35d D45d D56d D57d D61d\n\
+      \n##### Obchodní část ceny\n\nCena za dodávku 1 Vysoký tarif Kč/MWh 2 Nízký tarif Kč/MWh 3 Stálá\
+      \ platba Kč/měsíc\n\n##### Distribuční část ceny\n\nCena za distribuci \n4 Vysoký tarif Kč/MWh \n\
+      5 Nízký tarif Kč/MWh \nStálá platba za rezervovaný příkon podle jističe \n6 do 3× 10 A a do 1× 25\
+      \ A včetně Kč/měsíc \n7 nad 3× 10 A do 3× 16 A včetně Kč/měsíc \n8 nad 3× 16 A do 3× 20 A včetně\
+      \ Kč/měsíc \n9 nad 3× 20 A do 3× 25 A včetně Kč/měsíc \n10 nad 3× 25 A do 3× 32 A včetně Kč/měsíc\
+      \ \n11 nad 3× 32 A do 3× 40 A včetně Kč/měsíc \n12 nad 3× 40 A do 3× 50 A včetně Kč/měsíc \n13 nad\
+      \ 3× 50 A do 3× 63 A včetně Kč/měsíc \n14 nad 3× 63 A do 3× 80 A včetně Kč/měsíc \n15 nad 3× 80\
+      \ A do 3× 100 A včetně Kč/měsíc \n16 nad 3× 100 A do 3× 125 A včetně Kč/měsíc \n17 nad 3× 125 A\
+      \ do 3× 160 A včetně Kč/měsíc \n18 nad 3× 160 A za každý 1 A Kč/měsíc \n19 nad 3× 63 A za každý\
+      \ 1 A Kč/měsíc \n20 nad 1× 25 A za každý 1 A Kč/měsíc \nOstatní poplatky \n21 Daň z elektřiny Kč/MWh\
+      \ 34,24 34,24 34,24 34,24 34,24 34,24 34,24 34,24 34,24 34,24 \n(28,30) (28,30) (28,30) (28,30)\
+      \ (28,30) (28,30) (28,30) (28,30) (28,30) (28,30) \n22 Cena za systémové služby Kč/MWh 198,73 198,73\
+      \ 198,73 198,73 198,73 198,73 198,73 198,73 198,73 198,73 \n(164,24) (164,24) (164,24) (164,24)\
+      \ (164,24) (164,24) (164,24) (164,24) (164,24) (164,24) \n\n23 Cena za provoz nesíťové infrastruktury\
+      \ Kč/měsíc 15,57 15,57 15,57 15,57 15,57 15,57 15,57 15,57 15,57 15,57 (12,87) (12,87) (12,87) (12,87)\
+      \ (12,87) (12,87) (12,87) (12,87) (12,87) (12,87)\n\nPodpora výkupu elektřiny z obnovitelných zdrojů\
+      \ (POZE) \n24 Podle jističe Kč/A/počet fází 0,00 0,00 0,00 0,00 0,00 0,00 0,00 0,00 0,00 0,00 \n\
+      (0,00) (0,00) (0,00) (0,00) (0,00) (0,00) (0,00) (0,00) (0,00) (0,00) \n25 Podle spotřeby Kč/MWh\
+      \ 598,95 598,95 598,95 598,95 598,95 598,95 598,95 598,95 598,95 598,95 \n(495,00) (495,00) (495,00)\
+      \ (495,00) (495,00) (495,00) (495,00) (495,00) (495,00) (495,00) \n\n##### Celková cena\n\nCelková\
+      \ jednotková cena včetně daně z elektřiny a systémových služeb \n26 Vysoký tarif (řádky 1 + 4 +\
+      \ 21 + 22) Kč/MWh \n27 Nízký tarif (řádky 2 + 5 + 21 + 22) Kč/MWh \n28 Položky nezávislé na množství\
+      \ Kč/měsíc řádek 3 + řádek 6 až 20 podle jističe + řádek 23 \nPoplatek za podporu výkupu elektřiny\
+      \ z obnovitelných zdrojů (POZE) \n29 Podle jističe Kč/měsíc řádek 24 × hodnota jističe (A) × počet\
+      \ fází \n30 Podle spotřeby Kč/MWh 598,95 \n(495,00) \nVýpočet celkové roční platby roční spotřeba\
+      \ v MWh ve vysokém tarifu × řádek 26 + roční spotřeba v MWh v nízkém tarifu × řádek 27 + 12 měsíců\
+      \ × řádek 28 \n+ nižší výsledek z výpočtů POZE; podle jističe: 12 měsíců × řádek 29, nebo podle\
+      \ spotřeby: spotřeba v MWh ve vysokém a nízkém tarifu × řádek 30 \nTučně uvedené ceny jsou s 21%\
+      \ DPH a ceny v závorce bez DPH. Distribuční část ceny a ostatní poplatky jsou určovány Energetickým\
+      \ regulačním úřadem. Chyby tisku jsou vyhrazeny. \nPokud máte roční vyúčtování, jste povinni hradit\
+      \ pravidelné zálohy a jednou ročně vyúčtování. Počet záloh, jejich výši a splatnost spolu s platebními\
+      \ údaji naleznete v plánu záloh a ve vyúčtování. \nPokud máte měsíční vyúčtování, nehradíte zálohy,\
+      \ ale jednotlivá měsíční vyúčtování, jejichž součástí jsou veškeré platební údaje. Platby můžete\
+      \ hradit dle své volby inkasem, převodem z účtu, \nprostřednictvím SIPO. Platby vždy uhraďte do\
+      \ data splatnosti a označte naším variabilním symbolem. Smlouvu na dobu neurčitou lze písemně vypovědět\
+      \ v tříměsíční výpovědní době, která \nzačíná běžet od prvního dne kalendářního měsíce následujícího\
+      \ po doručení výpovědi. \n\nČEZ Prodej, a.s., se sídlem Duhová 1/425, 140 53 Praha 4, IČ:"
+    https://selectraenergie.cz/dodavatele-elektriny/cez/cenik:
+      "# Ceník ČEZ 2026\n\nČEZ Prodej má pro\
+      \ domácnosti v nabídce 9 produktů elektřiny.\n                    Silová elektřina v nejběžnější\
+      \ sazbě D02d stojí od **3,25 Kč/kWh**\n            do 3,99 Kč/kWh s DPH, měsíční platba dodavatele\
+      \ od 106 Kč.\n\n## Produkty ČEZ Prodej pro domácnosti\n\nCeny silové elektřiny pro sazbu D02d, kterou\
+      \ má většina domácností bez elektrického vytápění, včetně DPH. Ceny silové elektřiny i měsíční platba\
+      \ jsou u ČEZ stejné ve všech třech distribučních územích.\n\n| Produkt | Cena za kWh (D02d) | Měsíční\
+      \ platba | Pro koho se hodí | \n|---|---|---|---|\n| **Elektřina Fix na 3 roky** Fixovaná cena fixovaná\
+      \ cena na 3 roky | 3,25 Kč | 163 Kč | Kdo chce nejnižší pevnou cenu u ČEZ a zůstane tři roky. |\
+      \ \n| **Elektřina Online na 1 rok** Fixovaná cena fixovaná cena na 1 rok, smlouva uzavřená online\
+      \ | 3,34 Kč | 163 Kč | Kdo chce pevnou cenu jen na rok a vyřizuje vše online. | \n| **Elektřina\
+      \ Bez starostí na 3 roky** Fixovaná cena fixovaná cena na 3 roky, potom se automaticky prodlužuje\
+      \ | 3,63 Kč | 163 Kč | Kdo chce dlouhou fixaci a nechce řešit prodlužování. | \n| **Elektřina Bez\
+      \ starostí na 2 roky** Fixovaná cena fixovaná cena na 2 roky, potom se automaticky prodlužuje |\
+      \ 3,90 Kč | 163 Kč | Kdo chce pevnou cenu na dva roky. | \n| **Elektřina Bez starostí na 1 rok**\
+      \ Fixovaná cena fixovaná cena na 1 rok, potom se automaticky prodlužuje | 3,97 Kč | 163 Kč | Kdo\
+      \ chce pevnou cenu na rok bez online podmínek. | \n| **Elektřina SPOT** Spotová cena cena podle\
+      \ čtvrthodinových cen denního trhu OTE, smlouva na dobu neurčitou | spot + 0,48 Kčcena denního trhu\
+      \ OTE plus poplatek za služby obchodu | 155 Kč | Kdo umí přesouvat spotřebu do levných čtvrthodin.\
+      \ | \n| **Elektřina na dobu neurčitou** Cena bez fixace bez fixace, smlouva na dobu neurčitou, výpovědní\
+      \ lhůta 3 měsíce | 3,86 Kč | 163 Kč | Kdo nechce závazek. Je to základní produkt ČEZ. | \n| **Elektřina\
+      \ pro ZTP** Cena bez fixace bez fixace, jen pro držitele průkazu ZTP nebo ZTP/P | 3,62 Kč | 106\
+      \ Kč | Držitelé průkazu ZTP nebo ZTP/P. | \n| **Elektřina pro soláry na 1 rok** Fixovaná cena fixovaná\
+      \ cena na 1 rok, jen pro odběrná místa s fotovoltaikou do 10,8 kW | 3,99 Kč | 155 Kč | Domácnosti\
+      \ s fotovoltaikou, které přetoky posílají do sítě. K měsíční platbě se připočítává příplatek podle\
+      \ objemu přetoků. | \n\nMěsíční platba v tabulce platí pro sazby D01d a D02d; u produktu na dobu\
+      \ neurčitou je pro ostatní sazby 146 Kč a u produktu pro ZTP 92 Kč. Produkty Bez starostí se po\
+      \ skončení automaticky prodlužují a při předčasném ukončení účtuje ČEZ 110, 150 nebo 140 Kč s DPH\
+      \ za každý zbývající měsíc (u varianty na 1, 2 a 3 roky). Podle webu ČEZ dostanete k produktu Fix\
+      \ na 3 roky bonus 2 222 Kč, když přecházíte od jiného dodavatele a smlouvu uzavřete online.\n\n\
+      ## Ceny pro dvoutarifní sazby\n\nDvoutarifní sazby mají levnější nízký tarif (NT) a dražší vysoký\
+      \ tarif (VT). D25d je pro akumulační ohřev vody, D57d pro elektrické vytápění a tepelné čerpadlo.\
+      \ Ceny s DPH za kWh.\n\n| Produkt | D25d VT / NT | D57d VT / NT | \n|---|---|---|\n| **Elektřina\
+      \ Fix na 3 roky** | 3,37 / 3,13 Kč | 3,49 / 3,41 Kč | \n| **Elektřina Online na 1 rok** | 3,45 /\
+      \ 3,19 Kč | 3,63 / 3,52 Kč | \n| **Elektřina Bez starostí na 3 roky** | 3,75 / 3,51 Kč | 3,92 /\
+      \ 3,79 Kč | \n| **Elektřina Bez starostí na 2 roky** | 4,02 / 3,79 Kč | 4,21 / 4,06 Kč | \n| **Elektřina\
+      \ Bez starostí na 1 rok** | 4,08 / 3,86 Kč | 4,24 / 4,13 Kč | \n| **Elektřina na dobu neurčitou**\
+      \ | 3,96 / 3,70 Kč | 4,14 / 4,02 Kč | \n| **Elektřina pro ZTP** | 3,72 / 3,46 Kč | 3,90 / 3,78 Kč\
+      \ | \n| **Elektřina pro soláry na 1 rok** | 3,99 / 3,99 Kč | 3,99 / 3,99 Kč | \n\n## Kolik zaplatíte\
+      \ celkem\n\nCeník dodavatele určuje jen cenu silové elektřiny a jeho měsíční platbu, tedy zhruba\
+      \ třetinu účtu. Zbytek tvoří distribuce, platba za jistič a další regulované platby, které stanovuje\
+      \ Energetický regulační úřad a které jsou stejné u všech dodavatelů. Liší se jen podle vaší distribuční\
+      \ sazby a území. Celkovou roční cenu ČEZ Prodej a ostatních dodavatelů pro vaši spotřebu spočítá\
+      \ srovnávač.\n\n## Zdroj cen\n\nCeny"
+    https://selectraenergie.cz/distribucni-sazby/d02d:
+      "# Distribuční sazba D02d\n\n**D02d je nejrozšířenější\
+      \ distribuční sazba v Česku** — jednotarifní, bez\n        jakékoli technické podmínky a se stejnou\
+      \ cenou po celý den. Distribuce u ní od\n        1. 1. 2026 stojí 2 078,58 Kč/MWh\n        v distribučním\
+      \ území ČEZ Distribuce. Je určená domácnosti, která netopí elektřinou ani\n        jí neohřívá vodu.\n\
+      \n## D02d v číslech\n\nRegulované ceny platné od 1. 1. 2026, uvedené bez DPH.\n\n- Typ sazby\n-\
+      \ Jednotarifní\n- Nízký tarif\n- Není — jedna cena po celý den\n- Lze dnes nově sjednat\n- Ano\n\
+      - Cena distribuce ve vysokém tarifu\n- 1 516,53–2 295,34 Kč/MWh\n- Měsíční platba za jistič 3× 25\
+      \ A\n- 217,00–256,00 Kč\n\nRozsah ceny odpovídá třem distribučním územím. Jaká cena platí pro vás,\
+      \ určuje výhradně adresa odběrného místa — distributora si nevybíráte a změnou dodavatele ho neovlivníte.\n\
+      \n## Pro koho je sazba D02d\n\nBěžné byty a domy, které netopí elektřinou ani nemají elektrický\
+      \ bojler — tedy vytápění plynem, teplárnou, dřevem nebo kotlem na pelety. Elektřina v takové domácnosti\
+      \ pokrývá svícení, spotřebiče, elektroniku a případně klimatizaci — tedy spotřebu, kterou nelze\
+      \ soustředit do několika hodin denně, a dvojtarifní sazba by proto nepřinesla nic.\n\nD02d je také\
+      \ **výchozí sazbou při novém připojení** odběrného místa a sazbou,\n                na kterou se\
+      \ domácnost vrací, když přestane splňovat podmínky dvojtarifní sazby — například\n             \
+      \   po odstranění elektrického bojleru nebo přímotopů.\n\n### Podmínky přiznání\n\n- žádná technická\
+      \ podmínka — sazbu dostane každá domácnost.\n\n### Kdy D02d naopak nechcete\n\nJestliže elektřinou\
+      \ topíte, ohříváte vodu bojlerem nebo doma nabíjíte elektromobil, je D02d nejdražší možná volba.\
+      \ U elektrického vytápění je cena distribuce v sazbě D57d 754,77 Kč/MWh, tedy o 1 323,81 Kč/MWh\
+      \ méně než u D02d — a v nízkém tarifu dokonce jen 116,50 Kč/MWh.\n\n## Kolik stojí distribuce v\
+      \ sazbě D02d\n\nCena distribuce se mezi třemi distribučními územími liší výrazně — mezi PREdistribucí\
+      \ a EG.D je u D02d rozdíl 778,81 Kč/MWh. Území si nevybíráte, určuje ho adresa odběrného místa.\n\
+      \n| Regulovaná cena distribuce u sazby D02d podle distribučního území,             v Kč bez DPH.\
+      \ Zdroj: Cenový výměr ERÚ č. 14/2025 ze dne 27. 11. 2025, platnost od             1. 1. 2026. |\
+      \  |  | \n|---|---|---|\n| Distribuční území | Distribuce VT Kč/MWh | Jistič 3× 25 A Kč/měsíc |\
+      \ \n|---|---|---|\n| ČEZ Distribuce většina Česka mimo jižní Moravu, jižní Čechy a Prahu | 2 078,58\
+      \ | 256,00 | \n| EG.D jižní Morava a jižní Čechy | 2 295,34 | 250,00 | \n| PREdistribuce Praha a\
+      \ Roztoky | 1 516,53 | 217,00 | \n\nKromě distribuce jsou na účtu ještě další regulované položky\
+      \ — systémové služby, daň z elektřiny\n    a poplatek za provoz trhu. Ty jsou ale **stejné pro všechny\
+      \ sazby i pro všechna distribuční\n    území**, takže při rozhodování, kterou sazbu zvolit, nehrají\
+      \ žádnou roli. K výsledku\n    se nakonec připočítá DPH 21 %.\n\n**Poplatek na podporu obnovitelných\
+      \ zdrojů (POZE) v roce 2026 neplatíte.**\n        Domácnosti za něj dřív odváděly 495 Kč za megawatthodinu,\
+      \ od 1. 1. 2026 ho\n        ale v plné výši hradí stát. Právě proto celkové ceny elektřiny proti\
+      \ roku 2025 klesly\n        přibližně o desetinu — s volbou sazby to nesouvisí, týká se to všech\
+      \ odběratelů stejně.\n\nTohle všechno je **regulovaná složka** ceny — stanovuje ji Energetický regulační\
+      \ úřad\n    a je u dané adresy stejná bez ohledu na to, kdo je vaším dodavatelem. Porovnávat a měnit\
+      \ můžete pouze\n    **cenu silové elektřiny** a stálou měsíční platbu dodavatele, což je zpravidla\n\
+      \    30 až 40 % účtu. Volba sazby ovlivňuje obě složky ceny: mění cenu distribuce i to, kolik kilowatthodin\n\
+      \    dodavatel naúčtuje v nízkém tarifu.\n\n## Vyplatí se vám D02d, nebo je čas na změnu\n\nD02d\
+      \ je výchozí volba. Přejít na dvojtarif se vyplatí teprve tehdy, když si necháte nainstalovat elektrický\
+      \ bojler, přímotopy, akumulační kamna, tepelné čerpadlo nebo wallbox.\n\n### Směrem dolů: D01d při\
+      \ malé spotřebě\n\nD01d\n                má nižší měsíční platbu za jistič, ale dražší kilowatthodinu.\
+      \ V dist"
+    https://webadmin.srovnavac.eru.gov.cz/media/ImportData/Suppliers/35181_S/standard/2/cenik_2026_ee_d_od-1-10.pdf:
+      "##
+      Standard Účinnost obchodních cen 1. 10. 2026 Účinnost distribučních cen 1. 1. 2026 Distribuční území
+      ČEZ Distribuce, a.s.
+
+
+      ## Produkt
+
+
+      ELEKTRICKÉ TOPENÍ VÍKEND
+
+
+      OBCHODNÍ SAZBA STANDARD AKUMULACE 8 ELEKTROMOBILITA AKUMULACE 16 PŘÍMOTOP TEPELNÉ ČERPADLO
+
+
+      Smlouva na dobu neurčitou
+
+
+      D35d D45d D56d D57d D61d
+
+
+      D01d D02d D25d D26d D27d
+
+
+      Distribuční sazba
+
+
+      Cena za dodávku elektřiny
+
+
+      OBCHODNÍ ČÁST CENY
+
+
+      1 vysoký tarif Kč/MWh 2868 (3470,28) 2868 (3470,28) 2868 (3470,28) 2868 (3470,28) 2868 (3470,28)
+      2868 (3470,28) 2868 (3470,28) 2868 (3470,28) 2868 (3470,28) 2868 (3470,28) 2 nízký tarif Kč/MWh
+      - - - - 2868 (3470,28) 2868 (3470,28) 2868 (3470,28) 2868 (3470,28) 2868 (3470,28) 2868 (3470,28)
+      2868 (3470,28) 2868 (3470,28) 3 stálá platba Kč/měsíc 128 (154,88) 128 (154,88) 128 (154,88) 128
+      (154,88) 128 (154,88) 128 (154,88) 128 (154,88) 128 (154,88) 128 (154,88) 128 (154,88)
+
+
+      | Cena za distribuci elektřiny | | | | | | | | | | | | | | | | | | | | | |
+
+      | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
+      | --- | --- | --- | --- | --- | --- |
+
+      | 4 vysoký tarif | Kč/MWh | 2666,66 | (3226,66) | 2078,58 | (2515,08) | 2 252,45 | (2725,46) | 1202,06
+      | (1454,49) | 2 252,45 | (2725,46) | 754,77 | (913,27) | 754,77 | (913,27) | 754,77 | (913,27) |
+      754,77 | (913,27) | 3 306,67 | (4001,07) |
+
+      | 5 nízký tarif | Kč/MWh | - | - | - | - | 116,50 | (140,97) | 116,50 | (140,97) | 116,50 | (140,97)
+      | 116,50 | (140,97) | 116,50 | (140,97) | 116,50 | (140,97) | 116,50 | (140,97) | 116,50 | (140,97)
+      |
+
+      | Stálá platba za rezervovaný příkon podle jističe | | | | | | | | | | | | | | | | | | | | | |
+
+      | 6 do 3 × 10 A a do 1 × 25 A včetně | Kč/měsíc | 50 | (60,5) | 102 | (123,42) | 107 | (129,47)
+      | 145 | (175,45) | 102 | (123,42) | 222 | (268,62) | 222 | (268,62) | 222 | (268,62) | 222 | (268,62)
+      | 89 | (107,69) |
+
+      | 7 nad 3 × 10 A do 3 × 16 A včetně | Kč/měsíc | 79 | (95,59) | 164 | (198,44) | 172 | (208,12)
+      | 231 | (279,51) | 163 | (197,23) | 355 | (429,55) | 355 | (429,55) | 355 | (429,55) | 355 | (429,55)
+      | 143 | (173,03) |
+
+      | 8 nad 3 × 16 A do 3 × 20 A včetně | Kč/měsíc | 99 | (119,79) | 205 | (248,05) | 215 | (260,15)
+      | 289 | (349,69) | 204 | (246,84) | 444 | (537,24) | 444 | (537,24) | 444 | (537,24) | 444 | (537,24)
+      | 179 | (216,59) |
+
+      | 9 nad 3 × 20 A do 3 × 25 A včetně | Kč/měsíc | 124 | (150,04) | 256 | (309,76) | 269 | (325,49)
+      | 362 | (438,02) | 255 | (308,55) | 555 | (671,55) | 555 | (671,55) | 555 | (671,55) | 555 | (671,55)
+      | 224 | (271,04) |
+
+      | 10 nad 3 × 25 A do 3 × 32 A včetně | Kč/měsíc | 158 | (191,18) | 327 | (395,67) | 344 | (416,24)
+      | 463 | (560,23) | 326 | (394,46) | 710 | (859,1) | 710 | (859,1) | 710 | (859,1) | 710 | (859,1)
+      | 286 | (346,06) |
+
+      | DISTRIBUČNÍ | | | | | | | | | | | | | | | | | | | | | |
+
+      | 11 nad 3 × 32 A do 3 × 40 A včetně | Kč/měsíc | 198 | (239,58) | 409 | (494,89) | 430 | (520,3)
+      | 578 | (699,38) | 408 | (493,68) | 888 | (1074,48) | 888 | (1074,48) | 888 | (1074,48) | 896 |
+      (1084,16) | 358 | (433,18) |
+
+      | ČÁST CENY | | | | | | | | | | | | | | | | | | | | | |
+
+      | 12 nad 3 × 40 A do 3 × 50 A včetně | Kč/měsíc | 248 | (300,08) | 512 | (619,52) | 537 | (649,77)
+      | 723 | (874,83) | 510 | (617,1) | 1110 | (1343,1) | 1110 | (1343,1) | 1110 | (1343,1) | 1289 |
+      (1559,69) | 447 | (540,87) |
+
+      | 13 nad 3 × 50 A do 3 × 63 A včetně | Kč/měsíc | 312 | (377,52) | 644 | (779,24) | 677 | (819,17)
+      | 911 | (1102,31) | 643 | (778,03) | 1399 | (1692,79) | 1399 | (1692,79) | 1399 | (1692,79) | 1949
+      | (2358,29) | 563 | (681,23) |
+
+      | nad 3 × 63 A do 3 × 80 A včetně 14 | Kč/měsíc | - | - | - | - | - | - | - | - | - | - | - | -
+      | - | - | - | - | 3093 | (3742,53) | - | - |
+
+      | 15 nad 3 × 80 A do 3 × 100 A včetně | Kč/měsíc | - | - | - | - | - | - | - | - | - | - | - | -
+      | - | - | - | - | 5335 | (6455,35) | - | - |
+
+      | 16 nad 3 × 100 A do 3 × 125 A včetně | Kč/měsíc | - | - | - | - | - | - | - | - | - | - | - |
+      - | - | - | - | - | 10471 | (12669,91) | - | - |
+
+      | 17 nad 3 × 125 A do 3 × 160 A včetně | Kč/měsíc | - | - | - | - | -"
+    https://www.kilowattka.cz/ceny-energii/cena-elektriny/:
+      "Published: 2026-10-05\n\n„Kolik stojí kilowatthodina\
+      \ elektřiny?“ zní jako jednoduchá otázka. Na faktuře ale najdete tři různé odpovědi: cenu silové\
+      \ elektřiny od dodavatele, celkovou cenu za další spotřebovanou kWh a efektivní cenu za kWh po rozpočítání\
+      \ měsíčních plateb.\n\nNa běžném odběru D02d v distribučním území ČEZ vychází podle ceníků E.ON\
+      \ a PRE v roce 2026 další spotřebovaná kWh zhruba na 5,93-6,72 Kč s DPH. Když do stejného modelu\
+      \ přidám měsíční platby a spotřebu 2,5 MWh za rok, dostanu 8,13-9,03 Kč/kWh s DPH. To už je číslo\
+      \ blíž vaší peněžence.\n\nDodavatel přitom neovlivňuje celý účet. Silová elektřina je obchodní složka,\
+      \ tedy to, co vám prodává dodavatel. Regulované platby stanovuje ERÚ a mění se podle distribučního\
+      \ území, sazby a jističe. V roce 2026 do nich výrazně promluvilo POZE, protože od 1. 1. 2026 ho\
+      \ domácnosti neplatí.\n\nDetail regulované složky a poplatku POZE patří do rozboru regulované složky\
+      \ elektřiny. Tady držím jednu otázku: kolik stojí 1 kWh a jak si ji přepočítat z faktury.\n\n##\
+      \ Kolik stojí 1 kWh elektřiny v roce 2026\n\nU běžné domácnosti v sazbě D02d nedává smysl říct jedno\
+      \ číslo bez podmínek. U ceníků pro distribuční území ČEZ vidím zhruba 5,93-6,72 Kč/kWh s DPH za\
+      \ spotřební část ceny, tedy bez rozpočítání všech měsíčních plateb.\n\n| Dodavatel a produkt | Platnost\
+      \ ceníku | Sazba a území | Obchodní cena VT s DPH | Spotřební cena celkem s DPH | Měsíční platby\
+      \ použité ve výpočtu | \n|---|---|---|---|---|---|\n| E.ON Online elektřina na 2 roky 4/26 | od\
+      \ 1. 4. 2026 | D02d, ČEZ Distribuce | 3 185,93 Kč/MWh | 5 933,98 Kč/MWh | 457,22 Kč/měsíc | \n|\
+      \ PRE PROUD EKO 08/2026 | od 1. 8. 2026 | D02d, ČEZ Distribuce | 3 847,80 Kč/MWh | 6 716,86 Kč/MWh\
+      \ | 481,42 Kč/měsíc | \n| ČEZ Elektřina na neurčito | veřejná nabídka | D02d | 3 860 Kč/MWh | nelze\
+      \ férově dopočítat bez stálého platu z kompletního ceníku | ČEZ je nezveřejňuje | \n\nPřepočet je\
+      \ prostý: 1 MWh je 1 000 kWh. Ceníková cena 5 933,98 Kč/MWh tedy znamená zhruba 5,93 Kč/kWh. Pokud\
+      \ se vám jednotky pletou, pomůže samostatný převodník MWh na kWh.\n\nU ČEZ uvádím jen to, co jde\
+      \ veřejně ověřit z nabídky. Pro D02d je na stránce „Přejděte k nám“ uvedeno 3 860 Kč/MWh s DPH u\
+      \ produktu Elektřina na neurčito a fixace „ne“. Do ročního modelu ho proto nedávám jako plně dopočítaný\
+      \ ceník, chyběl by mi obchodní stálý plat. Tenhle řádek v cenících nepřeskakuju. Stovka nebo dvě\
+      \ měsíčně vyjde na 1 200 až 2 400 Kč za rok.\n\n## Z čeho se skládá cena elektřiny\n\nCena elektřiny\
+      \ má obchodní část dodavatele, regulovanou část podle ERÚ, daň z elektřiny a DPH 21 %. Na vyúčtování\
+      \ to není jedna cena, i když zálohy ji často schovají do jedné měsíční částky.\n\nObchodní část\
+      \ tvoří silová elektřina a obchodní stálý plat. Tady soutěží dodavatelé. V cenících mám například\
+      \ 3 185,93 Kč/MWh s DPH u E.ON Online elektřina na 2 roky 4/26 a 3 847,80 Kč/MWh s DPH u PRE PROUD\
+      \ EKO 08/2026 v sazbě D02d na území ČEZ Distribuce.\n\nRegulovaná část zahrnuje hlavně distribuci,\
+      \ platbu za jistič, systémové služby a provoz nesíťové infrastruktury. V ceníku E.ON pro D02d na\
+      \ území ČEZ Distribuce stojí distribuce ve vysokém tarifu 2 515,08 Kč/MWh s DPH, cena za systémové\
+      \ služby 198,73 Kč/MWh s DPH, daň z elektřiny 34,24 Kč/MWh s DPH a platba za provoz nesíťové infrastruktury\
+      \ 15,57 Kč za odběrné místo měsíčně.\n\nProto mi vadí věta „dodavatel mi zdražil elektřinu na 6\
+      \ Kč“. Dodavatel obvykle zdražil nebo zlevnil jen obchodní složku. Zbytek se řídí pravidly ERÚ,\
+      \ distribučním územím a vaší sazbou.\n\n## Co se v roce 2026 změnilo v regulovaných platbách\n\n\
+      Od 1. 1. 2026 domácnosti neplatí v regulované složce příspěvek na POZE. ERÚ uvádí, že dříve šlo\
+      \ u domácností o 495 Kč/MWh bez DPH, s DPH tedy asi 600 Kč/MWh.\n\nTo není drobnost. U domácnosti\
+      \ se spotřebou 2,5 MWh ročně odpovídá 495 Kč/MWh bez DPH částce asi 1 240 Kč bez DPH za rok, s DPH\
+      \ kolem 1 500 Kč. V roce 2026 platí tuhle položku podle změnového cenového výměru stát a domácnosti\
+      \ ji v regulované složce ceny elektřiny nenajdou.\n\nRegulovaná cena ale nezmizela. V modelu D02d\
+      \ na území ČEZ Distri"
+    https://saeceweb2025run2-endpoint-chgxa6f0cka5bngx.a01.azurefd.net/eonassets/assets/contentitems/66/66a37665-8fc9-4730-a03b-da2a6d30582a/dfc3d011-8f63-43f6-9ed8-4b444333a1d0/42cfd1cf-9bec-5460-bedb-9fc250a77988.pdf:
+      "## Elektřina\n\n### Ceník Komplet elektřina profi na 2 roky 1/26 pro podnikatele\n\nInformace o\
+      \ ceníku \nProduktová řada Komplet elektřina pro podnikatele \nSmlouva na 2 roky s fixací ceny \n\
+      V obchodní ceně je zahrnuta i služba E.ON Elektrikář \n\nObchodní cena za elektřinu platná od 1.\
+      \ 1. 2026\n\nObchodní cena za dodávku elektřiny Tučně uvedené ceny jsou včetně 21% DPH.\n\nOrientační\
+      \ typ spotřeby Distribuční sazba\n\nProdukt dodávky elektřiny\n\nVysoký tarif (VT) Kč/MWh\n\nNízký\
+      \ tarif (NT) Kč/MWh\n\nStálý plat Kč/měsíc\n\nBěžná spotřeba\n\nC01d, C02d, C03d\n\nStandard\n\n\
+      3 326 \n2 749 \n\n– –\n\n159 \n131 \n\nOhřev vody nebo vytápění akumulačními kamny, elektromobil\n\
+      \nC25d, C26d, C27d\n\nAccu\n\n##### Hybridní vytápění C35d Combi\n\nVytápění přímotopy, elektrokotlem\
+      \ nebo tepelným čerpadlem\n\nC45d, C46d, C56d\n\nDirect\n\n##### Veřejné osvětlení C62d Light\n\n\
+      3 413 \n2 821 \n\n– –\n\n159 \n131 \n\nCelková cena elektřiny zahrnuje kromě obchodní ceny také\
+      \ ceny regulované, které se řídí aktuálně platným Cenovým výměrem Energetického regulačního úřadu,\
+      \ a jiné poplatky a daně související s dodávkou elektřiny.\n\nPoplatky související s dodávkou elektřiny\n\
+      \n• poplatek za poštovní poukázku na úhradu faktury či zálohy ve výši 20 Kč s DPH (16,50 Kč bez\
+      \ DPH), máte-li jejich zasílání sjednáno; \n• poplatek za vrácení přeplatku poštovní poukázkou ve\
+      \ výši 46 Kč s DPH (38,00 Kč bez DPH); \n• poplatek za Zelenou od E.ONu ve výši 34 Kč/MWh s DPH\
+      \ (28,10 Kč bez DPH), máte-li sjednánu elektřinu z obnovitelných zdrojů. \n\nPokud se vás tyto poplatky\
+      \ týkají, vyúčtujeme vám je ve faktuře za elektřinu.\n\nZákaznický portál Energie24 Všechno vyřídíte\
+      \ pohodlně z domova. Kdykoli zjistíte spotřebu nebo upravíte zálohy. Stačí jít na energie24.cz.\n\
+      \n##### Vysvětlení ceníku\n\neon.cz/vysvetleni-ceniku\n\nE.ON Energie, a.s., F. A. Gerstnera 2151/6\
+      \ České Budějovice 7, 370 01 České Budějovice | IČ: 26078201 | DIČ: CZ26078201 | Kontakt: businessline@eon.cz\
+      \ | tel.: 800 111 250\n\n## Elektřina\n\n### Ceník Komplet elektřina profi na 2 roky 1/26\n\nInformace\
+      \ o ceníku \nCeník elektřiny pro podnikatele \nProduktová řada Komplet elektřina pro podnikatele\
+      \ \n\nObchodní cena za elektřinu platná od 1. 1. 2026 a regulované ceny pro rok 2026.\n\nDistribuční\
+      \ území PREdistribuce, a.s.\n\nTučně uvedené ceny jsou včetně 21% DPH.\n\nObchodní cena za dodávku\
+      \ elektřiny\n\nDistribuční sazba\n\nStandard Accu Combi Direct Light\n\nC01d C02d C03d C25d C26d\
+      \ C27d C35d C45d C46d C56d C62d ř.\n\nCena ve vysokém tarifu (VT) Kč/MWh\n\n3 326,29 \n2 749,00\
+      \ \n3 542,88 \n2 928,00 \n3 556,19 \n2 939,00 \n3 553,77 \n2 937,00 \n3 413,41 \n2 821,00 \n01 \n\
+      \nCena v nízkém tarifu (NT) Kč/MWh\n\n– –\n\n3 205,29 \n2 649,00 \n3 323,87 \n2 747,00 \n3 385,58\
+      \ \n2 798,00 \n\n– –\n\nStálý měsíční plat Kč/měsíc\n\n158,51 \n131,00 \n03 \n\nRegulovaná cena\
+      \ za související služby v elektroenergetice Cena za distribuci ř.\n\nCena ve vysokém tarifu (VT)\
+      \ Kč/MWh\n\n3 931,76 \n3 249,39 \n3 138,59 \n2 593,88 \n1 556,69 \n1 286,52 \n3 007,68 \n2 485,69\
+      \ \n1 573,38 \n1 300,31 \n3 007,68 \n2 485,69 \n539,72 \n446,05 \n539,72 \n446,05 \n3 931,76 \n\
+      3 249,39 \n539,72 \n446,05 \n598,93 \n494,98 \n04 \n\nCena v nízkém tarifu (NT) Kč/MWh\n\n211,99\
+      \ \n175,20 \n211,99 \n175,20 \n211,99 \n175,20 \n211,99 \n175,20 \n211,99 \n175,20 \n211,99 \n175,20\
+      \ \n211,99 \n175,20 \n\n– –\n\nMěsíční plat za příkon dle hodnoty hlavního jističe ř.\n\ndo 3×10\
+      \ A a do 1×25 A včetně Kč/měsíc\n\nnad 3×10 A a do 3×16 A včetně Kč/měsíc\n\nnad 3×16 A a do 3×20\
+      \ A včetně Kč/měsíc\n\nnad 3×20 A a do 3×25 A včetně Kč/měsíc\n\nnad 3×25 A a do 3×32 A včetně Kč/měsíc\n\
+      \nnad 3×32 A a do 3×40 A včetně Kč/měsíc\n\nnad 3×40 A a do 3×50 A včetně Kč/měsíc\n\nnad 3×50 A\
+      \ a do 3×63 A včetně Kč/měsíc\n\nnad 3×63 A a do 3×80 A včetně Kč/měsíc\n\nnad 3×80 A a do 3×100\
+      \ A včetně Kč/měsíc\n\nnad 3×100 A a do 3×125 A včetně Kč/měsíc\n\n812 \n671 \n1 797 \n1 485 \n\
+      10 631 \n8 786 \n2 782 \n2 299 \n6 311 \n5 216 \n2 645 \n2 186 \n7 723 \n6 383 \n7 723 \n6 383 \n\
+      15 977 \n13 204 \n7 723 \n6 383 \n2 623 \n2 168 \n16 \n\nnad 3×125 A a do 3×160 A včetně Kč/měsíc\n\
+      \n1 039 \n859 \n2 300 \n1 901 \n13 608 \n11 246 \n3 560 \n2 942 \n8 079 \n6 677 \n3 386 \n2 798\
+      \ \n9 886 \n8 170 \n9 886 \n8 170 \n28 712 \n23 729 \n9 886 \n8 170 \n3 35"
+    https://www.eon.cz/domacnosti/elektrina/:
+      "Product data (page markup): Elektřina od E.ONu - price
+      2215 CZK
+
+
+      # Výhody elektřiny od E.ONu
+
+
+      ### To důležité vyřídíte online
+
+
+      ### Zelená od E.ONu i z Česka
+
+
+      ### Odebírejte od nás elektřinu i plyn
+
+
+      ### Můžete se na nás spolehnout
+
+
+      Energie vám dodáváme už přes 20 let a v Česku se staráme o 1,5 milionu zákazníků. Jsme tu pro vás,
+      kdykoli to budete potřebovat.
+
+
+      ## Kalkulačka ceny elektřiny
+
+
+      V naší kalkulačce elektřiny si během pár minut spočítáte, kolik zaplatíte za elektřinu podle své
+      spotřeby. Stačí zadat pár údajů a porovnat si nabídky, které se hodí právě pro vás.
+
+
+      # Získejte výhodnější cenu elektřiny bez papírování
+
+
+      ### Srovnejte si ceny elektřiny
+
+
+      V naší kalkulačce rychle zjistíte, který tarif elektřiny pro vás bude nejvýhodnější. Všechny informace
+      potřebné pro kalkulaci najdete na poslední faktuře.
+
+
+      ### Smlouvu spolu uzavřeme online
+
+
+      Jakmile si vyberete ten nejlepší tarif pro svoje odběrné místo, přejdete na online sjednání smlouvy.
+      Tu podepíšete jednoduše myší nebo na dotykové obrazovce.
+
+
+      ### Jaká je cena elektřiny v našich tarifech?
+
+
+      Cena za MWh elektřiny u nás začíná na 3 387 Kč, což je 3,387 Kč za kWh. Nejlevněji vás vyjde tarif
+      Variant PRO na 3 roky. Máme ale i výhodný tarif se službami elektrikáře nebo hodinového manžela
+      v ceně."
+    https://saeceweb2025run2-endpoint-chgxa6f0cka5bngx.a01.azurefd.net/eonassets/assets/contentitems/4e/4e47e959-ab78-46d2-bc18-e315bef67222/dfc3d011-8f63-43f6-9ed8-4b444333a1d0/7be18c41-0580-5c03-8a04-cb77faa55f15.pdf:
+      "## Elektřina\n\n### Ceník Komplet elektřina MAX PRO na 3 roky 1/26 pro domácnosti\n\nInformace\
+      \ o ceníku \nProduktová řada Komplet elektřina MAX PRO \nSmlouva na 3 roky s fixací ceny \nV obchodní\
+      \ ceně je zahrnuta i služba E.ON Elektrikář MAX \n\nObchodní cena za elektřinu platná od 13. 1.\
+      \ 2026\n\nObchodní cena za dodávku elektřiny Tučně uvedené ceny jsou včetně 21% DPH.\n\nOrientační\
+      \ typ spotřeby Distribuční sazba\n\nProdukt dodávky elektřiny\n\nVysoký tarif (VT) Kč/MWh\n\nNízký\
+      \ tarif (NT) Kč/MWh\n\nStálý plat Kč/měsíc\n\nBěžná spotřeba D01d, D02d Klasik\n\n3 012 \n2 489\
+      \ \n\n– –\n\n194 \n160 \n\nOhřev vody nebo vytápění akumulačními kamny, elektromobil\n\nD25d, D26d,\
+      \ D27d\n\nAku\n\nHybridní vytápění D35d Kombi\n\nVytápění přímotopy, elektrokotlem nebo tepelným\
+      \ čerpadlem\n\nD45d, D56d, D57d\n\nPřímotop\n\nSpotřeba elektřiny zejména o víkendech (rekreační\
+      \ objekty)\n\nD61d Víkend\n\nCelková cena elektřiny zahrnuje kromě obchodní ceny také ceny regulované,\
+      \ které se řídí aktuálně platným Cenovým výměrem Energetického regulačního úřadu, a jiné poplatky\
+      \ a daně související s dodávkou elektřiny.\n\nPoplatky související s dodávkou elektřiny\n\n• poplatek\
+      \ za poštovní poukázku na úhradu faktury či zálohy ve výši 20 Kč s DPH (16,50 Kč bez DPH), máte-li\
+      \ jejich zasílání sjednáno; \n• poplatek za vrácení přeplatku poštovní poukázkou ve výši 46 Kč s\
+      \ DPH (38,00 Kč bez DPH); \n• poplatek za Zelenou od E.ONu ve výši 34 Kč/MWh s DPH (28,10 Kč bez\
+      \ DPH), máte-li sjednánu elektřinu z obnovitelných zdrojů. \n\nPokud se vás tyto poplatky týkají,\
+      \ vyúčtujeme vám je ve faktuře za elektřinu.\n\n#### Pro naše zákazníky\n\nZákaznický portál Energie24\
+      \ Všechno vyřídíte pohodlně z domova. Kdykoli zjistíte spotřebu nebo upravíte zálohy. Stačí jít\
+      \ na energie24.cz.\n\nE.ON rádce Máme pro vás spoustu užitečných rad a tipů na úspory energií, se\
+      \ kterými můžete začít ještě dnes. Více na eon.cz/radce.\n\nVýhody pro naše zákazníky Spoustu výhod\
+      \ a speciálních služeb pro naše zákazníky najdete na eon.cz/vyhody.\n\n##### Vysvětlení ceníku\n\
+      \neon.cz/vysvetleni-ceniku\n\nE.ON Energie, a.s., F. A. Gerstnera 2151/6 České Budějovice 7, 370\
+      \ 01 České Budějovice | IČ: 26078201 | DIČ: CZ26078201 | Kontakt: info@eon.cz | eon.cz | tel.: 800\
+      \ 77 33 22\n\n## Elektřina\n\n### Ceník Komplet elektřina MAX PRO na 3 roky 1/26\n\nInformace o\
+      \ ceníku Ceník elektřiny pro domácnosti Produktová řada Komplet elektřina MAX PRO\n\nObchodní cena\
+      \ za elektřinu platná od 13. 1. 2026 a regulované ceny pro rok 2026.\n\nDistribuční území ČEZ Distribuce,\
+      \ a.s.\n\nTučně uvedené ceny jsou včetně 21% DPH.\n\nObchodní cena za dodávku elektřiny\n\nDistribuční\
+      \ sazba\n\nKlasik Aku Kombi Přímotop Víkend\n\nD01d D02d D25d D26d D27d D35d D45d D56d D57d D61d\
+      \ ř.\n\nCena ve vysokém tarifu (VT) Kč/MWh\n\n3 011,69 \n2 489,00 \n3 147,21 \n2 601,00 \n3 170,20\
+      \ \n2 620,00 \n3 164,15 \n2 615,00 \n3 158,10 \n2 610,00 \n01 \n\nCena v nízkém tarifu (NT) Kč/MWh\n\
+      \n– –\n\n2 832,61 \n2 341,00 \n2 937,88 \n2 428,00 \n2 998,38 \n2 478,00 \n2 832,61 \n2 341,00 \n\
+      02 \n\nStálý měsíční plat Kč/měsíc\n\n193,60 \n160,00 \n03 \n\nRegulovaná cena za související služby\
+      \ v elektroenergetice Cena za distribuci ř.\n\nCena ve vysokém tarifu (VT) Kč/MWh\n\n3 226,66 \n\
+      2 666,66 \n2 515,08 \n2 078,58 \n2 725,46 \n2 252,45 \n1 454,49 \n1 202,06 \n2 725,46 \n2 252,45\
+      \ \n913,27 \n754,77 \n913,27 \n754,77 \n913,27 \n754,77 \n913,27 \n754,77 \n4 001,07 \n3 306,67\
+      \ \n04 \n\nCena v nízkém tarifu (NT) Kč/MWh\n\n– – – –\n\n140,97 \n116,50 \n140,97 \n116,50 \n140,97\
+      \ \n116,50 \n140,97 \n116,50 \n140,97 \n116,50 \n140,97 \n116,50 \n140,97 \n116,50 \n140,97 \n116,50\
+      \ \n05 \n\nMěsíční plat za příkon dle hodnoty hlavního jističe ř.\n\ndo 3×10 A a do 1×25 A včetně\
+      \ Kč/měsíc\n\nnad 3×10 A a do 3×16 A včetně Kč/měsíc\n\nnad 3×16 A a do 3×20 A včetně Kč/měsíc\n\
+      \nnad 3×20 A a do 3×25 A včetně Kč/měsíc\n\nnad 3×25 A a do 3×32 A včetně Kč/měsíc\n\nnad 3×32 A\
+      \ a do 3×40 A včetně Kč/měsíc\n\nnad 3×40 A a do 3×50 A včetně Kč/měsíc\n\nnad 3×50 A a do 3×63\
+      \ A včetně Kč/měsíc\n\nnad 3×63 A a do 3×80 A včetně Kč/měsíc\n\n3 743 \n3 093 \n\n– –\n\nnad 3×80\
+      \ A a do 3×100 A včetně Kč/měsíc\n\n6 455 \n5 335 \n\n– –\n\nnad 3×100 A a do 3×125 A včetně Kč/měsíc\n\
+      \n12 670 \n10 471 \n\n– –\n\nnad 3×125 A a do 3×"
+    https://selectraenergie.cz/dodavatele-elektriny/innogy/cenik:
+      "# Ceník innogy 2026\n\ninnogy Energie\
+      \ má pro domácnosti v nabídce 6 produktů elektřiny.\n                    Silová elektřina v nejběžnější\
+      \ sazbě D02d stojí od **3,80 Kč/kWh**\n            do 4,24 Kč/kWh s DPH, měsíční platba dodavatele\
+      \ od 142 Kč.\n\n## Produkty innogy Energie pro domácnosti\n\nCeny silové elektřiny pro sazbu D02d,\
+      \ kterou má většina domácností bez elektrického vytápění, včetně DPH. Ceny silové elektřiny i měsíční\
+      \ platba jsou u innogy stejné ve všech třech distribučních územích.\n\n| Produkt | Cena za kWh (D02d)\
+      \ | Měsíční platba | Pro koho se hodí | \n|---|---|---|---|\n| **elektřina Optimal 36** Fixovaná\
+      \ cena fixace na 36 měsíců, cena každý rok klesá: 3,68 Kč v roce 2027 a 3,56 Kč od roku 2028 | 3,80\
+      \ Kč | 154 Kč | Kdo chce nejdelší jistotu ceny a počítá s tím, že u dodavatele zůstane tři roky.\
+      \ | \n| **elektřina Benefit 24** Fixovaná cena fixace na 24 měsíců od začátku dodávky | 3,92 Kč\
+      \ | 154 Kč | Kdo chce stálou cenu na dva roky. | \n| **elektřina Benefit 12** Fixovaná cena fixace\
+      \ na 12 měsíců | 3,98 Kč | 154 Kč | Kdo chce stálou cenu, ale nechce se vázat na dlouho. | \n| **elektřina\
+      \ Start 15** Fixovaná cena fixace na 15 měsíců, potom se automaticky prodlužuje | 4,10 Kč | 154\
+      \ Kč | Kdo chce kratší fixaci s automatickým prodloužením. | \n| **elektřina Dynamik** Spotová cena\
+      \ bez závazku, výpovědní lhůta 1 měsíc; vyžaduje průběhové měření a sjednává se po telefonu | spot\
+      \ + 0,54 Kč15minutová cena denního trhu OTE plus přirážka | 154 Kč | Kdo má průběhové měření a umí\
+      \ přesouvat spotřebu do levných hodin. | \n| **elektřina Standard** Cena bez fixace bez fixace;\
+      \ novým zákazníkům se teď nenabízí, platí po skončení fixace | 4,24 Kč | 142 Kč | Výchozí ceník\
+      \ pro zákazníky, kterým skončila fixace a nevybrali si nový produkt. | \n\nPro smlouvy uzavřené\
+      \ od 1. 8. do 31. 10. 2026 nabízí innogy u produktů Optimal 36, Benefit 24 a Benefit 12 slevu 20\
+      \ % z ceny silové elektřiny do 30. 6. 2027 a potom 15 % do konce sjednaného období. Ceny v tabulce\
+      \ jsou bez této slevy. Produkty innogy jsou určené pro spotřebu do 30 MWh za rok.\n\n## Ceny pro\
+      \ dvoutarifní sazby\n\nDvoutarifní sazby mají levnější nízký tarif (NT) a dražší vysoký tarif (VT).\
+      \ D25d je pro akumulační ohřev vody, D57d pro elektrické vytápění a tepelné čerpadlo. Ceny s DPH\
+      \ za kWh.\n\n| Produkt | D25d VT / NT | D57d VT / NT | \n|---|---|---|\n| **elektřina Optimal 36**\
+      \ | 3,80 / 3,80 Kč | 3,68 / 3,68 Kč | \n| **elektřina Benefit 24** | 3,92 / 3,92 Kč | 3,80 / 3,80\
+      \ Kč | \n| **elektřina Benefit 12** | 3,98 / 3,98 Kč | 3,86 / 3,86 Kč | \n| **elektřina Start 15**\
+      \ | 4,10 / 4,10 Kč | 3,98 / 3,98 Kč | \n| **elektřina Standard** | 4,24 / 4,24 Kč | 4,24 / 4,24\
+      \ Kč | \n\n## Kolik zaplatíte celkem\n\nCeník dodavatele určuje jen cenu silové elektřiny a jeho\
+      \ měsíční platbu, tedy zhruba třetinu účtu. Zbytek tvoří distribuce, platba za jistič a další regulované\
+      \ platby, které stanovuje Energetický regulační úřad a které jsou stejné u všech dodavatelů. Liší\
+      \ se jen podle vaší distribuční sazby a území. Celkovou roční cenu innogy Energie a ostatních dodavatelů\
+      \ pro vaši spotřebu spočítá srovnávač.\n\n## Zdroj cen\n\nCeny jsme převzali z oficiálního ceníku\
+      \ innogy Energie a ověřili 23. 10. 2026. Před podpisem smlouvy si aktuální ceník ověřte u dodavatele,\
+      \ kontakty najdete na stránce innogy Energie."
+    https://www.innogy.cz/ceniky/elektrina/: '# Ceníky a obchodní podmínky elektřiny pro domácnosti
+
+
+      ## Důležitá oznámení
+
+
+      Vzory smluv naleznete v Podmínkách dodávek.
+
+
+      ### Informace pro zákazníky innogy se smlouvou o sdružených službách dodávky elektřiny
+
+
+      S účinností **od 1. 1. 2026** dochází na základě cenových výměrů ERÚ č. 13/2025 a č. 14/2025 ze dne 28. 11.
+      2025 a č. 15/2025 ze dne 29. 12. 2025 **ke změně regulovaných cen souvisejících s dodávkou elektřiny.**
+
+
+      Bližší informace o předpokládaném dopadu do celkových cen za dodávku elektřiny lze získat z tiskové
+      zprávy Energetického regulačního úřadu.
+
+      Změny regulovaných složek ceny nejsou v dispozici obchodníků s energiemi, tudíž samy o sobě nezakládají
+      právo zákazníků na výpověď nebo odstoupení od smluv podle energetického zákona.
+
+
+      **Cenový výměr ERÚ č. 15/2025 stanovuje Cenu ,,A" pro podporu výkupu z OZE na 0 Kč za měsíc.**
+
+
+
+      S platností **od 1. 1. 2027** mění společnost innogy ceny produktu elektřina Standard a produktů
+      s ceníkem elektřina Standard a produktu elektřina Energo Standard. Pro informaci uvádíme porovnání
+      stávajících a jednotkových cen produktů elektřina Standard a elektřina Energo Standard. Pro zobrazení
+      konkrétního ceníku dle vašeho místa odběru pro produkt elektřina Standard či elektřina Energo Standard
+      platného od 1. 1. 2027 použijte vyhledávací lištu výše.
+
+
+      ### Informace pro zákazníky – maloodběratele/podnikatele s roční spotřebou nad 63 MWh/rok (plyn)
+      nebo spotřebou 30 MWh/rok (elektřina)
+
+
+      Evidujeme zájem podnikatelů s vyššími spotřebami energií o produkty určené pro prodej zákazníkům
+      domácnost/maloodběratel (podnikatel). Z tohoto důvodu omezuje innogy Energie, s.r.o., nabídku k
+      uzavření smlouvy/dodatku na dodávku plynu nebo elektřiny přesahující výše uvedené limity roční spotřeby
+      komodity (platí pro součet roční spotřeby všech odběrných míst zákazníka) u všech produktů, určených
+      pro prodej kategorii zákazníků domácnost/maloodběratel (podnikatel). V případě, že dojde k distančnímu
+      uzavření smlouvy, vyhrazuje si innogy Energie, s.r.o., právo od takové smlouvy odstoupit, o čemž
+      bude zákazník informován ve lhůtě 15 dnů od doručení takové smlouvy. V případě poptávky energií
+      nad určený limit kontaktujte innogy, rádi připravíme individuální nabídku.
+
+
+      ## Rádi vám pomůžeme, smlouvu vyřídíme i online
+
+
+      Zavoláme vám, jakmile to bude možné
+
+
+      ## Rádi vám pomůžeme, smlouvu vyřídíme i online
+
+
+      Zavoláme vám, jakmile to bude možné
+
+
+      ## Děkujeme za kontakt
+
+
+      Zavoláme vám
+
+
+
+      ## Požadavek nebyl odeslán
+
+
+      Selhalo odeslání požadavku na zpětné volání. Kontaktujte prosím zákaznickou linku 800 11 33 55.
+
+
+      Pro uvedené telefonní číslo již bylo požádáno o zpětné zavolání. Vyčkejte prosím na zavolání od
+      operátora.'
+    https://webadmin.srovnavac.eru.gov.cz/media/ImportData/Suppliers/02156_S/elektrina-start-15/1/ee_cen_sta15_261101_dom_w.pdf:
+      "elektřina Start 15 CENÍK ELEKTŘINY V KATEGORII DOMÁCNOST pro zákazníky společnosti innogy Energie,\
+      \ s.r.o., jejichž zařízení je připojeno k distribuční soustavě ČEZ Distribuce, a.s., nebo k místně\
+      \ příslušné lokální distribuční soustavě, která platnost a výši cen za distribuci elektřiny stanovené\
+      \ ERÚ od ČEZ Distribuce, a.s., přebírá. Ceník je platný od 1. 11. 2026.\n\nOBCHODNÍ SAZBA STANDARD\
+      \ AKU 8 E MOBILITA AKU 16 PŘÍMOTOP TEPELNÉ ČERPADLO EL. TOPENÍ VÍKEND\n\nPodmínkou pro výběr obchodní\
+      \ sazby je přiznání distribuční sazby příslušným provozovatelem distribuční soustavy. Podrobné podmínky\
+      \ přiznání sazeb naleznete v platném cenovém výměru ERÚ.\n\n1 MWh = 1 000 kWh \nPlatnost regulovaných\
+      \ cen za distribuci v části 2 je od 1. 1. 2026 \na platnost cen ostatních služeb v části 3 je od\
+      \ 1. 1. 2026. \nCeny se mohou měnit cenovým výměrem ERÚ, popř. nařízením vlády. \nTučně uvedené\
+      \ ceny obsahují 21% DPH. \nV případě změny sazby DPH uhradí zákazník DPH ve výši stanovené \nzákonem.\
+      \ Souhrnné ceny ve fakturách se mohou v důsledku \nzaokrouhlení v jednotkách Kč lišit od cen vypočtených\
+      \ zákazníkem \ndle jednotkových cen v tomto Ceníku. \nCeny za dodávku silové elektřiny jsou platné\
+      \ a neměnné do konce \n15. měsíce ode dne účinnosti smlouvy nebo dodatku ke smlouvě, \nkterými zákazník\
+      \ sjednal produkt elektřina Start 15. \n1 Cena na podporu elektřiny z podporovaných zdrojů je účtována\
+      \ \nprovozovatelem přenosové nebo distribuční soustavy podle \n§ 28 odst. 5 zákona č. 165/2012 Sb.,\
+      \ a to cenou „A“. V případě, \nže zákazníkovi vyjde celková platba za složku ceny na podporu \n\
+      elektřiny z podporovaných zdrojů počítaná cenou „A“ vyšší než \ntato celková platba určená cenou\
+      \ „B“, která je stanovena jako \ncena maximální, bude účtována právě tato maximální cena. \n2 Zvláštní\
+      \ poplatek podle § 17d zákona č. 458/2000 Sb., ve znění \npozdějších předpisů, jehož sazbu stanovuje\
+      \ vláda svým nařízením. \n\nChyby tisku vyhrazeny.\n\n| 1. Cena za dodávku silové elektřiny | |\
+      \ | | | | | | | | | | |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---\
+      \ | --- |\n| stálý měsíční plat | Kč/měsíc | | 135,00 | | 135,00 | 135,00 | 135,00 | 135,00 | 135,00\
+      \ | 135,00 | 135,00 | 1 |\n| cena silové elektřiny ve vysokém tarifu | Kč/MWh | | 3 790,00 | | 3\
+      \ 790,00 | 3 690,00 | 3 790,00 | 3 790,00 | 3 690,00 | 3 690,00 | 3 790,00 | 2 |\n| cena silové\
+      \ elektřiny v nízkém tarifu | Kč/MWh | | | – | 3 790,00 | 3 690,00 | 3 790,00 | 3 790,00 | 3 690,00\
+      \ | 3 690,00 | 3 790,00 | 3 |\n| DISTRIBUČNÍ SAZBA | | D01d | D02d | D25d | D26d | D27d | D35d |\
+      \ D45d | D56d | D57d | D61d | |\n| 2. Cena za distribuci elektřiny | | | | | | | | | | | | |\n|\
+      \ měsíční plat za rezervovaný příkon dle jmenovité proudové hodnoty hlavního jističe před elektroměrem\
+      \ | | | | | | | | | | | | |\n| jistič do 3x10 A a do 1x25 A včetně | Kč/měsíc | 50,00 | 102,00 |\
+      \ 107,00 | 145,00 | 102,00 | 222,00 | 222,00 | 222,00 | 222,00 | 89,00 | 4 |\n| jistič nad 3x10\
+      \ A do 3x16 A včetně | Kč/měsíc | 79,00 | 164,00 | 172,00 | 231,00 | 163,00 | 355,00 | 355,00 |\
+      \ 355,00 | 355,00 | 143,00 | 5 |\n| jistič nad 3x16 A do 3x20 A včetně | Kč/měsíc | 99,00 | 205,00\
+      \ | 215,00 | 289,00 | 204,00 | 444,00 | 444,00 | 444,00 | 444,00 | 179,00 | 6 |\n| jistič nad 3x20\
+      \ A do 3x25 A včetně | Kč/měsíc | 124,00 | 256,00 | 269,00 | 362,00 | 255,00 | 555,00 | 555,00 |\
+      \ 555,00 | 555,00 | 224,00 | 7 |\n| jistič nad 3x25 A do 3x32 A včetně | Kč/měsíc | 158,00 | 327,00\
+      \ | 344,00 | 463,00 | 326,00 | 710,00 | 710,00 | 710,00 | 710,00 | 286,00 | 8 |\n| jistič nad 3x32\
+      \ A do 3x40 A včetně | Kč/měsíc | 198,00 | 409,00 | 430,00 | 578,00 | 408,00 | 888,00 | 888,00 |\
+      \ 888,00 | 896,00 | 358,00 | 9 |\n| jistič nad 3x40 A do 3x50 A včetně | Kč/měsíc | 248,00 | 512,00\
+      \ | 537,00 | 723,00 | 510,00 | 1 110,00 | 1 110,00 | 1 110,00 | 1 289,00 | 447,00 | 10 |\n| jistič\
+      \ nad 3x50 A do 3x63 A včetně | Kč/měsíc | 312,00 | 644,00 | 677,00 | 911,00 | 643,00 | 1 399,00\
+      \ | 1 399,00 | 1 399,00 | 1 949,00 | 563,00 | 11 |\n| jistič nad 3x63 A do 3x80 A včetně | Kč/měsíc\
+      \ | | | | | | | | | 3 093,00 | | 12 |\n| jistič nad 3x80 A"
+    https://www.innogy.cz/radce/blog/cena-elektriny-2026/:
+      "# Za kolik si rozsvítíte v roce 2026? Průvodce
+      cenami elektřiny
+
+
+      Rok 2026 přináší pro domácnosti v Česku určitou úlevu v cenách elektřiny. Ale zjistit, jakou částku
+      uvidíte ve svém vyúčtování, je často složitější, než se může na první pohled zdát.
+
+
+      Největší změnou je zrušení poplatku na podporované zdroje energie (POZE) - nyní jej hradí stát.
+      Tento krok výrazně snižuje konečné účty. Ceny elektřiny však stále ovlivňuje řada proměnných – zejména
+      vývoj na energetických trzích nebo např. regulované položky (složky) ceny.
+
+
+      ## Ceny elektřiny v roce 2026: Co se skutečně změnilo
+
+
+      ### 1. Regulované ceny se mírně snížily
+
+
+      Regulovaná složka ceny byla původně plánována s mírným růstem, ale po rozhodnutí vlády o převzetí
+      financování POZE mohlo dojít k jejímu snížení. Od 1. 1. 2026 totiž domácnosti a podnikatelé odebírající
+      elektřinu na nízkém napětí neplatí poplatek na podporu obnovitelných zdrojů energie (599 Kč/MWh
+      vč. DPH). Jestli se regulované platby sníží i vám, závisí na konkrétních parametrech (jako např.
+      spotřeba, distribuční sazba nebo velikost jističe).
+
+
+      ### 2. Velkoobchodní ceny: stabilita, ale nejistá
+
+
+      Po extrémních výkyvech v letech 2022–2023 se ceny elektřiny na burzách snížily a mírně stabilizovaly,
+      jsou ale stále velmi citlivé.
+
+
+      **Stabilita ale neznamená jistotu.**
+
+
+      Přehledný graf ukazuje přibližný **vývoj celkové ceny elektřiny za 1 MWh** pro běžné domácnosti
+      v ČR (v sazbě D02d, včetně DPH, distribuce a všech poplatků) od roku 2021 až do současnosti (2026).
+
+
+      Uvedené hodnoty vycházejí z průměrných tržních dat ČSÚ, ERÚ a ceníků dominantních dodavatelů.
+
+
+      **Poznámka k datům v grafu:** Uvedené ceny jsou orientační a slouží k ilustraci trendu. Hodnoty
+      představují průměrnou celkovou cenu za 1 MWh včetně DPH, regulovaných plateb (distribuce, systémové
+      služby apod.), stálých měsíčních platů a daně z elektřiny pro modelový příklad běžné domácnosti
+      s roční spotřebou 2,5 MWh v nejrozšířenější distribuční sazbě D02d (jednotarif). Skutečná cena se
+      může lišit v závislosti na konkrétním distribučním území (ČEZ, EG.D, PRE), zvoleném produktu dodavatele
+      a velikosti hlavního jističe.
+
+
+      #### Klíčové momenty tohoto vývoje:
+
+
+      - **2021**: Období stability - celková cena pro konečného spotřebitele se držela okolo 6 Kč za kWh
+      (tedy přibližně 6 000 Kč/MWh)
+
+      - **2022**: Energetická krize vyvolaná geopolitickou situací a krachem některých dodavatelů vyhnala
+      ceny na burzách do extrémů. Na domácnosti to dopadlo plnou silou
+
+      - **2023**: Stát zavedl cenové stropy (silová elektřina na 5 000 Kč/MWh bez DPH) a odpustil poplatky
+      za podporované zdroje energie (POZE). Bez stropu by ceny byly ještě výrazně vyšší
+
+      - **2024–2025**: Postupné uklidňování trhu a pokles velkoobchodních cen na burze, což se s drobným
+      zpožděním promítlo i do ceníků pro domácnosti. Naopak vzrostla cena distribuce a byl znovuzaveden
+      poplatek za POZE
+
+      - **2026** (Současnost): Další mírný pokles velkoobchodních cen elektřiny a opětovné odpuštění poplatku
+      za podporované zdroje energie (POZE) pro domácnosti, díky čemuž se u nových fixací nebo běžných
+      produktů pohybujeme okolo 8 Kč za kWh (8 000 Kč/MWh) celkově
+
+
+      ## Kolik domácnosti skutečně ušetří
+
+
+      ### Úspora není pro všechny stejná
+
+
+      - Některé domácnosti zaznamenají pokles nákladů
+
+      - Jinde může být efekt minimální nebo dokonce opačný
+
+      - Záleží na konkrétní smlouvě, spotřebě i parametrech a umístění odběrného místa.
+
+
+      Realisticky lze očekávat: **Mírné snížení nebo stagnaci nákladů,
+
+      nikoli plošný pokles o desítky procent**
+
+
+      ## Kolik stojí elektřina v roce 2026
+
+
+      Cena elektřiny se skládá z více složek a nelze ji vyjádřit jedním univerzálním číslem za kWh. Zatímco
+      silová elektřina se v roce 2026 pohybuje přibližně v jednotkách korun za kWh, výsledná cena ve faktuře
+      závisí na distribuční oblasti, distribuční sazbě, velikosti jističe i konkrétní smlouvě.
+
+
+      ## Distribuční sazby a jejich význam
+
+
+      Správně zvolená distribuční sazba má větší vliv než drobné cenové rozdíly mezi dodavateli.
+
+
+      - **D02d** – standardní domácnosti
+
+      - **D56d / D57d** – vytápění elektřinou
+
+      -"

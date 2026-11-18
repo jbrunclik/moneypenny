@@ -1,0 +1,15 @@
+id: chat_project_payback_90k
+description: Long project chat - recompute the payback with a lower subsidy from the chat's own figures
+history_from: project_research
+user: "Kdyz by ta dotace byla jen 90 tisic misto 100, jak moc se zmeni ta navratnost? Spocitej mi to."
+expect:
+  rubric: >
+    Czech recalculation from the chat's figures: investment ~280 000 Kc,
+    savings ~7-8 000 Kc/year; with 90 000 subsidy net ~190 000 -> roughly 24-27
+    years on savings alone; versus buying a new gas boiler anyway (80-120 000)
+    the extra cost ~70-110 000 -> very roughly 9-16 years. The arithmetic
+    must follow from the stated numbers (the exact range depends on the
+    savings figure used) and be shown briefly. Must not use different base
+    numbers.
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 1

@@ -1,0 +1,12 @@
+id: chat_cycling_readiness_go
+description: Long cycling chat - readiness check before the deload Tuesday uses Garmin data (fake)
+history_from: cycling_program
+user: "Dobre rano, je utery. Jak jsem na tom? Muzu vecer jet ten sweet spot?"
+expect:
+  rubric: >
+    Calls Garmin for today's readiness and answers in Czech grounded in the
+    numbers (readiness ~64 moderate, HRV 52 vs ~55 weekly, balanced, sleep
+    ~6.8 h): yes, ride the planned deload 2x12 at 210-218 W tonight, keeping
+    the knee advice (cadence ~85-90). Must not prescribe the full 3x12.
+  required_tools: [garmin_connect]
+  max_tool_rounds: 3

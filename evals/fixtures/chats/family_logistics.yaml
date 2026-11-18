@@ -20,18 +20,18 @@ integrations:
       project_id: p2
       section_id: s1
       due:
-        date: '{in_2_days}'
+        date: '{monday_plus_4}'
       priority: 3
     - id: t2
       content: Prezuvky Matej - vetsi velikost (31)
       project_id: p2
       due:
-        date: '{in_3_days}'
+        date: '{monday_plus_3}'
     - id: t3
       content: Objednat STK Octavia
       project_id: p2
       due:
-        date: '{in_9_days}'
+        date: '{monday_plus_10}'
     - id: t4
       content: Mleko, chleba, jogurty
       project_id: p3
@@ -39,7 +39,7 @@ integrations:
       content: Darek pro Ondru (narozeniny v sobotu)
       project_id: p2
       due:
-        date: '{in_4_days}'
+        date: '{monday_plus_4}'
       priority: 2
     - id: t6
       content: Vratit knihy do knihovny
@@ -51,7 +51,7 @@ integrations:
       content: Probrat s Klarou kolo pro Anicku (Kubikes 24, bazar)
       project_id: p2
       due:
-        date: '{in_6_days}'
+        date: '{monday_plus_6}'
     - id: t8
       content: Maslo, tortily, sunka, syr na pizzu, mrkev, jablka
       project_id: p3
@@ -65,61 +65,61 @@ integrations:
     - id: e1
       summary: Anicka - keramika
       start:
-        dateTime: '{tomorrow}T15:30:00+01:00'
+        dateTime: '{monday_plus_1}T15:30:00+01:00'
       end:
-        dateTime: '{tomorrow}T17:00:00+01:00'
+        dateTime: '{monday_plus_1}T17:00:00+01:00'
       location: DDM Olomouc, Trida 17. listopadu
     - id: e2
       summary: Matej - plavani
       start:
-        dateTime: '{in_2_days}T16:00:00+01:00'
+        dateTime: '{monday_plus_2}T16:00:00+01:00'
       end:
-        dateTime: '{in_2_days}T16:45:00+01:00'
+        dateTime: '{monday_plus_2}T16:45:00+01:00'
       location: Plavecky stadion Olomouc
     - id: e3
       summary: Klara - porada v Brne
       start:
-        dateTime: '{in_2_days}T09:00:00+01:00'
+        dateTime: '{monday_plus_2}T09:00:00+01:00'
       end:
-        dateTime: '{in_2_days}T17:30:00+01:00'
+        dateTime: '{monday_plus_2}T17:30:00+01:00'
     - id: e4
       summary: Narozeninova oslava Ondra
       start:
-        dateTime: '{in_4_days}T14:00:00+01:00'
+        dateTime: '{monday_plus_5}T14:00:00+01:00'
       end:
-        dateTime: '{in_4_days}T17:00:00+01:00'
+        dateTime: '{monday_plus_5}T17:00:00+01:00'
       location: Bongo Olomouc
     - id: e5
       summary: Chata Jeseniky
       start:
-        date: '{in_11_days}'
+        date: '{monday_plus_11}'
       end:
-        date: '{in_13_days}'
+        date: '{monday_plus_13}'
     - id: e6
       summary: Zubar Matej
       start:
-        dateTime: '{in_8_days}T08:20:00+01:00'
+        dateTime: '{monday_plus_8}T08:20:00+01:00'
       end:
-        dateTime: '{in_8_days}T08:50:00+01:00'
+        dateTime: '{monday_plus_8}T08:50:00+01:00'
       location: MUDr. Hrubá, Zikova 3
     - id: ev101
       summary: Vyzvednout Mateje a Anicku z druziny
       start:
-        dateTime: '{in_2_days}T15:20:00+01:00'
+        dateTime: '{monday_plus_2}T15:20:00+01:00'
       end:
-        dateTime: '{in_2_days}T15:35:00+01:00'
+        dateTime: '{monday_plus_2}T15:35:00+01:00'
     - id: ev102
       summary: Vyzvednout Anicku z druziny (keramika)
       start:
-        dateTime: '{tomorrow}T15:10:00+01:00'
+        dateTime: '{monday_plus_1}T15:10:00+01:00'
       end:
-        dateTime: '{tomorrow}T15:25:00+01:00'
+        dateTime: '{monday_plus_1}T15:25:00+01:00'
     - id: ev103
       summary: Vyzvednout Klaru - hlavni nadrazi (vlak 18:40)
       start:
-        dateTime: '{in_2_days}T18:20:00+01:00'
+        dateTime: '{monday_plus_2}T18:20:00+01:00'
       end:
-        dateTime: '{in_2_days}T19:00:00+01:00'
+        dateTime: '{monday_plus_2}T19:00:00+01:00'
 messages:
 - role: user
   content: Ahoj, potrebuju si trochu udelat poradek v tomhle tydnu. Klara bude ve stredu cely den v Brne,
@@ -140,7 +140,7 @@ messages:
     Ve středu tedy budeš mít Matěje na plavání v 16:00 a Aničku zřejmě ze školy/družiny. Chceš, abych
     ti středu rozplánoval, nebo něco přidal do kalendáře?'
   metadata:
-    tool_outputs: google_calendar({"action":"list_events","time_min":"{today}T00:00:00+01:00","time_max":"{in_6_days}T23:59:00+01:00"})
+    tool_outputs: google_calendar({"action":"list_events","time_min":"{monday}T00:00:00+01:00","time_max":"{monday_plus_6}T23:59:00+01:00"})
       -> {"count":4,"events":[{"summary":"Anicka - keramika","start":"...T15:30:00+01:00"},{"summary":"Klara
       - porada v Brne","start":"...T09:00:00+01:00"},{"summary":"Matej - plavani","start":"...T16:00:00+01:00"},{"summary":"Narozeninova
       oslava Ondra","start":"...T14:00:00+01:00"}]}
@@ -187,8 +187,8 @@ messages:
     Plavání v 16:00 už tam je. Připomenu: Anička si vezme něco na čtení, v hale bývá teplo, takže lehčí
     oblečení.'
   metadata:
-    tool_outputs: google_calendar({"action":"create_event","summary":"Vyzvednout Mateje a Anicku z druziny","start_time":"{in_2_days}T15:20:00+01:00","end_time":"{in_2_days}T15:35:00+01:00"})
-      -> {"action":"create_event","event":{"id":"ev101","summary":"Vyzvednout Mateje a Anicku z druziny","start":"{in_2_days}T15:20:00+01:00"}}
+    tool_outputs: google_calendar({"action":"create_event","summary":"Vyzvednout Mateje a Anicku z druziny","start_time":"{monday_plus_2}T15:20:00+01:00","end_time":"{monday_plus_2}T15:35:00+01:00"})
+      -> {"action":"create_event","event":{"id":"ev101","summary":"Vyzvednout Mateje a Anicku z druziny","start":"{monday_plus_2}T15:20:00+01:00"}}
 - role: user
   content: Diky. A jeste, Anicka ma do patku zaplatit ten skolni vylet, 450 korun. A Matej potrebuje nove
     prezuvky, ty stary jsou mu male, ma ted 31. Muzes to dat do todoistu?
@@ -202,10 +202,10 @@ messages:
 
     Přezůvky by šly koupit cestou z plavání ve středu, na Šantovce je Deichmann i Decathlon.'
   metadata:
-    tool_outputs: 'todoist({"action":"create_task","content":"Zaplatit skolni vylet Anicka (450 Kc)","project":"Rodina","section":"Skola","due_date":"{in_2_days}","priority":3})
+    tool_outputs: 'todoist({"action":"create_task","content":"Zaplatit skolni vylet Anicka (450 Kc)","project":"Rodina","section":"Skola","due_date":"{monday_plus_4}","priority":3})
       -> {"ok":true,"task":{"id":"t1"}}
 
-      todoist({"action":"create_task","content":"Prezuvky Matej - vetsi velikost (31)","project":"Rodina","due_date":"{in_3_days}"})
+      todoist({"action":"create_task","content":"Prezuvky Matej - vetsi velikost (31)","project":"Rodina","due_date":"{monday_plus_3}"})
       -> {"ok":true,"task":{"id":"t2"}}'
 - role: user
   content: Hele a co mam koupit Ondrovi k narozeninam? Bude mu 7, je to Matejuv kamos ze skolky, ted je
@@ -234,7 +234,7 @@ messages:
   content: 'Přidáno do Todoistu: **Dárek pro Ondru (narozeniny v sobotu)** – termín pátek, priorita střední,
     v popisu: „LEGO Creator 3v1 dinosaurus, do 500 Kč; záloha: vykopávková sada“.'
   metadata:
-    tool_outputs: 'todoist({"action":"create_task","content":"Darek pro Ondru (narozeniny v sobotu)","project":"Rodina","due_date":"{in_4_days}","priority":2,"description":"LEGO
+    tool_outputs: 'todoist({"action":"create_task","content":"Darek pro Ondru (narozeniny v sobotu)","project":"Rodina","due_date":"{monday_plus_4}","priority":2,"description":"LEGO
       Creator 3v1 dinosaurus, do 500 Kc; zaloha: vykopavkova sada"}) -> {"ok":true,"task":{"id":"t5"}}'
 - role: user
   content: Mimochodem, za dva tydny jedeme na chatu do Jeseniku na prodlouzeny vikend, pátek az nedele.
@@ -287,11 +287,11 @@ messages:
   content: Staci takhle, dam to Klare. Ted mi prosim zkontroluj, jestli mame v kalendari ten pobyt na
     chate, nejsem si jisty jestli ho tam Klara dala.
 - role: assistant
-  content: 'Ano, je tam: **Chata Jeseníky** – celodenní událost od pátku do neděle (za 11 dní). Klára
+  content: 'Ano, je tam: **Chata Jeseníky** – celodenní událost od pátku do neděle (za dva týdny). Klára
     ho zadala.'
   metadata:
-    tool_outputs: google_calendar({"action":"list_events","time_min":"{in_10_days}T00:00:00+01:00","time_max":"{in_14_days}T00:00:00+01:00","query":"chata"})
-      -> {"count":1,"events":[{"summary":"Chata Jeseniky","start_date":"{in_11_days}","end_date":"{in_13_days}"}]}
+    tool_outputs: google_calendar({"action":"list_events","time_min":"{monday_plus_10}T00:00:00+01:00","time_max":"{monday_plus_14}T00:00:00+01:00","query":"chata"})
+      -> {"count":1,"events":[{"summary":"Chata Jeseniky","start_date":"{monday_plus_11}","end_date":"{monday_plus_13}"}]}
 - role: user
   content: Super. Uplne jina vec, ve ctvrtek musim objednat STK na Octavii, platnost konci za mesic. Je
     lepsi to delat online nebo zavolat?
@@ -315,7 +315,7 @@ messages:
 - role: assistant
   content: 'Přidáno do Todoistu: **Objednat STK Octavia** – projekt Rodina, termín příští čtvrtek.'
   metadata:
-    tool_outputs: todoist({"action":"create_task","content":"Objednat STK Octavia","project":"Rodina","due_date":"{in_9_days}"})
+    tool_outputs: todoist({"action":"create_task","content":"Objednat STK Octavia","project":"Rodina","due_date":"{monday_plus_10}"})
       -> {"ok":true,"task":{"id":"t3"}}
 - role: user
   content: A co mam z ukolu na dneska? Nechci na neco zapomenout.
@@ -348,8 +348,8 @@ messages:
     Do školy tak dorazí zhruba v 9:10–9:15. Doporučuju dát vědět paní učitelce předem přes Bakaláře nebo
     lísteček v žákovské, ať nečekají. Mám ti dát do Todoistu připomínku „Omluvit Matěje – zubař“ na pondělí?'
   metadata:
-    tool_outputs: google_calendar({"action":"list_events","time_min":"{in_7_days}T00:00:00+01:00","time_max":"{in_9_days}T00:00:00+01:00","query":"zubar"})
-      -> {"count":1,"events":[{"summary":"Zubar Matej","start":"{in_8_days}T08:20:00+01:00","location":"MUDr.
+    tool_outputs: google_calendar({"action":"list_events","time_min":"{monday_plus_7}T00:00:00+01:00","time_max":"{monday_plus_10}T00:00:00+01:00","query":"zubar"})
+      -> {"count":1,"events":[{"summary":"Zubar Matej","start":"{monday_plus_8}T08:20:00+01:00","location":"MUDr.
       Hruba, Zikova 3"}]}
 - role: user
   content: Ne to neni treba, napisu to rovnou do bakalaru. Jinak vecer budu varit a nevim co, deti chtej
@@ -442,7 +442,7 @@ messages:
 
     Tortily, šunka a sýr jsou na tu pizzu – takže dnešní večeře je pokrytá, jen to nakoupit.'
   metadata:
-    tool_outputs: 'google_calendar({"action":"create_event","summary":"Vyzvednout Anicku z druziny (keramika)","start_time":"{tomorrow}T15:10:00+01:00","end_time":"{tomorrow}T15:25:00+01:00"})
+    tool_outputs: 'google_calendar({"action":"create_event","summary":"Vyzvednout Anicku z druziny (keramika)","start_time":"{monday_plus_1}T15:10:00+01:00","end_time":"{monday_plus_1}T15:25:00+01:00"})
       -> {"action":"create_event","event":{"id":"ev102","summary":"Vyzvednout Anicku z druziny (keramika)"}}
 
       todoist({"action":"create_task","content":"Maslo, tortily, sunka, syr na pizzu, mrkev, jablka","project":"Nakup"})
@@ -460,7 +460,7 @@ messages:
     plno, parkování je lepší v garážích Šantovky.'
   metadata:
     tool_outputs: google_calendar({"action":"get_event","event_id":"e4"}) -> {"action":"get_event","event":{"id":"e4","summary":"Narozeninova
-      oslava Ondra","start":"{in_4_days}T14:00:00+01:00","end":"{in_4_days}T17:00:00+01:00","location":"Bongo
+      oslava Ondra","start":"{monday_plus_5}T14:00:00+01:00","end":"{monday_plus_5}T17:00:00+01:00","location":"Bongo
       Olomouc"}}
 - role: user
   content: Posledni vec, Klara se ve stredu vraci z Brna vlakem, prijizdi v 18:40 na hlavak. Stihnu ji
@@ -481,7 +481,7 @@ messages:
     Zvládneš to!'
   metadata:
     tool_outputs: google_calendar({"action":"create_event","summary":"Vyzvednout Klaru - hlavni nadrazi
-      (vlak 18:40)","start_time":"{in_2_days}T18:20:00+01:00","end_time":"{in_2_days}T19:00:00+01:00"})
+      (vlak 18:40)","start_time":"{monday_plus_2}T18:20:00+01:00","end_time":"{monday_plus_2}T19:00:00+01:00"})
       -> {"action":"create_event","event":{"id":"ev103","summary":"Vyzvednout Klaru - hlavni nadrazi (vlak
       18:40)"}}
 summary: 'Uživatel řešil organizaci týdne, protože Klára měla být ve středu (9:00–17:30) na poradě v Brně.
@@ -518,7 +518,7 @@ summary: 'Uživatel řešil organizaci týdne, protože Klára měla být ve st�
   za dva týdny), kde jsou pouze kamna na dřevo a bojler. Asistent připravil přehled oblečení, hygieny,
   léků, zábavy a vybavení na chatu. Uživatel seznam předá Kláře a nechtěl jej ukládat do Todoistu. Na
   jeho žádost asistent také zkontroloval kalendář a potvrdil, že celodenní událost **Chata Jeseníky**
-  (pátek–neděle, za 11 dní) tam již Klára zadala.
+  (pátek–neděle, za dva týdny) tam již Klára zadala.
 
 
   Nakonec uživatel řešil objednání STK pro Octavii (platnost končí za měsíc). Asistent doporučil online

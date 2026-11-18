@@ -1,0 +1,12 @@
+id: chat_family_today_tasks
+description: Long family chat - what is left to do this week, from Todoist and the calendar
+history_from: family_logistics
+user: "Co mi jeste zbyva vyridit? Projdi mi to."
+expect:
+  rubric: >
+    Czech overview from Todoist (and optionally the calendar), with each
+    item's day as Todoist has it: pay Anicka's school trip (Friday), Matej's
+    slippers size 31 (Thursday), Ondra's gift (Friday), the shopping lists,
+    talk to Klara about the bike (Sunday), order the STK (the Thursday after). Must not list the library books (done) as open.
+  required_tools: [todoist]
+  max_tool_rounds: 3

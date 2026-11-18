@@ -1,0 +1,13 @@
+id: chat_project_forum_consumption
+description: Long project chat - look up a real-world experience (canned forum page) and compare to the estimate
+history_from: project_research
+user: "Zkus najit nejake realne zkusenosti, treba na foru, od nekoho s podobnym barakem ze 70. let a tepelnym cerpadlem. Kolik mu to realne zere? Porovnej to s nasim odhadem."
+expect:
+  rubric: >
+    Looks it up, finds the forum thread and answers in Czech: 1974 house, 140 m2, 12 cm
+    insulation, 8 kW air-water, 6 800 kWh/season incl. hot water, water
+    40-45 °C (52 °C at -12 °C), only two radiators replaced (ideally also
+    the forum's warning about oversizing). Compares with the chat's estimate (~4.5 MWh for
+    their house) and explains the difference sensibly. Cites the source.
+  required_tools: [research, web_search, fetch_url]
+  max_tool_rounds: 3
