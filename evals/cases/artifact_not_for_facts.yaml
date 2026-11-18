@@ -2,6 +2,8 @@ id: artifact_not_for_facts
 smoke: true
 description: A plain factual question gets text, not an artifact
 user: Kolik má Praha obyvatel?
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Answers in Czech with Prague's population (about 1.3-1.4 million),

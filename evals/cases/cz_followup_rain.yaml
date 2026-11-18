@@ -7,6 +7,8 @@ history:
   - role: assistant
     content: "Doporučuji okruh Moravským krasem: start u Skalního mlýna, pěšky k propasti Macocha (horní můstek), zpět přes Punkevní jeskyně. Celkem asi 9 km, s dětmi 4-5 hodin. Vstupenky do jeskyní doporučuji rezervovat předem."
 user: "a kdyz bude prset?"
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Understands the elliptical follow-up refers to the Saturday trip plan from

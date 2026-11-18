@@ -315,10 +315,21 @@ def _workout_changes(before: dict[str, Any], after: dict[str, Any]) -> list[str]
 
 
 @contextlib.contextmanager
-def fake_integrations(spec: dict[str, Any]) -> Iterator[dict[str, Any]]:
-    """Install the fakes a case asks for; yields {name: fake} for reporting."""
+def fake_integrations(
+    spec: dict[str, Any], web: dict[str, Any] | str | None = None
+) -> Iterator[dict[str, Any]]:
+    """Install the fakes a case asks for; yields {name: fake} for reporting.
+
+    Web is canned unless ``web == "live"``: no ``web:`` block means searches
+    find nothing (evals/fake_web.py).
+    """
+    from evals.fake_web import canned_web
+
     fakes: dict[str, Any] = {}
     with contextlib.ExitStack() as stack:
+        web_fake = stack.enter_context(canned_web(web))
+        if web_fake is not None:
+            fakes["web"] = web_fake
         if "todoist" in spec:
             todo = FakeTodoist(spec["todoist"] or {})
             fakes["todoist"] = todo

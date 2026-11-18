@@ -10,6 +10,8 @@ user: >
   Potřebuju na zítra otevírací dobu těchto čtyř míst: Národní technické muzeum
   v Praze, Technické muzeum v Brně, Dolní oblast Vítkovice v Ostravě
   a Techmania v Plzni. Stačí stručně ke každému.
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Gives opening hours (or a clear statement that it could not confirm them)

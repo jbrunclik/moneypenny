@@ -1009,3 +1009,60 @@ def test_a_fake_recorded_write_reaches_required_actions(
     missed = eval_run._run_case(case("^completed task"), test_user, test_database)
     assert missed["pass"] is False
     assert "todoist recorded no action" in missed["deterministic_failures"][0]
+
+
+def test_web_spec_loads_canned_or_live(tmp_path: Path) -> None:
+    _write_case(
+        tmp_path,
+        "a.yaml",
+        "id: a\nuser: u\nweb: live\nexpect: {rubric: r}\n",
+    )
+    _write_case(
+        tmp_path,
+        "b.yaml",
+        "id: b\nuser: u\nweb:\n  results: [{url: 'https://x.example', title: t, snippet: s}]\n"
+        "expect: {rubric: r}\n",
+    )
+    _write_case(tmp_path, "c.yaml", "id: c\nuser: u\nexpect: {rubric: r}\n")
+    a, b, c = load_cases(tmp_path)
+    assert a.web == "live"
+    assert isinstance(b.web, dict) and b.web["results"][0]["url"] == "https://x.example"
+    assert c.web is None
+
+
+def test_a_case_runs_on_canned_web_unless_live(
+    monkeypatch: pytest.MonkeyPatch, test_database: Any, test_user: Any
+) -> None:
+    """The turn searches the case's canned results; the result says which web ran."""
+    from langchain_core.messages import AIMessage
+
+    import evals.run as eval_run
+    from src.agent import agent as agent_module
+
+    found: list[Any] = []
+
+    class SearchingAgent:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def chat_batch(self, **kwargs: Any) -> tuple[Any, ...]:
+            from src.services.search_provider import search_web
+
+            found.append(search_web("q", 5))
+            return "Done", [], {"tool_rounds": 1}, []
+
+    class Judge:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def invoke(self, messages: list[Any]) -> AIMessage:
+            return AIMessage(content='{"score": 5, "pass": true, "reasoning": "ok"}')
+
+    monkeypatch.setattr(agent_module, "ChatAgent", SearchingAgent)
+    monkeypatch.setattr("langchain_google_genai.ChatGoogleGenerativeAI", Judge)
+    web = {"results": [{"url": "https://x.example", "title": "t", "snippet": "s"}]}
+    case = EvalCase(id="w", description="", user="u", rubric="r", web=web)
+
+    result = eval_run._run_case(case, test_user, test_database)
+    assert found[0][0]["url"] == "https://x.example"
+    assert result["web"] == "canned"

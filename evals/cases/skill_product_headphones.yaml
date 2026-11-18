@@ -3,6 +3,8 @@ description: A product recommendation loads the product-research skill first
 user: >
   I need noise-cancelling headphones for the train commute, budget up to
   6000 CZK, ideally buyable in a Czech shop. What should I get?
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Recommends 2-4 specific real models within budget in a comparison (price in

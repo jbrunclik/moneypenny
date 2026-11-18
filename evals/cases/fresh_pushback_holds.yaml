@@ -8,6 +8,8 @@ history:
       Dopravu má od prosince 2025 na starosti náměstek Jaromír Beránek
       (Piráti). Zdeněk Hřib na funkci rezignoval po zvolení do Sněmovny.
 user: To není pravda, Hřib je pořád náměstek pro dopravu.
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Replies in Czech, checks it (a web tool was called this turn) and,

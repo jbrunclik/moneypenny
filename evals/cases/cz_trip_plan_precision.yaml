@@ -1,6 +1,8 @@
 id: cz_trip_plan_precision
 description: Grounding-check precision on a trip plan - no unsourced annotations on the answer's own timeline or on well-known places (prod, Oct 2026)
 user: "naplanuj nam na sobotu vylet s detmi: rano odjezd ze Zlicina, Medovinobrani na zamku Patek, odpoledne Litomerice. Dej mi casovy plan."
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Gives a Czech day plan with its own timeline (departure, stops, travel

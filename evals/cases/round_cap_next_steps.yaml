@@ -6,6 +6,8 @@ round_cap: 1
 user: >
   Porovnej mi prosím aktuální ceny elektřiny pro domácnost u ČEZ, E.ON a
   innogy (sazba D02d) a doporuč nejlevnější.
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Answers in Czech with whatever it found so far (it may be partial or say

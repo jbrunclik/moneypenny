@@ -3,6 +3,8 @@ description: On-the-road logistics loads the trip-itinerary skill
 user: >
   It's 11:30 and we're driving from Prague to Vienna; we just passed Jihlava.
   Where should we stop for lunch with kids in the next hour?
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Suggests concrete lunch stops that are on or near the D1/route south of

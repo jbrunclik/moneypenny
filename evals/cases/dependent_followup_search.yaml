@@ -5,6 +5,8 @@ description: >
 user: >
   Who won the most recent men's Tour de France, and roughly how many people
   live in the town or city where that rider was born?
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Names the most recent men's Tour de France winner and their birthplace,

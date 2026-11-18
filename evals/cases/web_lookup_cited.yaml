@@ -2,6 +2,8 @@ id: web_lookup_cited
 smoke: true
 description: Current-fact question requires a web tool and a citation
 user: What is the current price of Bitcoin in USD?
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     The answer gives a concrete, plausibly current BTC/USD price (a number)

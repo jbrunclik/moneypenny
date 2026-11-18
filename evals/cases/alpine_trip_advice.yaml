@@ -3,6 +3,8 @@ description: Longer-form practical advice quality (no specific tool required)
 user: >
   I'm planning a three-day hiking trip in the Julian Alps in September.
   What should I pack and what permits do I need?
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     The answer gives useful, structured packing advice appropriate for a

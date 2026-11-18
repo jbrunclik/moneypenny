@@ -4,6 +4,8 @@ description: >
   buy) - turn budgets must let it finish with a complete, sourced answer, or
   say plainly what is still missing (turn budgets, Nov 2026)
 user: "Kolik stojí roční dálniční známka pro auto v Česku, Rakousku a Slovinsku na rok 2027 a kde ji koupím online?"
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Answers in Czech. Gives the annual vignette price for a car in each of the

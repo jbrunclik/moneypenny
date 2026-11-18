@@ -144,6 +144,9 @@ class EvalCase:
     proposals: list[dict[str, Any]] = field(default_factory=list)
     # Fake integration backends (evals/fakes.py): {todoist: {...}, garmin: {...}}
     integrations: dict[str, Any] = field(default_factory=dict)
+    # Canned web ({results, pages}; None = canned with no results) or "live"
+    # for the real ddgs path (evals/fake_web.py)
+    web: dict[str, Any] | str | None = None
     # Run the deep-research pipeline with this plan instead of a chat turn:
     # {question, context, sub_questions} (the offer step has its own cases)
     deep_research: dict[str, Any] = field(default_factory=dict)
@@ -275,6 +278,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 ],
                 proposals=[dict(p) for p in (data.get("proposals") or [])],
                 integrations=_resolve_dates(dict(data.get("integrations") or {})),
+                web=_web_spec(data.get("web")),
                 memory_review=bool(data.get("memory_review", False)),
                 history_from=str(data["history_from"]) if data.get("history_from") else None,
                 frozen_summary=(
@@ -292,6 +296,15 @@ def load_cases(directory: Path) -> list[EvalCase]:
             )
         )
     return cases
+
+
+def _web_spec(raw: Any) -> dict[str, Any] | str | None:
+    if raw is None or raw == "live":
+        return raw  # type: ignore[no-any-return]
+    if not isinstance(raw, dict):
+        raise ValueError(f"web must be 'live' or {{results, pages}}, got {raw!r}")
+    spec: dict[str, Any] = _resolve_dates(raw)
+    return spec
 
 
 def with_artifact_ids(history: list[dict[str, Any]], ids: list[str]) -> list[dict[str, Any]]:
@@ -1016,7 +1029,7 @@ def _agent_turn(
     agent = ChatAgent(model_name=Config.DEFAULT_MODEL, standing=standing)
     # Fake integration backends replace only the HTTP/client seams, so
     # the real tool code runs (no-op when the case declares none)
-    with fake_integrations(case.integrations) as fakes:
+    with fake_integrations(case.integrations, web=case.web) as fakes:
         # tool_results is needed for pricing: image generations and
         # delegate_task subagent tokens are only visible in there.
         if case.deep_research:
@@ -1190,6 +1203,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         "cost_usd": round(agent_cost + judge_cost, 6),
         "deterministic_failures": failures,
         "history_from": case.history_from,
+        "web": "live" if case.web == "live" else "canned",
         "judge_reasoning": reasoning,
         "response_preview": response[:200],
     }

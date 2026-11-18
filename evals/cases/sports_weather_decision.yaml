@@ -4,6 +4,8 @@ mode: sports
 program_kv:
   "cycling:routine": "vikend: 3h venku zona 2"
 user: "zitra ma byt pres 33 stupnu. ma vubec smysl jet ty 3 hodiny ven, nebo to mam radsi odjet na trenazeru?"
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Decisive Czech answer weighing heat stress against the planned 3h zone-2

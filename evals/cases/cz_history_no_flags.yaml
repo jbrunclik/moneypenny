@@ -3,6 +3,8 @@ description: Grounding-check scope - history and background knowledge are never 
 # "Zajímavosti o Radobýlu": Mácha's death, a cross from 1658 and a WWII
 # factory were underlined as unsourced, sentence by sentence.
 user: "Dohledej mi nějaké zajímavosti o Radobýlu"
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Gives several interesting facts about Radobýl (the hill near Litoměřice):

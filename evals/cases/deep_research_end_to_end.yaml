@@ -9,6 +9,8 @@ deep_research:
     - Která bezdrátová sluchátka do 7 000 Kč drží dobře při běhu (fit, odolnost potu)?
     - Jak dobře tlumí hluk v MHD modely do 7 000 Kč (ANC) a jak dlouho vydrží baterie?
     - Jaké jsou aktuální ceny těchto modelů v českých obchodech?
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     A Czech research report that starts with a clear recommendation in a few

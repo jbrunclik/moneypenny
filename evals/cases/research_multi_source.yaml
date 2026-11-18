@@ -3,6 +3,8 @@ description: Comparison question should use the composite research tool efficien
 user: >
   Compare the battery life and weight of the current MacBook Air and MacBook Pro 14.
   I want concrete numbers.
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     The answer contains concrete battery-life hours and weight figures for both

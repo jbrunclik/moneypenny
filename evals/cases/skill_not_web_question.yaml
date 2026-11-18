@@ -2,6 +2,8 @@ id: skill_not_web_question
 smoke: true
 description: A factual web question must not load a skill
 user: "Who is the current president of Czechia?"
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: Answers with the current president of the Czech Republic.
   forbidden_tools: [load_skill]

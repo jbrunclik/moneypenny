@@ -4,6 +4,8 @@ description: Asking where to buy something loads the product-research skill
 # verified results. Failed 1/5 under prompt rules alone (Sep 30 2026); 4/5 with
 # the post-answer grounding check marking unverified specifics (Oct 2026).
 user: "Where can I buy a Brompton folding bike in Czechia and what does it cost?"
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Names real shops or dealers that sell Brompton in Czechia with prices or

@@ -2,6 +2,8 @@ id: cz_screenshot_poll_grounding
 description: Figures read off the user's screenshot are not flagged by the grounding check (Oct 2026 poll-chart false flags)
 user: "kolik by mel blok STAN + ODS + Pirati podle tohohle? a sedi to s aktualnimi pruzkumy?"
 files: [fixtures/poll_seats_screenshot.png]
+# Interim (Nov 18 2026): live until it gets canned pages
+web: live
 expect:
   rubric: >
     Reads the attached STEM seat chart (10. 10. 2026) and answers in Czech
