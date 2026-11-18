@@ -24,6 +24,7 @@ Usage:
 """
 
 import argparse
+import contextlib
 import fnmatch
 import json
 import os
@@ -33,7 +34,7 @@ import sys
 import tempfile
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
@@ -589,6 +590,53 @@ def run_with_timeout(fn: Callable[[], Any], timeout_s: float) -> Any:
     return outcome.get("value")
 
 
+def chat_model() -> str:
+    """The turn's chat model: --model (EVAL_CHAT_MODEL, inherited by workers)
+    or DEFAULT_MODEL. Only the chat model moves; delegate, deep-research,
+    side models and the judge stay as configured."""
+    from src.config import Config
+
+    return os.environ.get("EVAL_CHAT_MODEL") or Config.DEFAULT_MODEL
+
+
+def check_model(model: str) -> str | None:
+    """Why `model` cannot run the suite, or None. It must be priced, or its
+    spend would be reported at another model's rates."""
+    from src.config import Config
+
+    if model in Config.MODEL_PRICING:
+        return None
+    return f"unknown model {model!r}: add its MODEL_PRICING entry (priced: {', '.join(sorted(Config.MODEL_PRICING))})"
+
+
+@contextlib.contextmanager
+def _gate_recorder() -> Iterator[list[Any]]:
+    """Record the freshness gate's decisions during a turn (agent.py calls it
+    through the module, so the wrapper sees every call)."""
+    from unittest.mock import patch
+
+    from src.agent import freshness
+
+    decisions: list[Any] = []
+    original = freshness.decide_freshness
+
+    def recording(*args: Any, **kwargs: Any) -> Any:
+        decision = original(*args, **kwargs)
+        decisions.append(decision)
+        return decision
+
+    with patch.object(freshness, "decide_freshness", recording):
+        yield decisions
+
+
+def _gate_summary(decisions: list[Any]) -> dict[str, Any] | None:
+    """The turn's gate verdict, or None where the gate did not run (standing chats)."""
+    if not decisions or decisions[-1] is None:
+        return None
+    last = decisions[-1]
+    return {"thinking": last.thinking, "lookup": bool(last.lookup)}
+
+
 def _cost_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
     """Aggregate spend over the cases that actually ran."""
     from src.config import Config
@@ -609,9 +657,12 @@ def _cost_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
         "agent_cached_input_tokens": int(_sum("cached_input_tokens")),
         "judge_input_tokens": int(_sum("judge_input_tokens")),
         "judge_output_tokens": int(_sum("judge_output_tokens")),
+        "live_web_usd": round(
+            sum(float(r.get("cost_usd") or 0) for r in ran if r.get("web") == "live"), 6
+        ),
         "cases_priced": len(ran) - len(unpriced),
         "unpriced_cases": unpriced,
-        "agent_model": Config.DEFAULT_MODEL,
+        "agent_model": chat_model(),
         "judge_model": Config.EVAL_JUDGE_MODEL,
     }
 
@@ -705,7 +756,6 @@ def _seed_case(
     Returns the seeded memory ids (for cleanup), the history the turn sees,
     and the compaction summarizer's estimated token usage.
     """
-    from src.config import Config
 
     # Seed memories (soft-deleted afterwards so they don't leak into later cases)
     seeded_memory_ids = [
@@ -721,7 +771,7 @@ def _seed_case(
         past = db.create_conversation(
             user.id,
             str(case.seed_conversation.get("title", "Past chat")),
-            model=Config.DEFAULT_MODEL,
+            model=chat_model(),
         )
         for msg in case.seed_conversation.get("messages", []):
             db.add_message(past.id, str(msg["role"]), str(msg["content"]))
@@ -1023,10 +1073,9 @@ def _agent_turn(
     """_run_turn's agent call, with the case's facts flag already set."""
     from evals.fakes import fake_integrations, recorded_actions
     from src.agent.agent import ChatAgent
-    from src.config import Config
     from src.db.models import db
 
-    agent = ChatAgent(model_name=Config.DEFAULT_MODEL, standing=standing)
+    agent = ChatAgent(model_name=chat_model(), standing=standing)
     # Fake integration backends replace only the HTTP/client seams, so
     # the real tool code runs (no-op when the case declares none)
     with fake_integrations(case.integrations, web=case.web) as fakes:
@@ -1131,9 +1180,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     elif case.mode in _CANNED_PROGRAMS:
         conversation = _program_conversation(case, user, db)
     else:
-        conversation = db.create_conversation(
-            user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL
-        )
+        conversation = db.create_conversation(user.id, f"eval-{case.id}", model=chat_model())
         if case.save_user_turns:
             _save_user_turns(case, db, conversation.id)
     set_conversation_context(conversation.id, user.id)
@@ -1149,9 +1196,10 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         set_standing_namespace(standing.kv_namespace)
     try:
         turn_started = time.monotonic()
-        response, tool_results, usage, result_messages, actions = _run_turn(
-            case, user, conversation.id, request_id, history, standing
-        )
+        with _gate_recorder() as gate_decisions:
+            response, tool_results, usage, result_messages, actions = _run_turn(
+                case, user, conversation.id, request_id, history, standing
+            )
     finally:
         set_conversation_context(None, None)
         reset_turn_usage()
@@ -1179,7 +1227,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     # since it re-sends the rubric plus the full response on a Pro model. It
     # went unmeasured before, so "a few cents per run" was a guess.
     judge_cost = calculate_token_cost(Config.EVAL_JUDGE_MODEL, judge_input, judge_output)
-    agent_cost = turn_cost(Config.DEFAULT_MODEL, usage, tool_results)
+    agent_cost = turn_cost(chat_model(), usage, tool_results)
     # Compaction cases also pay for building the summary (estimated tokens)
     agent_cost += calculate_token_cost(
         Config.AI_ASSIST_MODEL, int(summarizer_usage["input"]), int(summarizer_usage["output"])
@@ -1204,6 +1252,8 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         "deterministic_failures": failures,
         "history_from": case.history_from,
         "web": "live" if case.web == "live" else "canned",
+        "model": chat_model(),
+        "gate": _gate_summary(gate_decisions),
         "judge_reasoning": reasoning,
         "response_preview": response[:200],
     }
@@ -1292,6 +1342,8 @@ def _print_summary(
     )
 
     print(f"\nCost: {_usd(cost['total_usd'])} total for {cost['cases_priced']} priced cases")
+    if cost.get("live_web_usd"):
+        print(f"  live-web cases: {_usd(cost['live_web_usd'])} of it")
     if cost["unpriced_cases"]:
         print(
             "  NOT PRICED (timed out or crashed - real spend unknown): "
@@ -1329,6 +1381,52 @@ def _print_summary(
             print(f"  TARGET PASSED {r['id']}: drop its known_failure if it keeps passing")
 
 
+def _run_once(
+    cases: list[EvalCase],
+    workers: int,
+    index: int,
+    earlier: list[dict[str, Any]],
+    out_path: Path,
+) -> list[dict[str, Any]]:
+    """One pass over the cases (repeat `index`), in case order."""
+    from evals.pool import run_cases
+
+    done: dict[str, dict[str, Any]] = {}
+
+    def on_result(result: dict[str, Any]) -> None:
+        result["repeat"] = index
+        done[result["id"]] = result
+        # Flush after every case so a hang or Ctrl-C keeps what was paid for
+        write_results(out_path, earlier + in_case_order(cases, done))
+        _print_result(result)
+
+    run_cases(cases, workers, on_result)
+    return in_case_order(cases, done)
+
+
+def _run_repeats(
+    cases: list[EvalCase], workers: int, repeat: int, out_path: Path
+) -> list[dict[str, Any]]:
+    """Every repeat's results in case order, each tagged with its repeat index."""
+    finished: list[dict[str, Any]] = []
+    for index in range(repeat):
+        finished += _run_once(cases, workers, index, finished, out_path)
+    return finished
+
+
+def _print_repeats(results: list[dict[str, Any]], repeat: int) -> None:
+    """Per case k/N over the repeats, and the pass rate on gate-low cases."""
+    ran = [r for r in results if not r.get("skipped")]
+    if repeat > 1:
+        for case_id, (passes, runs, score, _) in _per_case(ran, repeat).items():
+            if passes < runs:
+                print(f"  {case_id}: {passes}/{runs} passed, mean score {score}")
+    low = [r for r in ran if _gate_thinking(r) == "low"]
+    if low:
+        passed = sum(1 for r in low if r.get("pass"))
+        print(f"  gate-low runs: {passed}/{len(low)} passed")
+
+
 HISTORY_PATH = Path(__file__).parent / "history.jsonl"
 
 
@@ -1352,27 +1450,65 @@ def _git_sha() -> str:
     return f"{sha}-dirty" if dirty else sha
 
 
+def _gate_thinking(result: dict[str, Any]) -> str | None:
+    gate = result.get("gate") or {}
+    return gate.get("thinking")
+
+
+def _per_case(ran: list[dict[str, Any]], repeat: int) -> dict[str, list[Any]]:
+    """[pass, score, gate] per case; with repeats [passes, runs, mean score, gate]."""
+    if repeat <= 1:
+        return {r["id"]: [bool(r.get("pass")), r.get("score"), _gate_thinking(r)] for r in ran}
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for r in ran:
+        grouped.setdefault(r["id"], []).append(r)
+    return {
+        case_id: [
+            sum(bool(r.get("pass")) for r in runs),
+            len(runs),
+            round(sum(float(r.get("score") or 0) for r in runs) / len(runs), 2),
+            _gate_thinking(runs[-1]),
+        ]
+        for case_id, runs in grouped.items()
+    }
+
+
 def history_line(
-    results: list[dict[str, Any]], cost: dict[str, Any], selection: str, elapsed: float
+    results: list[dict[str, Any]],
+    cost: dict[str, Any],
+    selection: str,
+    elapsed: float,
+    repeat: int = 1,
 ) -> dict[str, Any]:
     """One run in the tracked log: what ran, on what, how it went and what it cost.
 
-    Per case [pass, score]; TARGET cases also show as false - known_failing
-    lists them so a reader can tell new failures from the known ones.
+    Per case [pass, score, gate thinking] ([passes, runs, mean score, gate]
+    with --repeat); TARGET cases also show as false - known_failing lists
+    them so a reader can tell new failures from the known ones. web counts
+    canned vs live cases, so runs before canned web are not compared as equals.
     """
     ran = [r for r in results if not r.get("skipped")]
+    first = {r["id"]: r for r in reversed(ran)}  # one result per case
     return {
         "at": to_local(utc_now()).strftime("%Y-%m-%d %H:%M"),
         "sha": _git_sha(),
         "agent_model": cost["agent_model"],
         "judge_model": cost["judge_model"],
+        "model": cost["agent_model"],
         "selection": selection,
+        "repeat": repeat,
         "passed": sum(1 for r in ran if r.get("pass")),
         "ran": len(ran),
-        "known_failing": sorted(r["id"] for r in ran if _status(r) == "TARGET"),
+        "known_failing": sorted({r["id"] for r in ran if _status(r) == "TARGET"}),
         "cost_usd": round(float(cost["total_usd"]), 4),
+        "live_web_usd": round(float(cost.get("live_web_usd") or 0), 4),
         "minutes": round(elapsed / 60, 1),
-        "cases": {r["id"]: [bool(r.get("pass")), r.get("score")] for r in ran},
+        "web": {
+            "canned": sum(1 for r in first.values() if r.get("web") != "live"),
+            "live": sum(1 for r in first.values() if r.get("web") == "live"),
+        },
+        "gate_low": sum(1 for r in first.values() if _gate_thinking(r) == "low"),
+        "cases": _per_case(ran, repeat),
     }
 
 
@@ -1395,14 +1531,24 @@ def main() -> int:
     parser.add_argument(
         "--smoke", action="store_true", help="only the ~$1 smoke subset (cases with smoke: true)"
     )
+    parser.add_argument(
+        "--model",
+        help="chat model for the turns (default DEFAULT_MODEL); judge and side models stay",
+    )
+    parser.add_argument("--repeat", type=int, default=1, help="run the selection N times")
     args = parser.parse_args()
 
     isolate_environment()
+    if args.model:
+        # Read by chat_model() here and in the workers (they inherit the env)
+        os.environ["EVAL_CHAT_MODEL"] = args.model
     # Imported here, not at module scope: Config reads env at import time and
     # must not be loaded before the DATABASE_PATH override above.
-    from evals.pool import run_cases
     from src.config import Config
 
+    if error := check_model(chat_model()):
+        print(error)
+        return 1
     try:
         cases = select_cases(load_cases(Path(args.cases)), args.only)
     except ValueError as e:
@@ -1417,25 +1563,20 @@ def main() -> int:
     results_dir.mkdir(exist_ok=True)
 
     out_path = results_dir / f"{to_local(utc_now()).strftime('%Y%m%d-%H%M%S')}.json"
-    print(f"{len(cases)} cases on {min(workers, len(cases))} workers", flush=True)
+    repeat = max(1, args.repeat)
+    print(
+        f"{len(cases)} cases x{repeat} on {min(workers, len(cases))} workers, model {chat_model()}",
+        flush=True,
+    )
     started = time.monotonic()
-
-    done: dict[str, dict[str, Any]] = {}
-
-    def on_result(result: dict[str, Any]) -> None:
-        done[result["id"]] = result
-        # Flush after every case so a hang or Ctrl-C keeps what was paid for
-        write_results(out_path, in_case_order(cases, done))
-        _print_result(result)
-
-    run_cases(cases, workers, on_result)
-    results = in_case_order(cases, done)
+    results = _run_repeats(cases, workers, repeat, out_path)
     elapsed = time.monotonic() - started
 
     cost = _cost_summary(results)
     write_results(out_path, results)
-    append_history(HISTORY_PATH, history_line(results, cost, selection, elapsed))
+    append_history(HISTORY_PATH, history_line(results, cost, selection, elapsed, repeat))
     _print_summary(results, cost, elapsed, min(workers, len(cases)))
+    _print_repeats(results, repeat)
     print(f"\nResults: {out_path} (one line appended to {HISTORY_PATH.name})")
     return 0
 

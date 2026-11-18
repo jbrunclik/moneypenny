@@ -183,8 +183,11 @@ eval: ## Run agent eval harness (golden cases, hits live Gemini API)
 eval-smoke: ## The ~$1 smoke subset (smoke: true cases) - run it on changes to src/agent/
 	PYTHONPATH=. $(PYTHON) evals/run.py --smoke
 
-eval-ab: ## Compare cases on BASE vs the working tree: make eval-ab BASE=main~1 ONLY='a,b' [RUNS=2]
-	PYTHONPATH=. $(PYTHON) evals/ab.py $(BASE) --only '$(ONLY)' --runs $(or $(RUNS),2)
+eval-ab: ## Compare cases on BASE vs the working tree, or two models: make eval-ab BASE=main~1 | MODEL_A=x MODEL_B=y ONLY='a,b' [RUNS=2]
+	PYTHONPATH=. $(PYTHON) evals/ab.py $(BASE) $(if $(MODEL_A),--model-a $(MODEL_A) --model-b $(MODEL_B)) --only '$(ONLY)' --runs $(or $(RUNS),2)
+
+eval-model: ## The suite on another chat model: make eval-model MODEL=<id> [ONLY='a,b'] [REPEAT=2]
+	PYTHONPATH=. $(PYTHON) evals/run.py --model $(MODEL) $(if $(ONLY),--only '$(ONLY)') --repeat $(or $(REPEAT),1)
 
 prompt-snapshots: ## Regenerate the static prompt + tool declaration snapshots after an intended change
 	UPDATE_PROMPT_SNAPSHOTS=1 $(PYTHON) -m pytest tests/unit/test_prompt_snapshots.py -q -n0 -p no:randomly

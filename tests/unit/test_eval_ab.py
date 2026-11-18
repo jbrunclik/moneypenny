@@ -84,3 +84,30 @@ def test_each_side_runs_its_own_interpreter(tmp_path: object) -> None:
     (tree / ".venv" / "bin").mkdir(parents=True)
     (tree / ".venv" / "bin" / "python").write_text("")
     assert _python_for(tree, None) == str(tree / ".venv" / "bin" / "python")
+
+
+def test_aggregate_counts_gate_low_runs() -> None:
+    runs = [
+        _run({"id": "a", "pass": True, "score": 5, "gate": {"thinking": "low", "lookup": False}}),
+        _run({"id": "a", "pass": True, "score": 4, "gate": {"thinking": "low", "lookup": False}}),
+        _run({"id": "b", "pass": False, "score": 2, "gate": {"thinking": "high", "lookup": True}}),
+    ]
+    stats = aggregate(runs)
+    assert stats["a"].gate_low == 2
+    assert stats["b"].gate_low == 0
+
+
+def test_report_shows_the_gate_low_subset() -> None:
+    low = CaseStats(runs=2, passed=2, score_sum=10, judged=2, gate_low=2)
+    hard = CaseStats(runs=2, passed=0, score_sum=4, judged=2, gate_low=0)
+    report = format_report({"a": low, "b": hard}, {"a": low, "b": hard}, "m1", "m2")
+    assert "gate-low cases: 2/2 passed" in report
+
+
+def test_model_sides_need_no_base() -> None:
+    from evals.ab import parse_args
+
+    args = parse_args(
+        ["--model-a", "gemini-4-hydrogen", "--model-b", "gemini-4-carbon", "--only", "x"]
+    )
+    assert args.base is None and args.model_a == "gemini-4-hydrogen"

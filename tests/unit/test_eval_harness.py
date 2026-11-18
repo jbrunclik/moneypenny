@@ -950,7 +950,7 @@ class TestRunLogAndTargets:
 
         assert line["passed"] == 1 and line["ran"] == 2
         assert line["known_failing"] == ["b"]
-        assert line["cases"] == {"a": [True, 5], "b": [False, 2]}
+        assert line["cases"] == {"a": [True, 5, None], "b": [False, 2, None]}
         assert (line["selection"], line["cost_usd"], line["minutes"]) == ("smoke", 0.1235, 1.5)
 
         path = tmp_path / "history.jsonl"
@@ -1066,3 +1066,136 @@ def test_a_case_runs_on_canned_web_unless_live(
     result = eval_run._run_case(case, test_user, test_database)
     assert found[0][0]["url"] == "https://x.example"
     assert result["web"] == "canned"
+
+
+class TestModelAndGate:
+    def test_chat_model_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from evals.run import chat_model
+        from src.config import Config
+
+        monkeypatch.delenv("EVAL_CHAT_MODEL", raising=False)
+        assert chat_model() == Config.DEFAULT_MODEL
+        monkeypatch.setenv("EVAL_CHAT_MODEL", "gemini-4-carbon")
+        assert chat_model() == "gemini-4-carbon"
+
+    def test_unpriced_model_is_rejected(self) -> None:
+        from evals.run import check_model
+
+        assert check_model("gemini-4-hydrogen") is None
+        error = check_model("gemini-9-nope")
+        assert error and "gemini-9-nope" in error and "gemini-4-hydrogen" in error
+
+    def test_gate_verdict_and_model_recorded(
+        self, monkeypatch: pytest.MonkeyPatch, test_database: Any, test_user: Any
+    ) -> None:
+        from langchain_core.messages import AIMessage
+
+        import evals.run as eval_run
+        from src.agent import agent as agent_module
+        from src.agent import freshness
+
+        init: dict[str, Any] = {}
+
+        class GatedAgent:
+            def __init__(self, **kwargs: Any) -> None:
+                init.update(kwargs)
+
+            def chat_batch(self, **kwargs: Any) -> tuple[Any, ...]:
+                freshness.decide_freshness([], None)
+                return "Done", [], {"tool_rounds": 0}, []
+
+        class Judge:
+            def __init__(self, **kwargs: Any) -> None:
+                pass
+
+            def invoke(self, messages: list[Any]) -> AIMessage:
+                return AIMessage(content='{"score": 5, "pass": true, "reasoning": "ok"}')
+
+        monkeypatch.setattr(
+            freshness,
+            "decide_freshness",
+            lambda *a: freshness.FreshnessDecision(lookup=False, thinking="low"),
+        )
+        monkeypatch.setattr(agent_module, "ChatAgent", GatedAgent)
+        monkeypatch.setattr("langchain_google_genai.ChatGoogleGenerativeAI", Judge)
+        monkeypatch.setenv("EVAL_CHAT_MODEL", "gemini-4-carbon")
+
+        case = EvalCase(id="g", description="", user="u", rubric="r")
+        result = eval_run._run_case(case, test_user, test_database)
+        assert init["model_name"] == "gemini-4-carbon"
+        assert result["gate"] == {"thinking": "low", "lookup": False}
+        assert result["model"] == "gemini-4-carbon"
+
+    def test_no_gate_call_records_none(self) -> None:
+        from evals.run import _gate_summary
+
+        assert _gate_summary([]) is None
+
+
+class TestHistoryLine:
+    def _results(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": "a",
+                "pass": True,
+                "score": 5,
+                "web": "canned",
+                "repeat": 0,
+                "gate": {"thinking": "low", "lookup": False},
+                "cost_usd": 0.02,
+            },
+            {
+                "id": "b",
+                "pass": False,
+                "score": 2,
+                "web": "live",
+                "repeat": 0,
+                "gate": {"thinking": "high", "lookup": True},
+                "cost_usd": 0.08,
+            },
+            {
+                "id": "a",
+                "pass": False,
+                "score": 3,
+                "web": "canned",
+                "repeat": 1,
+                "gate": {"thinking": "low", "lookup": False},
+                "cost_usd": 0.02,
+            },
+            {
+                "id": "b",
+                "pass": True,
+                "score": 4,
+                "web": "live",
+                "repeat": 1,
+                "gate": {"thinking": "high", "lookup": True},
+                "cost_usd": 0.08,
+            },
+        ]
+
+    def test_single_run_line(self) -> None:
+        from evals.run import _cost_summary, history_line
+
+        results = self._results()[:2]
+        line = history_line(results, _cost_summary(results), "all", 60.0)
+        assert line["repeat"] == 1
+        assert line["web"] == {"canned": 1, "live": 1}
+        assert line["gate_low"] == 1
+        assert line["cases"]["a"] == [True, 5, "low"]
+        assert line["model"]
+
+    def test_repeated_line_counts_passes_per_case(self) -> None:
+        from evals.run import _cost_summary, history_line
+
+        results = self._results()
+        line = history_line(results, _cost_summary(results), "all", 60.0, repeat=2)
+        assert line["repeat"] == 2
+        assert line["passed"] == 2 and line["ran"] == 4
+        assert line["cases"]["a"] == [1, 2, 4.0, "low"]
+        assert line["web"] == {"canned": 1, "live": 1}
+
+    def test_live_web_share_of_cost(self) -> None:
+        from evals.run import _cost_summary
+
+        cost = _cost_summary(self._results())
+        assert cost["live_web_usd"] == pytest.approx(0.16)
