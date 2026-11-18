@@ -1,6 +1,8 @@
 """Tests for conversation trash database operations."""
 
+import importlib.util
 from datetime import UTC, datetime, timedelta
+from types import ModuleType
 
 from src.db.blob_store import BlobStore
 from src.db.models import Database, User, make_blob_key
@@ -433,3 +435,110 @@ class TestEmptyTrashInChunks:
         test_database.trash_conversation(conv.id, test_user.id)
         assert test_database.empty_trash(test_user.id) == 1
         assert test_database.empty_trash(test_user.id) == 0
+
+
+class TestHardDeleteDropsConversationKV:
+    """A chat's kv state (compaction summary, memory-review cursor, stop and
+    steering flags) goes with the chat: it lingered as orphans before."""
+
+    def _seed(self, db: Database, user: User, conv_id: str) -> None:
+        db.kv_set(user.id, "conv_compaction", conv_id, "{}")
+        db.kv_set(user.id, "memory_review", conv_id, "{}")
+        db.kv_set(user.id, "memory_review", f"{conv_id}:turns", "3")
+        db.kv_set(user.id, "cancel", conv_id, "msg")
+        db.kv_set(user.id, "cancel_pending", conv_id, "{}")
+        db.kv_set(user.id, "deep_research_finish", conv_id, "msg")
+        db.kv_set(user.id, "interject", conv_id, "hi")
+        db.kv_set(user.id, "lost_actions", conv_id, "[]")
+        db.kv_set(user.id, "sports", conv_id, "kept: not chat-keyed")
+
+    def _left(self, db: Database, user: User, conv_id: str) -> list[tuple[str, str]]:
+        with db._pool.get_connection() as conn:
+            rows = conn.execute(
+                "SELECT namespace, key FROM kv_store WHERE user_id = ? AND key LIKE ?",
+                (user.id, f"{conv_id}%"),
+            ).fetchall()
+        return sorted((r["namespace"], r["key"]) for r in rows)
+
+    def test_delete_conversation(self, test_database: Database, test_user: User) -> None:
+        conv = test_database.create_conversation(test_user.id, "Gone")
+        keep = test_database.create_conversation(test_user.id, "Stays")
+        self._seed(test_database, test_user, conv.id)
+        self._seed(test_database, test_user, keep.id)
+
+        assert test_database.delete_conversation(conv.id, test_user.id) is True
+
+        assert self._left(test_database, test_user, conv.id) == [("sports", conv.id)]
+        assert len(self._left(test_database, test_user, keep.id)) == 9
+
+    def test_empty_trash(self, test_database: Database, test_user: User) -> None:
+        conv = test_database.create_conversation(test_user.id, "Trashed")
+        self._seed(test_database, test_user, conv.id)
+        test_database.trash_conversation(conv.id, test_user.id)
+
+        assert test_database.empty_trash(test_user.id) == 1
+
+        assert self._left(test_database, test_user, conv.id) == [("sports", conv.id)]
+
+    def test_program_delete(self, test_database: Database, test_user: User) -> None:
+        """Every hard-delete path, not just the chat list's (a trigger)."""
+        conv = test_database.get_or_create_program_conversation("language", test_user.id, "it")
+        self._seed(test_database, test_user, conv.id)
+
+        assert test_database.delete_program_conversation("language", test_user.id, "it")
+
+        assert self._left(test_database, test_user, conv.id) == [("sports", conv.id)]
+
+    def test_other_users_rows_are_untouched(self, test_database: Database, test_user: User) -> None:
+        other = test_database.get_or_create_user("other@example.com", "Other")
+        conv = test_database.create_conversation(test_user.id, "Mine")
+        test_database.kv_set(other.id, "conv_compaction", conv.id, "{}")
+
+        test_database.delete_conversation(conv.id, test_user.id)
+
+        assert self._left(test_database, other, conv.id) == [("conv_compaction", conv.id)]
+
+
+def _migration_0102() -> ModuleType:
+    import yoyo
+
+    spec = importlib.util.spec_from_file_location(
+        "m0102", "migrations/0102_conversation_kv_follows_delete.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    original = yoyo.step
+    yoyo.step = lambda *args, **kwargs: None  # type: ignore[assignment]
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        yoyo.step = original
+    return module
+
+
+def test_backfill_drops_only_orphans(test_database: Database, test_user: User) -> None:
+    live = test_database.create_conversation(test_user.id, "Live")
+    trashed = test_database.create_conversation(test_user.id, "Trashed")
+    test_database.trash_conversation(trashed.id, test_user.id)
+    for conv_id in (live.id, trashed.id, "gone-conv"):
+        test_database.kv_set(test_user.id, "conv_compaction", conv_id, "{}")
+        test_database.kv_set(test_user.id, "memory_review", f"{conv_id}:turns", "1")
+    test_database.kv_set(test_user.id, "sports", "gone-conv", "not chat-keyed")
+
+    with test_database._pool.get_connection() as conn:
+        conn.execute(_migration_0102().PURGE_ORPHANS_SQL)
+        conn.commit()
+        left = sorted(
+            (r["namespace"], r["key"])
+            for r in conn.execute("SELECT namespace, key FROM kv_store").fetchall()
+        )
+
+    assert left == sorted(
+        [
+            ("conv_compaction", live.id),
+            ("conv_compaction", trashed.id),
+            ("memory_review", f"{live.id}:turns"),
+            ("memory_review", f"{trashed.id}:turns"),
+            ("sports", "gone-conv"),
+        ]
+    )

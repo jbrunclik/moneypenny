@@ -124,3 +124,25 @@ def test_a_pending_stop_expires(monkeypatch: pytest.MonkeyPatch, test_database: 
         cancellation.request_stop_by_client_id(user.id, "conv-1", "client-1")
         monkeypatch.setattr(cancellation, "PENDING_STOP_TTL_SECONDS", -1)
         assert not cancellation.adopt_pending_stop(user.id, "conv-1", "client-1", "reply-1")
+
+
+def test_stale_stop_flags_are_swept(test_database: object) -> None:
+    """A Stop that lands after its turn ended has no turn left to clear it:
+    the next turn's sweep drops it once it is older than any turn."""
+    from src.db.models import Database, use_database
+
+    assert isinstance(test_database, Database)
+    with use_database(test_database):
+        user = test_database.get_or_create_user("u@example.com", "U")
+        cancellation.request_stop(user.id, "late", "reply-old")
+        cancellation.request_stop_by_client_id(user.id, "late", "client-old")
+        cancellation.request_finish_now(user.id, "late", "reply-old")
+        with test_database._pool.get_connection() as conn:
+            conn.execute("UPDATE kv_store SET updated_at = '2026-01-01T00:00:00+00:00'")
+            conn.commit()
+        cancellation.request_stop(user.id, "running", "reply-now")
+
+        assert cancellation.sweep_stale_flags(user.id) == 3
+
+        assert test_database.kv_get(user.id, cancellation.KV_NAMESPACE, "running") == "reply-now"
+        assert test_database.kv_get(user.id, cancellation.KV_NAMESPACE, "late") is None

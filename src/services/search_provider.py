@@ -74,6 +74,16 @@ def usage_key(provider: str) -> str:
     return f"{provider}:{period_start(_billing_anchor(provider), local_today())}"
 
 
+# Every usage key is period-scoped (counter, micro-USD, breaker): one not
+# written for two billing periods belongs to a past period nothing reads again
+USAGE_KEEP_SECONDS = 62 * 24 * 3600
+
+
+def prune_past_usage_periods() -> int:
+    """Drop usage and breaker keys of past billing periods (the daily sweep)."""
+    return db.kv_delete_older_than(_SYSTEM_USER_ID, USAGE_NAMESPACE, USAGE_KEEP_SECONDS)
+
+
 def get_monthly_usage(provider: str) -> int:
     """Searches billed to a provider this billing period (0 when never used)."""
     value = db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, usage_key(provider))

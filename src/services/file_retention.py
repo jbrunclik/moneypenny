@@ -21,7 +21,8 @@ from src.db import models
 from src.db.blob_store import get_blob_store
 from src.db.models import make_blob_key
 from src.db.models.timestamps import from_db
-from src.services.gemini_file_cache import delete_cached_file_uri
+from src.services.gemini_file_cache import delete_cached_file_uri, delete_expired_file_uris
+from src.services.search_provider import prune_past_usage_periods
 from src.utils.clock import to_api, utc_now
 from src.utils.files import is_media_mime
 from src.utils.logging import get_logger
@@ -60,7 +61,7 @@ def retention_note(mime_type: str) -> str:
 
 
 def cleanup_expired_files() -> dict[str, int]:
-    """Delete expired attachment blobs, their Gemini URI cache entries, and expired trash.
+    """Delete expired attachment blobs, their Gemini URI cache entries, expired trash and dead kv state.
 
     Thumbnails are intentionally kept so old conversations still render a
     placeholder. Idempotent: deleting an already-deleted blob is a no-op.
@@ -96,6 +97,11 @@ def cleanup_expired_files() -> dict[str, int]:
     counts["conversations_purged"] = models.db.purge_trashed_conversations(
         Config.TRASH_RETENTION_DAYS
     )
+
+    # kv state nothing reads again: links Gemini already deleted, past
+    # billing periods' search counters
+    counts["gemini_uris_expired"] = delete_expired_file_uris()
+    counts["search_periods_pruned"] = prune_past_usage_periods()
 
     if any(counts.values()):
         logger.info("File retention sweep completed", extra=counts)

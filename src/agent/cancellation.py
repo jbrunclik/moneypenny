@@ -265,3 +265,23 @@ def run_poller(
                 return
         except Exception:
             logger.warning("Stop flag poll failed", exc_info=True)
+
+
+# A flag no running turn will clear: a Stop or Finish now that landed after
+# its turn ended (the turn's own clear already ran), or a pending Stop for a
+# send that never started. Far above any turn's length (CHAT_TIMEOUT_SECONDS,
+# deep research included), so a live turn's flag is never swept
+STALE_FLAG_MAX_AGE_SECONDS = 24 * 3600
+
+
+def sweep_stale_flags(user_id: str) -> int:
+    """Drop the user's stop/finish flags older than any turn (how many)."""
+    swept = 0
+    for namespace in (KV_NAMESPACE, PENDING_KV_NAMESPACE, FINISH_KV_NAMESPACE):
+        try:
+            swept += db.kv_delete_older_than(user_id, namespace, STALE_FLAG_MAX_AGE_SECONDS)
+        except Exception:
+            logger.debug("Stale flag sweep failed", exc_info=True)
+    if swept:
+        logger.info("Stale stop flags swept", extra={"user_id": user_id, "swept": swept})
+    return swept

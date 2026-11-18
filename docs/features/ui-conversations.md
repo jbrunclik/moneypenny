@@ -107,7 +107,12 @@ alone on trash/restore (search filters at query time), so restore needs no reind
 
 **Purge**: the daily file-cleanup sweep (`cleanup_expired_files()` in
 [file_retention.py](../../src/services/file_retention.py)) also calls `purge_trashed_conversations()`, reported
-as `conversations_purged`. It runs on a timer in production and via the dev scheduler locally - see
+as `conversations_purged`. A hard delete (a chat, the purge, a standing chat, a program) also drops the chat's kv state -
+compaction summary, memory-review cursor, stop/steering flags, lost-turn note - through the
+`conversations_kv_delete` trigger (migration 0102, Nov 18 2026: 187 of 262 compaction summaries in
+production belonged to deleted chats); trashed chats keep it, so a restore resumes where it was. A new
+namespace keyed by conversation id must join the trigger (a new migration; `test_kv_store.py` checks the
+owners). It runs on a timer in production and via the dev scheduler locally - see
 [Scheduled Jobs](../architecture/scheduled-jobs.md).
 
 ```bash

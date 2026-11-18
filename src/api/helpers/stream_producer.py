@@ -21,6 +21,7 @@ from src.agent.cancellation import (
     register_token,
     run_poller,
     stop_requested,
+    sweep_stale_flags,
     unregister_token,
 )
 from src.agent.deep_research.briefs import recent_turns_text
@@ -279,6 +280,8 @@ def stream_events(
         unregister_token(turn.request_id)
         clear_stop_request(user_id, conv_id, stop_key)
         clear_finish_request(user_id, conv_id, stop_key)
+        # Flags whose turn had already ended (a late Stop) have no other clear
+        sweep_stale_flags(user_id)
         # Steering that arrived after the last tool round was never popped
         clear_interjection(user_id, conv_id)
         if journal:

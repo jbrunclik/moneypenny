@@ -1028,6 +1028,30 @@ class TestKVIncrement:
         assert result == 15
 
 
+class TestConversationKVNamespaces:
+    def test_delete_trigger_covers_the_owning_modules(self, test_database: Database) -> None:
+        """Deleting a chat drops its kv state through a trigger (migration
+        0102); a new chat-keyed namespace must join it, or its rows outlive
+        the chat again."""
+        from src.agent import cancellation, conversation_compaction, interjection
+        from src.api.helpers import lost_actions, memory_review_trigger
+
+        with test_database._pool.get_connection() as conn:
+            sql = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE name = 'conversations_kv_delete'"
+            ).fetchone()["sql"]
+        for namespace in (
+            conversation_compaction.KV_NAMESPACE,
+            memory_review_trigger.KV_NAMESPACE,
+            cancellation.KV_NAMESPACE,
+            cancellation.PENDING_KV_NAMESPACE,
+            cancellation.FINISH_KV_NAMESPACE,
+            interjection.KV_NAMESPACE,
+            lost_actions.KV_NAMESPACE,
+        ):
+            assert f"'{namespace}'" in sql
+
+
 class TestKVStoreReservedNamespaces:
     """The tool lets the model name any namespace; the app's own state must
     stay out of its reach - a page read in the same turn could otherwise plant

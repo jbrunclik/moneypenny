@@ -74,6 +74,7 @@ def seeded_env(test_database, test_blob_store):
     """Patch module-level db/blob_store lookups to the isolated test instances."""
     with (
         patch("src.db.models.db", test_database),
+        patch("src.services.search_provider.db", test_database),
         patch("src.services.file_retention.get_blob_store", return_value=test_blob_store),
         patch("src.db.models.message_files.get_blob_store", return_value=test_blob_store),
         patch("src.db.models.helpers.get_blob_store", return_value=test_blob_store),
@@ -170,7 +171,46 @@ class TestCleanupExpiredMedia:
             "images_deleted": 0,
             "files_deleted": 0,
             "conversations_purged": 0,
+            "gemini_uris_expired": 0,
+            "search_periods_pruned": 0,
         }
+
+    def _backdate_kv(self, db, namespace: str, key: str, days: float) -> None:
+        when = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        with db._pool.get_connection() as conn:
+            conn.execute(
+                "UPDATE kv_store SET updated_at = ? WHERE namespace = ? AND key = ?",
+                (when, namespace, key),
+            )
+            conn.commit()
+
+    def test_drops_expired_gemini_uri_cache_entries(self, seeded_env) -> None:
+        """A cached Files API link outlives Gemini's 48 h only as clutter (a
+        read already skips it); a message never purged kept it forever."""
+        db, _, _ = seeded_env
+        db.kv_set("_system", "gemini_files", "old:0", '{"uri": "x"}')
+        db.kv_set("_system", "gemini_files", "fresh:0", '{"uri": "y"}')
+        self._backdate_kv(db, "gemini_files", "old:0", days=3)
+
+        counts = cleanup_expired_files()
+
+        assert counts["gemini_uris_expired"] == 1
+        assert db.kv_get("_system", "gemini_files", "old:0") is None
+        assert db.kv_get("_system", "gemini_files", "fresh:0") is not None
+
+    def test_prunes_past_search_usage_periods(self, seeded_env) -> None:
+        """Period-scoped counters and breaker keys are never read again once
+        their billing period is over; the last two periods stay for review."""
+        db, _, _ = seeded_env
+        db.kv_set("__system__", "search-usage", "brave:2026-08", "40")
+        db.kv_set("__system__", "search-usage", "brave:2026-11", "3")
+        self._backdate_kv(db, "search-usage", "brave:2026-08", days=90)
+
+        counts = cleanup_expired_files()
+
+        assert counts["search_periods_pruned"] == 1
+        assert db.kv_get("__system__", "search-usage", "brave:2026-08") is None
+        assert db.kv_get("__system__", "search-usage", "brave:2026-11") == "3"
 
 
 class TestRunIfDue:
