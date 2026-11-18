@@ -17,6 +17,7 @@ Fixture shape (YAML):
       garmin:
         state: connected          # or: disconnected (expired) / not_connected
         data: {get_hrv_data: {...}, get_training_readiness: [...], ...}
+        workouts: [<raw workout, as get_workout_by_id returns it>]
 
 ``actions`` on each fake records every mutating call, shown to the judge.
 """
@@ -235,14 +236,40 @@ class FakeTodoist:
 
 
 class FakeGarmin:
-    """Garmin client whose API methods return fixture data by method name."""
+    """Garmin client whose API methods return fixture data by method name.
 
-    def __init__(self, data: dict[str, Any]) -> None:
+    Saved workouts are stateful: ``get_workouts`` / ``get_workout_by_id`` read
+    the fixture's ``workouts`` and ``update_workout`` saves the new payload,
+    recording what changed in ``actions`` (so required_actions can check that
+    a sports turn saved the workout, and the judge sees the change).
+    """
+
+    def __init__(self, data: dict[str, Any], workouts: list[dict[str, Any]] | None = None) -> None:
         self._data = data
+        self._workouts: dict[str, dict[str, Any]] = {
+            str(w["workoutId"]): copy.deepcopy(w) for w in workouts or []
+        }
         self.calls: list[str] = []
-        # Read-only fake: no mutations to report (also keeps __getattr__
-        # from answering `actions` with an API-method stub)
         self.actions: list[str] = []
+
+    def get_workouts(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        self.calls.append("get_workouts")
+        return copy.deepcopy(list(self._workouts.values()))
+
+    def get_workout_by_id(self, workout_id: Any) -> dict[str, Any]:
+        self.calls.append("get_workout_by_id")
+        if str(workout_id) not in self._workouts:
+            raise Exception(f"404 workout {workout_id} not found")
+        return copy.deepcopy(self._workouts[str(workout_id)])
+
+    def update_workout(self, workout_id: Any, payload: dict[str, Any]) -> None:
+        self.calls.append("update_workout")
+        before = self.get_workout_by_id(workout_id)
+        self._workouts[str(workout_id)] = copy.deepcopy(payload)
+        changes = _workout_changes(before, payload)
+        self.actions.append(
+            f"updated workout {payload.get('workoutName')!r}: {'; '.join(changes) or 'no change'}"
+        )
 
     def __getattr__(self, name: str) -> Any:
         if name.startswith("_"):
@@ -255,6 +282,36 @@ class FakeGarmin:
             return copy.deepcopy(self._data[name])
 
         return call
+
+
+def _workout_steps(raw: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Exercise steps keyed by position (block.step): ids change on every save."""
+    from src.agent.tools.garmin_workout_edits import slim_workout
+
+    return {
+        f"{b}.{s}": step
+        for b, block in enumerate(slim_workout(raw)["blocks"])
+        for s, step in enumerate(block["steps"])
+        if step.get("kind") == "exercise"
+    } | {
+        f"{b}.sets": {"sets": block.get("sets")}
+        for b, block in enumerate(slim_workout(raw)["blocks"])
+    }
+
+
+def _workout_changes(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    """One line per changed exercise field (exercise, reps, weight, sets)."""
+    old, new = _workout_steps(before), _workout_steps(after)
+    changes: list[str] = []
+    for key in sorted(old.keys() | new.keys()):
+        a, b = old.get(key) or {}, new.get(key) or {}
+        label = b.get("exercise") or a.get("exercise") or f"block {key.split('.')[0]}"
+        changes.extend(
+            f"{label} {name} {a.get(name)}->{b.get(name)}"
+            for name in ("exercise", "reps", "weight_kg", "sets")
+            if a.get(name) != b.get(name)
+        )
+    return changes
 
 
 @contextlib.contextmanager
@@ -277,7 +334,9 @@ def fake_integrations(spec: dict[str, Any]) -> Iterator[dict[str, Any]]:
         if "garmin" in spec:
             g = spec["garmin"] or {}
             state = g.get("state", "connected")
-            client = FakeGarmin(g.get("data") or {}) if state == "connected" else None
+            client = (
+                FakeGarmin(g.get("data") or {}, g.get("workouts")) if state == "connected" else None
+            )
             fakes["garmin"] = client
             for module in ("src.agent.tools.garmin", "src.agent.tools.garmin_workout"):
                 stack.enter_context(patch(f"{module}.get_garmin_client", lambda c=client: c))
@@ -294,7 +353,12 @@ def fake_integrations(spec: dict[str, Any]) -> Iterator[dict[str, Any]]:
         yield fakes
 
 
-def describe_actions(fakes: dict[str, Any]) -> str:
-    """Mutations the agent made through the fakes, for the judge."""
-    lines = [a for fake in fakes.values() for a in getattr(fake, "actions", [])]
+def recorded_actions(fakes: dict[str, Any]) -> dict[str, list[str]]:
+    """Each fake's recorded mutations, by fake name (for required_actions)."""
+    return {name: list(getattr(fake, "actions", None) or []) for name, fake in fakes.items()}
+
+
+def describe_recorded(actions: dict[str, list[str]]) -> str:
+    """Recorded mutations as the judge's "integration changes" text."""
+    lines = [a for recorded in actions.values() for a in recorded]
     return "\n".join(lines) if lines else "none"

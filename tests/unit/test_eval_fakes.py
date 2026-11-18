@@ -11,7 +11,7 @@ from datetime import timedelta
 
 import pytest
 
-from evals.fakes import FakeTodoist, describe_actions, fake_integrations
+from evals.fakes import FakeTodoist, describe_recorded, fake_integrations, recorded_actions
 from src.utils.clock import local_today
 
 
@@ -75,7 +75,7 @@ class TestThroughTheRealTools:
 
         assert [t["content"] for t in listed["tasks"]] == ["Send invoice"]
         assert "error" not in added
-        assert "Call plumber" in describe_actions(fakes)
+        assert "Call plumber" in describe_recorded(recorded_actions(fakes))
 
     def test_bad_filter_reaches_the_tool_guidance(self) -> None:
         from src.agent.tools.todoist import todoist
@@ -110,4 +110,77 @@ def test_describe_actions_handles_read_only_fakes() -> None:
     """A Garmin fake must not answer `actions` with an API-method stub."""
     spec = {"garmin": {"data": {}}, "todoist": _todoist()}
     with fake_integrations(spec) as fakes:
-        assert describe_actions(fakes) == "none"
+        assert describe_recorded(recorded_actions(fakes)) == "none"
+
+
+def _workout() -> dict:
+    """A one-block raw Garmin strength workout (what get_workout_by_id returns)."""
+
+    def step(step_id: int, order: int, kind: str, end: str, value: float, **extra: object) -> dict:
+        return {
+            "type": "ExecutableStepDTO",
+            "stepId": step_id,
+            "stepOrder": order,
+            "stepType": {"stepTypeKey": kind},
+            "endCondition": {"conditionTypeKey": end},
+            "endConditionValue": value,
+            **extra,
+        }
+
+    bench = step(11, 2, "interval", "reps", 8.0, category="BENCH_PRESS", exerciseName="BENCH_PRESS")
+    bench["weightValue"] = 60.0
+    bench["weightUnit"] = {"unitId": 8, "unitKey": "kilogram", "factor": 1000.0}
+    block = {
+        "type": "RepeatGroupDTO",
+        "stepId": 10,
+        "stepOrder": 1,
+        "stepType": {"stepTypeKey": "repeat"},
+        "numberOfIterations": 3,
+        "endConditionValue": 3.0,
+        "workoutSteps": [bench, step(12, 3, "rest", "time", 90.0)],
+    }
+    return {
+        "workoutId": 501,
+        "workoutName": "Push A",
+        "sportType": {"sportTypeKey": "strength_training"},
+        "workoutSegments": [{"segmentOrder": 1, "workoutSteps": [block]}],
+    }
+
+
+def test_garmin_workouts_list_and_get_through_the_real_tool() -> None:
+    from src.agent.tools.garmin_workout import garmin_workout
+
+    spec = {"garmin": {"state": "connected", "workouts": [_workout()]}}
+    with fake_integrations(spec):
+        listed = json.loads(garmin_workout.invoke({"action": "list"}))
+        got = json.loads(garmin_workout.invoke({"action": "get", "workout_id": "501"}))
+    assert listed["workouts"] == [
+        {"workout_id": 501, "name": "Push A", "sport": "strength_training"}
+    ]
+    assert got["workout"]["blocks"][0]["steps"][0]["weight_kg"] == 60.0
+
+
+def test_garmin_workout_update_is_saved_and_recorded() -> None:
+    from src.agent.tools.garmin_workout import garmin_workout
+
+    spec = {"garmin": {"state": "connected", "workouts": [_workout()]}}
+    with fake_integrations(spec) as fakes:
+        edits = json.dumps([{"step_id": 11, "weight_kg": 62.5}])
+        result = json.loads(
+            garmin_workout.invoke({"action": "update", "workout_id": "501", "edits": edits})
+        )
+        again = json.loads(garmin_workout.invoke({"action": "get", "workout_id": "501"}))
+    # The refreshed view is the saved workout
+    assert result["workout"]["blocks"][0]["steps"][0]["weight_kg"] == 62.5
+    assert again["workout"]["blocks"][0]["steps"][0]["weight_kg"] == 62.5
+    [action] = fakes["garmin"].actions
+    assert action.startswith("updated workout 'Push A'")
+    assert "60" in action and "62.5" in action
+
+
+def test_garmin_unknown_workout_fails_loudly() -> None:
+    from src.agent.tools.garmin_workout import garmin_workout
+
+    with fake_integrations({"garmin": {"state": "connected", "workouts": []}}):
+        result = garmin_workout.invoke({"action": "get", "workout_id": "999"})
+    assert "error" in json.loads(result)

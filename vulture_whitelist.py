@@ -237,3 +237,5 @@ auth_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump
 data_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
 route_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
 ready_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
+get_workouts  # evals/fakes.py FakeGarmin, called by name through garmin.safe_api_call
+update_workout  # evals/fakes.py FakeGarmin, called by name through garmin.safe_api_call

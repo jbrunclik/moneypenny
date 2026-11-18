@@ -42,6 +42,7 @@ from typing import Any
 import yaml
 
 from evals.chats import load_chat, merge_chat, seed_frozen_summary
+from evals.fakes import describe_recorded
 from src.utils.clock import local_today, to_local, utc_now
 
 _REPO_ROOT = Path(__file__).parent.parent
@@ -99,6 +100,10 @@ class EvalCase:
     # Regexes that must each match the argument of at least one call to that
     # tool, keyed "tool.arg" (e.g. manage_memory.operations: a valid_until)
     required_arg_patterns: dict[str, list[str]] = field(default_factory=dict)
+    # Regexes that must each match an action a fake recorded, keyed by fake
+    # (todoist, garmin, calendar): the write a turn must make, checked
+    # without the judge (e.g. garmin: ["^updated workout"])
+    required_actions: dict[str, list[str]] = field(default_factory=dict)
     # Prior turns for multi-turn cases: [{role, content[, metadata]}] - metadata
     # is the enriched-history dict (e.g. tool_outputs) the model sees in MSG_CONTEXT
     history: list[dict[str, Any]] = field(default_factory=list)
@@ -225,6 +230,10 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 required_arg_patterns={
                     str(k): [str(p) for p in v]
                     for k, v in (expect.get("required_arg_patterns") or {}).items()
+                },
+                required_actions={
+                    str(k): [str(p) for p in v]
+                    for k, v in (expect.get("required_actions") or {}).items()
                 },
                 history=[
                     {
@@ -479,15 +488,29 @@ def _arg_pattern_failures(case: EvalCase, tool_calls: list[dict[str, Any]]) -> l
     return failures
 
 
+def _action_failures(case: EvalCase, actions: dict[str, list[str]]) -> list[str]:
+    failures: list[str] = []
+    for fake, patterns in case.required_actions.items():
+        recorded = actions.get(fake) or []
+        missing = [p for p in patterns if not any(re.search(p, a) for a in recorded)]
+        if missing:
+            failures.append(
+                f"{fake} recorded no action matching {missing} ({len(recorded)} recorded)"
+            )
+    return failures
+
+
 def deterministic_failures(
     case: EvalCase,
     tools_used: set[str],
     tool_rounds: int,
     skills_loaded: set[str] | None = None,
     tool_calls: list[dict[str, Any]] | None = None,
+    actions: dict[str, list[str]] | None = None,
 ) -> list[str]:
     """Rule-based checks that need no LLM. required_tools is any-of."""
     failures: list[str] = _arg_pattern_failures(case, tool_calls or [])
+    failures += _action_failures(case, actions or {})
     if case.required_skill and case.required_skill not in (skills_loaded or set()):
         failures.append(
             f"skill {case.required_skill!r} was not loaded ({sorted(skills_loaded or set()) or 'none'})"
@@ -903,7 +926,7 @@ def _run_turn(
     request_id: str,
     history: list[dict[str, Any]] | None,
     standing: Any,
-) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], str]:
+) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], dict[str, list[str]]]:
     """The agent turn: (response, tool_results, usage, result_messages, integration changes)."""
     from src.config import Config
 
@@ -930,7 +953,7 @@ def _run_turn(
 
 def _memory_review_turn(
     case: EvalCase, user: Any, conversation_id: str, history: list[dict[str, Any]] | None
-) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], str]:
+) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], dict[str, list[str]]]:
     """Run the background memory review over the case's chat (no agent turn).
 
     The ops it applied come back as one manage_memory tool call, so the usual
@@ -959,7 +982,7 @@ def _memory_review_turn(
         "output_tokens": result.output_tokens,
     }
     message = AIMessage(content=response, tool_calls=calls if result.ops else [])
-    return response, [], usage, [message], ""
+    return response, [], usage, [message], {}
 
 
 def _case_facts(case: EvalCase) -> list[Any] | None:
@@ -983,9 +1006,9 @@ def _agent_turn(
     history: list[dict[str, Any]] | None,
     standing: Any,
     facts: list[Any] | None,
-) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], str]:
+) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], dict[str, list[str]]]:
     """_run_turn's agent call, with the case's facts flag already set."""
-    from evals.fakes import describe_actions, fake_integrations
+    from evals.fakes import fake_integrations, recorded_actions
     from src.agent.agent import ChatAgent
     from src.config import Config
     from src.db.models import db
@@ -1010,7 +1033,7 @@ def _agent_turn(
                 conversation_id=conversation_id,
                 conversation_facts=facts,
             )
-        return response, tool_results, usage, result_messages, describe_actions(fakes)
+        return response, tool_results, usage, result_messages, recorded_actions(fakes)
 
 
 def _tools_used(result_messages: list[Any]) -> set[str]:
@@ -1113,7 +1136,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         set_standing_namespace(standing.kv_namespace)
     try:
         turn_started = time.monotonic()
-        response, tool_results, usage, result_messages, integration_changes = _run_turn(
+        response, tool_results, usage, result_messages, actions = _run_turn(
             case, user, conversation.id, request_id, history, standing
         )
     finally:
@@ -1133,9 +1156,10 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         tool_rounds,
         skills_loaded=skills_loaded_in(result_messages),
         tool_calls=tool_calls_in(result_messages),
+        actions=actions,
     )
     score, judge_pass, reasoning, judge_input, judge_output = _judge(
-        case, response, usage, result_messages, tools_used, integration_changes
+        case, response, usage, result_messages, tools_used, describe_recorded(actions)
     )
 
     # The judge is a real billed API call - roughly a third of a run's spend,

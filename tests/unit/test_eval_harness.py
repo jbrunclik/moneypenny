@@ -193,6 +193,35 @@ class TestDeterministicFailures:
         assert failures and "manage_memory.operations" in failures[0]
         assert deterministic_failures(case, set(), tool_rounds=1, tool_calls=[])
 
+    def test_required_action_missing_fails(self) -> None:
+        case = self._case()
+        case.required_actions = {"garmin": [r"^updated workout"]}
+        failures = deterministic_failures(case, set(), tool_rounds=1, actions={"garmin": []})
+        assert len(failures) == 1
+        assert "garmin" in failures[0] and "^updated workout" in failures[0]
+
+    def test_required_action_matched_passes(self) -> None:
+        case = self._case()
+        case.required_actions = {"garmin": [r"^updated workout"]}
+        actions = {"garmin": ["updated workout 'Push A': Bench press weight 60->62.5 kg"]}
+        assert deterministic_failures(case, set(), tool_rounds=1, actions=actions) == []
+
+    def test_required_action_for_absent_fake_fails(self) -> None:
+        case = self._case()
+        case.required_actions = {"calendar": [r"^created event"]}
+        failures = deterministic_failures(case, set(), tool_rounds=1, actions={})
+        assert failures and "calendar" in failures[0]
+
+    def test_required_actions_parse_from_yaml(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "log.yaml",
+            "id: log\nuser: u\nexpect:\n  rubric: r\n"
+            "  required_actions:\n    todoist: ['^created task']\n",
+        )
+        [case] = load_cases(tmp_path)
+        assert case.required_actions == {"todoist": ["^created task"]}
+
     def test_forbidden_arg_patterns_parse_from_yaml(self, tmp_path: Path) -> None:
         _write_case(
             tmp_path,
@@ -930,3 +959,53 @@ class TestRunLogAndTargets:
         assert [json.loads(raw)["sha"] for raw in path.read_text().splitlines()] == [
             line["sha"]
         ] * 2
+
+
+def test_a_fake_recorded_write_reaches_required_actions(
+    monkeypatch: pytest.MonkeyPatch, test_database: Any, test_user: Any
+) -> None:
+    """The fakes' recorded actions feed both the judge and required_actions."""
+    from langchain_core.messages import AIMessage
+
+    import evals.run as eval_run
+    from src.agent import agent as agent_module
+
+    judged: list[str] = []
+
+    class WritingAgent:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def chat_batch(self, **kwargs: Any) -> tuple[Any, ...]:
+            from src.agent.tools import todoist_client
+
+            todoist_client.todoist_api_request("POST", "/tasks", "fake", {"content": "Buy milk"})
+            return "Done", [], {"tool_rounds": 1}, []
+
+    class Judge:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def invoke(self, messages: list[Any]) -> AIMessage:
+            judged.append(messages[0].content)
+            return AIMessage(content='{"score": 5, "pass": true, "reasoning": "ok"}')
+
+    monkeypatch.setattr(agent_module, "ChatAgent", WritingAgent)
+    monkeypatch.setattr("langchain_google_genai.ChatGoogleGenerativeAI", Judge)
+
+    def case(pattern: str) -> EvalCase:
+        return EvalCase(
+            id="w",
+            description="",
+            user="Add milk",
+            rubric="r",
+            integrations={"todoist": {"projects": [{"id": "p1", "name": "Inbox"}]}},
+            required_actions={"todoist": [pattern]},
+        )
+
+    ok = eval_run._run_case(case("^created task 'Buy milk'"), test_user, test_database)
+    assert ok["deterministic_failures"] == []
+    assert "created task 'Buy milk'" in judged[0]
+    missed = eval_run._run_case(case("^completed task"), test_user, test_database)
+    assert missed["pass"] is False
+    assert "todoist recorded no action" in missed["deterministic_failures"][0]
