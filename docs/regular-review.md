@@ -228,8 +228,14 @@ The review itself changes nothing in production and edits nothing but
   `mode` mix (`any` = the fallback found what strict matching missed) and the
   median `ms`.
 - When a change to the agent is pending or quality looks worse: `make eval`
-  (costs money - report the cost; the full suite is about $8 on Hydrogen, so
-  run the affected cases with `--only` first).
+  (costs money - report the cost; the Nov 18 2026 suite is estimated at
+  ~$5-6 on Hydrogen, so run the affected cases with `--only` first).
+- Eval suite health (from `evals/history.jsonl`, Nov 18 2026): the cost of
+  the last full run and its `live_web_usd` share (canned web should keep it
+  small - a rising share means a case went live or a live case grew), the
+  `web` canned/live counts (13 live on purpose), the `gate_low` count (20+ is
+  what a Lite-model comparison needs), and `chat_*` cases that flip between
+  runs (rerun with `--repeat 2` before calling one a regression).
 
 ## 5. Code health (monthly)
 

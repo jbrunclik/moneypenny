@@ -14,8 +14,10 @@ Run `make eval` **before and after** changing:
 
 Compare pass rates and per-case reasoning. The harness is **informational** —
 it hits the live Gemini API and is deliberately NOT part of CI or `make test`.
-A full run on Gemini 4 Hydrogen costs ~$8 and takes ~23 minutes (107 cases,
-Nov 14 2026), so for a targeted change run only the affected cases with
+A full run on Gemini 4 Hydrogen cost ~$8 and took ~23 minutes (107 cases,
+all web live, Nov 14 2026). The Nov 18 2026 suite (145 cases: 25 long-chat
+cases at $0.93 together, canned web for all but 13 cases) is estimated at
+~$5-6 and has not had a full run yet (TODO). For a targeted change run only the affected cases with
 `--only`, and A/B a suspicious failure against the previous commit in a
 worktree before trusting one run.
 
@@ -36,9 +38,12 @@ PASSED" - drop its marker once it keeps passing.
 **Run log**: every run appends one line to the tracked
 [evals/history.jsonl](../../evals/history.jsonl) (`evals/results/` is
 gitignored): time, git sha (`-dirty` with uncommitted changes), agent and
-judge model, the selection (`all`, `smoke` or the `--only` patterns), passed
-over ran, the known targets that failed, cost, minutes, and `[pass, score]`
-per case. Commit it with the change it measured, so the next run has
+judge model, the selection (`all`, `smoke` or the `--only` patterns), repeat,
+passed over ran, the known targets that failed, cost (and the part spent in
+live-web cases), minutes, canned vs live web case counts, the number of
+gate-`low` cases, and `[pass, score, gate thinking]` per case
+(`[passes, runs, mean score, gate]` with `--repeat`). Runs before Nov 18 2026
+had no canned web and fewer, shorter cases - do not compare them as equals. Commit it with the change it measured, so the next run has
 something to compare against.
 
 **A new tool can make a case stale.** When a tool lands that is the better
@@ -56,8 +61,11 @@ capture) instead of steering the agent back to the old tool.
    migrates it, `evals/pool.py`) and a temp blob store next to it (`BLOB_STORAGE_PATH`, so
    attachments and generated files never land in the repo's dev `files.db`),
    and an eval user, then runs each case through
-   `ChatAgent.chat_batch` with the production `DEFAULT_MODEL`.
-   Web search is `ddgs` only: the metered providers' keys are blanked
+   `ChatAgent.chat_batch` with the production `DEFAULT_MODEL` (or `--model`).
+   Web is **canned by default** (Nov 18 2026, [fake_web.py](../../evals/fake_web.py)):
+   a case's `web:` block answers every search and page fetch through the real
+   tools' seams, and a case without one finds nothing. Only `web: live`
+   cases search for real, and there search is `ddgs` only: the metered providers' keys are blanked
    (`EVAL_BLANKED_SEARCH_KEYS`), because the local `.env` holds the same
    keys as prod and eval usage was counted only in the throwaway database -
    until Oct 2 2026 every eval search spent the real monthly quota unseen by
@@ -80,6 +88,14 @@ id: web_lookup_cited
 description: Current-fact question requires a web tool and a citation
 user: What is the current price of Bitcoin in USD?
 requires: [code_sandbox]        # optional: skip when unavailable
+history_from: family_logistics  # optional: a shared synthetic chat (evals/fixtures/chats/)
+                                # whose messages precede `history` and whose mode,
+                                # program, program_kv, integrations, web and artifacts
+                                # the case inherits (the case's own fields win)
+web:                            # optional: canned web (absent = searches find nothing)
+  results: [{url: "https://...", title: "...", snippet: "..."}]  # every search returns these
+  pages: {"https://...": "page text"}   # a fetch of another URL gets the real 404 envelope
+# web: live                     # instead: the real ddgs search (13 cases, on purpose)
 smoke: true                     # optional: in the make eval-smoke subset
 known_failure: >                # optional: a known target - TARGET, not FAIL
   Why it fails today.
@@ -88,6 +104,8 @@ mode: sports                    # optional: chat (default) / sports / language /
                                 # program, garden agent) built like production
                                 # (standing_for_program); e.g. language_quiz_block,
                                 # agent_chat_remind_me
+program: {id: strength, name: Posilovna}  # optional: the program a sports/language
+                                # chat runs as (default: the canned one)
 program_kv:                     # optional (sports / language mode): stored program data
   "cycling:routine": "po: kliky, st: trenazer 60min"
 history:                        # optional: prior turns for multi-turn cases
@@ -101,9 +119,15 @@ integrations:                   # optional: fake backends (evals/fakes.py) behin
   todoist:                      # the REAL tools - only the HTTP/client seam
     projects: [{id: p1, name: Work}]   # is replaced. {today}, {tomorrow},
     tasks: [{id: t1, content: "Send invoice", project_id: p1, due: {date: "{today}"}}]
-  garmin:                       # {yesterday}, {in_N_days}, {N_days_ago} expand.
-    state: connected            # or disconnected (expired) / not_connected
-    data: {get_hrv_data: {hrvSummary: {lastNightAvg: 41}}}
+  garmin:                       # {yesterday}, {in_N_days}, {N_days_ago} expand;
+    state: connected            # {tuesday} / {monday_plus_N} = the next such weekday
+    data: {get_hrv_data: {hrvSummary: {lastNightAvg: 41}}}   # (+N days); _cs / _weekday
+    workouts: [<raw get_workout_by_id JSON>]   # suffixes give the Czech / English day name.
+                                # Saved workouts are stateful; garmin_workout updates
+                                # are recorded ("updated workout 'X': field old->new")
+  calendar:                     # Google Calendar fake (fake_calendar.py): range-filtered
+    state: connected            # reads, create/update/delete recorded
+    events: [{id: e1, summary: Keramika, start: {dateTime: "{tuesday}T15:30:00+01:00"}, end: {...}}]
 compact_history: true           # optional: compact `history` with the REAL
                                 # pipeline first (summarizer LLM calls; the
                                 # summarized part is stored + searchable)
@@ -130,6 +154,9 @@ expect:
     create_artifact.html: ['https?://']    # match a tool argument ("tool.arg")
   required_arg_patterns:                   # optional: each regex must match the
     manage_memory.operations: ['valid_until']  # argument of some call to that tool
+  required_actions:                        # optional: each regex must match an action
+    garmin: ["^updated workout 'Sila A"]   # a fake recorded (todoist, garmin, calendar)
+                                           # - the write a turn must make, judge-free
 ```
 
 The judge sees the response text PLUS the list of tools actually called and
@@ -226,6 +253,56 @@ Note: each case runs under its own request id. Before Sep 29 2026 it did not,
 which left the per-turn efficiency nudges (turn_usage) inert - round counts
 from earlier runs were measured with every nudge off.
 
+Shared synthetic chats (Nov 18 2026) - 95 of 120 cases had no earlier turns
+while a production turn carries 15-23 recent messages, often a compaction
+summary and program data: the long context where a weaker model loses
+instructions. Four long, mostly Czech, deliberately rambling conversations
+live in [evals/fixtures/chats/](../../evals/fixtures/chats/) -
+`cycling_program` and `strength_program` (sports mode, Garmin data and saved
+workouts edited along the way), `family_logistics` (Todoist + Calendar) and
+`project_research` (research digests, an artifact, canned pages on fictional
+sites). Synthetic people, places and numbers only - the repo is public. 25
+`chat_*` cases add one turn each; about half answer from context, the rest
+must make a write (`chat_strength_log_and_sync` is the Nov 13-17 production
+failure: answer, but never save the session or update the watch).
+- Each chat's older turns arrive as a **frozen summary** (`summary:`), seeded
+  as production stores compaction state, so every run sees the same context
+  and pays no summarizer calls. Regenerate it after editing a chat:
+  `PYTHONPATH=. python evals/freeze_summary.py <chat>` (~$0.01 a chat, the real
+  summarizer) - then READ it: a wrong fact there is wrong in every case.
+  The live pipeline keeps its own cases (`compact_history: true`).
+- Prose that names weekdays must use weekday placeholders: `family_logistics`
+  first used `{in_2_days}` for "ve středu", and on a non-Monday the calendar
+  and the chat disagreed (a model was failed for being right). It now anchors
+  every date on `{monday_plus_N}`.
+
+Canned web pages (Nov 18 2026) - for cases about real products, places and
+routes the pages are the real ones, captured once with
+[capture_web.py](../../evals/capture_web.py) (search, read the hits like the
+research tool, write the `web:` block). From a laptop ddgs returned ads and
+nothing, so the 15 captures ran on the production host against copies of
+the cases: its search router used Exa (34 calls), counted in production's own
+usage counters. Recapture a case when its pages go stale. Cases about TODAY's
+facts (who holds an office, today's rate or opening hours, a recent event),
+the browser and deep research stay `web: live` - their comment says why.
+
+## Comparing a model
+
+`--model <id>` swaps the turn's chat model only (`EVAL_CHAT_MODEL`, inherited by
+the workers); delegate, deep-research subagents, the side models (freshness
+gate, grounding, summarizer) and the judge stay as configured, because the
+question is "can this model answer the turn". The id must have a
+`MODEL_PRICING` entry, or its spend would be priced as another model's.
+Each result records the freshness gate's verdict (`gate: {thinking, lookup}`);
+routing would only move the turns it rates easy (`low`), so the report gives
+the pass rate on those too. `--repeat N` runs the selection N times (results
+carry `repeat`, the log `k/N` per case) - one run reads luck.
+
+```bash
+make eval-model MODEL=<id> ONLY='chat_*' REPEAT=2       # one model, repeated
+make eval-ab MODEL_A=gemini-4-hydrogen MODEL_B=<id> ONLY='*' RUNS=2   # side by side
+```
+
 ## Commands
 
 ```bash
@@ -261,6 +338,9 @@ next") gets more frequent under load.
 
 - [evals/run.py](../../evals/run.py) - runner, case loading, judge
 - [evals/pool.py](../../evals/pool.py) - parallel worker processes
+- [evals/chats.py](../../evals/chats.py), [evals/fixtures/chats/](../../evals/fixtures/chats/) - shared synthetic chats; [freeze_summary.py](../../evals/freeze_summary.py) freezes their summaries
+- [evals/fakes.py](../../evals/fakes.py), [fake_web.py](../../evals/fake_web.py), [fake_calendar.py](../../evals/fake_calendar.py) - integration and web fakes; [capture_web.py](../../evals/capture_web.py) captures canned pages
+- [evals/ab.py](../../evals/ab.py) - A/B across commits or models
 - [evals/cases/](../../evals/cases/) - golden cases
 - [tests/unit/test_eval_harness.py](../../tests/unit/test_eval_harness.py) - unit tests for the pure pieces
 - [config.py](../../src/config.py) - `EVAL_JUDGE_MODEL`, `EVAL_CASE_TIMEOUT_SECONDS`, `EVAL_WORKERS`
