@@ -32,7 +32,7 @@ import yaml
 CHATS_DIR = Path(__file__).parent / "fixtures" / "chats"
 
 # Inherited key by key; the case's own value wins
-_INHERITED = ("mode", "web", "compact_history")
+_INHERITED = ("mode", "program", "web", "compact_history", "artifacts")
 # Merged one level deep; the case's entry wins per key
 _MERGED = ("program_kv", "integrations")
 
@@ -64,7 +64,13 @@ def merge_chat(case_data: dict[str, Any], chat: dict[str, Any]) -> dict[str, Any
 
 
 def seed_frozen_summary(
-    case: Any, user: Any, db: Any, conversation_id: str, *, store_messages: bool = True
+    case: Any,
+    user: Any,
+    db: Any,
+    conversation_id: str,
+    *,
+    store_messages: bool = True,
+    history: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Seed the chat's frozen summary as production stores compaction state.
 
@@ -72,16 +78,18 @@ def seed_frozen_summary(
     reach the summarized part) unless the program path already stored them;
     the older part is covered by one segment holding the frozen summary.
     Returns the history the turn sees: the summary message plus the recent tail.
+    ``history`` overrides the case's (e.g. with seeded artifact ids filled in).
     """
     from src.agent.conversation_compaction import KV_NAMESPACE, _summary_message
     from src.config import Config
 
+    turns = case.history if history is None else history
     if store_messages:
-        for turn in case.history:
+        for turn in turns:
             db.add_message(conversation_id, turn["role"], turn["content"])
     keep = Config.CONVERSATION_COMPACTION_KEEP_RECENT
-    covered = max(0, len(case.history) - keep)
-    recent = case.history[covered:]
+    covered = max(0, len(turns) - keep)
+    recent = turns[covered:]
     state = {
         "segments": [{"text": case.frozen_summary, "end": covered, "passes": 1}],
         "covered_count": covered,

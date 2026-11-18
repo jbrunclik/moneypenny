@@ -1,0 +1,725 @@
+# Shared synthetic chat (evals/chats.py): three weeks of Czech strength coaching
+# with saved Garmin workouts edited along the way. Synthetic person and numbers.
+mode: sports
+program:
+  id: strength
+  name: Posilovna
+program_kv:
+  strength:goals: '{"hlavni": "drep 100 kg na 5 opakovani do brezna", "vedlejsi": "shyby 10x v kuse, bez
+    bolesti v rameni", "vaha_kg": 74}'
+  strength:preferences: '{"dny": "po + ct garaz 60 min, so volitelne kettlebell 30 min", "vybaveni": "osa,
+    kotouce do 140 kg, lavice, hrazda, jednorucky do 30 kg, kettlebell 16 a 24 kg", "hodinky": "Garmin
+    Fenix 7, cvici z ulozenych workoutu Sila A / Sila B", "omezeni": "prave rameno - pri tlaku nad hlavu
+    nepohodli od rijna, bez bolesti v lezeni na lavici"}'
+  strength:routine: '{"sila_a_po": "drep 4x5 @ 87,5 kg (pauza 3 min), bench 4x6 @ 67,5 kg, jednorucny
+    pritah 3x10 @ 26 kg + plank 45 s", "sila_b_ct": "mrtvy tah 4x5 @ 110 kg, tlak nad hlavu 4x6 @ 42,5
+    kg, shyby 3x6 + farmer carry 40 m @ 24 kg", "progrese": "drep a mrtvy tah +2,5 kg tydne kdyz vsechny
+    serie RPE <= 8, horni cast +2,5 kg po 2 tydnech"}'
+  strength:progress: '{"drep_5rm": "{24_days_ago}: 80 kg, {17_days_ago}: 82,5 kg, {10_days_ago}: 85 kg
+    (posledni serie RPE 9), {6_days_ago}: 85 kg RPE 8 -> 87,5", "bench": "65 -> 67,5 kg 4x6", "mrtvy_tah":
+    "105 -> 110 kg 4x5", "shyby": "3x5 -> 3x6", "tlak_nad_hlavu": "42,5 kg 4x6 stagnuje, rameno"}'
+  strength:last_session: '{"datum": "{3_days_ago}", "workout": "Sila B - ctvrtek", "mrtvy_tah": "4x5 @
+    110 kg RPE 8", "tlak": "4x6 @ 42,5 kg, posledni serie 5 opakovani, rameno trochu citit", "shyby":
+    "6/6/5", "carry": "3x40 m @ 24 kg"}'
+integrations:
+  garmin:
+    state: connected
+    workouts:
+    - workoutId: 7001
+      workoutName: Sila A - pondeli
+      sportType:
+        sportTypeKey: strength_training
+      workoutSegments:
+      - segmentOrder: 1
+        workoutSteps:
+        - type: RepeatGroupDTO
+          stepId: 10
+          stepOrder: 1
+          stepType:
+            stepTypeKey: repeat
+          numberOfIterations: 4
+          endConditionValue: 4.0
+          workoutSteps:
+          - type: ExecutableStepDTO
+            stepId: 11
+            stepOrder: 2
+            stepType:
+              stepTypeKey: interval
+            endCondition:
+              conditionTypeKey: reps
+            endConditionValue: 5.0
+            category: BARBELL_BACK_SQUAT
+            exerciseName: BARBELL_BACK_SQUAT
+            weightValue: 87.5
+            weightUnit:
+              unitId: 8
+              unitKey: kilogram
+              factor: 1000.0
+          - type: ExecutableStepDTO
+            stepId: 12
+            stepOrder: 3
+            stepType:
+              stepTypeKey: rest
+            endCondition:
+              conditionTypeKey: time
+            endConditionValue: 180.0
+        - type: RepeatGroupDTO
+          stepId: 20
+          stepOrder: 4
+          stepType:
+            stepTypeKey: repeat
+          numberOfIterations: 4
+          endConditionValue: 4.0
+          workoutSteps:
+          - type: ExecutableStepDTO
+            stepId: 21
+            stepOrder: 5
+            stepType:
+              stepTypeKey: interval
+            endCondition:
+              conditionTypeKey: reps
+            endConditionValue: 6.0
+            category: BARBELL_BENCH_PRESS
+            exerciseName: BARBELL_BENCH_PRESS
+            weightValue: 67.5
+            weightUnit:
+              unitId: 8
+              unitKey: kilogram
+              factor: 1000.0
+          - type: ExecutableStepDTO
+            stepId: 22
+            stepOrder: 6
+            stepType:
+              stepTypeKey: rest
+            endCondition:
+              conditionTypeKey: time
+            endConditionValue: 120.0
+        - type: RepeatGroupDTO
+          stepId: 30
+          stepOrder: 7
+          stepType:
+            stepTypeKey: repeat
+          numberOfIterations: 3
+          endConditionValue: 3.0
+          workoutSteps:
+          - type: ExecutableStepDTO
+            stepId: 31
+            stepOrder: 8
+            stepType:
+              stepTypeKey: interval
+            endCondition:
+              conditionTypeKey: reps
+            endConditionValue: 10.0
+            category: DUMBBELL_ROW
+            exerciseName: DUMBBELL_ROW
+            weightValue: 26.0
+            weightUnit:
+              unitId: 8
+              unitKey: kilogram
+              factor: 1000.0
+          - type: ExecutableStepDTO
+            stepId: 32
+            stepOrder: 9
+            stepType:
+              stepTypeKey: rest
+            endCondition:
+              conditionTypeKey: time
+            endConditionValue: 75.0
+          - type: ExecutableStepDTO
+            stepId: 33
+            stepOrder: 10
+            stepType:
+              stepTypeKey: interval
+            endCondition:
+              conditionTypeKey: lap.button
+            endConditionValue: 45.0
+            category: PLANK
+            exerciseName: PLANK
+          - type: ExecutableStepDTO
+            stepId: 34
+            stepOrder: 11
+            stepType:
+              stepTypeKey: rest
+            endCondition:
+              conditionTypeKey: time
+            endConditionValue: 60.0
+    - workoutId: 7002
+      workoutName: Sila B - ctvrtek
+      sportType:
+        sportTypeKey: strength_training
+      workoutSegments:
+      - segmentOrder: 1
+        workoutSteps:
+        - type: RepeatGroupDTO
+          stepId: 40
+          stepOrder: 1
+          stepType:
+            stepTypeKey: repeat
+          numberOfIterations: 4
+          endConditionValue: 4.0
+          workoutSteps:
+          - type: ExecutableStepDTO
+            stepId: 41
+            stepOrder: 2
+            stepType:
+              stepTypeKey: interval
+            endCondition:
+              conditionTypeKey: reps
+            endConditionValue: 5.0
+            category: BARBELL_DEADLIFT
+            exerciseName: BARBELL_DEADLIFT
+            weightValue: 110.0
+            weightUnit:
+              unitId: 8
+              unitKey: kilogram
+              factor: 1000.0
+          - type: ExecutableStepDTO
+            stepId: 42
+            stepOrder: 3
+            stepType:
+              stepTypeKey: rest
+            endCondition:
+              conditionTypeKey: time
+            endConditionValue: 180.0
+        - type: RepeatGroupDTO
+          stepId: 50
+          stepOrder: 4
+          stepType:
+            stepTypeKey: repeat
+          numberOfIterations: 4
+          endConditionValue: 4.0
+          workoutSteps:
+          - type: ExecutableStepDTO
+            stepId: 51
+            stepOrder: 5
+            stepType:
+              stepTypeKey: interval
+            endCondition:
+              conditionTypeKey: reps
+            endConditionValue: 6.0
+            category: OVERHEAD_PRESS
+            exerciseName: OVERHEAD_PRESS
+            weightValue: 42.5
+            weightUnit:
+              unitId: 8
+              unitKey: kilogram
+              factor: 1000.0
+          - type: ExecutableStepDTO
+            stepId: 52
+            stepOrder: 6
+            stepType:
+              stepTypeKey: rest
+            endCondition:
+              conditionTypeKey: time
+            endConditionValue: 120.0
+        - type: RepeatGroupDTO
+          stepId: 60
+          stepOrder: 7
+          stepType:
+            stepTypeKey: repeat
+          numberOfIterations: 3
+          endConditionValue: 3.0
+          workoutSteps:
+          - type: ExecutableStepDTO
+            stepId: 61
+            stepOrder: 8
+            stepType:
+              stepTypeKey: interval
+            endCondition:
+              conditionTypeKey: reps
+            endConditionValue: 6.0
+            category: PULL_UP
+            exerciseName: PULL_UP
+          - type: ExecutableStepDTO
+            stepId: 62
+            stepOrder: 9
+            stepType:
+              stepTypeKey: rest
+            endCondition:
+              conditionTypeKey: time
+            endConditionValue: 90.0
+          - type: ExecutableStepDTO
+            stepId: 63
+            stepOrder: 10
+            stepType:
+              stepTypeKey: interval
+            endCondition:
+              conditionTypeKey: lap.button
+            endConditionValue: 40.0
+            category: FARMERS_CARRY
+            exerciseName: FARMERS_CARRY
+            weightValue: 24.0
+            weightUnit:
+              unitId: 8
+              unitKey: kilogram
+              factor: 1000.0
+          - type: ExecutableStepDTO
+            stepId: 64
+            stepOrder: 11
+            stepType:
+              stepTypeKey: rest
+            endCondition:
+              conditionTypeKey: time
+            endConditionValue: 60.0
+    data:
+      get_training_readiness:
+      - score: 71
+        level: HIGH
+        feedbackShort: WELL_RECOVERED
+      get_sleep_data:
+        dailySleepDTO:
+          sleepTimeSeconds: 26100
+          sleepScores:
+            overall:
+              value: 81
+      get_hrv_data:
+        hrvSummary:
+          lastNightAvg: 61
+          weeklyAvg: 59
+          status: BALANCED
+      get_stats:
+        restingHeartRate: 52
+        bodyBatteryMostRecentValue: 77
+      get_activities_by_date:
+      - activityName: Sila B - ctvrtek
+        startTimeLocal: '{3_days_ago} 18:40:00'
+        duration: 3840
+        activityType:
+          typeKey: strength_training
+      - activityName: Sila A - pondeli
+        startTimeLocal: '{6_days_ago} 18:35:00'
+        duration: 3660
+        activityType:
+          typeKey: strength_training
+messages:
+- role: user
+  content: Cau, tak jsem si koupil ty Fenixy a mam tam ulozeny ty dva treninky co jsme spolu delali, Sila
+    A a Sila B. Jde to nejak propojit, abys mi tam rovnou menil vahy kdyz se posouvam? Porad to prepisuju
+    rucne v aplikaci a stejne na to zapomenu.
+- role: assistant
+  content: 'Jde! Mám přístup k tvým uloženým workoutům v Garmin Connectu, takže ti můžu váhy, opakování
+    i pauzy upravovat přímo – hodinky pak při cvičení ukazují aktuální cíle a nemusíš nic hledat.
+
+
+    Podíval jsem se na ně:
+
+    - **Sila A – pondělí:** dřep 4×5 na 80 kg, bench 4×6 na 65 kg, jednoruční přítah 3×10 na 24 kg + plank
+    45 s
+
+    - **Sila B – čtvrtek:** mrtvý tah 4×5 na 105 kg, tlak nad hlavu 4×6 na 40 kg, shyby 3×5, farmer carry
+    40 m s 24 kg
+
+
+    Navrhuju takový režim: vždy po tréninku mi napiš, jak to šlo (stačí čísla a jak těžká byla poslední
+    série), a já před dalším tréninkem upravím váhy v hodinkách podle progrese. Souhlasíš?'
+  metadata:
+    tool_outputs: 'garmin_workout({"action":"list"}) -> {"action":"list","count":2,"workouts":[{"workout_id":7001,"name":"Sila
+      A - pondeli","sport":"strength_training"},{"workout_id":7002,"name":"Sila B - ctvrtek","sport":"strength_training"}]}
+
+      garmin_workout({"action":"get","workout_id":"7001"}) -> {"name":"Sila A - pondeli","blocks":[{"block_id":10,"sets":4,"steps":[{"step_id":11,"exercise":"BARBELL_BACK_SQUAT","reps":5,"weight_kg":80.0},{"step_id":12,"kind":"rest","rest_s":150}]},{"block_id":20,"sets":4,"steps":[{"step_id":21,"exercise":"BARBELL_BENCH_PRESS","reps":6,"weight_kg":65.0}]},{"block_id":30,"sets":3,"steps":[{"step_id":31,"exercise":"DUMBBELL_ROW","reps":10,"weight_kg":24.0},{"step_id":33,"exercise":"PLANK","end_condition":"lap.button"}]}]}'
+- role: user
+  content: Jo presne tak. Dneska byl pondelni. Drep 80 sel v pohode, posledni serie tak RPE 7. Bench 65
+    vsechno 6, posledni tezsi, RPE 8,5. Pritahy v pohode.
+- role: assistant
+  content: 'Super pondělí! Podle pravidla progrese:
+
+    - **Dřep:** všechny série RPE ≤ 8 → příště **82,5 kg**.
+
+    - **Bench:** poslední série 8,5 – necháme 65 kg ještě jeden týden, ať je to pevné.
+
+    - **Přítah:** 24 kg bez problému → **26 kg**.
+
+
+    Upravil jsem to rovnou v hodinkách ve workoutu Sila A, v pondělí tam uvidíš nové váhy. Zapsal jsem
+    i progres.'
+  metadata:
+    tool_outputs: 'garmin_workout({"action":"update","workout_id":"7001","edits":"[{\"step_id\": 11, \"weight_kg\":
+      82.5}, {\"step_id\": 31, \"weight_kg\": 26}]"}) -> {"action":"update","applied":["BARBELL_BACK_SQUAT
+      weight 80.0 -> 82.5 kg","DUMBBELL_ROW weight 24.0 -> 26.0 kg"],"warnings":[]}
+
+      kv_store({"action":"merge","namespace":"sports","key":"strength:progress","value":"{\"drep_5rm\":
+      \"{24_days_ago}: 80 kg\"}"}) -> {"ok": true}'
+- role: user
+  content: Ctvrtek. Mrtvak 105 4x5 RPE 7, tlak nad hlavu 40 kg, ale nejak mi pri tom porad neco nesedi
+    v pravym rameni, neni to bolest ale takovy divny pocit nahore. Shyby 5,5,5. Carry ok.
+- role: assistant
+  content: 'Díky za podrobnosti. Mrtvý tah RPE 7 – přidáme, příště **107,5 kg**. Shyby 3×5 čisté, příští
+    týden zkusíme 6–5–5.
+
+
+    K rameni: „divný pocit nahoře“ při tlaku nad hlavu bez bolesti je častý u lidí, kteří mají ztuhlou
+    hrudní páteř nebo slabší lopatkové svaly – rameno pak při tlaku nahoru nemá kam se otočit. Teď s tím
+    nebudeme tlačit:
+
+    1. Tlak nad hlavu necháme na 40 kg a hlídej techniku: osa nad středem chodidla, žebra dolů, hlava
+    „projede okénkem“ na konci.
+
+    2. Před tréninkem 5 minut: rotace hrudní páteře na boku, „wall slides“ a face pull s gumou 2×15.
+
+    3. Kdyby se z pocitu stala bolest, tlak nad hlavu vyměníme za landmine press.
+
+
+    Upravil jsem Silu B: mrtvý tah 107,5 kg.'
+  metadata:
+    tool_outputs: 'garmin_workout({"action":"update","workout_id":"7002","edits":"[{\"step_id\": 41, \"weight_kg\":
+      107.5}]"}) -> {"action":"update","applied":["BARBELL_DEADLIFT weight 105.0 -> 107.5 kg"],"warnings":[]}'
+- role: user
+  content: Dobre. Mimochodem jak dlouho mam odpocivat mezi seriema drepu? Ja mam v hodinkach 2,5 minuty
+    ale mam pocit ze kdyz dam 3 tak je posledni serie lepsi.
+- role: assistant
+  content: 'Máš dobrý cit. U těžkých dřepů na 5 opakování je pauza 2,5–4 minuty úplně normální – síla
+    se mezi sériemi obnovuje (fosfokreatin) zhruba 3–5 minut. Kratší pauza dělá trénink delší „kardio“
+    a ubírá kvalitu posledních sérií.
+
+
+    Když je ti s 3 minutami poslední série lepší, dáme tam 3 minuty. Na benchi nech 2 minuty, tam to tolik
+    nepotřebuješ.
+
+
+    Mám ti to přepsat v hodinkách? Je to jedno kliknutí.'
+- role: user
+  content: Jo zmen to prosim.
+- role: assistant
+  content: Hotovo – pauza po dřepu je teď v hodinkách **3 minuty** (180 s). Ostatní pauzy beze změny.
+  metadata:
+    tool_outputs: 'garmin_workout({"action":"get","workout_id":"7001"}) -> {"name":"Sila A - pondeli","blocks":[{"block_id":10,"sets":4,"steps":[{"step_id":11,"exercise":"BARBELL_BACK_SQUAT","reps":5,"weight_kg":82.5},{"step_id":12,"kind":"rest","rest_s":150}]},
+      "..."]}
+
+      garmin_workout({"action":"update","workout_id":"7001","edits":"[{\"step_id\": 12, \"rest_s\": 180}]"})
+      -> {"action":"update","applied":["rest 150 -> 180 s"],"warnings":[]}'
+- role: user
+  content: 'Pondeli: drep 82,5 4x5, posledni RPE 8. Bench 65 ted uz lip, RPE 7,5. Pritahy 26 v pohode.
+    Plank 45s zvladnu ale uz se klepu.'
+- role: assistant
+  content: 'Paráda, dřep 82,5 na RPE 8 je přesně na hraně pravidla – přidáváme, příště **85 kg**. Bench
+    65 už sedí (7,5) → **67,5 kg**. Přítahy nechám na 26 kg, ještě jeden týden ať jsou čisté.
+
+
+    Plank: když se po 45 s klepeš, nech 45 s, ale dej důraz na kvalitu – pánev podsazená, zadek zatnutý,
+    jako by ses chtěl přetáhnout loktem k chodidlům. Klepání je OK, prohnutí v bedrech ne.
+
+
+    Upravil jsem Silu A (dřep 85, bench 67,5) a zapsal progres.'
+  metadata:
+    tool_outputs: 'garmin_workout({"action":"update","workout_id":"7001","edits":"[{\"step_id\": 11, \"weight_kg\":
+      85}, {\"step_id\": 21, \"weight_kg\": 67.5}]"}) -> {"action":"update","applied":["BARBELL_BACK_SQUAT
+      weight 82.5 -> 85.0 kg","BARBELL_BENCH_PRESS weight 65.0 -> 67.5 kg"],"warnings":[]}
+
+      kv_store({"action":"merge","namespace":"sports","key":"strength:progress","value":"{\"drep_5rm\":
+      \"{24_days_ago}: 80 kg, {17_days_ago}: 82,5 kg\", \"bench\": \"65 -> 67,5 kg 4x6\"}"}) -> {"ok":
+      true}'
+- role: user
+  content: Hele nevim jestli to sem patri, ale jak mam jist kdyz chci nabrat silu ale nechci pribrat bricho?
+    Ja vazim 74 a jsem spis hubenej, ale posledni dobou mi roste pupek z kancelare.
+- role: assistant
+  content: 'Patří sem, jídlo je polovina síly. U tebe (74 kg, spíš štíhlý, kancelář) bych šel cestou **mírného
+    přebytku**, ne „bulku“:
+
+
+    - **Bílkoviny:** 1,8–2 g/kg, tedy 130–150 g denně. Rozložené do 4 jídel po 30–40 g (tvaroh, vejce,
+    maso, luštěniny, skyr).
+
+    - **Kalorie:** jen o 200–300 kcal nad udržovací. Přibírej max. 0,25 kg týdně – když roste rychleji,
+    roste spíš tuk.
+
+    - **Sacharidy kolem tréninku:** jídlo 2–3 h před (rýže, brambory, pečivo) a po.
+
+    - **Bříško z kanceláře** je hlavně z pohybu během dne a spánku: 7–8 tisíc kroků, spát 7+ hodin, méně
+    slazených nápojů a večerního zobání.
+
+
+    Važ se 2× týdně a sleduj obvod pasu – když roste váha a pas stojí, je to sval. Když roste i pas, uber
+    100–200 kcal.'
+- role: user
+  content: 'Ctvrtek: mrtvak 107,5 RPE 7,5. Tlak nad hlavu 40, ale zase ten pocit v rameni, ve treti serii
+    uz to bylo spis trochu nepohodli. Shyby 6,5,5. Carry ok.'
+- role: assistant
+  content: 'Mrtvý tah jde skvěle, příště **110 kg**. Shyby 6–5–5 je pokrok.
+
+
+    Rameno beru vážně – z „divného pocitu“ se stává „nepohodlí“, a to je trend, který nechci nechat růst.
+    Úprava pro další týden:
+
+    1. Tlak nad hlavu nechávám na **40 kg, ale jen 3 série** a jen pokud rozcvička proběhne bez nepohodlí.
+
+    2. Když se nepohodlí ozve, přepni na **landmine press** (osa zapřená v rohu, tlačíš šikmo nahoru)
+    – rameno je tam v bezpečnější dráze.
+
+    3. Rozcvička ramen před každým tréninkem B: face pull 2×15, rotace s gumou 2×12, wall slides.
+
+
+    V hodinkách upravuju jen mrtvý tah na 110 kg; tlak nad hlavu nechávám, ať tam máš 4 série, a třetí/čtvrtou
+    případně vynech. Pokud nepohodlí zůstane i mimo trénink (spaní na boku, zvedání ruky), je čas na fyzioterapeuta.'
+  metadata:
+    tool_outputs: 'garmin_workout({"action":"update","workout_id":"7002","edits":"[{\"step_id\": 41, \"weight_kg\":
+      110}]"}) -> {"action":"update","applied":["BARBELL_DEADLIFT weight 107.5 -> 110.0 kg"],"warnings":[]}'
+- role: user
+  content: Co si myslis o tom ze bych v sobotu pridal jeste ten kettlebell? Swingy a turecky vstavani,
+    tak 30 minut. Nebude to moc?
+- role: assistant
+  content: 'Sobotní kettlebell 30 minut je dobrý doplněk a s tvým objemem (2× týdně síla) to rozhodně
+    nebude moc. Jen pár pravidel:
+
+    - **Swingy:** 16 kg, 5–8 sérií po 10–15. Je to tah z kyčlí, ne dřep – pohyb vychází ze zadku, ruce
+    jen drží.
+
+    - **Turecké vstávání (TGU):** začni s 16 kg nebo dokonce s botou na pěsti, 3–5 na každou stranu pomalu.
+    Pro tvoje rameno je TGU skvělé – učí stabilitu lopatky pod zátěží.
+
+    - Pokud se rameno při TGU ozve, váhu sniž.
+
+
+    Sobotu nebudu dávat do hodinek jako workout, ať to máš volné – stačí, když mi napíšeš, co jsi udělal.
+    Zapsal jsem si to do preferencí.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"strength:preferences","value":"{\"dny\":
+      \"po + ct garaz 60 min, so volitelne kettlebell 30 min (swingy 16 kg, TGU)\"}"}) -> {"ok": true}'
+- role: user
+  content: Kamos mi rikal at zacnu brat kreatin. Ma to smysl? Neni to nejaka chemie? A nebude mi to delat
+    problem s ledvinama, tata mel kameny.
+- role: assistant
+  content: 'Kreatin monohydrát je nejprozkoumanější doplněk ve sportu a pro silový trénink má smysl –
+    v průměru přidá pár procent síly a o něco rychlejší regeneraci mezi sériemi. Není to „chemie“ v tom
+    smyslu, jak to myslíš: tělo si kreatin samo vyrábí a přijímáš ho i z masa a ryb.
+
+
+    **Jak brát:** 3–5 g denně, kdykoliv během dne, nemusíš „nasycovat“. Pij k tomu normálně vodu. První
+    2 týdny můžeš přibrat 0,5–1 kg – to je voda ve svalech, ne tuk.
+
+
+    **Ledviny:** u zdravých lidí studie problémy s ledvinami při běžných dávkách neukazují. Ale protože
+    máš v rodině ledvinové kameny, doporučuju před začátkem zajít k praktikovi a nechat si udělat základní
+    krevní testy (kreatinin, eGFR). Kreatin totiž zvyšuje hodnotu kreatininu v krvi a lékař by to pak
+    mohl špatně vyložit – je dobré mít výchozí hodnotu.
+
+
+    Kreatin není nutnost – bez něj budeš dál silnět stejně. Je to třešnička, ne dort.'
+- role: user
+  content: Ok, zajdu na krev nejdriv. Jinak pristi tyden ve ctvrtek nestiham, malej je nemocnej a zena
+    je v praci do vecera. Muzu to dat v patek nebo v sobotu? Nebo mam vynechat?
+- role: assistant
+  content: 'Nevynechávej, jen posuň. Nejlepší je **pátek** – mezi pondělím a pátkem jsou 3 dny odpočinku,
+    to je pro dřep i mrtvý tah v pohodě.
+
+
+    Pokud dáš Silu B v pátek, sobotní kettlebell **vynech nebo dej jen lehce** (TGU 3 na stranu, žádné
+    swingy) – swingy a mrtvý tah zatěžují stejné svaly a v pondělí bys šel do dřepu unavený.
+
+
+    Kdyby ani pátek nevyšel, dej Silu B v sobotu a pondělní Silu A posuň na úterý. Dva silové tréninky
+    týdně jsou důležitější než přesné dny.'
+- role: user
+  content: Muzes mi popsat ten face pull a wall slides poradne? Ja to delam podle oka a nevim jestli dobre.
+- role: assistant
+  content: 'Jasně, obojí je jednoduché, ale detaily dělají rozdíl:
+
+
+    **Face pull s gumou** (2×15)
+
+    1. Gumu uchyť ve výšce obličeje (klika dveří s gumou přes horní roh, nebo hrazda).
+
+    2. Chyť ji nadhmatem, palce směřují k tobě, ustup, aby byla napnutá.
+
+    3. Táhni k obličeji a lokty veď **vysoko a do stran**, na konci rotuj ruce ven – jako bys ukazoval
+    „biceps“ s pěstmi vedle uší.
+
+    4. Lopatky stáhni k sobě a dolů, 1 vteřinu výdrž, pomalu zpět.
+
+    5. Chyba: táhnout k hrudníku a lokty dole – to je přítah, ne face pull.
+
+
+    **Wall slides** (2×10)
+
+    1. Stoupni si zády ke zdi, paty 10 cm od zdi, zadek, lopatky a hlava na zdi.
+
+    2. Ruce ve tvaru „W“ – lokty a hřbety rukou na zdi.
+
+    3. Pomalu sjeď rukama nahoru do „Y“, aniž by se lokty nebo zápěstí odlepily a aniž by se prohnula
+    bedra.
+
+    4. Vrať se do „W“ a za lopatkami tlač dolů.
+
+    5. Když se lokty odlepují, jeď jen tak vysoko, kam to jde čistě – rozsah přijde.
+
+
+    Oboje dělej před každým tréninkem a klidně i v práci, rameno ti poděkuje.'
+- role: user
+  content: Pondeli. Drep 85!!! 4x5, ale posledni serie byla fakt na hrane, RPE 9. Bench 67,5 RPE 8. Pritahy
+    26 ok. Jsem trochu rozbitej, v sobotu jsem dal ten kettlebell a asi jsem to s tema swingama prehnal,
+    bolel me zadek jeste v nedeli.
+- role: assistant
+  content: '85 kg na 4×5! To je o 5 kg víc než před třemi týdny, gratuluju. Ale RPE 9 v poslední sérii
+    znamená, že podle pravidla **tentokrát nepřidáváme** – příští pondělí zůstává 85 kg a cílem je dát
+    poslední sérii na RPE 8. Bench 67,5 na RPE 8 taky necháme.
+
+
+    Bolavý zadek po swingách je normální, hýžďové svaly dostaly něco nového. Jen pozor, aby to nebylo
+    na úkor pondělí – pokud jsi do dřepů šel unavený, může být RPE 9 i z toho. Příští sobotu dej swingy
+    jen 5×10.
+
+
+    V hodinkách nic neměním, zapsal jsem progres.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"strength:progress","value":"{\"drep_5rm\":
+      \"{24_days_ago}: 80 kg, {17_days_ago}: 82,5 kg, {10_days_ago}: 85 kg (posledni serie RPE 9)\"}"})
+      -> {"ok": true}'
+- role: user
+  content: Tak dneska je ten patek misto ctvrtka, ale spal jsem asi 5 hodin, malej se budil. Mam jit cvicit
+    nebo to vynechat? Citim se tak napul.
+- role: assistant
+  content: 'Podíval jsem se do Garminu: **training readiness 38** (nízká), spánek 5 h 10 min se skóre
+    49, HRV 47 ms proti týdennímu průměru 59, body battery 34. Tělo je unavené, ale ne nemocné.
+
+
+    Nevynechávej, ale **uber**:
+
+    - Mrtvý tah: **3×5 na 100 kg** místo 4×5 na 110 kg. Rychlá, čistá opakování.
+
+    - Tlak nad hlavu: 3×6 na 40 kg, rameno hlídej o to víc.
+
+    - Shyby: 3× tolik, kolik dáš s jedním opakováním v záloze.
+
+    - Carry vynech.
+
+
+    Po špatném spánku nehoníme progresi – cílem je udržet pohyb a nezvyšovat riziko. Zítra a v neděli
+    zkus jít spát dřív. Hodinky ti nepřepisuju, je to jednorázové – v Garminu jen přeskoč čtvrtou sérii.'
+  metadata:
+    tool_outputs: garmin_connect({"action":"get_readiness_snapshot"}) -> {"training_readiness":38,"readiness_level":"LOW","sleep_hours":5.2,"sleep_score":49,"hrv_last_night_ms":47,"hrv_weekly_avg_ms":59,"hrv_status":"UNBALANCED","resting_hr":56,"body_battery":34,"recent_activities":[{"name":"Sila
+      A - pondeli","date":"{10_days_ago}","duration_min":61}]}
+- role: user
+  content: Dal jsem to podle tebe, 100 kg slo jako nic. Jinak uvazuju o opasku na drepy a mrtvak, ma to
+    smysl uz ted nebo az u tezsich vah?
+- role: assistant
+  content: 'Dobře, že jsi šel – lehký trénink po špatné noci je přesně to, co tělo zvládne a pomůže mu.
+
+
+    Opasek: u tvých vah (dřep 85, mrtvý tah 110) to **zatím není nutnost**, ale ani chyba. Opasek nepodpírá
+    záda, dává břichu něco, do čeho tlačit – pomáhá ti udržet bracing pod těžkou vahou.
+
+
+    Můj návrh:
+
+    - Rozcvičkové a lehčí série **bez opasku**, ať se tvoje vlastní zpevnění dál učí.
+
+    - Opasek až na **poslední 1–2 pracovní série** nebo nad ~85 % maxima.
+
+    - Kup pevný kožený nebo „lever“ opasek 10 cm, ne ty široké vepředu úzké z fitka – ty nedělají nic.
+
+
+    Jestli ho koupíš, dej vědět, upravím ti v poznámkách postup.'
+- role: user
+  content: 'V pondeli drep 85 4x5 a uz to bylo RPE 8, bench 67,5 RPE 7,5. A dneska ctvrtek: mrtvak 110
+    4x5 RPE 8, tlak 42,5 jsem zkusil (vim ze jsi rikal 40 ale citil jsem se dobre), 6,6,6,5 a rameno trochu
+    citit. Shyby 6/6/5. Carry 3x40m.'
+- role: assistant
+  content: 'Dřep 85 na RPE 8 – to je ono, příští pondělí **87,5 kg**, v hodinkách upraveno. Mrtvý tah
+    110 kg na RPE 8 je výborný – ten přidáme až příští týden, ať nepřetížíme záda dvěma progresemi naráz.
+
+
+    Tlak 42,5: chápu, že to šlo, a 6–6–6–5 je slušné. Ale „rameno trochu cítit“ po tlaku nad hlavu je
+    už potřetí za sebou. Navrhuju kompromis: **42,5 kg nechám v hodinkách**, ale pravidlo zní – jakmile
+    v rozcvičce cítíš rameno, jdeš na landmine press. A k tomu face pull a rotace s gumou na začátku každého
+    tréninku, ne jen B.
+
+
+    Sila B v hodinkách: tlak nad hlavu 42,5 kg. Zapsal jsem poslední trénink.'
+  metadata:
+    tool_outputs: 'garmin_workout({"action":"update","workout_id":"7001","edits":"[{\"step_id\": 11, \"weight_kg\":
+      87.5}]"}) -> {"action":"update","applied":["BARBELL_BACK_SQUAT weight 85.0 -> 87.5 kg"],"warnings":[]}
+
+      garmin_workout({"action":"update","workout_id":"7002","edits":"[{\"step_id\": 51, \"weight_kg\":
+      42.5}]"}) -> {"action":"update","applied":["OVERHEAD_PRESS weight 40.0 -> 42.5 kg"],"warnings":[]}
+
+      kv_store({"action":"set","namespace":"sports","key":"strength:last_session","value":"{\"datum\":
+      \"{3_days_ago}\", \"workout\": \"Sila B - ctvrtek\", \"mrtvy_tah\": \"4x5 @ 110 kg RPE 8\", \"tlak\":
+      \"4x6 @ 42,5 kg, posledni serie 5 opakovani, rameno trochu citit\", \"shyby\": \"6/6/5\", \"carry\":
+      \"3x40 m @ 24 kg\"}"}) -> {"ok": true}'
+- role: user
+  content: Jeste jedna vec, v prosinci budu 10 dni na horach u rodicu a tam nic nemam, jen svoje telo
+    a mozna gumy. Co mam delat abych o tu silu neprisel?
+- role: assistant
+  content: '10 dní bez činek tě o sílu nepřipraví – síla se drží několik týdnů i při výrazně sníženém
+    tréninku. Klidně to ber i jako vítaný deload. Abys ale udržel návyky a rameno:
+
+
+    **2–3× za těch 10 dní, 30 minut:**
+
+    - Bulharské dřepy (zadní noha na židli) 3×10–12 na nohu
+
+    - Kliky s nohama na vyvýšené podložce 3× do RPE 8
+
+    - Hip thrust na jedné noze 3×12
+
+    - Přítahy s gumou (nebo stolní přítahy pod stolem) 3×12
+
+    - Face pull a rotace s gumou 2×15 – pro rameno
+
+    - Plank 3×45 s
+
+
+    A hlavně hodně choď – na horách to půjde samo. Po návratu dáme první týden na 90 % vah a pak navážeme.'
+- role: user
+  content: Super diky. Tak zitra je pondeli, drep 87,5. Mam se na neco zamerit?
+- role: assistant
+  content: 'Ano, na tři věci:
+
+    1. **Rozcvička postupně:** prázdná osa 2×5, 50 kg ×5, 65 kg ×3, 75 kg ×2, 82,5 kg ×1, pak pracovní
+    série 87,5 kg. Mezi rozcvičkovými sériemi krátké pauzy, před první pracovní 2–3 minuty.
+
+    2. **Bracing:** před každým opakováním nádech do břicha (ne do hrudníku), zpevnit jako před ranou
+    do žaludku, a výdech až nahoře.
+
+    3. **Pauza 3 minuty** – máš ji v hodinkách, dodrž ji i když se cítíš dobře. Cílem je poslední série
+    na RPE 8, ne rekord.
+
+
+    Zítra po tréninku mi napiš čísla a podle RPE rozhodneme o další váze.'
+summary: 'Uživatel si pořídil hodinky Garmin Fenix a domluvil se s asistentem na správě tréninků **Sila
+  A** (pondělí) a **Sila B** (čtvrtek) v Garmin Connectu. Uživatel bude po každém tréninku hlásit výsledky
+  a RPE poslední série, načež asistent upraví cíle přímo v hodinkách.
+
+
+  Po pondělním tréninku **Sila A** uživatel hlásil dřep 4×5 na 80 kg (RPE 7), bench 4×6 na 65 kg (RPE
+  8,5) a jednoruční přítahy 3×10 na 24 kg bez problémů. Asistent v hodinkách zvýšil dřep na **82,5 kg**
+  a přítah na **26 kg**, bench ponechal na **65 kg**.
+
+
+  Po čtvrtečním tréninku **Sila B** uživatel hlásil mrtvý tah 4×5 na 105 kg (RPE 7), shyby 5–5–5 a farmer
+  carry (40 m s 24 kg) v pořádku. Při tlaku nad hlavu (4×6 na 40 kg) však cítil nebolestivý „divný pocit“
+  v pravém rameni. Asistent v hodinkách zvýšil mrtvý tah na **107,5 kg**, u shybů naplánoval na příště
+  **6–5–5** a tlak nad hlavu ponechal na **40 kg** s doporučením zaměřit se na techniku a 5minutovou rozcvičku
+  (rotace hrudní páteře, wall slides, face pull 2×15). Pokud by se objevila bolest, cvik se vymění za
+  landmine press.
+
+
+  Na závěr uživatel uvedl, že u dřepů mu místo 2,5minutové pauzy lépe vyhovují 3 minuty. Asistent to schválil
+  a v hodinkách změnil pauzu po dřepu na **3 minuty (180 s)**, zatímco u benche zůstaly **2 minuty**.
+
+
+  Po pondělním tréninku **Sila A** (dřep 82,5 kg 4×5 RPE 8, bench 65 kg RPE 7,5, přítahy 26 kg, plank
+  45 s) asistent v hodinkách zvýšil dřep na **85 kg** a bench na **67,5 kg**, přítahy nechal na **26 kg**.
+
+
+  Uživatel (74 kg, sedavé zaměstnání, rostoucí břicho) se ptal na stravu. Asistent doporučil mírný kalorický
+  přebytek (+200–300 kcal), 130–150 g bílkovin denně, nárůst váhy max. 0,25 kg/týden, 7–8 tisíc kroků,
+  7+ hodin spánku a sledování obvodu pasu.
+
+
+  Po čtvrteční **Sile B** (mrtvý tah 107,5 kg RPE 7,5, shyby 6–5–5, carry v pořádku) uživatel hlásil nepohodlí
+  v rameni při tlaku nad hlavu (40 kg). Asistent v hodinkách zvedl mrtvý tah na **110 kg**, tlak ponechal
+  na **40 kg** s doporučením jet jen 3 série, případně přejít na **landmine press**, a důsledně zařadit
+  rozcvičku ramen. Na žádost uživatele pak detailně popsal techniku cviků **face pull** (2×15) a **wall
+  slides** (2×10).
+
+
+  Asistent schválil a do preferencí zapsal sobotní 30minutový kettlebell (swingy 16 kg 5–8×10–15, TGU
+  3–5/strana) bez zápisu do hodinek.
+
+
+  K dotazu na kreatin (otec měl ledvinové kameny) asistent doporučil 3–5 g denně, ale až po krevních testech
+  (kreatinin, eGFR) u praktika, s čímž uživatel souhlasil.
+
+
+  Kvůli rodinné situaci příští čtvrtek asistent doporučil přesunout Silu B na **pátek** (a vynechat či
+  odlehčit sobotní kettlebell), případně na **sobotu** s posunem Sily A na úterý.'

@@ -127,3 +127,105 @@ def test_frozen_summary_in_program_chat_does_not_restore_messages(
     sent = seed_frozen_summary(case, test_user, test_database, conv.id, store_messages=False)
     assert "S" in sent[0]["content"]
     assert test_database.get_messages(conv.id) == []
+
+
+def test_program_identity_defaults_and_overrides() -> None:
+    from evals.run import program_identity
+
+    cycling = EvalCase(id="c", description="", user="u", mode="sports")
+    strength = EvalCase(
+        id="s",
+        description="",
+        user="u",
+        mode="sports",
+        program={"id": "strength", "name": "Posilovna"},
+    )
+    assert program_identity(cycling) == ("Cyklistika", "cycling")
+    assert program_identity(strength) == ("Posilovna", "strength")
+
+
+def test_chat_program_is_inherited() -> None:
+    chat = {"mode": "sports", "program": {"id": "strength", "name": "Posilovna"}, "messages": []}
+    assert merge_chat({"id": "c"}, chat)["program"] == {"id": "strength", "name": "Posilovna"}
+
+
+def test_freeze_summary_writes_the_summary_into_the_fixture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from evals.freeze_summary import freeze_summary
+    from src.config import Config
+
+    keep = Config.CONVERSATION_COMPACTION_KEEP_RECENT
+    messages = _long_history(keep + 6)
+    _write(tmp_path, "ride.yaml", {"mode": "sports", "messages": messages})
+    path = tmp_path / "ride.yaml"
+    path.write_text("# Synthetic chat - keep this header\n" + path.read_text())
+    seen: list[int] = []
+
+    def fake_summarize(chunk: list[dict[str, Any]], *_: Any) -> str:
+        seen.append(len(chunk))
+        return "Uživatel jezdí třikrát týdně."
+
+    summary = freeze_summary(tmp_path / "ride.yaml", summarize=fake_summarize)
+    assert "třikrát týdně" in summary
+    assert sum(seen) == 6  # only the older messages are summarized
+    chat = load_chat("ride", tmp_path)
+    assert chat["summary"] == summary
+    assert chat["messages"] == messages and chat["mode"] == "sports"
+    assert path.read_text().startswith("# Synthetic chat - keep this header\n")
+
+
+# Rendered size targets (characters, messages + tool digests): production
+# medians Nov 18 2026 - program chats ~20-35k, ordinary chats 15-25k
+_SIZE = {"sports": (18_000, 36_000), "chat": (15_000, 26_000)}
+_SHARED = ("cycling_program", "strength_program", "family_logistics", "project_research")
+
+
+@pytest.mark.parametrize("name", _SHARED)
+def test_shared_chats_are_realistic(name: str) -> None:
+    from langdetect import DetectorFactory, detect
+
+    DetectorFactory.seed = 0
+    chat = load_chat(name)
+    messages = chat["messages"]
+    assert len(messages) >= 20
+    # Program data is context too (the stored-data section of the prompt)
+    size = sum(len(m["content"]) + len(json.dumps(m.get("metadata") or {})) for m in messages)
+    size += sum(len(v) for v in (chat.get("program_kv") or {}).values())
+    low, high = _SIZE[chat.get("mode", "chat")]
+    assert low <= size <= high, f"{name}: {size} characters"
+    users = [m["content"] for m in messages if m["role"] == "user" and len(m["content"]) >= 20]
+    # Czech typed without diacritics (as the family types) often detects as
+    # a neighbouring language; the check is "not an English fixture"
+    czech = [u for u in users if detect(u) in ("cs", "sk", "sl", "hr", "pl")]
+    assert len(czech) >= 0.6 * len(users)
+    assert any((m.get("metadata") or {}).get("tool_outputs") for m in messages)
+    assert chat.get("summary", "").strip()
+    if chat.get("mode") == "sports":
+        assert chat.get("program_kv")
+
+
+def test_chat_artifacts_are_inherited() -> None:
+    chat = {"artifacts": [{"title": "Srovnání", "html": "<table></table>"}], "messages": []}
+    assert merge_chat({"id": "c"}, chat)["artifacts"] == chat["artifacts"]
+
+
+def test_frozen_summary_history_gets_artifact_ids(test_database: Any, test_user: Any) -> None:
+    import evals.run as eval_run
+    from src.config import Config
+
+    keep = Config.CONVERSATION_COMPACTION_KEEP_RECENT
+    history = _long_history(keep + 2)
+    history[-1] = {"role": "assistant", "content": "Tabulka: {artifact_0}"}
+    case = EvalCase(
+        id="c",
+        description="",
+        user="u",
+        history=history,
+        frozen_summary="S",
+        artifacts=[{"title": "Srovnání", "html": "<p>x</p>"}],
+    )
+    conv = test_database.create_conversation(test_user.id, "eval-c")
+    _, sent, _ = eval_run._seed_case(case, test_user, test_database, conv.id)
+    assert sent is not None
+    assert "{artifact_0}" not in sent[-1]["content"]

@@ -118,6 +118,9 @@ class EvalCase:
     mode: str = "chat"
     # Sports mode: stored KV data injected into the program context
     program_kv: dict[str, str] = field(default_factory=dict)
+    # The program a sports/language chat runs as ({id, name}); default the
+    # canned one for the mode (cycling / Italian)
+    program: dict[str, str] = field(default_factory=dict)
     # Save the history's user turns and the case's message in the chat (dated
     # now), as production saves them before the turn: tools that check what
     # the user wrote in this chat (propose_instruction_change evidence) see them
@@ -255,6 +258,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 compact_history=bool(data.get("compact_history", False)),
                 mode=str(data.get("mode") or "chat"),
                 program_kv={str(k): str(v) for k, v in (data.get("program_kv") or {}).items()},
+                program={str(k): str(v) for k, v in (data.get("program") or {}).items()},
                 save_user_turns=bool(data.get("save_user_turns", False)),
                 files=[str(f) for f in (data.get("files") or [])],
                 memories=[
@@ -802,7 +806,12 @@ def _seeded_history(
     if case.frozen_summary:
         # A program chat already stored its user turns (_program_conversation)
         frozen = seed_frozen_summary(
-            case, user, db, conversation_id, store_messages=case.mode not in _CANNED_PROGRAMS
+            case,
+            user,
+            db,
+            conversation_id,
+            store_messages=case.mode not in _CANNED_PROGRAMS,
+            history=with_artifact_ids(case.history, artifact_ids),
         )
         return frozen, {"input": 0.0, "output": 0.0}
     history = with_artifact_ids(case.history, artifact_ids) or None
@@ -933,12 +942,18 @@ _CANNED_AGENT = (
 )
 
 
+def program_identity(case: EvalCase) -> tuple[str, str]:
+    """(name, id) of the program a sports/language case runs as."""
+    name, program_id = _CANNED_PROGRAMS[case.mode]
+    return case.program.get("name", name), case.program.get("id", program_id)
+
+
 def _program_conversation(case: EvalCase, user: Any, db: Any) -> Any:
     """A real program chat with its program and stored data, as production has
     them: tools that resolve the chat's program (propose_setup_change) work."""
     import json
 
-    name, program_id = _CANNED_PROGRAMS[case.mode]
+    name, program_id = program_identity(case)
     program = {"id": program_id, "name": name, "emoji": "🏁", "created_at": "2026-11-01"}
     db.kv_set(user.id, case.mode, "programs", json.dumps([program]))
     for key, value in case.program_kv.items():
@@ -977,7 +992,7 @@ def _standing(case: EvalCase, conversation: Any = None, user: Any = None) -> Any
         return None
     from src.agent.standing_context import standing_for_program
 
-    name, program_id = _CANNED_PROGRAMS[case.mode]
+    name, program_id = program_identity(case)
     context = {"program_name": name, "program_id": program_id, "kv_data": dict(case.program_kv)}
     return standing_for_program(case.mode, context)  # type: ignore[arg-type]
 

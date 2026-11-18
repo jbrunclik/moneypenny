@@ -1,0 +1,580 @@
+# Shared synthetic chat (evals/chats.py): two weeks of Czech cycling coaching.
+# Synthetic person and numbers only. Older turns arrive as the frozen summary.
+mode: sports
+program_kv:
+  cycling:goals: '{"hlavni": "Brevet 200 km v kvetnu (Olomoucka dvoustovka)", "ftp_cil_w": 260, "ftp_aktualni_w":
+    238, "vaha_kg": 81, "vaha_cil_kg": 78}'
+  cycling:preferences: '{"dny": "ut + ct trenazer 60-75 min, so dlouha venku nebo trenazer 2-3 h, ne +
+    po volno", "vybaveni": "Wahoo Kickr Core, Rouvy, Garmin Edge 840 + Forerunner 265", "omezeni": "v
+    utery do 19:30 hlidani deti; leve koleno - tah zvenku pri kadenci a tempu od listopadu, kufry menene
+    v rijnu od oka, sedlo 76,5 cm", "vyziva": "trenovat 60 g sacharidu/h na dlouhych, +10 g tydne"}'
+  cycling:routine: '{"faze": "zakladni zimni blok, tyden 4 ze 4 (deload)", "deload_tyden_4": "ut 2x12
+    @ 210-218 W, ct Z2 45 min, so Z2 1:30 h bez tempa", "po_deloadu": "ramp test", "ut": "sweet spot 3x12
+    min @ 88-92 % FTP (210-218 W), mezi 5 min volne", "ct": "Z2 60 min 150-170 W + 6x30 s vysoka kadence
+    110+ bez zateze", "so": "dlouha Z2 2:30 h 155-175 W, posledni 20 min tempo 195 W", "deload": "tyden
+    4 = -40 % objemu, intenzita stejna"}'
+  cycling:progress: '{"ftp_test_{24_days_ago}": "ramp test 238 W (predtim 229 W v rijnu)", "sweet_spot_3x12":
+    "tyden 1: 208/210/206 W, tyden 2: 212/214/213 W, tyden 3: 212/215/214 W (tep 148/151/153)", "dlouha_z2":
+    "tyden 2: 2:15 h prumer 162 W, tep 138; navrat {8_days_ago}: 71 km 2:21 h, 158 W / NP 169, tep 139",
+    "sobota_indoor": "{yesterday}: 2:00 h Z2 + tempo 195 W @ tep 151, jidlo ~40 g/h", "vaha": "81,4 ->
+    80,9 kg"}'
+  cycling:last_session: '{"datum": "{yesterday}", "typ": "sobota indoor Z2 2 h + tempo (Rouvy)", "vykon":
+    "Z2 165-175 W, tempo 195 W @ tep 151", "pocit": "nohy ok, zaludek ok (2 gely + banan), bolel zadek"}'
+integrations:
+  garmin:
+    state: connected
+    data:
+      get_training_readiness:
+      - score: 64
+        level: MODERATE
+        feedbackShort: WELL_RECOVERED
+      get_sleep_data:
+        dailySleepDTO:
+          sleepTimeSeconds: 24600
+          sleepScores:
+            overall:
+              value: 74
+      get_hrv_data:
+        hrvSummary:
+          lastNightAvg: 52
+          weeklyAvg: 55
+          status: BALANCED
+      get_stats:
+        restingHeartRate: 49
+        bodyBatteryMostRecentValue: 68
+      get_training_status:
+        mostRecentTrainingStatus:
+          latestTrainingStatusData:
+            x:
+              trainingStatus: 4
+      get_activities_by_date:
+      - activityName: Rouvy - Sobota indoor Z2 2h + tempo
+        startTimeLocal: '{yesterday} 08:30:00'
+        duration: 7260
+        averagePower: 171
+        normPower: 176
+        averageHR: 141
+        activityType:
+          typeKey: virtual_ride
+      - activityName: Rouvy - Z2 + kadence
+        startTimeLocal: '{3_days_ago} 20:05:00'
+        duration: 3720
+        averagePower: 164
+        normPower: 171
+        averageHR: 136
+        activityType:
+          typeKey: virtual_ride
+      - activityName: Sweet spot 3x12
+        startTimeLocal: '{5_days_ago} 20:02:00'
+        duration: 4380
+        averagePower: 189
+        normPower: 203
+        averageHR: 147
+        activityType:
+          typeKey: virtual_ride
+      - activityName: Sobotni dlouha - Litovelske Pomoravi
+        startTimeLocal: '{8_days_ago} 09:10:00'
+        duration: 8460
+        averagePower: 158
+        normPower: 169
+        averageHR: 139
+        distance: 71200
+        activityType:
+          typeKey: road_biking
+messages:
+- role: user
+  content: Ahoj, tak jsem zpatky po tom tydnu nemoci. Rymicka uz je pryc, ale jeste mam trochu ucpany
+    nos rano. FTP test jsem delal pred tim, 238 W. Muzu normalne navazat na plan nebo radsi zvolnit? Cil
+    porad plati, ta dvoustovka v kvetnu.
+- role: assistant
+  content: 'Vítej zpátky! Dobrá zpráva je, že 238 W z ramp testu je pořád tvoje aktuální čislo – týden
+    nemoci FTP nesmaže, jen ti chvíli bude chybět svěžest. Ucpaný nos ráno je v pohodě, pokud nemáš teplotu,
+    bolest na hrudi nebo kašel z hloubky (pravidlo „nad krkem ano, pod krkem ne“).
+
+
+    Navrhuju tenhle týden jako návratový:
+
+    - **Úterý:** místo 3×12 sweet spotu dej 2×10 min na 200–205 W (cca 85 % FTP), mezi tím 5 min volně.
+    Když se tep do 3 minut nestabilizuje pod 150, druhý interval zkrať.
+
+    - **Čtvrtek:** Z2 60 min na 150–165 W, kadenční sprinty vynech.
+
+    - **Sobota:** 2 h Z2 venku nebo na trenažéru, bez tempa na konci.
+
+
+    Od dalšího týdne se vrátíme do bloku tam, kde jsme skončili (týden 2 ze 4). Pošli mi po úterku, jak
+    se ti jelo a jaký byl tep v intervalech.
+
+
+    Plán jsem si uložil, ať na něj navážeme.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"cycling:routine","value":"{\"navrat_po_nemoci\":
+      \"tyden {14_days_ago}: ut 2x10 @ 200-205 W, ct Z2 60, so 2 h Z2\"}"}) -> {"ok": true}'
+- role: user
+  content: Uterek odjety. Prvni interval 203 W, tep se vyhoupl na 152 a pak drzel, druhy 204 W ale tep
+    uz 158. Mezi nima jsem mel pocit ze se nedokazu poradne vydychat. Je to normalni?
+- role: assistant
+  content: 'Je to přesně to, co po nemoci čekám: výkon drží (203 a 204 W, to je čistých 85–86 % FTP),
+    ale srdce za něj platí víc – 158 tepů na 204 W je zhruba o 6–8 tepů výš, než jsi měl před nemocí na
+    stejném výkonu. Tomu se říká cardiac drift a po virózách odezní obvykle za 7–10 dní.
+
+
+    To, že se nemůžeš „vydýchat“ v pauze, je ten samý příběh – dýchací svaly a sliznice jsou ještě podrážděné.
+    Dokud to nejde do kašle nebo píchání na hrudi, nic dramatického.
+
+
+    Čtvrtek tedy beze změny: Z2 60 minut, drž tep pod 140 a klidně jeď spodní hranici, 150 W. Sobotu uvidíme
+    podle toho, jak se vyspíš – mrkneme ráno na Garmin.
+
+
+    Uložil jsem si úterní čísla do progresu.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"cycling:progress","value":"{\"navrat_ut\":
+      \"2x10: 203/204 W, tep 152/158 (drift po nemoci)\"}"}) -> {"ok": true}'
+- role: user
+  content: Ctvrtek ok, jel jsem 155 W, tep 134. V sobotu chci jet ven, ma byt 6 stupnu a sucho. Kam bys
+    mi poradil? Nechci nic kopcovitýho, a radsi kolem 2 hodin.
+- role: assistant
+  content: 'Čtvrtek super – 155 W na 134 tepech už je skoro tvoje normální Z2 ekonomika, tělo se vrací
+    rychle.
+
+
+    Na sobotu do 6 °C a po rovině bych z Olomouce jel **Litovelské Pomoraví**: Olomouc – Černovír – Horka
+    nad Moravou – Střeň – Litovel a zpět přes Červenku a Nové Zámky. Je to kolem 65–70 km, převýšení pod
+    200 m, většinou klidné silnice a kus cyklostezky podél Moravy. Pozor jen na úsek u Horky, kde bývá
+    ráno mokro a listí.
+
+
+    Na zimu:
+
+    - Návleky na boty a pod helmu čepici, ruce mrznou nejdřív.
+
+    - Vem si termosku s teplým čajem, studené pití v zimě nikdo nepije a pak dehydratuješ.
+
+    - Drž 150–170 W, na rovině to bude kolem 26–27 km/h.
+
+
+    Po jízdě mi napiš jak se jelo, Garmin data si stáhnu.'
+- role: user
+  content: Odjeto! 71 km, 2:21, prumer 158 W, NP 169, tep 139. Nohy uplne v pohode, akorat v Litovli jsem
+    stal 15 minut v kavarne protoze mi uplne zmrzly prsty na nohou :D
+- role: assistant
+  content: 'Paráda, to je plnohodnotná sobotní Z2! Pro srovnání: před nemocí jsi na dlouhé jezdil průměr
+    162 W s tepem 138, teď 158 W na 139 – rozdíl je v řádu jednotek wattů, takže jsi prakticky zpátky.
+    NP 169 W ukazuje, že jsi jel rovnoměrně, žádné zbytečné výpady.
+
+
+    Zmrzlé prsty jsou klasika pod 8 °C. Na příště:
+
+    1. Neoprenové návleky přes boty (ne jen ponožky), ideálně s předním dílem bez větracích otvorů.
+
+    2. Do bot hliníkovou fólii pod vložku – zní to jako babská rada, ale funguje.
+
+    3. Ponožky ne příliš těsné, škrcení zhorší prokrvení.
+
+
+    Uložil jsem jízdu do progresu. Příští týden se vracíme do bloku: týden 3 ze 4, plný sweet spot 3×12.'
+  metadata:
+    tool_outputs: 'garmin_connect({"action":"get_activities","start_date":"{8_days_ago}","end_date":"{8_days_ago}"})
+      -> [{"activityName":"Sobotni dlouha - Litovelske Pomoravi","duration_min":141,"distance_km":71.2,"averagePower":158,"normPower":169,"averageHR":139,"elevationGain":168}]
+
+      kv_store({"action":"merge","namespace":"sports","key":"cycling:progress","value":"{\"dlouha_z2_navrat\":
+      \"{8_days_ago}: 71 km 2:21 h, 158 W / NP 169, tep 139\"}"}) -> {"ok": true}'
+- role: user
+  content: Hele a jeste me napadlo, nemel bych uz zacit resit vyzivu na tu dvoustovku? Kolik toho mam
+    jist na kole? Ja obvykle vezmu dve tycinky a pak jsem stejne hladovej jak pes.
+- role: assistant
+  content: 'Určitě je čas to začít trénovat – žaludek se na jídlo při výkonu dá naučit stejně jako nohy.
+
+
+    **Kolik:** při Z2 jízdě nad 2 hodiny počítej 60–80 g sacharidů za hodinu od první půlhodiny. Dvě tyčinky
+    (cca 2×40 g) na 2,5 h jsou zhruba 30 g/h, tedy polovina toho, co potřebuješ – proto ten hlad.
+
+
+    **Jak to rozložit:**
+
+    - Každých 20–25 minut něco malého: půlka tyčinky, gel, banán, rýžový koláček.
+
+    - Pití s ionťákem (cca 30 g sacharidů na bidon) pokryje část.
+
+    - Na brevet se vyplatí mít i něco slaného: preclíky, sýrový rohlík, bramborové chipsy v sáčku.
+
+
+    **Trénink:** od soboty na každé dlouhé jízdě jez podle plánu, ne podle hladu. Začni na 60 g/h a každý
+    týden přidej 10 g. Zapisuj si, co sedlo a co ne.
+
+
+    Zapsal jsem si to do preferencí, ať ti to připomenu před sobotou.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"cycling:preferences","value":"{\"vyziva\":
+      \"trenovat 60 g sacharidu/h na dlouhych, +10 g tydne; dnes 2 tycinky = 30 g/h, hlad\"}"}) -> {"ok":
+      true}'
+- role: user
+  content: Super. A k tomu kolenu - minule pri tech kadencnich sprintech me to trochu pichlo zvenku. Neni
+    to nic hroznyho, ale rikam to radsi.
+- role: assistant
+  content: 'Díky, že to hlásíš hned. Píchnutí zvenku kolena při vysoké kadenci často souvisí s iliotibiálním
+    traktem nebo s nastavením kola (sedlo moc vysoko, nebo kufry/kliky otočené tak, že koleno uhýbá ven).
+
+
+    Co s tím teď:
+
+    1. **Kadenční sprinty dělej bez zátěže** – opravdu nejnižší odpor, jde jen o rychlost nohou, ne o
+    výkon. Pokud by to píchlo znovu, přestaň a nahradíme je jednonožnými drilly.
+
+    2. Zkontroluj výšku sedla: v dolní úvrati by koleno mělo být lehce pokrčené (cca 25–35°). Když se
+    boky na sedle houpou, je moc vysoko.
+
+    3. Po jízdě 5 minut válec na boční stranu stehna.
+
+
+    Pokud by bolest přetrvávala i mimo kolo nebo byla ostrá, je to na fyzioterapeuta, ne na trénink přes
+    bolest.
+
+
+    Uložil jsem si to do omezení.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"cycling:preferences","value":"{\"omezeni\":
+      \"v utery do 19:30 hlidani deti, leve koleno citlive na vysoke kadence pod zatezi\"}"}) -> {"ok":
+      true}'
+- role: user
+  content: Takze tenhle tyden ten plny sweet spot? Uterek mi to vychazi az od 20:00, deti usinaj pozdeji.
+    Neni to moc pozde na intervaly?
+- role: assistant
+  content: 'Ano, týden 3 ze 4 – plný sweet spot 3×12 min na 210–218 W.
+
+
+    Intervaly od 20:00 jsou v pohodě, jen pár pravidel, ať pak usneš:
+
+    - Rozjetí 15 minut, ať stihneš skončit do 21:15.
+
+    - Po jízdě sprcha spíš vlažná než horká a lehká večeře se sacharidy (rýže, těstoviny, jogurt s ovesnými
+    vločkami).
+
+    - Kofein ne po 16:00.
+
+
+    Pokud bys v úterý byl po celém dni rozbitý (Garmin body battery pod 30 nebo readiness pod 40), prohoď
+    úterek a čtvrtek – sweet spot ve čtvrtek, Z2 v úterý. Pořadí v týdnu není svaté, důležité je, aby
+    intenzita přišla na odpočaté nohy.'
+- role: user
+  content: 'Uterek: 212, 215, 214 W. Tep 148, 151, 153. Treti interval byl uz fakt boj, posledni dve minuty
+    jsem pocitoval kazdou sekundu. Koleno v pohode.'
+- role: assistant
+  content: 'Výborně! Porovnej s týdnem 2 před nemocí: 212/214/213 W – teď 212/215/214 W, tedy stejně a
+    dokonce o watt líp, a tep ve třetím intervalu 153 je jen o 2–3 tepy nad tím, co jsi měl předtím. Drift
+    po nemoci je pryč.
+
+
+    To, že poslední dvě minuty třetího intervalu bolí, je přesně správně – sweet spot má být „komfortně
+    nepohodlný“. Kdyby ses ale nemohl udržet nad 205 W, byl by to signál ubrat.
+
+
+    Zapsal jsem úterek do progresu a do posledního tréninku. Ve čtvrtek Z2 60 min + 6×30 s kadence bez
+    zátěže – kvůli kolenu fakt nejlehčí převod.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"cycling:progress","value":"{\"sweet_spot_3x12\":
+      \"tyden 1: 208/210/206 W, tyden 2: 212/214/213 W, tyden 3: 212/215/214 W (tep 148/151/153)\"}"})
+      -> {"ok": true}'
+- role: user
+  content: Mimochodem kolik si myslis ze bych mel mit FTP v kvetnu kdyz to takhle pujde dal? A je vubec
+    potreba tolik resit FTP na brevet kde pojedu stejne v Z2?
+- role: assistant
+  content: 'Dobrá otázka. Realisticky, když udržíme tempo bloků (3 týdny zátěž + 1 lehký) a nic tě neskolí,
+    je reálné do května přidat 5–8 % – tedy z 238 W na 250–257 W. Cíl 260 W je ambiciózní, ale ne nereálný,
+    pokud zvládneme i jarní blok s VO2max intervaly.
+
+
+    A proč FTP na brevet, když pojedeš Z2: protože Z2 je definovaná jako procento FTP. Čím vyšší FTP,
+    tím víc wattů máš v té samé „pohodlné“ zóně. Při 238 W je tvoje Z2 do ~175 W, při 255 W do ~190 W.
+    Na 200 km to dělá rozdíl skoro hodinu jízdy a hlavně méně únavy v posledních 50 km, kdy se brevety
+    lámou.
+
+
+    Vedle FTP ale budeme na jaře trénovat i **výdrž** – postupně prodlužovat sobotní jízdy na 4 a 5 hodin
+    – a jídlo. Na brevetu tě spíš zastaví žaludek, zadek nebo hlava než watty.'
+- role: user
+  content: Ctvrtek odjety, 164 W prumer, 6 sprintu, posledni se mi uz kadence rozpadala, mel jsem tam
+    jen 104. Koleno ani nepiplo. V sobotu ale asi nepojedu ven, ma prset a ja nechci zase mrznout. Co
+    mam dat na trenazeru misto 2,5 h? To je na kickru dost nuda.
+- role: assistant
+  content: 'Čtvrtek super, kadence 104 v posledním sprintu je normální – nervosvalová únava, ne problém.
+    A koleno v klidu, to je hlavní.
+
+
+    Na sobotu indoor místo 2:30 h venku navrhuju zkrátit na **2:00 h** (na trenažéru se jede bez pauz
+    a bez sjezdů, takže 2 h indoor ≈ 2:30 h venku) a rozbít to, ať se nezblázníš:
+
+    - 0:00–0:15 rozjetí 140→160 W
+
+    - 0:15–1:30 Z2 165–175 W, každých 15 min 1 min kadence 100+
+
+    - 1:30–1:50 tempo 195 W
+
+    - 1:50–2:00 vyjetí
+
+
+    Na Rouvy si můžeš dát nějakou rovinatou trasu s videem, třeba podél Dunaje, ať je na co koukat. A
+    trénuj jídlo: 60 g sacharidů za hodinu i na trenažéru.
+
+
+    Chceš, abych ti z toho udělal ZWO a nahrál ho rovnou do Rouvy?'
+  metadata:
+    tool_outputs: 'kv_store({"action":"set","namespace":"sports","key":"cycling:last_session","value":"{\"datum\":
+      \"{3_days_ago}\", \"typ\": \"ctvrtecni Z2 60 min + kadencni sprinty\", \"vykon\": \"prumer 164 W,
+      NP 171 W, tep 136\", \"pocit\": \"lehke, koleno ok, 6. sprint uz se kadence rozpadala\"}"}) -> {"ok":
+      true}'
+- role: user
+  content: Jo udelej prosim, at to nemusim klikat. A dej tam tu trasu podel Dunaje jestli to jde.
+- role: assistant
+  content: 'Nahrál jsem ti workout do Rouvy jako **„Sobota indoor Z2 2h + tempo“**: https://riders.rouvy.com/workouts/8812043
+
+
+    Trasu si v Rouvy vybereš až při startu jízdy (workout a trasa se párují v aplikaci) – hledej „Danube
+    Cycle Path – Melk to Krems“, je rovinatá a hezká na koukání. Rouvy pak sjíždí odpor podle workoutu,
+    ne podle stoupání trasy, takže se nemusíš bát kopečků.
+
+
+    Nezapomeň na jídlo: dva gely a ionťák, nebo banán a tyčinka – cílem je 60 g/h. Po jízdě mi napiš,
+    jak to šlo.'
+  metadata:
+    tool_outputs: 'rouvy_workout({"action":"create","name":"Sobota indoor Z2 2h + tempo","content":"<workout_file>...</workout_file>"})
+      -> {"ok": true, "workout_id": "8812043", "url": "https://riders.rouvy.com/workouts/8812043"}'
+- role: user
+  content: Diky! Jeste jedna vec, zena se ptala jestli bych nechtel v breznu na tyden na Mallorku na kolo
+    s kamosema. Nenarusi to nejak plan? Byli bychom tam 7 dni a jezdilo by se kazdy den tak 80-120 km.
+- role: assistant
+  content: 'To je skvělý nápad a plán to nenaruší, naopak – týden na Mallorce v březnu může být nejlepší
+    blok celé přípravy. Jen ho musíme dobře zasadit:
+
+
+    - **Před ním** dáme lehký týden (deload), ať přijedeš odpočatý.
+
+    - **Na místě:** 7 dní po sobě 80–120 km je hodně objemu. Pravidlo: 2 dny jízdy, pak jeden kratší regenerační
+    (50–60 km pomalu nebo kafe-jízda), a na kopcích Sa Calobra nebo Puig Major se nenech vyhecovat kamarády
+    nad prahem.
+
+    - **Po něm** 4–5 dní volna nebo jen lehké jízdy. Tělo si objem přebere až v klidu.
+
+
+    Z hlediska brevetu je to zlato: naučíš se jíst na kole, sedět 5 hodin v sedle a jet den po dni. Napiš
+    mi termín, až ho budete mít, a já podle toho přeskládám jarní bloky.'
+- role: user
+  content: Sobota na trenazeru hotova. Vsechno podle planu, tempo 195 W na konci jsem dal, tep 151. Snedl
+    jsem 2 gely a banan, zaludek ok. Ale zadek me boli jak cert, na trenazeru se clovek nehybe.
+- role: assistant
+  content: 'Paráda, 2 hodiny podle plánu a tempo 195 W na tepu 151 – to sedí na tvou úroveň. Jídlo vyšlo:
+    2 gely (2×25 g) a banán (~27 g) je zhruba 77 g za 2 hodiny, tedy necelých 40 g/h. Příště přidej ionťák
+    do bidonu a jsi na 60.
+
+
+    Bolavý zadek na trenažéru je skoro povinnost – venku se pořád trochu hýbeš, stoupáš ze sedla, indoor
+    sedíš jako přibitý. Tipy:
+
+    1. Každých 10–15 minut 30 sekund ze sedla.
+
+    2. Kvalitní kraťasy s vložkou a krém proti tření (chamois krém).
+
+    3. Pokud to trvá i venku, zvaž bikefitting – a na brevet stejně budeš muset sedlo vyladit.
+
+
+    Zapsal jsem sobotu jako poslední trénink a do progresu. Příští týden je týden 4 – deload, -40 % objemu,
+    intenzita stejná.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"cycling:progress","value":"{\"sobota_indoor\":
+      \"2:00 h Z2 + tempo 195 W @ tep 151, jidlo ~40 g/h\"}"}) -> {"ok": true}
+
+      kv_store({"action":"merge","namespace":"sports","key":"cycling:routine","value":"{\"faze\": \"zakladni
+      zimni blok, tyden 4 ze 4 (deload)\"}"}) -> {"ok": true}'
+- role: user
+  content: Jasne. Takze v deloadu je co presne? Abych to mel napsany a nemusel to hledat.
+- role: assistant
+  content: 'Deload – týden 4 ze 4:
+
+
+    - **Úterý:** sweet spot **2×12 min** na 210–218 W (místo 3×12), mezi 5 min volně. Celkem 60 min.
+
+    - **Čtvrtek:** Z2 **45 min** na 150–165 W, bez sprintů.
+
+    - **Sobota:** Z2 **1:30 h** na 155–170 W, bez tempa. Venku nebo indoor podle počasí.
+
+    - **Neděle + pondělí:** volno, klidně procházka.
+
+
+    Intenzita zůstává, aby tělo „nezapomnělo“, ubíráme objem. Po deloadu udělám s tebou ramp test, ať
+    víme, kde je FTP, a podle něj nastavíme další blok.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"cycling:routine","value":"{\"deload_tyden_4\":
+      \"ut 2x12 @ 210-218 W, ct Z2 45 min, so Z2 1:30 h bez tempa\"}"}) -> {"ok": true}'
+- role: user
+  content: Jeste k tomu brevetu, ja jsem nikdy nejel ve tme. Start je v 6 rano a v kvetnu je jeste sero,
+    a kdyz to pujde blbe tak budu dojizdet i vecer. Jaky svetla? Mam jen takovou blikacku z Lidlu.
+- role: assistant
+  content: 'Blikačka z Lidlu je fajn do města, na brevet potřebuješ víc – a pořadatelé obvykle vyžadují
+    přední i zadní světlo už na startu.
+
+
+    **Přední:**
+
+    - Aspoň 400–800 lumenů s dobře tvarovaným paprskem (ne kulatý kužel, který oslní protijedoucí). Výdrž
+    na střední režim aspoň 6–8 hodin, nebo možnost dobíjet z powerbanky za jízdy.
+
+    - Dobrá volba je světlo s „StVZO“ certifikací – svítí do silnice, ne do očí.
+
+    - Pokud někdy plánuješ i 300 a 400 km, vyplatí se dynamo v náboji, ale na dvoustovku stačí baterie.
+
+
+    **Zadní:** dvě nezávislá zadní světla (jedno na sedlovce, jedno na batohu nebo helmě), aspoň jedno
+    svítící, ne jen blikající – blikání v noci ztěžuje řidičům odhad vzdálenosti.
+
+
+    **Navíc:** reflexní vesta (na brevetu bývá povinná za tmy), reflexní pásky na kotníky – pohyb nohou
+    je pro řidiče nejlepší signál, že před ním je cyklista.
+
+
+    Na jaře udělej aspoň jednu tréninkovou jízdu za šera, ať si vyzkoušíš, jestli ti světlo stačí a jak
+    se jede s brýlemi na čirých sklech.'
+- role: user
+  content: Dobre, svetla obstaram. A s tou vahou - chtel bych do kvetna shodit tak 3 kila, na 78. Muzu
+    drzet nejaky deficit a pritom trenovat? Nechci si zkazit vykon.
+- role: assistant
+  content: 'Jde to, jen pomalu a chytře. 3 kg za 5–6 měsíců je zhruba 0,5 kg za měsíc, to je velmi rozumné
+    tempo, které výkon neohrozí.
+
+
+    **Pravidla:**
+
+    1. **Deficit jen malý**, 300–400 kcal denně. Větší deficit ti sebere sílu v intervalech a zhorší regeneraci.
+
+    2. **Nikdy deficit kolem tréninku.** Den intervalů a dlouhé jízdy = jíš normálně, sacharidy před a
+    po. Deficit drž ve volných dnech (neděle, pondělí) a na lehkých Z2 dnech.
+
+    3. **Bílkoviny 1,6–2 g na kg**, tedy 130–160 g denně, rozložené do 4 jídel. Chrání svaly.
+
+    4. **Na kole jez vždy** podle plánu (60 g/h) – hlad na kole se vrací večer jako „sním celou lednici“.
+
+    5. Važ se 2× týdně ráno a sleduj trend, ne jednotlivé dny.
+
+
+    A hlavně: v posledních 3 týdnech před brevetem už žádný deficit – tam chceme plné zásoby. Zapsal jsem
+    cíl 78 kg do cílů.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"cycling:goals","value":"{\"vaha_cil_kg\":
+      78, \"vaha_tempo\": \"0,5 kg mesicne, deficit 300-400 kcal jen ve volne a lehke dny\"}"}) -> {"ok":
+      true}'
+- role: user
+  content: Dobre rano. Spal jsem docela dobre, ale vcera me na trenazeru jeste pobolivalo to koleno pri
+    tom tempu na konci, neprijemny tah zvenku. Jak jsem na tom dneska podle hodinek?
+- role: assistant
+  content: 'Dobré ráno! Podle Garminu jsi na tom slušně:
+
+    - **Training readiness 64** (střední, „dobře zregenerovaný“)
+
+    - **Spánek 6 h 50 min**, skóre 74
+
+    - **HRV 52 ms**, týdenní průměr 55 – v normálním pásmu (BALANCED)
+
+    - **Klidový tep 49**, body battery 68
+
+
+    Dnes je volný den, takže nic neplánujeme – a dobře, protože s kolenem chci být opatrný. Tah zvenku
+    při tempu je podruhé za dva týdny, tentokrát i pod zátěží, ne jen v kadenci. To už není náhoda:
+
+    1. Dnes a zítra válec na boční stranu stehna a hýžďový sval, 2× denně 5 minut.
+
+    2. V deloadu v úterý jeď sweet spot s kadencí 85–90, ne nad 95.
+
+    3. Změř si výšku sedla (od středu osy středu po horní hranu sedla) a pošli mi ji, plus jestli máš
+    nové kufry nebo boty.
+
+
+    Kdyby tah přetrvával i při chůzi do schodů, objednej se k fyzioterapeutovi, ideálně se zaměřením na
+    cyklisty.'
+  metadata:
+    tool_outputs: garmin_connect({"action":"get_readiness_snapshot"}) -> {"training_readiness":64,"readiness_level":"MODERATE","sleep_hours":6.8,"sleep_score":74,"hrv_last_night_ms":52,"hrv_weekly_avg_ms":55,"hrv_status":"BALANCED","resting_hr":49,"body_battery":68,"recent_activities":[{"name":"Rouvy
+      - Sobota indoor Z2 2h + tempo","date":"{yesterday}","duration_min":121,"avg_power":171,"avg_hr":141}]}
+- role: user
+  content: Tak jsem to zmeril. Sedlo mam 76,5 cm od stredu osy. Boty mam stejny uz 3 roky, ale kufry jsem
+    menil v rijnu, ty stary byly uplne ochozeny. Nove jsem si dal nejak od oka. A jo, pri chuzi do schodu
+    nic, jen na kole.
+- role: assistant
+  content: 'Díky, to je důležité vodítko. Výměna kufrů v říjnu a obtíže od listopadu do sebe zapadají
+    – nové kufry nastavené „od oka“ jsou nejčastější příčina bolesti zvenku kolena u cyklistů.
+
+
+    **Co se pravděpodobně děje:** když je kufr natočený tak, že špička boty míří víc dovnitř, než je tvoje
+    přirozené postavení chodidla, koleno je v každém šlapání tlačené ven a iliotibiální trakt se tře o
+    zevní stranu kolena. Při vyšší kadenci a pod zátěží (tempo na konci jízdy) se to projeví nejdřív.
+
+
+    **Co udělat ještě před úterkem:**
+
+    1. Polož staré boty vedle nových (pokud je máš) a překresli si polohu kufrů. Jestli staré nemáš, nastav
+    kufr tak, aby byl na střed pod kloubem palce a špička boty v přirozeném natočení – sedni si na stůl,
+    nech nohy volně viset a podívej se, kam přirozeně míří špičky.
+
+    2. Plovoucí kufry (Shimano žluté, 6° vůle) dávají koleni prostor najít si vlastní dráhu; pokud máš
+    červené pevné, zvaž výměnu.
+
+    3. Výšku sedla 76,5 cm nech, na tvou výšku sedí.
+
+
+    V úterý jeď deload sweet spot s kadencí 85–90 a sleduj koleno. Když se tah vrátí i po úpravě kufrů,
+    bikefitting před jarním objemem se rozhodně vyplatí – na Mallorce a na brevetu bude v sedle 6–10 hodin
+    denně.
+
+
+    Zapsal jsem si to do omezení.'
+  metadata:
+    tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"cycling:preferences","value":"{\"omezeni\":
+      \"v utery do 19:30 hlidani deti; leve koleno - tah zvenku pri kadenci a tempu od listopadu, kufry
+      menene v rijnu od oka, sedlo 76,5 cm\"}"}) -> {"ok": true}'
+summary: 'Uživatel se vrátil k tréninku po týdnu nemoci s aktuálním FTP 238 W a cílem ujet v květnu dvoustovku
+  (brevet). Asistent mu pro návratový týden upravil a uložil plán:
+
+  - **Úterý:** Místo 3×12 jel 2×10 min na 200–205 W. Uživatel zaznamenal 203 W (tep 152) a 204 W (tep
+  158) s pocitem zadýchání, což asistent vysvětlil jako dočasný *cardiac drift* po viróze a data uložil.
+
+  - **Čtvrtek:** Z2 60 min, uživatel odjel 155 W při tepu 134.
+
+  - **Sobota:** Na doporučení asistenta uživatel vyrazil na rovinatou trasu z Olomouce přes Litovelské
+  Pomoraví (Černovír – Horka nad Moravou – Střeň – Litovel – Červenka – Nové Zámky). Odjel 71 km za 2:21
+  (průměr 158 W, NP 169 W, tep 139) s 15minutovou pauzou v Litovli kvůli zmrzlým prstům. Asistent jízdu
+  uložil do progresu a poradil neoprenové návleky a hliníkovou fólii pod vložku.
+
+
+  Příští týden se uživatel vrátí do rozjetého bloku (týden 3 ze 4, plný sweet spot 3×12).
+
+
+  Uživatel také otevřel téma výživy na dvoustovku, protože mu dosavadní dvě tyčinky nestačily. Asistent
+  doporučil přijímat 60–80 g sacharidů za hodinu (jíst každých 20–25 minut, doplnit ionťákem s cca 30
+  g sacharidů na bidon a zařadit i slané jídlo). Od příští soboty má uživatel na dlouhých jízdách trénovat
+  příjem od 60 g/h a každý týden přidávat 10 g. Asistent si uložil připomenutí před sobotou.
+
+
+  Uživatel nahlásil mírné píchnutí zvenku kolena při minulých kadenčních sprintech. Asistent si to uložil
+  do omezení a doporučil dělat sprinty bez zátěže, zkontrolovat výšku sedla (pokrčení 25–35°) a po jízdě
+  válcovat boční stranu stehna.
+
+
+  V týdnu 3 uživatel odjel úterní sweet spot 3×12 min od 20:00 s výkony 212, 215 a 214 W (tep 148, 151,
+  153). Koleno bylo v pořádku a asistent jízdu uložil s tím, že *cardiac drift* po nemoci zmizel. Ve čtvrtek
+  uživatel odjel Z2 (průměr 164 W) a 6×30 s sprintů (v posledním kadence 104) bez bolesti kolena.
+
+
+  Na dotaz ohledně přínosu FTP pro brevet asistent odhadl květnové FTP na 250–257 W (případně 260 W) a
+  vysvětlil, že vyšší FTP posouvá hranici Z2 (ze ~175 W na ~190 W), což na 200 km ušetří téměř hodinu.
+
+
+  Kvůli dešti požádal uživatel o indoor náhradu za sobotní 2,5h jízdu. Asistent vytvořil a nahrál na Rouvy
+  dvouhodinový trénink **„Sobota indoor Z2 2h + tempo“** (https://riders.rouvy.com/workouts/8812043),
+  doporučil k němu trasu *„Danube Cycle Path – Melk to Krems“* a připomněl trénink příjmu 60 g sacharidů/h.
+
+
+  Uživatel také zmínil možný 7denní cyklistický výlet na Mallorcu v březnu (80–120 km denně). Asistent
+  ho schválil s plánem lehkého týdne před odjezdem, volnějšího dne po každých dvou dnech jízdy na místě
+  a 4–5 dnů volna či lehkých jízd po návratu.
+
+
+  **Otevřené úkoly:** Uživatel má po sobotní jízdě napsat, jak proběhla, a dodat přesný termín Mallorcy
+  pro úpravu jarních bloků.'

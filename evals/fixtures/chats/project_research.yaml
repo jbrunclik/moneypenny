@@ -1,0 +1,622 @@
+# Shared synthetic chat (evals/chats.py): a multi-day Czech discussion about
+# replacing a gas boiler with a heat pump - earlier research turns with their
+# sources, a comparison artifact, and canned web pages for follow-up lookups.
+# Synthetic house, people and numbers; the sites below are fictional.
+artifacts:
+- title: Srovnání tepelných čerpadel
+  html: "<table>\n  <tr><th>Model</th><th>Výkon při -7 °C</th><th>SCOP (35 °C)</th><th>Hluk venkovní jednotky</th><th>Cena\
+    \ s montáží</th></tr>\n  <tr><td>Aerona T9</td><td>7,8 kW</td><td>4,6</td><td>48 dB(A)</td><td>285\
+    \ 000 Kč</td></tr>\n  <tr><td>Thermalis HP10</td><td>8,4 kW</td><td>4,4</td><td>52 dB(A)</td><td>262\
+    \ 000 Kč</td></tr>\n  <tr><td>Nordhaus Split 8</td><td>7,2 kW</td><td>4,9</td><td>45 dB(A)</td><td>318\
+    \ 000 Kč</td></tr>\n</table>\n"
+web:
+  results:
+  - url: https://www.dotace-bydleni.example.cz/tepelna-cerpadla-2026
+    title: 'Dotace na tepelné čerpadlo 2026: výše podpory a podmínky'
+    snippet: Od 1. ledna 2026 činí podpora na tepelné čerpadlo vzduch-voda pro rodinný dům 90 000 Kč,
+      při výměně kotle na uhlí bonus...
+  - url: https://www.teplo-poradna.example.cz/clanky/hluk-venkovni-jednotky
+    title: Jak hlučné je tepelné čerpadlo? Limity a vzdálenost od souseda
+    snippet: Hygienický limit pro noc je 40 dB u fasády souseda. Venkovní jednotka s 48 dB(A) potřebuje
+      zhruba 6-8 m odstupu...
+  - url: https://forum.stavime-dum.example.cz/t/tc-v-dome-ze-70-let-zkusenosti
+    title: TČ v domě ze 70. let - zkušenosti po první zimě
+    snippet: Máme kostku z roku 1974, zateplenou 12 cm, radiátory jsme vyměnili jen ve dvou pokojích.
+      Spotřeba za zimu 6 800 kWh...
+  pages:
+    https://www.dotace-bydleni.example.cz/tepelna-cerpadla-2026: 'Dotace na tepelné čerpadlo 2026: výše
+      podpory a podmínky
+
+
+      Domů › Dotace › Vytápění › Tepelná čerpadla
+
+
+      Aktualizováno 3. listopadu 2026 | Autor: redakce | Čtení na 6 minut
+
+
+      Přihlaste se k odběru novinek a nezmeškejte žádnou výzvu! [Odebírat]
+
+
+      Program podpory úsporného bydlení pokračuje i v roce 2026. Pro majitele rodinných domů, kteří chtějí
+      nahradit stávající zdroj tepla tepelným čerpadlem, se ale od ledna mění pravidla i výše příspěvku.
+      Shrnujeme, na kolik peněz můžete dosáhnout a co musíte splnit.
+
+
+      Kolik dostanete
+
+      Tepelné čerpadlo vzduch-voda pro vytápění a ohřev vody v rodinném domě: 90 000 Kč (do prosince 2025
+      to bylo 100 000 Kč).
+
+      Tepelné čerpadlo země-voda: 140 000 Kč.
+
+      Tepelné čerpadlo jen pro ohřev vody: 30 000 Kč.
+
+      Bonus za výměnu kotle na uhlí nebo dřevo (1. a 2. emisní třídy): +40 000 Kč. Při výměně plynového
+      kotle se bonus NEPOSKYTUJE.
+
+      Bonus pro rodiny s dětmi: +10 000 Kč na každé nezaopatřené dítě v trvalém bydlišti, maximálně však
+      50 % celkových způsobilých výdajů.
+
+
+      Podmínky
+
+      - Dům musí být zkolaudovaný a sloužit k trvalému bydlení.
+
+      - Tepelné čerpadlo musí být na seznamu výrobků a technologií (SVT) programu.
+
+      - Instalaci musí provést firma zapsaná v seznamu odborných dodavatelů.
+
+      - Žádost lze podat před realizací i po ní, nejpozději však do 2 let od uvedení do provozu.
+
+      - Ke žádosti se dokládá odborný posudek (energetický specialista) a u domů nad 200 m2 i průkaz energetické
+      náročnosti.
+
+
+      Pozor na zálohovou variantu
+
+      Domácnosti s nižšími příjmy mohou využít zálohové vyplácení až 100 % podpory předem. Pro ostatní
+      se dotace vyplácí až po doložení realizace, obvykle do 3–4 měsíců od podání kompletní dokumentace.
+
+
+      Nejčastější chyby
+
+      Podle zkušeností poradců žadatelé nejčastěji chybují v tom, že objednají čerpadlo, které na seznamu
+      SVT není, nebo nechají instalaci udělat firmou bez zápisu. Takovou žádost úřad zamítne bez možnosti
+      nápravy.
+
+
+      Kalkulačka dotace
+
+      Zadejte typ zdroje, počet dětí a velikost domu a zjistěte orientační výši podpory. [Spočítat dotaci]
+
+
+      Související články
+
+      › Fotovoltaika 2026: co se mění
+
+      › Zateplení fasády a dotace: kolik ušetříte
+
+      › Výměna kotlů: poslední výzva pro kotlíkové dotace
+
+
+      Diskuze (47) | Sdílet | Tisk
+
+
+      © 2026 Dotace & bydlení. Informace mají orientační charakter, závazné jsou podmínky aktuální výzvy.
+
+      '
+    https://www.teplo-poradna.example.cz/clanky/hluk-venkovni-jednotky: 'Jak hlučné je tepelné čerpadlo?
+      Limity a vzdálenost od souseda
+
+
+      Teplo poradna › Články › Tepelná čerpadla
+
+
+      Hluk venkovní jednotky je nejčastější důvod sousedských sporů kolem tepelných čerpadel. Výrobci
+      přitom uvádějí čísla, která se těžko porovnávají: jednou akustický výkon (Lw), jindy akustický tlak
+      (Lp) v určité vzdálenosti.
+
+
+      Co říkají předpisy
+
+      Hygienický limit pro chráněný venkovní prostor stavby (zjednodušeně u fasády souseda) je ve dne
+      50 dB a v noci (22:00–6:00) 40 dB. V noci čerpadlo topí nejvíc a ventilátor běží na vyšší otáčky,
+      proto je rozhodující noční limit.
+
+
+      Akustický výkon vs. tlak
+
+      Údaj v katalogu „48 dB(A)“ bývá akustický výkon ve zkušebních podmínkách. Akustický tlak klesá se
+      vzdáleností zhruba o 6 dB s každým zdvojnásobením vzdálenosti. Orientačně: jednotka s akustickým
+      výkonem 48 dB(A) má ve vzdálenosti 1 m tlak kolem 40 dB, ve 4 m kolem 28 dB. Jednotka s 55 dB(A)
+      potřebuje k dodržení nočního limitu vzdálenost zhruba 6–8 m.
+
+
+      Pozor: v létě přesto jiné hodnoty
+
+      Některé výrobci uvádějí hluk jen v „tichém režimu“, který omezuje výkon. Při -10 °C ale čerpadlo
+      tichý režim často opouští, aby dům udrželo v teple.
+
+
+      Tipy pro umístění
+
+      - Neumisťujte jednotku do rohu mezi dvě zdi ani pod okno ložnice (zvuk se odráží).
+
+      - Antivibrační podložky a pružné připojení potrubí snižují přenos chvění do konstrukce.
+
+      - Protihlukové kryty fungují, ale nesmí omezit proudění vzduchu.
+
+      - Zeptejte se dodavatele na hlukovou studii – seriózní firmy ji udělají zdarma.
+
+
+      Názor odborníka
+
+      „Nejčastěji vidím jednotky postavené na úzké straně domu, metr od plotu souseda. Pak nepomůže ani
+      nejtišší model,“ říká Ing. Pavel Šťastný, energetický auditor.
+
+
+      Diskuze (12)
+
+      Martin K.: My máme 52 dB a soused si stěžoval jen jednou, když byl mráz -15.
+
+      Lucie: Doporučuju tichý režim na noc, u nás to šlo nastavit v aplikaci.
+
+      '
+    https://forum.stavime-dum.example.cz/t/tc-v-dome-ze-70-let-zkusenosti: 'TČ v domě ze 70. let - zkušenosti
+      po první zimě
+
+
+      Fórum Stavíme dům › Vytápění › Tepelná čerpadla
+
+
+      jirka_k74 | 14. 4. 2026
+
+      Ahoj, slíbil jsem, že po první zimě napíšu zkušenosti. Máme kostku z roku 1974, 140 m2, zateplenou
+      12 cm EPS (2019), nová okna, strop do půdy 20 cm vaty. Původně plynový kotel, spotřeba plynu cca
+      16 MWh ročně.
+
+
+      Loni v září jsme dali TČ vzduch-voda 8 kW, monoblok, zásobník 200 l. Radiátory jsme vyměnili jen
+      ve dvou pokojích (obývák a dětský pokoj) za větší, jinak původní litinové.
+
+
+      Spotřeba elektřiny na TČ za topnou sezónu (říjen–duben): 6 800 kWh včetně ohřevu vody. Teplota vody
+      do radiátorů většinu času 40–45 °C, v lednu při -12 °C až 52 °C. Doma 21–22 °C bez problému.
+
+
+      Co bych udělal jinak: nechal bych si dřív udělat výpočet tepelných ztrát. Firma nám nejdřív nabízela
+      12 kW, což by bylo předimenzované a cyklovalo by to.
+
+
+      petra_olm | 14. 4. 2026
+
+      Díky za sdílení! Kolik vás to stálo i s dotací?
+
+
+      jirka_k74 | 15. 4. 2026
+
+      @petra_olm Celkem 278 tisíc s montáží a radiátory, dotace byla tehdy 100 tisíc (letos už je to myslím
+      míň). Elektřinu máme na sazbě D56d, takže s nízkým tarifem 20 hodin denně.
+
+
+      tomas_r | 16. 4. 2026
+
+      Pozor na to, že u litinových radiátorů to funguje, dokud je dům zateplený. U nás v nezatepleném
+      domě jsme museli jet na 55 °C a SCOP spadl pod 3.
+
+
+      jirka_k74 | 16. 4. 2026
+
+      @tomas_r Přesně tak, bez zateplení bych do toho nešel.
+
+      '
+messages:
+- role: user
+  content: Ahoj, premyslime ze bychom vymenili plynovej kotel za tepelny cerpadlo. Mame barak z roku 1976,
+    kostka, 150 m2, zatepleni 10 cm jsme delali pred 6 lety, okna plastova. Kotli je 18 let. Ma to vubec
+    smysl a kolik to tak stoji?
+- role: assistant
+  content: 'U zatepleného domu se 150 m² a 18 let starým kotlem to smysl dává – kotel se blíží konci životnosti
+    a zateplení s novými okny je přesně ten předpoklad, aby čerpadlo jelo efektivně.
+
+
+    **Orientační čísla:**
+
+    - Tepelné čerpadlo vzduch-voda 8–10 kW s montáží: **250–320 tisíc Kč**, podle značky a toho, jestli
+    se mění radiátory.
+
+    - Dotace na vzduch-voda pro rodinný dům: v roce 2025 to bylo 100 tisíc, aktuální výši ověřím.
+
+    - Spotřeba elektřiny u podobného domu: 6–9 MWh ročně na topení i vodu.
+
+
+    **Klíčové otázky, než půjdeme dál:**
+
+    1. Jakou máte roční spotřebu plynu? Z ní spočítáme tepelné ztráty a velikost čerpadla.
+
+    2. Jaké máte radiátory – litinové, deskové? A kolik stupňů na ně kotel v zimě posílá?
+
+    3. Kde by stála venkovní jednotka a jak daleko je soused?
+
+
+    Z toho se dá udělat docela přesný odhad.'
+- role: user
+  content: Plyn mame kolem 17 MWh rocne, ale to je i vareni a ohrev vody. Radiatory jsou deskovy, v obyvaku
+    a v loznici vetsi. Kotel na ne v zime posila tak 55-60 stupnu, kdyz je mraz. Venkovni jednotka by
+    sla na zahradu za dum, soused je tak 9 metru.
+- role: assistant
+  content: 'Díky, to jsou dobrá data.
+
+
+    **Tepelná ztráta:** 17 MWh plynu, z toho vaření ~0,5 MWh a ohřev vody ~3 MWh, zbývá ~13,5 MWh na topení.
+    U kotle s účinností ~90 % to dělá zhruba 12 MWh tepla ročně. Pro dům ve vaší oblasti to odpovídá tepelné
+    ztrátě kolem **6–7 kW** při -12 °C. Čerpadlo **8 kW** (výkon při -7 °C) je tedy rozumná velikost –
+    nabídky na 12 kW by byly předimenzované.
+
+
+    **Radiátory:** 55–60 °C při mrazu je pro čerpadlo hodně. Čerpadlo jede efektivně do ~45 °C. Dobrá
+    zpráva: kotel posílá vysokou teplotu často jen proto, že je tak nastavený. Zkuste letos v zimě postupně
+    snižovat teplotu vody a sledovat, jestli je doma pořád teplo. Když 45–50 °C stačí, radiátory měnit
+    nemusíte.
+
+
+    **Hluk:** 9 m od souseda je pohodlná vzdálenost, s běžnou jednotkou noční limit splníte.
+
+
+    **Spotřeba:** ~12 MWh tepla / SCOP ~3,5–4 = **3–3,5 MWh elektřiny na topení** + ~1 MWh na vodu.'
+- role: user
+  content: To zni dobre. Muzes mi najit nejaky konkretni modely co by sly? Ideálně neco co se da v CR
+    dobre servisovat.
+- role: assistant
+  content: 'Našel jsem tři modely ve vašem výkonovém pásmu (7–9 kW při -7 °C), které mají v ČR servisní
+    síť a jsou na seznamu výrobků pro dotace. Shrnul jsem je do tabulky: {artifact_0}
+
+
+    - **Aerona T9** – dobrý poměr cena/výkon, 48 dB(A), servis přes síť partnerů po celé ČR.
+
+    - **Thermalis HP10** – nejlevnější, ale nejhlasitější (52 dB(A)) a horší SCOP.
+
+    - **Nordhaus Split 8** – nejúspornější (SCOP 4,9) a nejtišší, ale nejdražší a split vyžaduje chladivové
+    potrubí do domu (montáž jen certifikovaným technikem).
+
+
+    Pro váš dům bych se díval hlavně na Aeronu T9 nebo Nordhaus – rozdíl ve spotřebě mezi SCOP 4,6 a 4,9
+    je zhruba 200 kWh ročně, tedy 1 000–1 500 Kč. Cenový rozdíl 33 tisíc se tak vrátí za 20+ let, takže
+    Aerona vychází líp, pokud vám nevadí o 3 dB hlasitější jednotka.'
+  metadata:
+    tool_outputs: 'research({"question":"tepelne cerpadlo vzduch-voda 8 kW servis CR seznam SVT","queries":["tepelne
+      cerpadlo 8 kW vzduch voda srovnani 2026","tepelne cerpadlo servisni sit CR"]}) -> {"sources":[{"url":"https://www.teplo-poradna.example.cz/srovnani-tc-2026","title":"Srovnání
+      tepelných čerpadel 2026"},{"url":"https://www.aerona.example.cz/t9","title":"Aerona T9 - technické
+      parametry"},{"url":"https://www.nordhaus.example.cz/split-8","title":"Nordhaus Split 8"}],"excerpt":"Aerona
+      T9: 7,8 kW při A-7/W35, SCOP 4,6, Lw 48 dB(A)... Thermalis HP10: 8,4 kW, SCOP 4,4, 52 dB(A)... Nordhaus
+      Split 8: 7,2 kW, SCOP 4,9, 45 dB(A), chladivový okruh..."}'
+    artifacts: '{artifact_0} v1 ''Srovnání tepelných čerpadel'''
+- role: user
+  content: Diky. Klara se boji ze to bude hlucny, mame loznici na zahradu. Je 48 dB hodne?
+- role: assistant
+  content: 'Obava je pochopitelná, ale 48 dB(A) v katalogu neznamená, že uslyšíte 48 dB v ložnici.
+
+
+    To číslo je obvykle **akustický výkon** zdroje. Ve skutečnosti, co slyšíte, je **akustický tlak**,
+    který klesá se vzdáleností – zhruba o 6 dB s každým zdvojnásobením vzdálenosti. Jednotka s 48 dB(A)
+    má v 1 m kolem 40 dB a ve 4 m kolem 28 dB, což je úroveň šepotu. Přes zavřené plastové okno (útlum
+    25–30 dB) uvnitř prakticky nic.
+
+
+    Pro ložnici na zahradu doporučuju:
+
+    - jednotku **nedávat pod okno ložnice** a ne do rohu mezi zdi (zvuk se odráží),
+
+    - antivibrační podložky,
+
+    - tichý noční režim, pokud ho model má.
+
+
+    Pokud by vás to i tak trápilo, Nordhaus se 45 dB je o 3 dB tišší – to je pro ucho rozdíl zhruba jako
+    „o třetinu tišší“.'
+  metadata:
+    tool_outputs: research({"question":"hluk venkovni jednotky tepelneho cerpadla 48 dB vzdalenost","queries":["hluk
+      tepelne cerpadlo limit noc soused"]}) -> {"sources":[{"url":"https://www.teplo-poradna.example.cz/clanky/hluk-venkovni-jednotky","title":"Jak
+      hlučné je tepelné čerpadlo? Limity a vzdálenost od souseda"}],"excerpt":"Noční limit 40 dB u fasády
+      souseda... akustický tlak klesá o 6 dB s každým zdvojnásobením vzdálenosti... 48 dB(A) v 1 m kolem
+      40 dB, ve 4 m kolem 28 dB..."}
+- role: user
+  content: Ok to je uklidnujici. Dalsi vec, jak je to s tou elektrinou, my mame ted sazbu D02d. Musime
+    menit?
+- role: assistant
+  content: 'Ano, změna sazby se rozhodně vyplatí. Při tepelném čerpadle máte nárok na **sazbu D56d**,
+    která má **nízký tarif 22 hodin denně** (vs. D02d s jedním tarifem po celý den). Čerpadlo pak jede
+    skoro celý den za levnější elektřinu.
+
+
+    **Co je potřeba:**
+
+    1. Revizní zpráva elektroinstalace a doklad o instalaci TČ (dodá montážní firma).
+
+    2. Žádost u distributora o změnu sazby – vyřizuje se obvykle online, trvá 2–4 týdny.
+
+    3. Výměna elektroměru za dvoutarifní (zdarma, dělá distributor).
+
+    4. Může být potřeba navýšit hlavní jistič (např. z 3×20 A na 3×25 A) – to už se platí, cca 500 Kč
+    za ampér.
+
+
+    **Úspora:** při ~4,5 MWh ročně na čerpadlo a cenovém rozdílu mezi tarify kolem 1,5–2 Kč/kWh ušetříte
+    ročně 7–9 tisíc oproti jednotarifu. Ověřte si i u svého dodavatele, kolik u něj D56d stojí – ceny
+    se dost liší.'
+- role: user
+  content: A kolik bychom celkove usetrili rocne oproti plynu? Platime ted za plyn tak 32 tisic rocne.
+- role: assistant
+  content: 'Hrubý odhad (s cenami zhruba jako letos):
+
+
+    **Teď:** plyn 17 MWh ≈ **32 000 Kč** ročně (podle vás, včetně stálých plateb).
+
+
+    **S čerpadlem:**
+
+    - Elektřina pro TČ: ~4,5 MWh (topení + voda) × ~4,5 Kč/kWh v nízkém tarifu D56d ≈ **20 000 Kč**
+
+    - Vaření: plyn byste zrušili a vařili na indukci (~0,5 MWh elektřiny, ~2 500 Kč), nebo plyn nechali
+    jen na vaření – pak ale platíte stálou platbu za plyn (~3 000 Kč ročně), což se nevyplatí.
+
+    - Stálé platby za plyn odpadnou, ale za D56d jsou vyšší stálé platby za elektřinu (navíc ~2–3 tisíce
+    ročně).
+
+
+    **Celkem:** zhruba **24–25 tisíc** ročně, tedy úspora **7–8 tisíc ročně**.
+
+
+    Při investici ~280 tisíc minus dotace 90–100 tisíc se to vrací zhruba za **23–27 let** jen z úspor.
+    Hlavní argument pro TČ ve vaší situaci ale je, že kotel stejně brzy budete měnit – a nový plynový
+    kotel by stál 80–120 tisíc. Pak se rozdíl vrací za ~12–15 let.'
+- role: user
+  content: Hm, to je delsi navratnost nez jsem cekal. Neni lepsi dat novej plynovej kotel a pockat?
+- role: assistant
+  content: 'Je to legitimní volba a záleží, co je pro vás důležité. Pro obě strany:
+
+
+    **Pro nový kondenzační plynový kotel:**
+
+    - Investice 80–120 tisíc, žádné velké stavební zásahy.
+
+    - Vysoké teploty do radiátorů nevadí.
+
+    - Plyn je teď relativně levný.
+
+
+    **Proti:**
+
+    - Ceny plynu jsou závislé na emisních povolenkách – od roku 2027 se začíná zpoplatňovat CO₂ z vytápění
+    (systém ETS2), což může zvednout cenu plynu o 10–20 %.
+
+    - Kotel vydrží 15–20 let, pak budete řešit to samé a dotace už možná nebudou.
+
+    - Stálé platby za plyn i elektřinu.
+
+
+    **Pro TČ teď:**
+
+    - Dotace je ještě dostupná (i když nižší než loni).
+
+    - Dům je zateplený – ideální stav.
+
+    - Možnost kombinace s fotovoltaikou do budoucna (pak je úspora výrazně vyšší).
+
+
+    Moje doporučení: pokud kotel ještě funguje, máte čas. Udělejte letos v zimě ten test s nižší teplotou
+    vody do radiátorů – pokud dům vytopíte na 45–50 °C, TČ bude efektivní a dává smysl. Pokud ne, je to
+    signál, že by se musely měnit radiátory a investice roste.'
+- role: user
+  content: Jo to s tim testem udelam. Jak mam presne nastavit kotel? Mame Vaillant ecoTEC, nevim kde se
+    to nastavuje.
+- role: assistant
+  content: 'U Vaillant ecoTEC (většina modelů z let 2005–2012) se teplota vody do topení nastavuje na
+    předním panelu kotle:
+
+
+    1. Najdi otočný knoflík nebo tlačítka se symbolem **radiátoru** (ne kohoutku – ten je pro teplou vodu).
+
+    2. Teď je asi nastavený na 60–70 °C. Snižuj ho **po 5 °C týdně**: 55 → 50 → 45.
+
+    3. Pokud máte prostorový termostat nebo ekvitermní regulaci (čidlo venku), kotel teplotu mění sám
+    podle počasí – pak se nastavuje „topná křivka“ v menu regulátoru, ne na kotli. Napiš mi typ termostatu
+    a poradím.
+
+    4. Každý týden si zapisuj: venkovní teplotu ráno a večer, teplotu doma v obýváku a ložnici, a jestli
+    bylo někde chladno.
+
+
+    Cílem je zjistit, při jaké nejnižší teplotě vody je doma ještě 21 °C i při mrazu. Až přijde první
+    týden pod -5 °C, je to ten pravý test.'
+- role: user
+  content: Mame termostat Honeywell T4, ten je asi jen obycejnej. Nastavil jsem kotel na 55. Uvidime.
+    Jinak jeste jak je to s tou dotaci, da se o ni zadat az po instalaci?
+- role: assistant
+  content: 'Honeywell T4 je běžný prostorový termostat (zapíná/vypíná kotel podle teploty v místnosti),
+    takže nastavení na kotli je správná cesta. 55 °C je dobrý začátek.
+
+
+    K dotaci, jak ji znám z loňska: žádost se dala podat **před realizací i po ní**, nejpozději do 2 let
+    od uvedení do provozu. Podmínky, které platily a nejspíš platí dál:
+
+    - čerpadlo musí být na **seznamu výrobků a technologií (SVT)**,
+
+    - montáž musí udělat firma ze **seznamu odborných dodavatelů**,
+
+    - je potřeba **odborný posudek** energetického specialisty.
+
+
+    Výše podpory se ale mění – loni to bylo 100 tisíc na vzduch-voda, letos to může být jinak. Než budete
+    objednávat, ověřte si aktuální podmínky výzvy, ať nepřijdete o peníze kvůli formalitě (typicky model
+    mimo seznam SVT).'
+- role: user
+  content: Dobre. Mimochodem, posilam tabulku Klare a ona se pta, jestli ten Nordhaus split neni nejakej
+    problem s tim chladivem, jestli to neni nebezpecny nebo jestli to nepotrebuje nejaky revize.
+- role: assistant
+  content: 'Dobrá otázka od Kláry. Split systém (jako Nordhaus Split 8) má venkovní a vnitřní jednotku
+    propojené **chladivovým potrubím**, monoblok (Aerona, Thermalis) má celý chladivový okruh venku a
+    do domu vede jen voda.
+
+
+    **Co to znamená pro split:**
+
+    - **Montáž** může dělat jen technik s certifikátem pro práci s chladivy (F-plyny). Seriózní firma
+    ho má, ale je dobré se zeptat.
+
+    - **Revize těsnosti:** záleží na množství chladiva. U menších domácích splitů (pod ~3 kg chladiva
+    R32) povinná pravidelná kontrola těsnosti obvykle odpadá; u větších je kontrola 1× ročně. Zeptejte
+    se dodavatele, kolik chladiva jejich model má.
+
+    - **Bezpečnost:** chladivo R32 je mírně hořlavé, ale v domácích objemech a se správnou montáží je
+    riziko velmi nízké. Vnitřní jednotka nemá být v malé uzavřené místnosti bez větrání.
+
+
+    **Monoblok** je jednodušší na legislativu – žádná chladivová instalace v domě. Za to má o něco větší
+    venkovní jednotku a v mrazech musí chránit vodu v potrubí před zamrznutím (glykol nebo ochranná funkce).
+
+
+    Pro vás bych proto spíš volil monoblok (Aerona T9) – jednodušší servis a žádné starosti s F-plyny.'
+- role: user
+  content: 'Super, to dava smysl. Takze zatim: test s teplotou vody, a pak poptat 2-3 firmy na Aeronu
+    T9. Co se mam firem ptat at me neodrbou?'
+- role: assistant
+  content: 'Přesně tak, dobrý plán. Otázky pro firmy:
+
+
+    **Návrh:**
+
+    1. „Uděláte výpočet tepelných ztrát, nebo jen odhad podle m²?“ – chcete výpočet (nebo aspoň výpočet
+    ze spotřeby plynu, jak jsme dělali).
+
+    2. „Jaký výkon navrhujete a proč?“ – pokud nabídnou 12 kW+, ptejte se proč; 8 kW vychází správně.
+
+    3. „Jakou teplotu vody do radiátorů počítáte a je potřeba měnit radiátory?“
+
+
+    **Dotace:**
+
+    4. „Je model na seznamu SVT a jste v seznamu odborných dodavatelů?“ – chtějte to písemně.
+
+    5. „Pomůžete s žádostí a posudkem?“ – mnoho firem to dělá v ceně.
+
+
+    **Cena a servis:**
+
+    6. „Co přesně je v ceně?“ – zásobník vody, akumulační nádrž, elektro práce, revize, uvedení do provozu,
+    odvoz starého kotle.
+
+    7. „Kdo dělá servis a za kolik? Jak rychle přijedete v zimě při poruše?“
+
+    8. „Jaká je záruka na kompresor?“ – dobré značky 5–7 let.
+
+
+    Porovnávejte nabídky položku po položce, ne jen celkovou cenu. Chceš, abych z toho udělal checklist
+    do Todoistu?'
+- role: user
+  content: Jo, hod to do todoistu jako ukol s tema otazkama v popisu.
+- role: assistant
+  content: 'Přidáno do Todoistu: **Poptat 2–3 firmy na TČ Aerona T9** – v popisu všech 8 otázek (výpočet
+    ztrát, výkon, teplota vody, SVT + odborný dodavatel, pomoc s dotací, co je v ceně, servis, záruka
+    na kompresor). Bez termínu, ať ho dáte až po zimním testu.'
+  metadata:
+    tool_outputs: todoist({"action":"create_task","content":"Poptat 2-3 firmy na TC Aerona T9","project":"Inbox","description":"1.
+      vypocet tepelnych ztrat 2. navrzeny vykon (8 kW) 3. teplota vody / radiatory 4. SVT + odborny dodavatel
+      pisemne 5. pomoc s dotaci a posudkem 6. co je v cene 7. servis a dojezd v zime 8. zaruka na kompresor"})
+      -> {"ok":true,"task":{"id":"t901"}}
+- role: user
+  content: Posledni dotaz na dneska. Fotovoltaiku jsi zminoval. Dava smysl ji resit soucasne nebo az pozdeji?
+- role: assistant
+  content: 'Řešit **současně** to smysl dává v plánování, s realizací klidně později:
+
+
+    **Proč plánovat spolu:**
+
+    - FVE v zimě vyrobí málo (prosinec–leden 5–10 % roční výroby), takže na samotné topení moc nepomůže.
+    Ale na ohřev vody v létě a na jaře/podzim ano.
+
+    - Některé čerpadla umí řízení podle přebytků FVE (Aerona T9 má „PV ready“ vstup), takže je dobré to
+    vědět při výběru.
+
+    - Elektrikář může rovnou připravit rozvaděč na střídač a nemusí se to dělat dvakrát.
+
+
+    **Proč realizaci později:**
+
+    - Rozpočet – FVE 5–7 kWp s baterií je dalších 200–300 tisíc.
+
+    - Dotace na FVE jsou samostatný program, můžete na ně žádat zvlášť.
+
+
+    **Praktický postup:** při poptávce TČ se zeptejte, jestli je model PV ready a jestli firma dělá i
+    FVE nebo s někým spolupracuje. Pak se k tomu můžete vrátit za rok, až uvidíte reálnou spotřebu čerpadla.'
+- role: user
+  content: Tak prvni tyden testu za nama. Kotel na 55, venku rano -3 az +4. Doma obyvak 21,5, loznice
+    20, detsky pokoj jen 19,5 a deti si stezuji. Ten detsky pokoj je v rohu domu na severu. Mam jit na
+    50 nebo to nechat?
+- role: assistant
+  content: 'Díky za data, to je přesně to, co potřebujeme. Shrnutí: při 55 °C a venku -3 až +4 °C je obývák
+    i ložnice v pohodě, ale **dětský pokoj (severní roh) je limitující místnost** – 19,5 °C už je na hraně.
+
+
+    **Co z toho plyne:**
+
+    - Na 50 °C bych teď nešel – dětský pokoj by klesl pod 19 °C a pořádný mráz ještě nepřišel.
+
+    - Zkontroluj v dětském pokoji termostatickou hlavici: musí být na maximu (5), ne na 3, a nesmí být
+    zakrytá závěsem nebo nábytkem.
+
+    - Odvzdušni radiátor v dětském pokoji – vzduch v radiátoru snižuje výkon o desítky procent.
+
+
+    **Pro čerpadlo to znamená:** dětský pokoj je kandidát na **výměnu radiátoru za větší** (nebo nízkoteplotní
+    s ventilátorem), jako to udělal ten pán z fóra s domem ze 70. let. Je to jeden radiátor za 5–8 tisíc
+    s montáží, ne celý dům.
+
+
+    Pokračuj na 55 °C a pošli mi data z prvního týdne, kdy bude ráno pod -5 °C. Zapisuj si k tomu i čas,
+    kdy kotel nejvíc běží – podle toho poznáme, jestli dům v noci hodně chladne.'
+summary: 'Uživatel zvažoval výměnu 18 let starého plynového kotle za tepelné čerpadlo v zatepleném domě
+  z roku 1976 (150 m², zateplení 10 cm před 6 lety, plastová okna). Roční spotřeba plynu činila 17 MWh
+  (včetně vaření a ohřevu vody), deskové radiátory jely v mrazech na 55–60 °C. Venkovní jednotka by stála
+  na zahradě (9 m od souseda, směrem k ložnici).
+
+
+  Asistent potvrdil, že výměna dává smysl (odhad ceny 250–320 tis. Kč, dotace v roce 2025 byla 100 tis.
+  Kč). Tepelnou ztrátu vypočítal na 6–7 kW (při -12 °C) a doporučil 8kW čerpadlo se spotřebou ~4,5 MWh
+  elektřiny ročně. V tabulce ({artifact_0}) představil tři modely: **Aerona T9** (48 dB(A), nejlepší poměr
+  cena/výkon), **Thermalis HP10** (52 dB(A), nejlevnější) a **Nordhaus Split 8** (SCOP 4,9, 45 dB, nejdražší).
+
+
+  Asistent rozptýlil obavy partnerky Kláry z hluku (48 dB(A) odpovídá ve 4 m cca 28 dB, přes zavřená okna
+  téměř neslyšitelné) a doporučil umístění mimo roh a okno ložnice, antivibrační podložky a noční režim.
+  U elektřiny doporučil přechod ze sazby D02d na **D56d** (úspora 7–9 tis. Kč/rok), což vyžaduje revizi,
+  žádost u distributora (2–4 týdny), výměnu elektroměru a případné navýšení jističe (např. z 3×20 A na
+  3×25 A za cca 500 Kč/A).
+
+
+  **Otevřené úkoly:** Uživatel by měl v zimě otestovat snížení teploty vody na 45–50 °C a ověřit ceny
+  D56d u dodavatele; asistent přislíbil ověřit aktuální výši dotace.
+
+
+  Uživatel se dotázal na celkovou roční úsporu oproti současným nákladům na plyn (32 000 Kč/rok). Asistent
+  odhadl roční náklady s tepelným čerpadlem na 24–25 tis. Kč (20 tis. Kč za elektřinu v sazbě D56d při
+  ~4,5 Kč/kWh, ~2,5 tis. Kč za vaření na indukci místo plynu, o 2–3 tis. Kč vyšší stálé platby za elektřinu),
+  což znamená úsporu 7–8 tis. Kč ročně. Návratnost při investici ~280 tis. Kč (minus dotace 90–100 tis.
+  Kč) vyčíslil na 23–27 let, případně 12–15 let oproti pořízení nového plynového kotle (80–120 tis. Kč).
+
+
+  Uživatel následně zvažoval, zda není lepší koupit nový plynový kotel a počkat. Asistent shrnul argumenty:
+  u plynu hrozí od roku 2027 zdražení o 10–20 % kvůli emisním povolenkám (ETS2), zatímco u TČ je nyní
+  dostupná dotace a možnost budoucí kombinace s fotovoltaikou. Doporučil nejprve provést zimní test s
+  nižší teplotou vody (45–50 °C).
+
+
+  Uživatel s testem souhlasil a požádal o návod pro svůj kotel **Vaillant ecoTEC**. Asistent popsal postup:
+  na předním panelu u symbolu radiátoru postupně snižovat teplotu ze 60–70 °C po 5 °C týdně (55 → 50 →
+  45 °C) a zapisovat venkovní i vnitřní teploty (obývák, ložnice), ideálně v mrazech pod -5 °C, aby se
+  ověřilo udržení 21 °C. Pokud mají prostorový termostat nebo ekvitermní regulaci, nastavuje se topná
+  křivka v regulátoru.
+
+
+  **Otevřené úkoly:** Uživatel provede zimní test kotle Vaillant ecoTEC a případně upřesní typ svého termostatu.'

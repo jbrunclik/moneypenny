@@ -1,0 +1,547 @@
+# Shared synthetic chat (evals/chats.py): a week of Czech family logistics -
+# school pickups, shopping, a weekend trip - with Todoist and Calendar.
+# Synthetic family (Petr, Klara, Anicka 9, Matej 6) and places only.
+integrations:
+  todoist:
+    projects:
+    - id: p1
+      name: Inbox
+    - id: p2
+      name: Rodina
+    - id: p3
+      name: Nakup
+    sections:
+    - id: s1
+      project_id: p2
+      name: Skola
+    tasks:
+    - id: t1
+      content: Zaplatit skolni vylet Anicka (450 Kc)
+      project_id: p2
+      section_id: s1
+      due:
+        date: '{in_2_days}'
+      priority: 3
+    - id: t2
+      content: Prezuvky Matej - vetsi velikost (31)
+      project_id: p2
+      due:
+        date: '{in_3_days}'
+    - id: t3
+      content: Objednat STK Octavia
+      project_id: p2
+      due:
+        date: '{in_9_days}'
+    - id: t4
+      content: Mleko, chleba, jogurty
+      project_id: p3
+    - id: t5
+      content: Darek pro Ondru (narozeniny v sobotu)
+      project_id: p2
+      due:
+        date: '{in_4_days}'
+      priority: 2
+    - id: t6
+      content: Vratit knihy do knihovny
+      project_id: p1
+      due:
+        date: '{yesterday}'
+      checked: true
+    - id: t7
+      content: Probrat s Klarou kolo pro Anicku (Kubikes 24, bazar)
+      project_id: p2
+      due:
+        date: '{in_6_days}'
+    - id: t8
+      content: Maslo, tortily, sunka, syr na pizzu, mrkev, jablka
+      project_id: p3
+  calendar:
+    state: connected
+    calendars:
+    - id: rodina.novakovi@example.com
+      summary: Rodina
+      primary: true
+    events:
+    - id: e1
+      summary: Anicka - keramika
+      start:
+        dateTime: '{tomorrow}T15:30:00+01:00'
+      end:
+        dateTime: '{tomorrow}T17:00:00+01:00'
+      location: DDM Olomouc, Trida 17. listopadu
+    - id: e2
+      summary: Matej - plavani
+      start:
+        dateTime: '{in_2_days}T16:00:00+01:00'
+      end:
+        dateTime: '{in_2_days}T16:45:00+01:00'
+      location: Plavecky stadion Olomouc
+    - id: e3
+      summary: Klara - porada v Brne
+      start:
+        dateTime: '{in_2_days}T09:00:00+01:00'
+      end:
+        dateTime: '{in_2_days}T17:30:00+01:00'
+    - id: e4
+      summary: Narozeninova oslava Ondra
+      start:
+        dateTime: '{in_4_days}T14:00:00+01:00'
+      end:
+        dateTime: '{in_4_days}T17:00:00+01:00'
+      location: Bongo Olomouc
+    - id: e5
+      summary: Chata Jeseniky
+      start:
+        date: '{in_11_days}'
+      end:
+        date: '{in_13_days}'
+    - id: e6
+      summary: Zubar Matej
+      start:
+        dateTime: '{in_8_days}T08:20:00+01:00'
+      end:
+        dateTime: '{in_8_days}T08:50:00+01:00'
+      location: MUDr. Hrubá, Zikova 3
+    - id: ev101
+      summary: Vyzvednout Mateje a Anicku z druziny
+      start:
+        dateTime: '{in_2_days}T15:20:00+01:00'
+      end:
+        dateTime: '{in_2_days}T15:35:00+01:00'
+    - id: ev102
+      summary: Vyzvednout Anicku z druziny (keramika)
+      start:
+        dateTime: '{tomorrow}T15:10:00+01:00'
+      end:
+        dateTime: '{tomorrow}T15:25:00+01:00'
+    - id: ev103
+      summary: Vyzvednout Klaru - hlavni nadrazi (vlak 18:40)
+      start:
+        dateTime: '{in_2_days}T18:20:00+01:00'
+      end:
+        dateTime: '{in_2_days}T19:00:00+01:00'
+messages:
+- role: user
+  content: Ahoj, potrebuju si trochu udelat poradek v tomhle tydnu. Klara bude ve stredu cely den v Brne,
+    takze ja budu mit deti. Co mame v kalendari?
+- role: assistant
+  content: 'Tenhle týden máte v kalendáři Rodina:
+
+
+    - **Úterý** 15:30–17:00 – Anička, keramika (DDM, třída 17. listopadu)
+
+    - **Středa** 9:00–17:30 – Klára, porada v Brně
+
+    - **Středa** 16:00–16:45 – Matěj, plavání (plavecký stadion)
+
+    - **Sobota** 14:00–17:00 – narozeninová oslava Ondry (Bongo)
+
+
+    Ve středu tedy budeš mít Matěje na plavání v 16:00 a Aničku zřejmě ze školy/družiny. Chceš, abych
+    ti středu rozplánoval, nebo něco přidal do kalendáře?'
+  metadata:
+    tool_outputs: google_calendar({"action":"list_events","time_min":"{today}T00:00:00+01:00","time_max":"{in_6_days}T23:59:00+01:00"})
+      -> {"count":4,"events":[{"summary":"Anicka - keramika","start":"...T15:30:00+01:00"},{"summary":"Klara
+      - porada v Brne","start":"...T09:00:00+01:00"},{"summary":"Matej - plavani","start":"...T16:00:00+01:00"},{"summary":"Narozeninova
+      oslava Ondra","start":"...T14:00:00+01:00"}]}
+- role: user
+  content: Jo rozplanuj mi tu stredu. Anicka konci ve 13:40, ale ma druzinu do 16:30. Matej konci ve 12:00
+    a druzinu ma taky. Ja pracuju z domu, ale ve 14:00 mam call ktery muze trvat hodinu. A plavani je
+    az na druhym konci mesta, autem tak 20 minut.
+- role: assistant
+  content: 'Tady je návrh na středu:
+
+
+    - **do 14:00** – pracuješ, obě děti v družině
+
+    - **14:00–15:00** – call (s rezervou do 15:15)
+
+    - **15:20** – vyzvednout Matěje z družiny (Anička tam může zůstat do 16:30)
+
+    - **15:35** – vyrazit s Matějem na plavání, ať jste tam v 15:55 a stihne se převléct
+
+    - **16:00–16:45** – plavání; ty můžeš počkat s notebookem v hale
+
+    - **16:50** – zpátky
+
+
+    Problém je Anička: družina končí v 16:30 a vy budete na plavání. Možnosti:
+
+    1. Vyzvednout Aničku taky v 15:20 a vzít ji s sebou na plavání (vezme si úkoly nebo knížku).
+
+    2. Domluvit se s někým, kdo ji vyzvedne (babička, sousedi).
+
+    3. Anička půjde ze školy domů sama, pokud to už s ní děláte.
+
+
+    Která varianta? Pak ti to zapíšu do kalendáře.'
+- role: user
+  content: Asi ji vezmu s sebou, bude reptat ale prezije to :D Zapis mi to tam prosim, vyzvednuti v 15:20
+    obou deti.
+- role: assistant
+  content: 'Zapsáno do kalendáře Rodina na středu:
+
+    - **15:20–15:35** Vyzvednout Matěje a Aničku z družiny
+
+
+    Plavání v 16:00 už tam je. Připomenu: Anička si vezme něco na čtení, v hale bývá teplo, takže lehčí
+    oblečení.'
+  metadata:
+    tool_outputs: google_calendar({"action":"create_event","summary":"Vyzvednout Mateje a Anicku z druziny","start_time":"{in_2_days}T15:20:00+01:00","end_time":"{in_2_days}T15:35:00+01:00"})
+      -> {"action":"create_event","event":{"id":"ev101","summary":"Vyzvednout Mateje a Anicku z druziny","start":"{in_2_days}T15:20:00+01:00"}}
+- role: user
+  content: Diky. A jeste, Anicka ma do patku zaplatit ten skolni vylet, 450 korun. A Matej potrebuje nove
+    prezuvky, ty stary jsou mu male, ma ted 31. Muzes to dat do todoistu?
+- role: assistant
+  content: 'Přidal jsem do Todoistu do projektu Rodina:
+
+    - **Zaplatit školní výlet Anička (450 Kč)** – sekce Škola, termín pátek, priorita vysoká
+
+    - **Přezůvky Matěj – větší velikost (31)** – termín čtvrtek
+
+
+    Přezůvky by šly koupit cestou z plavání ve středu, na Šantovce je Deichmann i Decathlon.'
+  metadata:
+    tool_outputs: 'todoist({"action":"create_task","content":"Zaplatit skolni vylet Anicka (450 Kc)","project":"Rodina","section":"Skola","due_date":"{in_2_days}","priority":3})
+      -> {"ok":true,"task":{"id":"t1"}}
+
+      todoist({"action":"create_task","content":"Prezuvky Matej - vetsi velikost (31)","project":"Rodina","due_date":"{in_3_days}"})
+      -> {"ok":true,"task":{"id":"t2"}}'
+- role: user
+  content: Hele a co mam koupit Ondrovi k narozeninam? Bude mu 7, je to Matejuv kamos ze skolky, ted je
+    ve prvni tride. Mama psala ze hodne stavi lego a ma rad dinosaury. Rozpocet tak do 500.
+- role: assistant
+  content: 'Do 500 Kč pro sedmiletého fanouška Lega a dinosaurů:
+
+
+    1. **LEGO Creator 3v1 dinosaurus** (např. menší sady kolem 300–500 Kč) – postaví si T-rexe a pak z
+    toho samého třeba pterodaktyla. Kombinuje obě vášně.
+
+    2. **LEGO Jurassic World menší sada** (např. s jedním dinosaurem a autíčkem) – ty nejmenší bývají
+    do 500 Kč.
+
+    3. **Vykopávková sada** – sádrový blok, ve kterém vykopává kostru dinosaura, 200–350 Kč. Zabaví ho
+    na celé odpoledne.
+
+    4. **Kniha** – obrázková encyklopedie dinosaurů pro děti, kolem 300 Kč.
+
+
+    Když si nejsi jistý, co už má, vykopávková sada je bezpečná sázka – tu většinou nemají. Mám ti dát
+    dárek do Todoistu s termínem na pátek?'
+- role: user
+  content: Jo dej, a napis tam ten tip s tim legem 3v1.
+- role: assistant
+  content: 'Přidáno do Todoistu: **Dárek pro Ondru (narozeniny v sobotu)** – termín pátek, priorita střední,
+    v popisu: „LEGO Creator 3v1 dinosaurus, do 500 Kč; záloha: vykopávková sada“.'
+  metadata:
+    tool_outputs: 'todoist({"action":"create_task","content":"Darek pro Ondru (narozeniny v sobotu)","project":"Rodina","due_date":"{in_4_days}","priority":2,"description":"LEGO
+      Creator 3v1 dinosaurus, do 500 Kc; zaloha: vykopavkova sada"}) -> {"ok":true,"task":{"id":"t5"}}'
+- role: user
+  content: Mimochodem, za dva tydny jedeme na chatu do Jeseniku na prodlouzeny vikend, pátek az nedele.
+    Klara chtela abych udelal seznam co sbalit pro deti. Je tam jen kamna na drevo a teplou vodu ohrivame
+    bojlerem, tak at nezapomeneme nic dulezityho.
+- role: assistant
+  content: 'Seznam na chatu v Jeseníkách (pátek–neděle, listopad/prosinec, kamna na dřevo):
+
+
+    **Oblečení pro každé dítě:**
+
+    - teplé pyžamo + ponožky na spaní (v noci kamna vyhasnou)
+
+    - 2× termoprádlo, 2× mikina/fleece
+
+    - zimní bunda, nepromokavé kalhoty, čepice, rukavice (2 páry – jedny vždycky zmoknou)
+
+    - pevné boty do terénu + bačkory/přezůvky na chatu
+
+    - spodní prádlo a ponožky na 3 dny + rezerva
+
+
+    **Hygiena a zdraví:**
+
+    - zubní kartáčky, pasta, ručníky
+
+    - dětský Paralen/Nurofen, teploměr, náplasti
+
+    - krém na rty a obličej proti mrazu
+
+
+    **Zábava:**
+
+    - deskovky, karty, pastelky, knížky
+
+    - čelovky pro děti (tma je v 16:30)
+
+
+    **Na chatu:**
+
+    - podpalovač, sirky, noviny
+
+    - prodlužka, nabíječky
+
+    - jídlo na první večer (obchod v obci bývá v pátek odpoledne zavřený)
+
+
+    Mám to dát do Todoistu jako úkol s podúkoly, nebo ti to stačí takhle?'
+- role: user
+  content: Staci takhle, dam to Klare. Ted mi prosim zkontroluj, jestli mame v kalendari ten pobyt na
+    chate, nejsem si jisty jestli ho tam Klara dala.
+- role: assistant
+  content: 'Ano, je tam: **Chata Jeseníky** – celodenní událost od pátku do neděle (za 11 dní). Klára
+    ho zadala.'
+  metadata:
+    tool_outputs: google_calendar({"action":"list_events","time_min":"{in_10_days}T00:00:00+01:00","time_max":"{in_14_days}T00:00:00+01:00","query":"chata"})
+      -> {"count":1,"events":[{"summary":"Chata Jeseniky","start_date":"{in_11_days}","end_date":"{in_13_days}"}]}
+- role: user
+  content: Super. Uplne jina vec, ve ctvrtek musim objednat STK na Octavii, platnost konci za mesic. Je
+    lepsi to delat online nebo zavolat?
+- role: assistant
+  content: 'Na většině stanic v Olomouci se dá objednat online a je to rychlejší než volat – vybereš si
+    termín, dostaneš potvrzení do mailu a nemusíš čekat ve frontě na telefonu. Pár tipů:
+
+    - STK můžeš udělat až **měsíc před** koncem platnosti a nová platnost se počítá od konce té staré,
+    takže nic neztratíš.
+
+    - Vezmi **velký technický průkaz**, malý technický a doklad o zaplacení povinného ručení.
+
+    - Ve stejný den se většinou dělá i měření emisí, dej vědět, jestli to máte jako jednu stanici.
+
+    - Ranní termíny (7:00–8:00) bývají nejrychlejší.
+
+
+    Mám ti dát do Todoistu úkol „Objednat STK Octavia“ na čtvrtek?'
+- role: user
+  content: Jo dej to tam, ale dej to az na pristi tyden, tenhle tyden to nestiham.
+- role: assistant
+  content: 'Přidáno do Todoistu: **Objednat STK Octavia** – projekt Rodina, termín příští čtvrtek.'
+  metadata:
+    tool_outputs: todoist({"action":"create_task","content":"Objednat STK Octavia","project":"Rodina","due_date":"{in_9_days}"})
+      -> {"ok":true,"task":{"id":"t3"}}
+- role: user
+  content: A co mam z ukolu na dneska? Nechci na neco zapomenout.
+- role: assistant
+  content: 'Na dnešek v Todoistu nemáš nic s termínem, ale je tam jeden **po termínu**:
+
+    - **Vrátit knihy do knihovny** (Inbox, termín byl včera)
+
+
+    A bez termínu v projektu Nákup: **Mléko, chleba, jogurty**.
+
+
+    V kalendáři na dnešek nic. Pokud půjdeš kolem knihovny, můžeš to vzít s nákupem najednou.'
+  metadata:
+    tool_outputs: todoist({"action":"get_tasks","filter":"today | overdue"}) -> {"count":1,"tasks":[{"id":"t6","content":"Vratit
+      knihy do knihovny","project":"Inbox","due":"{yesterday}"}]}
+- role: user
+  content: Knihy jsem vratil uz vcera, jen jsem to neodskrtl. Hod to prosim jako hotovy.
+- role: assistant
+  content: Hotovo, úkol **Vrátit knihy do knihovny** je označený jako splněný.
+  metadata:
+    tool_outputs: todoist({"action":"complete_task","task_id":"t6"}) -> {"ok":true}
+- role: user
+  content: Klara mi psala ze Matej ma pristi tyden v utery rano zubare, 8:20 u Hrube. Ja ho budu vezt,
+    takze do skoly prijde pozdeji. Je to tam?
+- role: assistant
+  content: 'Ano, v kalendáři je **Zubař Matěj** příští úterý 8:20–8:50, MUDr. Hrubá, Zikova 3.
+
+
+    Do školy tak dorazí zhruba v 9:10–9:15. Doporučuju dát vědět paní učitelce předem přes Bakaláře nebo
+    lísteček v žákovské, ať nečekají. Mám ti dát do Todoistu připomínku „Omluvit Matěje – zubař“ na pondělí?'
+  metadata:
+    tool_outputs: google_calendar({"action":"list_events","time_min":"{in_7_days}T00:00:00+01:00","time_max":"{in_9_days}T00:00:00+01:00","query":"zubar"})
+      -> {"count":1,"events":[{"summary":"Zubar Matej","start":"{in_8_days}T08:20:00+01:00","location":"MUDr.
+      Hruba, Zikova 3"}]}
+- role: user
+  content: Ne to neni treba, napisu to rovnou do bakalaru. Jinak vecer budu varit a nevim co, deti chtej
+    porad jen palacinky. Neco rychlyho do 30 minut, co sni i Matej, ten je hroznej vybirava.
+- role: assistant
+  content: 'Pár rychlých jídel, která vybíravé děti většinou snědí:
+
+
+    1. **Kuřecí kousky v kukuřičných lupíncích** z trouby (20 min) – kuřecí prsa nakrájet na nudličky,
+    obalit ve vajíčku a rozdrcených lupíncích, péct 15 min na 200 °C. K tomu brambory nebo rýže a mrkev
+    na kolečka.
+
+    2. **Těstoviny s rajčatovou omáčkou a schovanou zeleninou** (25 min) – do omáčky nastrouhat mrkev
+    a cuketu, rozmixovat. Matěj nic nepozná.
+
+    3. **Domácí pizza na tortile** (15 min) – tortila, protlak, šunka, sýr, 8 minut v troubě. Děti si
+    ji můžou samy obložit, pak to i víc jedí.
+
+    4. **Bramboráčky s jogurtem** – když chtějí „něco jako palačinky“.
+
+
+    Pro vybíravé děti platí, že když si můžou samy něco nandat nebo obložit, sní víc. Pizza na tortile
+    je v tom nejlepší.'
+- role: user
+  content: Pizza na tortile vyhrala :D Jeste me napadlo, Anicka chce na Vanoce novy kolo. Je ji 9, meri
+    137 cm. Jaky velikosti kol? A je lepsi koupit novy nebo bazar?
+- role: assistant
+  content: 'Pro 137 cm vysokou devítiletou dívku:
+
+
+    **Velikost:** kola 24" jsou pro výšku zhruba 125–145 cm, takže 24" je ideální. Kdyby rychle rostla,
+    některé modely 26" mají malý rám (XS) od cca 140 cm – ale na 137 cm by to bylo zatím velké a hůř by
+    ho ovládala.
+
+
+    **Nové vs. bazar:**
+
+    - **Bazar** dává u dětských kol smysl – vyrostou z nich za 2–3 roky. Dobré značky (Kubikes, Woom,
+    Early Rider, Specialized) drží cenu, takže ho pak zase prodáte. Zkontroluj brzdy, řetěz a přehazovačku,
+    ideálně si s ním projeď.
+
+    - **Nové** dává smysl, pokud chcete lehké kvalitní kolo (Kubikes 24 nebo Woom 5 váží kolem 8–9 kg
+    – na tom dítě jezdí úplně jinak než na 13 kg supermarketovém kole). Nová kolem 9–14 tisíc.
+
+
+    Váha kola je u dětí to nejdůležitější: lehké kolo = víc jezdí a víc je to baví.'
+- role: user
+  content: Dobre, podivam se na bazar na kubikes. Muzes mi pripomenout v nedeli vecer at to proberu s
+    Klarou?
+- role: assistant
+  content: 'Přidáno do Todoistu: **Probrat s Klárou kolo pro Aničku (Kubikes 24, bazar)** – termín neděle
+    19:00, projekt Rodina.'
+  metadata:
+    tool_outputs: todoist({"action":"create_task","content":"Probrat s Klarou kolo pro Anicku (Kubikes
+      24, bazar)","project":"Rodina","due_string":"nedele 19:00"}) -> {"ok":true,"task":{"id":"t7"}}
+- role: user
+  content: Muzes mi pomoct napsat zpravu do tridni skupiny? Chci se zeptat jestli by nekdo nemohl ve stredu
+    vzit Anicku z druziny na keramiku, ja budu s Matejem na plavani. Ale at to neni moc vlezly, ja ty
+    rodice moc neznam.
+- role: assistant
+  content: 'Pozor, keramiku má Anička v kalendáři v **úterý** 15:30, ne ve středu – ve středu je jen Matějovo
+    plavání a vyzvednutí obou dětí v 15:20, které jsme naplánovali. Jestli myslíš úterek, tady je návrh
+    zprávy:
+
+
+    > Dobrý den všem, nechci obtěžovat, ale zkusím to: nešel by někdo z vás v úterý kolem 15:15 s dětmi
+    z družiny směrem k DDM na třídě 17. listopadu? Anička tam má keramiku od 15:30 a já to ten den nestíhám.
+    Moc by mi to pomohlo, rád to někdy oplatím. Díky! Petr (táta Aničky)
+
+
+    Je to krátké, nabízí protislužbu a nikoho neoslovuje jménem, takže se nikdo necítí tlačený. Pokud
+    jsi myslel opravdu středu, dej vědět a upravím to.'
+- role: user
+  content: Aha mas pravdu, utery. Ale v utery to zvladnu sam, tak to neposilam. Diky ze sis vsiml.
+- role: assistant
+  content: Není zač. Úterní keramika tedy zůstává na tobě (15:30–17:00) a středa na plavání s oběma dětmi.
+    Kdybys chtěl, můžu ti na úterý dát do kalendáře i vyzvednutí Aničky z družiny ve 15:10, ať na to nezapomeneš
+    v práci.
+- role: user
+  content: 'Jo dej tam to vyzvednuti v utery, 15:10. A jeste nakup - do Nakupu pridej prosim: maslo, tortily,
+    sunka, syr na pizzu, mrkev, a jablka. Mleko a chleba uz tam je.'
+- role: assistant
+  content: 'Hotovo:
+
+    - Kalendář Rodina, úterý **15:10–15:25 Vyzvednout Aničku z družiny (keramika)**
+
+    - Todoist, projekt Nákup: **máslo, tortily, šunka, sýr na pizzu, mrkev, jablka** (k už existujícímu
+    „Mléko, chleba, jogurty“)
+
+
+    Tortily, šunka a sýr jsou na tu pizzu – takže dnešní večeře je pokrytá, jen to nakoupit.'
+  metadata:
+    tool_outputs: 'google_calendar({"action":"create_event","summary":"Vyzvednout Anicku z druziny (keramika)","start_time":"{tomorrow}T15:10:00+01:00","end_time":"{tomorrow}T15:25:00+01:00"})
+      -> {"action":"create_event","event":{"id":"ev102","summary":"Vyzvednout Anicku z druziny (keramika)"}}
+
+      todoist({"action":"create_task","content":"Maslo, tortily, sunka, syr na pizzu, mrkev, jablka","project":"Nakup"})
+      -> {"ok":true,"task":{"id":"t8"}}'
+- role: user
+  content: A kdy je presne ta oslava u Ondry a kde? Klara rikala ze mame Mateje dovezt a vyzvednout, chci
+    vedet kolik mam casu mezi tim.
+- role: assistant
+  content: 'Oslava Ondry je v **sobotu 14:00–17:00 v Bongu Olomouc** (dětský zábavní park u Šantovky).
+    Pokud Matěje dovezeš na 14:00 a vyzvedneš v 17:00, máš mezi tím 3 hodiny – akorát na nákup dárku,
+    kdybys ho do pátku nestihl, nebo kafe s Aničkou.
+
+
+    Dárek pro Ondru máš v Todoistu na pátek (LEGO Creator 3v1 dinosaurus). V Bongu bývá v sobotu odpoledne
+    plno, parkování je lepší v garážích Šantovky.'
+  metadata:
+    tool_outputs: google_calendar({"action":"get_event","event_id":"e4"}) -> {"action":"get_event","event":{"id":"e4","summary":"Narozeninova
+      oslava Ondra","start":"{in_4_days}T14:00:00+01:00","end":"{in_4_days}T17:00:00+01:00","location":"Bongo
+      Olomouc"}}
+- role: user
+  content: Posledni vec, Klara se ve stredu vraci z Brna vlakem, prijizdi v 18:40 na hlavak. Stihnu ji
+    vyzvednout s detma po plavani?
+- role: assistant
+  content: 'Stihneš s rezervou. Plavání končí v 16:45, Matěj se převlékne a usuší zhruba do 17:05, domů
+    jste kolem 17:30. Na hlavní nádraží je to z domu autem asi 10–15 minut, takže vyrazit v 18:20 stačí
+    – i se zpožděním vlaku.
+
+
+    Mezi tím máte hodinu na večeři; kdyby děti byly po plavání hladové, vezmi jim do haly svačinu (rohlík,
+    jablko), ať nejsou v autě nevrlé. Mám zapsat do kalendáře „Vyzvednout Kláru – hlavní nádraží 18:40“?'
+- role: user
+  content: Jo zapis to tam, at na to nezapomenu, budu po tom plavani uplne hotovej.
+- role: assistant
+  content: 'Zapsáno do kalendáře Rodina na středu: **18:20–19:00 Vyzvednout Kláru – hlavní nádraží (vlak
+    18:40)**. Středa tedy vypadá takhle: 14:00 call, 15:20 družina (obě děti), 16:00 plavání, 18:20 nádraží.
+    Zvládneš to!'
+  metadata:
+    tool_outputs: google_calendar({"action":"create_event","summary":"Vyzvednout Klaru - hlavni nadrazi
+      (vlak 18:40)","start_time":"{in_2_days}T18:20:00+01:00","end_time":"{in_2_days}T19:00:00+01:00"})
+      -> {"action":"create_event","event":{"id":"ev103","summary":"Vyzvednout Klaru - hlavni nadrazi (vlak
+      18:40)"}}
+summary: 'Uživatel řešil organizaci týdne, protože Klára měla být ve středu (9:00–17:30) na poradě v Brně.
+  Asistent vypsal události z kalendáře *Rodina* (úterý 15:30–17:00 Anička keramika v DDM, třída 17. listopadu;
+  středa 16:00–16:45 Matěj plavání na plaveckém stadionu; sobota 14:00–17:00 oslava Ondry v Bongu).
+
+
+  Na žádost uživatele asistent rozplánoval středu s ohledem na jeho práci z domu, call (14:00–15:00),
+  konec školy (Anička 13:40, Matěj 12:00, družina do 16:30) a 20minutovou cestu autem na plavání. Uživatel
+  se rozhodl vyzvednout obě děti v 15:20 a vzít Aničku s sebou. Asistent tuto událost (15:20–15:35 *Vyzvednout
+  Matěje a Aničku z družiny*) zapsal do kalendáře *Rodina*.
+
+
+  Dále asistent přidal do Todoistu (projekt *Rodina*) dva úkoly:
+
+  - *Zaplatit školní výlet Anička (450 Kč)* (sekce *Škola*, termín pátek, vysoká priorita).
+
+  - *Přezůvky Matěj – větší velikost (31)* (termín čtvrtek), s tipem na nákup v Deichmannu či Decathlonu
+  na Šantovce.
+
+
+  Nakonec uživatel hledal dárek do 500 Kč pro 7letého Ondru (1. třída, kamarád ze školky), který má rád
+  Lego a dinosaury. Asistent navrhl LEGO Creator 3v1 dinosaurus, LEGO Jurassic World, vykopávkovou sadu
+  (200–350 Kč) nebo encyklopedii (kolem 300 Kč). Otevřeným úkolem zůstává výběr dárku a potvrzení, zda
+  jej má asistent přidat do Todoistu na pátek.
+
+
+  Uživatel potvrdil přidání dárku do Todoistu. Asistent proto vytvořil úkol **Dárek pro Ondru (narozeniny
+  v sobotu)** s termínem v pátek, střední prioritou a popisem *„LEGO Creator 3v1 dinosaurus, do 500 Kč;
+  záloha: vykopávková sada“*.
+
+
+  Dále uživatel požádal o seznam věcí pro děti na prodloužený víkend na chatě v Jeseníkách (pátek–neděle,
+  za dva týdny), kde jsou pouze kamna na dřevo a bojler. Asistent připravil přehled oblečení, hygieny,
+  léků, zábavy a vybavení na chatu. Uživatel seznam předá Kláře a nechtěl jej ukládat do Todoistu. Na
+  jeho žádost asistent také zkontroloval kalendář a potvrdil, že celodenní událost **Chata Jeseníky**
+  (pátek–neděle, za 11 dní) tam již Klára zadala.
+
+
+  Nakonec uživatel řešil objednání STK pro Octavii (platnost končí za měsíc). Asistent doporučil online
+  rezervaci v Olomouci (ideálně ranní termíny 7:00–8:00) a připomněl nutnost vzít velký i malý technický
+  průkaz a doklad o povinném ručení. Na přání uživatele pak asistent přidal do Todoistu (projekt *Rodina*)
+  úkol **Objednat STK Octavia** s termínem na příští čtvrtek, protože tento týden to uživatel nestíhá.
+
+
+  Uživatel se ptal na dnešní úkoly. Asistent zjistil, že v Todoistu je po termínu úkol **Vrátit knihy
+  do knihovny** (Inbox) a bez termínu položky v projektu *Nákup* (**Mléko, chleba, jogurty**); kalendář
+  byl na dnešek prázdný. Na žádost uživatele asistent označil vrácení knih jako splněné.
+
+
+  Dále uživatel ověřoval zubaře pro Matěje na příští úterý. Asistent potvrdil událost **Zubař Matěj**
+  (8:20–8:50, MUDr. Hrubá, Zikova 3) s tím, že do školy dorazí kolem 9:10–9:15. Uživatel odmítl připomínku
+  na omluvenku s tím, že ji napíše rovnou do Bakalářů.
+
+
+  Pro večerní vaření do 30 minut pro vybíravého Matěje asistent navrhl několik rychlých jídel, z nichž
+  uživatel vybral **domácí pizzu na tortile**.
+
+
+  Nakonec uživatel řešil vánoční kolo pro devítiletou Aničku (137 cm). Asistent doporučil velikost 24"
+  (pro 125–145 cm) a zvážení bazarového nákupu u lehkých značek (Kubikes, Woom, Early Rider, Specialized).
+  Uživatel se rozhodl podívat po bazarovém kole Kubikes. Asistent mu proto na neděli v 19:00 přidal do
+  Todoistu (projekt *Rodina*) úkol **Probrat s Klárou kolo pro Aničku (Kubikes 24, bazar)**.'
