@@ -18,6 +18,7 @@ Fixture shape (YAML):
         state: connected          # or: disconnected (expired) / not_connected
         data: {get_hrv_data: {...}, get_training_readiness: [...], ...}
         workouts: [<raw workout, as get_workout_by_id returns it>]
+      calendar: {state, calendars, events}   # evals/fake_calendar.py
 
 ``actions`` on each fake records every mutating call, shown to the judge.
 """
@@ -323,6 +324,7 @@ def fake_integrations(
     Web is canned unless ``web == "live"``: no ``web:`` block means searches
     find nothing (evals/fake_web.py).
     """
+    from evals.fake_calendar import fake_calendar
     from evals.fake_web import canned_web
 
     fakes: dict[str, Any] = {}
@@ -342,6 +344,8 @@ def fake_integrations(
             stack.enter_context(
                 patch("src.agent.tools.todoist_client.todoist_sync_request", todo.sync_request)
             )
+        if "calendar" in spec:
+            fakes["calendar"] = stack.enter_context(fake_calendar(spec["calendar"] or {}))
         if "garmin" in spec:
             g = spec["garmin"] or {}
             state = g.get("state", "connected")
