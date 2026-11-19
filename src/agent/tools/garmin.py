@@ -5,6 +5,7 @@ from Garmin Connect. No write operations.
 """
 
 import json
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
 from datetime import timedelta
@@ -23,6 +24,7 @@ from src.agent.tools.garmin_payloads import (
     strip_bulky_fields,
 )
 from src.agent.tools.garmin_session import get_client, persist_tokens_if_changed
+from src.agent.tools.garmin_trends import TREND_METRICS, GarminJson, trend_range, trend_rows
 from src.agent.tools.integration_status import not_connected_result
 from src.utils.clock import local_today
 from src.utils.logging import get_logger
@@ -154,7 +156,7 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
     Every section is independent and best-effort: a device that reports no HRV
     yields {"error": ...} under `hrv` while the rest of the snapshot stands.
     """
-    payload: dict[str, Any] = {"action": "get_readiness_snapshot", "date": target_date}
+    payload: GarminJson = {"action": "get_readiness_snapshot", "date": target_date}
 
     def _section(key: str, method: str, *args: Any) -> Any:
         def run() -> None:
@@ -217,6 +219,7 @@ _GARMIN_ACTIONS = {
     "get_steps",
     "get_courses",
     "get_course_details",
+    "get_trend",
 }
 
 
@@ -228,6 +231,9 @@ def garmin_connect(
     limit: int | None = None,
     activity_type: str | None = None,
     course_id: str | None = None,
+    metric: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> str:
     """Read health, fitness, and training data from the user's Garmin Connect account (read-only).
 
@@ -246,7 +252,12 @@ def garmin_connect(
       Body Battery - use `bodyBatteryAtWakeTime` for the morning value - and resting HR),
       get_heart_rates, get_sleep_data, get_stress_data, get_hrv_data, get_spo2_data,
       get_body_composition, get_training_readiness, get_training_status, get_steps.
-    - get_activities: recent activities. Optional limit (default 10), activity_type.
+    - get_trend (metric): one metric per day over a range in ONE call - for "this
+      week's sleep", "HRV over two weeks", "resting HR trend". metric: sleep, hrv,
+      resting_hr, training_readiness, body_battery, stress, steps, weight. Optional
+      start_date/end_date (default the last 7 days, at most 31).
+    - get_activities: recent activities. Optional limit (default 10), activity_type,
+      start_date/end_date (default the last 90 days).
     - get_activity_details (activity_id): one activity with strength sets (reps,
       weight), minutes per HR zone, and laps.
     - get_courses: saved routes with distance and climb. Optional activity_type.
@@ -259,8 +270,11 @@ def garmin_connect(
         limit: Number of activities
         activity_type: Filter for get_activities / get_courses, e.g. "running", "cycling"
         course_id: Course ID for get_course_details
+        metric: Metric for get_trend
+        start_date: Range start, YYYY-MM-DD (get_trend, get_activities)
+        end_date: Range end, inclusive, YYYY-MM-DD (get_trend, get_activities)
     """
-    logger.info("garmin_connect called", extra={"action": action})
+    logger.info("garmin_connect called", extra={"action": action, "metric": metric})
 
     garmin = get_garmin_client()
     if not garmin:
@@ -283,18 +297,17 @@ def garmin_connect(
                 {"action": action, "date": target_date, result_key: strip_bulky_fields(result)}
             )
 
-        if action == "get_activities":
-            return _activities_result(garmin, limit, activity_type)
-
-        if action == "get_activity_details":
-            return _activity_details_result(garmin, activity_id)
-
-        if action == "get_courses":
-            return _courses_result(garmin, activity_type)
-
-        if action == "get_course_details":
-            return _course_details_result(garmin, course_id)
-
+        handlers: dict[str, Callable[[], str]] = {
+            "get_activities": lambda: _activities_result(
+                garmin, limit, activity_type, start_date, end_date
+            ),
+            "get_trend": lambda: _trend_result(garmin, metric, start_date, end_date),
+            "get_activity_details": lambda: _activity_details_result(garmin, activity_id),
+            "get_courses": lambda: _courses_result(garmin, activity_type),
+            "get_course_details": lambda: _course_details_result(garmin, course_id),
+        }
+        if handler := handlers.get(action):
+            return handler()
         return tool_error(f"Unknown action: {action}", available_actions=sorted(_GARMIN_ACTIONS))
 
     except Exception as e:
@@ -317,10 +330,16 @@ _DAILY_ACTIONS = {
 }
 
 
-def _activities_result(garmin: Any, limit: int | None, activity_type: str | None) -> str:
-    """The last 90 days of activities, newest `limit` (default 10)."""
-    start = (local_today() - timedelta(days=90)).isoformat()
-    end = local_today().isoformat()
+def _activities_result(
+    garmin: Any,
+    limit: int | None,
+    activity_type: str | None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
+    """Activities in a range (default the last 90 days), newest `limit` (default 10)."""
+    start = start_date or (local_today() - timedelta(days=90)).isoformat()
+    end = end_date or local_today().isoformat()
     result = safe_api_call(garmin, "get_activities_by_date", start, end, activity_type)
     if isinstance(result, list):
         result = result[:limit] if limit else result[:10]
@@ -333,11 +352,36 @@ def _activities_result(garmin: Any, limit: int | None, activity_type: str | None
     )
 
 
+def _trend_result(
+    garmin: object, metric: str | None, start_date: str | None, end_date: str | None
+) -> str:
+    if metric not in TREND_METRICS:
+        return tool_error(
+            f"metric must be one of: {', '.join(TREND_METRICS)}", retriable=bool(metric)
+        )
+    bounds = trend_range(start_date, end_date)
+    if isinstance(bounds, str):
+        return tool_error(bounds)
+    start, end = (day.isoformat() for day in bounds)
+    payload = safe_api_call(garmin, TREND_METRICS[metric][0], start, end)
+    rows = trend_rows(metric, payload)
+    result: dict[str, object] = {
+        "action": "get_trend",
+        "metric": metric,
+        "start": start,
+        "end": end,
+        "days": rows,
+    }
+    if not rows:
+        result["note"] = f"Garmin has no {metric} data for these dates"
+    return json.dumps(result)
+
+
 def _activity_details_result(garmin: Any, activity_id: str | None) -> str:
     if not activity_id:
         return tool_error("activity_id is required for get_activity_details")
     result = safe_api_call(garmin, "get_activity", activity_id)
-    payload: dict[str, Any] = {
+    payload: GarminJson = {
         "action": "get_activity_details",
         "activity_id": activity_id,
         "activity": strip_bulky_fields(result),

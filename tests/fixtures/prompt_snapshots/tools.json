@@ -299,7 +299,7 @@
     }
   },
   {
-    "description": "Read health, fitness, and training data from the user's Garmin Connect account (read-only).\n\nNeeds the user's Garmin connected in Settings. A \"Garmin disconnected\" /\n\"Garmin not connected\" result says which case applies - follow its message\n(warn the user, point them to Settings); never act as if you cannot use Garmin.\n\nActions (date_str is YYYY-MM-DD, default today; sleep defaults to last night):\n- get_readiness_snapshot: PREFERRED for \"how am I / how recovered / what should I\n  train today\" - readiness, sleep, HRV, daily stats, training status AND recent\n  activities in ONE call (instead of five). Optional date_str, limit (activities,\n  default 5). A section the device does not report is {\"error\": ...}; the rest is valid.\n- get_morning_summary: the same cut to the morning numbers (~1k chars) for a quick\n  daily check-in. Optional date_str.\n- Single metrics (optional date_str): get_stats (steps, calories, active minutes,\n  Body Battery - use `bodyBatteryAtWakeTime` for the morning value - and resting HR),\n  get_heart_rates, get_sleep_data, get_stress_data, get_hrv_data, get_spo2_data,\n  get_body_composition, get_training_readiness, get_training_status, get_steps.\n- get_activities: recent activities. Optional limit (default 10), activity_type.\n- get_activity_details (activity_id): one activity with strength sets (reps,\n  weight), minutes per HR zone, and laps.\n- get_courses: saved routes with distance and climb. Optional activity_type.\n- get_course_details (course_id): elevation profile and derived climbs.\n\nArgs:\n    action: One of the actions above\n    date_str: Date as YYYY-MM-DD\n    activity_id: Activity ID for get_activity_details\n    limit: Number of activities\n    activity_type: Filter for get_activities / get_courses, e.g. \"running\", \"cycling\"\n    course_id: Course ID for get_course_details",
+    "description": "Read health, fitness, and training data from the user's Garmin Connect account (read-only).\n\nNeeds the user's Garmin connected in Settings. A \"Garmin disconnected\" /\n\"Garmin not connected\" result says which case applies - follow its message\n(warn the user, point them to Settings); never act as if you cannot use Garmin.\n\nActions (date_str is YYYY-MM-DD, default today; sleep defaults to last night):\n- get_readiness_snapshot: PREFERRED for \"how am I / how recovered / what should I\n  train today\" - readiness, sleep, HRV, daily stats, training status AND recent\n  activities in ONE call (instead of five). Optional date_str, limit (activities,\n  default 5). A section the device does not report is {\"error\": ...}; the rest is valid.\n- get_morning_summary: the same cut to the morning numbers (~1k chars) for a quick\n  daily check-in. Optional date_str.\n- Single metrics (optional date_str): get_stats (steps, calories, active minutes,\n  Body Battery - use `bodyBatteryAtWakeTime` for the morning value - and resting HR),\n  get_heart_rates, get_sleep_data, get_stress_data, get_hrv_data, get_spo2_data,\n  get_body_composition, get_training_readiness, get_training_status, get_steps.\n- get_trend (metric): one metric per day over a range in ONE call - for \"this\n  week's sleep\", \"HRV over two weeks\", \"resting HR trend\". metric: sleep, hrv,\n  resting_hr, training_readiness, body_battery, stress, steps, weight. Optional\n  start_date/end_date (default the last 7 days, at most 31).\n- get_activities: recent activities. Optional limit (default 10), activity_type,\n  start_date/end_date (default the last 90 days).\n- get_activity_details (activity_id): one activity with strength sets (reps,\n  weight), minutes per HR zone, and laps.\n- get_courses: saved routes with distance and climb. Optional activity_type.\n- get_course_details (course_id): elevation profile and derived climbs.\n\nArgs:\n    action: One of the actions above\n    date_str: Date as YYYY-MM-DD\n    activity_id: Activity ID for get_activity_details\n    limit: Number of activities\n    activity_type: Filter for get_activities / get_courses, e.g. \"running\", \"cycling\"\n    course_id: Course ID for get_course_details\n    metric: Metric for get_trend\n    start_date: Range start, YYYY-MM-DD (get_trend, get_activities)\n    end_date: Range end, inclusive, YYYY-MM-DD (get_trend, get_activities)",
     "name": "garmin_connect",
     "parameters": {
       "properties": {
@@ -323,6 +323,18 @@
           "type": "STRING"
         },
         "course_id": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "metric": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "start_date": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "end_date": {
           "nullable": true,
           "type": "STRING"
         }

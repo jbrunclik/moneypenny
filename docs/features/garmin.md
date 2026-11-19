@@ -36,7 +36,8 @@ The `garmin_connect` tool is read-only and exposes the following actions:
 | `get_hrv_data` | `date_str` (optional) | Heart rate variability data |
 | `get_spo2_data` | `date_str` (optional) | Blood oxygen (SpO2) readings |
 | `get_body_composition` | `date_str` (optional) | Weight, body fat %, BMI, muscle mass |
-| `get_activities` | `limit` (optional), `activity_type` (optional) | List recent activities (last 90 days, default 10) |
+| `get_activities` | `limit`, `activity_type`, `start_date`/`end_date` (all optional) | Activities in a range (default the last 90 days), newest `limit` (default 10) |
+| `get_trend` | `metric`, optional `start_date`/`end_date` (default the last 7 days, at most 31) | One metric per day over a range in one call (Nov 19 2026, [garmin_trends.py](../../src/agent/tools/garmin_trends.py)): `sleep`, `hrv`, `resting_hr`, `training_readiness`, `body_battery`, `stress`, `steps`, `weight`. One library range call (`get_sleep_daily`, `get_hrv_data_range`, ...) cut to a few numbers per day; an empty range carries a `note` |
 | `get_activity_details` | `activity_id` (required) | Detailed data for one activity, incl. `exercise_sets` (per-set reps/`weight_kg`), `hr_zones`, `laps` |
 | `get_training_readiness` | `date_str` (optional) | Training readiness score and contributing factors |
 | `get_training_status` | `date_str` (optional) | Training status and load metrics |
@@ -57,6 +58,19 @@ All date parameters default to today. `date_str` format: `YYYY-MM-DD`.
 > values.
 
 > **Weight units:** `get_activity_details` → `exercise_sets` reports weight in **kilograms** (`weight_kg`). The raw Garmin activity endpoint stores weight in grams (e.g. `24000` for 24 kg); `_slim_exercise_set` divides by 1000 so the whole agent surface is consistent with `garmin_workout` (see the gotchas below).
+
+### Trends (Nov 19 2026)
+
+`get_trend` replaced one single-day call per night: "how did I sleep this week" was
+seven `get_sleep_data` calls, each a model round re-sending the conversation. The
+row fields and units come from the range endpoints as they answered on Nov 19 2026
+(a read-only probe of a real account; durations in seconds, distance in metres,
+weight in grams): a week of sleep compacts 4.9k -> 1.1k characters, training
+readiness 17.9k -> 0.8k. Training readiness returns several entries per day (the
+after-wake-up reset, then post-exercise and daytime updates); the row is the
+`AFTER_WAKEUP_RESET` one, else the day's earliest. Weight rows assume the
+`dailyWeightSummaries[].latestWeight` shape - the probed account had no weigh-ins
+in the week - so check it once someone logs weight. Eval: `garmin_sleep_week_trend`.
 
 ## Garmin Workout Editing (`garmin_workout` tool)
 

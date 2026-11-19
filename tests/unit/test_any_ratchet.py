@@ -12,7 +12,7 @@ from pathlib import Path
 
 _SRC = Path(__file__).parents[2] / "src"
 
-ANY_BASELINE = 983  # Nov 16 2026 (explicit context-cache path removed)
+ANY_BASELINE = 982  # Nov 19 2026 (Garmin payloads typed as GarminJson)
 
 
 def _any_uses(path: Path) -> int:

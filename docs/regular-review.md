@@ -136,6 +136,9 @@ The review itself changes nothing in production and edits nothing but
 - Todoist `add_tasks` / `list_completed` (from Nov 19 2026; [todoist.md](features/todoist.md#task-actions)):
   "todoist called" lines by `action`, `add_tasks` `task_count`, and turns that
   still chained 3+ `add_task` calls - a multi-task request should be one call.
+- Garmin `get_trend` (from Nov 19 2026; [garmin.md](features/garmin.md#trends-nov-19-2026)):
+  "garmin_connect called" lines by `action`/`metric`; sports turns that still
+  chain 3+ single-day reads should be rare.
 - Weather tool (from Nov 19 2026; [location.md](features/location.md#weather)):
   "Weather fetched" lines per week by `location_kind`, `get_weather` errors in
   `message_costs.tool_errors`, and weather turns that still ran `web_search`

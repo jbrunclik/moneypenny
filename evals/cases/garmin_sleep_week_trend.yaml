@@ -1,0 +1,82 @@
+id: garmin_sleep_week_trend
+description: A week of sleep comes from one get_trend call, not one get_sleep_data per day
+history_from: cycling_program
+user: "Jak jsem spal posledni tyden? Zhorsuje se to?"
+integrations:
+  garmin:
+    state: connected
+    data:
+      get_sleep_daily:
+        - calendarDate: "{6_days_ago}"
+          values:
+            totalSleepTimeInSeconds: 28080
+            sleepScore: 86
+            deepTime: 5054
+            remTime: 5616
+            awakeTime: 600
+            avgOvernightHrv: 56.0
+            restingHeartRate: 50
+        - calendarDate: "{5_days_ago}"
+          values:
+            totalSleepTimeInSeconds: 27360
+            sleepScore: 84
+            deepTime: 4924
+            remTime: 5472
+            awakeTime: 720
+            avgOvernightHrv: 54.5
+            restingHeartRate: 51
+        - calendarDate: "{4_days_ago}"
+          values:
+            totalSleepTimeInSeconds: 26640
+            sleepScore: 80
+            deepTime: 4795
+            remTime: 5328
+            awakeTime: 840
+            avgOvernightHrv: 53.0
+            restingHeartRate: 52
+        - calendarDate: "{3_days_ago}"
+          values:
+            totalSleepTimeInSeconds: 25560
+            sleepScore: 76
+            deepTime: 4600
+            remTime: 5112
+            awakeTime: 960
+            avgOvernightHrv: 51.5
+            restingHeartRate: 53
+        - calendarDate: "{2_days_ago}"
+          values:
+            totalSleepTimeInSeconds: 24120
+            sleepScore: 70
+            deepTime: 4341
+            remTime: 4824
+            awakeTime: 1080
+            avgOvernightHrv: 50.0
+            restingHeartRate: 54
+        - calendarDate: "{yesterday}"
+          values:
+            totalSleepTimeInSeconds: 23040
+            sleepScore: 66
+            deepTime: 4147
+            remTime: 4608
+            awakeTime: 1200
+            avgOvernightHrv: 48.5
+            restingHeartRate: 55
+        - calendarDate: "{today}"
+          values:
+            totalSleepTimeInSeconds: 21960
+            sleepScore: 61
+            deepTime: 3952
+            remTime: 4392
+            awakeTime: 1320
+            avgOvernightHrv: 47.0
+            restingHeartRate: 56
+expect:
+  rubric: >
+    Czech answer from the week's sleep rows: sleep fell steadily from about
+    7.8 h (score 86) to about 6.1 h (score 61) over the last seven nights, with
+    HRV drifting down and resting HR up - so yes, it is getting worse. Names the
+    trend with a few of the numbers. Must not invent nights or claim no data.
+  required_tools: [garmin_connect]
+  required_arg_patterns:
+    garmin_connect.action: ["^get_trend$"]
+  max_tool_rounds: 2
