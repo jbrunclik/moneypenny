@@ -278,6 +278,22 @@ def gemini_mime_type(mime_type: str) -> str:
     return _GEMINI_MIME_NAMES.get(mime_type, mime_type)
 
 
+# libmagic reads at most this much of a buffer (its default bytes_max), so
+# checking a prefix this long sees exactly what checking the whole file does
+MAGIC_PREFIX_BYTES = 1024 * 1024
+
+
+def decoded_size(data: str) -> int:
+    """The byte size of base64 `data`, without decoding it."""
+    return len(data) * 3 // 4 - (2 if data.endswith("==") else 1 if data.endswith("=") else 0)
+
+
+def _decoded_prefix(data: str, size: int) -> bytes:
+    """The first `size` bytes of base64 `data`, decoding only those."""
+    chars = (size + 2) // 3 * 4
+    return base64.b64decode(data[:chars])
+
+
 def max_size_for_mime(mime_type: str) -> int:
     """Per-type upload size limit (videos get a larger allowance)."""
     if mime_type.startswith("video/"):
@@ -311,22 +327,22 @@ def validate_files(files: list[UploadedFile]) -> tuple[bool, str]:
             )
             return False, f"File type '{file_type}' is not allowed"
 
-        # Decode and check file size (base64 is ~4/3 larger than binary)
+        # Size from the base64 length and the type from the first bytes: a
+        # 100 MB video was decoded whole here and three more times later on
         data = file.get("data", "")
+        size = decoded_size(data)
+        max_size = max_size_for_mime(file_type)
+        if size > max_size:
+            max_mb = max_size / (1024 * 1024)
+            logger.warning(
+                "File too large",
+                extra={"file_name": file_name, "size": size, "max_size": max_size},
+            )
+            return False, f"File '{file_name}' exceeds {max_mb:.0f}MB limit"
         try:
-            decoded_data = base64.b64decode(data)
-            max_size = max_size_for_mime(file_type)
-            if len(decoded_data) > max_size:
-                max_mb = max_size / (1024 * 1024)
-                logger.warning(
-                    "File too large",
-                    extra={
-                        "file_name": file_name,
-                        "size": len(decoded_data),
-                        "max_size": max_size,
-                    },
-                )
-                return False, f"File '{file_name}' exceeds {max_mb:.0f}MB limit"
+            if len(data) % 4:
+                raise binascii.Error("Incorrect padding")
+            decoded_data = _decoded_prefix(data, MAGIC_PREFIX_BYTES)
         except binascii.Error as e:
             logger.warning(
                 "Invalid file data encoding", extra={"file_name": file_name, "error": str(e)}

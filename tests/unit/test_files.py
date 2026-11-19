@@ -568,3 +568,59 @@ class TestAudioValidation:
                 [{"name": "memo.m4a", "type": "audio/x-m4a", "data": data}]
             )
         assert is_valid is False
+
+
+class TestDecodeOnlyWhatIsNeeded:
+    """A 100 MB video was base64-decoded four times per send; validation and
+    metadata need only its size and its first bytes."""
+
+    @pytest.mark.parametrize("raw", [b"", b"a", b"ab", b"abc", b"abcd", bytes(range(256)) * 41])
+    def test_decoded_size_from_the_base64_length(self, raw: bytes) -> None:
+        from src.utils.files import decoded_size
+
+        assert decoded_size(base64.b64encode(raw).decode()) == len(raw)
+
+    def _video(self, size: int) -> dict[str, str]:
+        # An MP4 header so the magic check sees a real video
+        head = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"
+        return {
+            "name": "clip.mp4",
+            "type": "video/mp4",
+            "data": base64.b64encode(head + b"\x00" * (size - len(head))).decode(),
+        }
+
+    def test_validation_decodes_at_most_a_prefix(self) -> None:
+        video = self._video(3_000_000)
+        seen: list[int] = []
+        real = base64.b64decode
+
+        def spy(data: object, *args: object, **kwargs: object) -> bytes:
+            seen.append(len(data))  # type: ignore[arg-type]
+            return real(data, *args, **kwargs)  # type: ignore[arg-type]
+
+        with patch("src.utils.files.base64.b64decode", spy):
+            assert validate_files([video]) == (True, "")
+        assert seen and max(seen) <= 2 * 1024 * 1024
+
+    def test_an_oversized_upload_is_refused_without_decoding(self) -> None:
+        video = self._video(1000)
+        with (
+            patch.object(Config, "MAX_VIDEO_FILE_SIZE_BYTES", 500),
+            patch("src.utils.files.base64.b64decode") as decode,
+        ):
+            ok, error = validate_files([video])
+        assert not ok and "exceeds" in error
+        decode.assert_not_called()
+
+    def test_bad_padding_is_still_refused(self) -> None:
+        video = self._video(100)
+        video["data"] = video["data"][:-1]
+        assert validate_files([video])[1] == "Invalid file data encoding"
+
+    def test_metadata_size_without_decoding(self) -> None:
+        from src.db.models.helpers import extract_file_metadata
+
+        video = self._video(1234)
+        with patch("src.db.models.helpers.base64.b64decode") as decode:
+            assert extract_file_metadata(video)["size"] == 1234  # type: ignore[arg-type]
+        decode.assert_not_called()

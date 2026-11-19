@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.utils.clock import planner_cutoff, utc_now
+from src.utils.files import decoded_size
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -83,8 +84,8 @@ def extract_file_metadata(file_data: UploadedFile) -> StoredFile:
     """The stored metadata of an uploaded file: no bytes, with its size and
     whether it has a thumbnail (both of which go to the blob store)."""
     try:
-        size = len(base64.b64decode(file_data["data"]))
-    except ValueError, TypeError:
+        size = decoded_size(file_data["data"])
+    except TypeError, KeyError:
         size = 0
     metadata: StoredFile = {
         "name": file_data["name"],
