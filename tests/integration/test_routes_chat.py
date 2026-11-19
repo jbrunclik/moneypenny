@@ -1803,6 +1803,36 @@ class TestTruncateAndRerun:
         assert response.status_code == 400
         assert len(test_database.get_messages(test_conversation.id)) == 4
 
+    def test_regenerate_after_a_continue_keeps_the_reply(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        """Two replies in a row (a continue): deleting the last would leave the
+        chat ending on a reply, so the re-run is refused - before anything goes."""
+        test_database.add_message(test_conversation.id, "user", "q1")
+        test_database.add_message(test_conversation.id, "assistant", "a1")
+        cont = test_database.add_message(test_conversation.id, "assistant", "a1 continued")
+
+        response = self._batch_regenerate(
+            client, auth_headers, test_conversation.id, replaces_message_id=cont.id
+        )
+
+        assert response.status_code == 400
+        assert len(test_database.get_messages(test_conversation.id)) == 3
+
+    def test_regenerate_waits_for_a_running_turn(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "q1")
+        reply = test_database.add_message(test_conversation.id, "assistant", "a1")
+
+        with patch("src.api.helpers.chat_turn.running_turn_id", return_value="live-turn"):
+            response = self._batch_regenerate(
+                client, auth_headers, test_conversation.id, replaces_message_id=reply.id
+            )
+
+        assert response.status_code == 409
+        assert len(test_database.get_messages(test_conversation.id)) == 2
+
     def test_regenerate_retry_after_the_reply_is_gone(
         self, client, auth_headers, test_conversation, test_database
     ) -> None:

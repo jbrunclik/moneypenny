@@ -50,6 +50,7 @@ from src.api.helpers.lost_actions import pop_lost_actions_note
 from src.api.helpers.turn_steering import discard_dead_placeholders, running_turn_id
 from src.api.schemas.chat import ChatRequest, DeepResearchStart
 from src.api.schemas.chat import VerifyClaimAction as VerifyClaimRequest
+from src.api.utils import is_empty_placeholder
 from src.auth.google_calendar import get_valid_calendar_access_token
 from src.config import Config
 from src.db.models import Conversation, ConversationFact, Message, Proposal, User, db
@@ -336,12 +337,23 @@ def _replace_last_reply(conv_id: str, user_id: str, reply_id: str) -> None:
     reload. Only the conversation's last message, an assistant reply, may go;
     one already gone (a retry whose first attempt got this far) is fine.
     """
+    if running_turn_id(conv_id) is not None:
+        raise_conflict_error("Please wait for the current response to finish.")
     existing = db.get_messages(conv_id)
     if not any(m.id == reply_id for m in existing):
         return
     last = existing[-1]
-    if last.id != reply_id or last.role != MessageRole.ASSISTANT:
-        raise_validation_error("Regenerate replaces only the conversation's last reply")
+    # Checked before anything is deleted: the re-run must then find the chat
+    # ending on the question it answers (two replies in a row - a continue -
+    # would leave the first one last, and _resolve_rerun refuse after the delete)
+    answers_a_question = len(existing) >= 2 and existing[-2].role == MessageRole.USER
+    if (
+        last.id != reply_id
+        or last.role != MessageRole.ASSISTANT
+        or is_empty_placeholder(last)
+        or not answers_a_question
+    ):
+        raise_validation_error("Regenerate replaces only a reply to the last question")
     db.delete_message(reply_id, user_id)
     logger.info(
         "Regenerate replaced the reply",
