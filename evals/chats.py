@@ -60,6 +60,8 @@ def merge_chat(case_data: dict[str, Any], chat: dict[str, Any]) -> dict[str, Any
     merged["history"] = [*(chat.get("messages") or []), *(case_data.get("history") or [])]
     if chat.get("summary"):
         merged["frozen_summary"] = str(chat["summary"])
+        if chat.get("summary_covers") is not None:
+            merged["frozen_summary_covers"] = int(chat["summary_covers"])
     return merged
 
 
@@ -90,12 +92,20 @@ def seed_frozen_summary(
     if store_messages:
         for turn in turns:
             db.add_message(conversation_id, turn["role"], turn["content"])
-    keep = Config.CONVERSATION_COMPACTION_KEEP_RECENT
-    covered = max(0, len(turns) - keep)
+    # The chat's own count (frozen with the summary), so turns a case appends
+    # join the verbatim tail instead of pushing chat messages out of both
+    covers = getattr(case, "frozen_summary_covers", None)
+    covered = (
+        covers
+        if covers is not None
+        else max(0, len(turns) - Config.CONVERSATION_COMPACTION_KEEP_RECENT)
+    )
     recent = turns[covered:]
+    # Coverage indexes the STORED messages: a program chat stores user turns only
+    stored = covered if store_messages else sum(t["role"] == "user" for t in turns[:covered])
     state = {
-        "segments": [{"text": text, "end": covered, "passes": 1}],
-        "covered_count": covered,
+        "segments": [{"text": text, "end": stored, "passes": 1}],
+        "covered_count": stored,
     }
     db.kv_set(user.id, KV_NAMESPACE, conversation_id, json.dumps(state))
     return [_summary_message(text), *recent]

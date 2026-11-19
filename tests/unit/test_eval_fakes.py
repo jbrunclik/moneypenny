@@ -195,3 +195,21 @@ def test_garmin_rest_change_is_recorded() -> None:
         garmin_workout.invoke({"action": "update", "workout_id": "501", "edits": edits})
     [action] = fakes["garmin"].actions
     assert "rest" in action and "90" in action and "150" in action
+
+
+def test_garmin_save_renumbers_steps_like_garmin() -> None:
+    """Real Garmin reassigns every stepId on save: an update that reuses the
+    ids of an earlier get must not quietly succeed against the fake."""
+    from src.agent.tools.garmin_workout import garmin_workout
+
+    spec = {"garmin": {"state": "connected", "workouts": [_workout()]}}
+    with fake_integrations(spec) as fakes:
+        first = json.dumps([{"step_id": 11, "weight_kg": 62.5}])
+        garmin_workout.invoke({"action": "update", "workout_id": "501", "edits": first})
+        got = json.loads(garmin_workout.invoke({"action": "get", "workout_id": "501"}))
+        stale = json.dumps([{"step_id": 11, "weight_kg": 65}])
+        result = garmin_workout.invoke({"action": "update", "workout_id": "501", "edits": stale})
+    new_id = got["workout"]["blocks"][0]["steps"][0]["step_id"]
+    assert new_id != 11
+    assert "65" not in fakes["garmin"].actions[-1] or "no change" in fakes["garmin"].actions[-1]
+    assert "62.5" in json.dumps(json.loads(result).get("workout", {}))

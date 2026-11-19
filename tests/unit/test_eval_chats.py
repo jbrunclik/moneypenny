@@ -251,3 +251,54 @@ def test_frozen_summary_gets_artifact_ids(test_database: Any, test_user: Any) ->
     assert sent is not None
     assert "{artifact_" not in sent[0]["content"]
     assert "{artifact_" not in test_database.kv_get(test_user.id, KV_NAMESPACE, conv.id)
+
+
+def test_program_chat_coverage_counts_stored_messages(test_database: Any, test_user: Any) -> None:
+    """A program chat stores only the user turns; the summary covers the ones
+    that precede the verbatim tail, so the tail's are not marked summarized."""
+    from src.agent.conversation_compaction import KV_NAMESPACE
+    from src.config import Config
+
+    keep = Config.CONVERSATION_COMPACTION_KEEP_RECENT
+    history = _long_history(keep + 8)  # alternating; 4 users among the first 8
+    case = EvalCase(
+        id="c", description="", user="u", mode="sports", history=history, frozen_summary="S"
+    )
+    conv = test_database.create_conversation(test_user.id, "eval-c")
+    seed_frozen_summary(case, test_user, test_database, conv.id, store_messages=False)
+    state = json.loads(test_database.kv_get(test_user.id, KV_NAMESPACE, conv.id))
+    assert state["covered_count"] == 4
+
+
+def test_summary_covers_survives_a_case_adding_turns(test_database: Any, test_user: Any) -> None:
+    """The frozen summary covers a fixed number of the chat's messages; a case
+    appending its own turns must not push chat messages out of both the
+    summary and the verbatim tail."""
+    from src.config import Config
+
+    keep = Config.CONVERSATION_COMPACTION_KEEP_RECENT
+    chat_messages = _long_history(keep + 6)
+    own = [{"role": "user", "content": "own 1"}, {"role": "assistant", "content": "own 2"}]
+    case = EvalCase(
+        id="c",
+        description="",
+        user="u",
+        history=chat_messages + own,
+        frozen_summary="S",
+        frozen_summary_covers=6,
+    )
+    conv = test_database.create_conversation(test_user.id, "eval-c")
+    sent = seed_frozen_summary(case, test_user, test_database, conv.id)
+    assert [m["content"] for m in sent[1:]] == [m["content"] for m in (chat_messages + own)[6:]]
+
+
+def test_freeze_records_how_many_messages_the_summary_covers(tmp_path: Path) -> None:
+    from evals.freeze_summary import freeze_summary
+    from src.config import Config
+
+    keep = Config.CONVERSATION_COMPACTION_KEEP_RECENT
+    _write(tmp_path, "ride.yaml", {"messages": _long_history(keep + 5)})
+    freeze_summary(tmp_path / "ride.yaml", summarize=lambda chunk, *_: "S")
+    assert load_chat("ride", tmp_path)["summary_covers"] == 5
+    merged = merge_chat({"id": "c"}, load_chat("ride", tmp_path))
+    assert merged["frozen_summary_covers"] == 5

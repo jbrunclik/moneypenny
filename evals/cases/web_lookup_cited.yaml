@@ -2,11 +2,384 @@ id: web_lookup_cited
 smoke: true
 description: Current-fact question requires a web tool and a citation
 user: What is the current price of Bitcoin in USD?
-# Live web on purpose: a live price - canned pages would freeze it
-web: live
 expect:
   rubric: >
     The answer gives a concrete, plausibly current BTC/USD price (a number)
     and cites at least one source (the automatic source links count). Acknowledging
     fluctuation or giving date context is a bonus, not required.
   required_tools: [research, web_search]
+# Canned web captured 2026-11-19 (evals/capture_web.py): bitcoin price USD today
+web:
+  results:
+    - url: https://coinmarketcap.com/currencies/bitcoin/
+      title: Bitcoin price today, BTC to USD live price, marketcap and chart | CoinMarketCap
+      snippet: "Bitcoin price today, BTC to USD live price, marketcap and chart | CoinMarketCap
+
+
+        Bitcoin price
+
+
+        BTC
+
+
+        #1
+
+
+        6M
+
+
+        $63,731.68
+
+
+        1.35% (24h)
+
+
+        ## Bitcoin statistics
+
+
+        Market cap
+
+
+        $1.28T
+
+
+        1.38%
+
+
+        Volume (24h)
+
+
+        $31.22B
+
+
+        1.23%
+
+
+        Vol/Mkt Cap (24h)
+
+
+        2.43%
+
+
+        FDV
+
+
+        $1.33T
+
+
+        Total supply
+
+
+        20.11M BTC
+
+
+        Max. supply
+
+
+        21M BTC
+
+
+        Circulating supply
+
+
+        20.11M BTC
+
+
+        Treasury Holdings
+
+
+        1.36M BTC
+
+
+        Website
+
+
+        Website
+
+
+        Whitepaper
+
+
+        Socials
+
+
+        Rating (CertiK)
+
+
+        4.9
+
+
+        Explorers
+
+
+        blockchain.info
+
+
+        Wallets
+
+
+        UCID
+
+
+        1
+
+
+        BTC to USD converter
+
+
+        BTC 0 US"
+    - url: https://exa.ai/library/markets/crypto/BTC
+      title: BTC | Currently at $63,631.85 (-1.92%) | Nov 19, 2026
+      snippet: "# BTC
+
+
+        BTC is currently at $63,631.85, down $1,245.39 (1.92%) today, as of November 19, 2026.
+
+
+        Live price from BTC/USD minute price at 63631.85 (the minute starting 2026-11-19T09:30Z).
+
+
+        ## Today's Trading
+
+
+        - Close: $63,631.85
+
+
+        ## Previous Close
+
+
+        - Close: $64,877.24"
+    - url: https://www.bitcoin.com/price/bitcoin/
+      title: Bitcoin Price Today | BTC to USD Live Price & Chart | Bitcoin.com
+      snippet: "Bitcoin Price Today | BTC to USD Live Price & Chart | Bitcoin.com
+
+
+        # Bitcoin Price (BTC)
+
+
+        #1 by market cap
+
+
+        Verified
+
+
+        $63,575.00
+
+
+        -1.26%
+
+
+        -$808.36
+
+
+        Updated 19 Nov 2026, 04:55 UTC
+
+
+        Line Candles
+
+
+        24H
+
+
+        Negative trend: -1.26%-1.26%
+
+
+        from $64,383.36
+
+
+        1W
+
+
+        Negative trend: -14.36%-14.36%
+
+
+        from $74,231.00994
+
+
+        1M
+
+
+        Negative trend: -22.73%-22.73%
+
+
+        from $82,272.28
+
+
+        1Y
+
+
+        Negative trend: -31.65%-31.65%
+
+
+        from $93,016.76
+
+
+        ## Embed this chart
+
+
+        Free to use on any website. Copy the code below.
+
+
+        ## Highs and lows
+
+
+        Al"
+    - url: https://www.kraken.com/convert/btc/usd
+      title: BTC to USD | Convert Bitcoin to USD
+      snippet:
+        "BTC to USD | Convert Bitcoin to USD\n\n# BTC to USD\n\nConvert Bitcoin to United States\
+        \ Dollar\n\nFrom\n\nBTC\n\nTo\n\nUSD\n\n1 BTC = 63,701.00 USD\n\n1.00 BTC = $63,701.00\n\n-1.51%\
+        \ past 24 hours\n\n-1.51% past 24 hours\n\n#### BTC to USD stats\n\nBitcoin (BTC) is worth $63,701.00\
+        \ today. Last updated \n\n$1.28T\n\nCirculating supply\n\n20M\n\n24H trading volume\n\n$32.45B\n\
+        \n#1\n\n$62,153.69\n\n24H Change\n\n-$978.61\n\n$126,080.00\n\n## Current BTC USD market summary\n\
+        \nIn the last 24 hours, BTC reached a high of $63,800.00 and a low of $62"
+  pages:
+    https://coinmarketcap.com/currencies/bitcoin/:
+      "# Bitcoin priceBTC#1\n\n1.48% (24h)\n\n## Bitcoin\
+      \ to USD Chart\n\nLoading Data\n\nPlease wait, we are loading chart data\n\n## Bitcoin statistics\n\
+      \n- **Spot**Spot\n- **Derivatives**Derivatives\n\n- Market cap\n- $1.28T 1.4%\n- Volume (24h)\n\
+      - $32.15B 4.98%\n- Vol/Mkt Cap (24h)\n- 2.51%\n- FDV\n- $1.33T\n- Total supply\n- 20.11M BTC\n-\
+      \ Circulating supply\n- 20.11M BTC\n- Treasury Holdings\n- 1.36M BTC\n\nLoading Data\n\nPlease wait,\
+      \ we are loading chart data\n\n## Bitcoin Markets\n\n- ##### All ##### All\n- ##### CEX ##### CEX\n\
+      - ##### DEX ##### DEX\n\n- ##### Spot ##### Spot\n- ##### Perpetual ##### Perpetual\n- ##### Futures\
+      \ ##### Futures\n\n| Loading data... |  |  |  |  | \n\nDisclaimer: This page may contain affiliate\
+      \ links. CoinMarketCap may be compensated if you visit any affiliate links and you take certain\
+      \ actions such as signing up and transacting with these affiliate platforms. Please refer to Affiliate\
+      \ Disclosure\n\n## Bitcoin community\n\n### Bitcoin Yield\n\n### Bitcoin Market Cycles\n\n### What\
+      \ Is Bitcoin (BTC)?\n\nBitcoin is a decentralized cryptocurrency originally described in a 2008\
+      \ whitepaper by a person, or group of people, using the alias Satoshi Nakamoto. It was launched\
+      \ soon after, in January 2009.\n\nBitcoin is a peer-to-peer online currency, meaning that all transactions\
+      \ happen directly between equal, independent network participants, without the need for any intermediary\
+      \ to permit or facilitate them. Bitcoin was created, according to Nakamoto’s own words, to allow\
+      \ “online payments to be sent directly from one party to another without going through a financial\
+      \ institution.”\n\nSome concepts for a similar type of a decentralized electronic currency precede\
+      \ BTC, but Bitcoin holds the distinction of being the first-ever cryptocurrency to come into actual\
+      \ use.\n\n### Who Are the Founders of Bitcoin?\n\nBitcoin’s original inventor is known under a pseudonym,\
+      \ Satoshi Nakamoto. As of 2021, the true identity of the person — or organization — that is behind\
+      \ the alias remains unknown.\n\nOn October 31, 2008, Nakamoto published Bitcoin’s whitepaper, which\
+      \ described in detail how a peer-to-peer, online currency could be implemented. They proposed to\
+      \ use a decentralized ledger of transactions packaged in batches (called “blocks”) and secured by\
+      \ cryptographic algorithms — the whole system would later be dubbed “blockchain.”\n\nJust two months\
+      \ later, on January 3, 2009, Nakamoto mined the first block on the Bitcoin network, known as the\
+      \ genesis block, thus launching the world’s first cryptocurrency. Bitcoin price was $0 when first\
+      \ introduced, and most Bitcoins were obtained via mining, which only required moderately powerful\
+      \ devices (e.g. PCs) and mining software. The first known Bitcoin commercial transaction occurred\
+      \ on May 22, 2010, when programmer Laszlo Hanyecz traded 10,000 Bitcoins for two pizzas. At Bitcoin\
+      \ price today in mid-September 2021, those pizzas would be worth an astonishing $478 million. This\
+      \ event is now known as “Bitcoin Pizza Day.” In July 2010, Bitcoin first started trading, with the\
+      \ Bitcoin price ranging from $0.0008 to $0.08 at that time.\n\nHowever, while Nakamoto was the original\
+      \ inventor of Bitcoin, as well as the author of its very first implementation, he handed the network\
+      \ alert key and control of the code repository to Gavin Andresen, who later became lead developer\
+      \ at the Bitcoin Foundation. Over the years a large number of people have contributed to improving\
+      \ the cryptocurrency’s software by patching vulnerabilities and adding new features.\n\nBitcoin’s\
+      \ source code repository on GitHub lists more than 750 contributors, with some of the key ones being\
+      \ Wladimir J. van der Laan, Marco Falke, Pieter Wuille, Gavin Andresen, Jonas Schnelli and others.\n\
+      \n### What Makes Bitcoin Unique?\n\nBitcoin’s most unique advantage comes from the fact that it\
+      \ was the very first cryptocurrency to appear on the market.\n\nIt has managed to create a global\
+      \ community and give birth to an entirely new industry of millions of enthusiasts who create, invest\
+      \ in, trade and use Bitcoin and"
+    https://exa.ai/library/markets/crypto/BTC:
+      "> **Exa Site Index**\n> \n> Fetch the Exa site index at:\
+      \ <https://exa.ai/llms.txt>\n> \n> Use this file to discover Exa products, pricing, evaluations,\
+      \ comparisons, use cases, agent interfaces, and technical documentation before exploring further.\n\
+      \n[Introducing Exa 3.0](/blog/exa-3)[Introducing Exa 3.0: Our largest ever improvement to search\
+      \ quality](/blog/exa-3)[Learn more](/blog/exa-3)\n\nProducts\n\n[Search API](/products/search)[Contents\
+      \ API](/products/contents)[Agent API](/products/agent)[Monitors API](/products/monitors)[Websets](/products/websets)[Exa\
+      \ Snapshot](/products/snapshot)[Exa Library](/library)\n\nIntegrations\n\n[Exa Connect](/connect)\n\
+      \nSolutions\n\nUse cases\n\n[GTM](/use-cases/gtm)[Coding](/use-cases/coding)[AI Assistants](/use-cases/ai-assistants)[Inference\
+      \ Providers](/use-cases/inference-providers)[Model Training](/use-cases/model-training)\n\nIndustries\n\
+      \n[Enterprise](/enterprise)[Finance](/use-cases/finance)[Legal](/use-cases/legal)[Recruiting](/use-cases/recruiting)\n\
+      \nResources\n\n[CareersWe're hiring](/careers)[Customers](/customers)[Webinars](/webinars)[Partners](/partners)[For\
+      \ Startups](/startups)[Demos](/demos)[About](/about)[Contact us](/contact)[Research](/research)[Brand](/brand)\n\
+      \n[Blog](/blog)\n\n[Docs](https://exa.ai/docs)\n\n[Pricing](/pricing)\n\n[Sign in](https://dashboard.exa.ai)[Sign\
+      \ upAPI Dashboard](https://dashboard.exa.ai)\n\n[Contact sales](/contact/sales)\n\nLatest quote\
+      \ · as of November 19, 2026\n\n$63,631.85\n\n-$1,245.39 (-1.92%)\n\nPrevious Close\n\n$64,877.24\n\
+      \nLive price from BTC/USD minute price at 63631.85 (the minute starting 2026-11-19T09:30Z).\n\n\
+      [View API Docs](https://exa.ai/docs/reference/get-contents)[Get API Key](https://dashboard.exa.ai)\n\
+      \nPowered by the [Exa API](https://exa.ai/docs/reference/get-contents)\n\nSee something wrong or\
+      \ missing on this page?Suggest an edit"
+    https://www.bitcoin.com/price/bitcoin/:
+      "## What moves the bitcoin price\n\nBitcoin pays no dividends\
+      \ and has no company or central bank behind it, so its price is simply what buyers and sellers agree\
+      \ on at any moment. Six forces have done most of the moving in recent years.\n\n1. **Supply and\
+      \ the halving:** New bitcoin only enters circulation as a reward to miners, and that reward is cut\
+      \ in half every 210,000 blocks, about every four years. Since April 2024 the network has created\
+      \ about 450 new BTC a day, and after the next halving that falls to about 225. Less new supply does\
+      \ not guarantee a higher price, but it means more of any new demand has to be met by existing holders\
+      \ choosing to sell.\n2. **Spot ETF flows:** US spot bitcoin exchange-traded funds started trading\
+      \ on 11 January 2024 and are now one of the largest sources of daily buying and selling. They had\
+      \ taken in a net $57.3 billion by 13 October 2026, according to Farside Investors, but the flows\
+      \ run both ways: on 7 October 2026, investors pulled a net $484.9 million out in a single day.\n\
+      3. **Interest rates and the economy:** Bitcoin has tended to move with other risky assets when borrowing\
+      \ costs change. Higher rates make cash and bonds pay more, which can pull money away from speculative\
+      \ assets. That pattern was clear in 2022, when the US Federal Reserve raised rates quickly and bitcoin\
+      \ fell about 78% from its 2021 peak. On 16 September 2026 the Fed raised its target range by a quarter\
+      \ point to 3.75% to 4%, its first increase since 2023. Whether bitcoin protects against inflation\
+      \ over longer periods is still debated; we look at the evidence in is bitcoin a hedge against inflation?\n\
+      4. **Companies holding bitcoin:** A growing number of listed companies buy bitcoin for their balance\
+      \ sheets, using cash or money raised by selling shares and debt. The largest, Strategy, held 848,250\
+      \ BTC on 11 October 2026, about 4.2% of all bitcoin in circulation, according to its filing with\
+      \ the US Securities and Exchange Commission. Steady buying from these companies adds demand. If\
+      \ their share prices fall and raising money gets harder, that demand can dry up.\n5. **Regulation:**\
+      \ Rules decide who can buy bitcoin, through which products, and how easily banks and funds can offer\
+      \ it. In the US, the CLARITY Act, which would set out how digital assets are regulated, passed the\
+      \ House of Representatives in July 2025. On 15 September 2026, a Senate vote to move it forward\
+      \ failed by 49 votes to 50, short of the 60 it needed. Decisions like these can move the price on\
+      \ the day they land.\n6. **Leverage:** A large share of bitcoin trading happens through futures\
+      \ and other borrowed positions. When the price moves sharply, platforms close leveraged positions\
+      \ automatically, and those forced sales or purchases can push the price further in the same direction\
+      \ within minutes.\n\n## Bitcoin price history and all-time high\n\nBitcoin has gone from less than\
+      \ a tenth of a cent to more than $126,000 in 17 years, with at least three falls of more than 75%\
+      \ along the way. The table lists the milestones people ask about most. Data providers record slightly\
+      \ different highs and lows, because each draws on a different set of exchanges, so every figure\
+      \ names its source.\n\n| Date | Milestone | Price | Source | \n|---|---|---|---|\n| **22 May 2010**\
+      \ | Laszlo Hanyecz pays 10,000 BTC for two pizzas, the first known purchase of goods with bitcoin\
+      \ | No market price yet | Bitcointalk forum | \n\nFor the year-by-year story, with charts and the\
+      \ four-year cycles, read our full bitcoin price history.\n\n## Bitcoin in brief\n\nBitcoin is a\
+      \ digital currency that runs on a public network of computers instead of a bank or government. It\
+      \ was launched on 3 January 2009 by the pseudonymous Satoshi Nakamoto, two months after a white\
+      \ paper describing it was published, and its rules cap the supply at 21 million coins. Our guide\
+      \ what is Bitcoin? explains how it works.\n\nNew coins, and the security of every transaction, come\
+      \ from mining: computers compete to add the next block of transactions to the"
+    https://www.kraken.com/convert/btc/usd:
+      "Product data (page markup): Bitcoin - price $63735.00 USD,
+      InStock
+
+
+      Wie auf Kraken die Konvertierung von BTC in USD funktioniert:
+
+
+      1. Melde dich bei deinem Kraken Konto an (oder erstelle ein neues Konto, falls du noch keins hast)
+
+      2. Gehe zur Trade-Seite und wähle BTC/USD
+
+      3. Wähle den Betrag an BTC aus, den du verkaufen willst
+
+      4. Prüfe den Wechselkurs und den Gesamtbetrag
+
+      5. Schließe die Transaktion ab. Deine USD werden deinem Konto sofort gutgeschrieben.
+
+
+
+      Ja, du kannst auf Kraken BTC mit USD kaufen. Zahle ganz einfach USD in dein Kraken Konto ein, gehe
+      zum Trading-Paar BTC/USD, gib den Betrag in BTC ein, den du kaufen möchtest, und schließe die Transaktion
+      ab. Kraken unterstützt je nach deinem Standort mehrere Zahlungsmethoden, darunter Banküberweisung,
+      Bankkarte und weitere Optionen.
+
+
+      Das Trading von BTC/USD auf Kraken ist einfach:
+
+
+      1. Erstelle und verifiziere dein Kraken Konto
+
+      2. Zahle USD oder BTC auf dein Konto ein
+
+      3. Gehe zur Trade-Seite und wähle das BTC/USD-Paar aus
+
+      4. Wähle zwischen einer Market-Order (sofortige Ausführung zum aktuellen Preis) oder einer Limit-Order
+      (Ausführung zum gewünschten Preis)
+
+      5. Gib den Betrag ein, den du traden willst
+
+      6. Bestätige deinen Trade und führe ihn aus. Hol dir Kraken Pro, um von erweiterten Features zu
+      profitieren."

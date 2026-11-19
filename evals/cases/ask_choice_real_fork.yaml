@@ -6,9 +6,9 @@ description: >
   of guessing or asking a vague question in plain text
 history:
   - role: user
-    content: "I'm training for a half marathon in March, and I also have my statistics exam on the 20th."
+    content: "I'm training for a half marathon in March, and I also have my statistics exam on {monday_plus_3}."
   - role: assistant
-    content: "Good luck with both - a March half marathon and the statistics exam on the 20th."
+    content: "Good luck with both - a March half marathon and the statistics exam on {monday_plus_3}."
 user: "Make me a plan for next week."
 expect:
   rubric: >

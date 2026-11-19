@@ -25,6 +25,7 @@ import html
 from collections.abc import Iterator
 from typing import Any
 from unittest.mock import patch
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -40,7 +41,9 @@ class FakeWeb:
         self.results: list[dict[str, str]] = [
             {k: str(v) for k, v in r.items()} for r in spec.get("results") or []
         ]
-        self.pages: dict[str, str] = {str(k): str(v) for k, v in (spec.get("pages") or {}).items()}
+        self.pages: dict[str, str] = {
+            _normalized(str(k)): str(v) for k, v in (spec.get("pages") or {}).items()
+        }
         self.queries: list[str] = []
         self.fetched: list[str] = []
 
@@ -53,7 +56,7 @@ class FakeWeb:
     ) -> tuple[httpx.Response | None, str | None, int | None]:
         """Same contract as src/agent/tools/web._fetch_response."""
         self.fetched.append(url)
-        page = self.pages.get(url)
+        page = self.pages.get(_normalized(url))
         if page is None:
             return None, f"HTTP 404 when fetching {url}", 404
         response = httpx.Response(
@@ -63,6 +66,23 @@ class FakeWeb:
             request=httpx.Request("GET", url),
         )
         return response, None, None
+
+    def summary(self) -> dict[str, Any]:
+        """What the turn did on the canned web - to tell a failure caused by
+        missing pages from a model failure."""
+        return {
+            "searches": len(self.queries),
+            "fetched": list(self.fetched),
+            "missing": [u for u in self.fetched if _normalized(u) not in self.pages],
+        }
+
+
+def _normalized(url: str) -> str:
+    """A URL as a model may write it: http or https, any host case, a
+    fragment or a trailing slash all reach the same canned page."""
+    parts = urlsplit(url.strip())
+    path = parts.path.rstrip("/") or "/"
+    return urlunsplit(("https", parts.netloc.lower(), path, parts.query, ""))
 
 
 def _as_html(text: str) -> str:

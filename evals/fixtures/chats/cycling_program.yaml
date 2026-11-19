@@ -529,6 +529,7 @@ messages:
     tool_outputs: 'kv_store({"action":"merge","namespace":"sports","key":"cycling:preferences","value":"{\"omezeni\":
       \"v utery do 19:30 hlidani deti; leve koleno - tah zvenku pri kadenci a tempu od listopadu, kufry
       menene v rijnu od oka, sedlo 76,5 cm\"}"}) -> {"ok": true}'
+summary_covers: 24
 summary: 'Uživatel se vrátil k tréninku po týdnu nemoci s aktuálním FTP 238 W a cílem ujet v květnu dvoustovku
   (brevet). Asistent mu pro návratový týden upravil a uložil plán:
 

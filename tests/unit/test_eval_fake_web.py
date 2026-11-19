@@ -96,3 +96,34 @@ def test_live_web_installs_no_fake() -> None:
     with fake_integrations({}, web="live") as fakes:
         assert web._fetch_response is original
         assert "web" not in fakes
+
+
+@pytest.mark.parametrize(
+    "asked",
+    [
+        _URL + "/",
+        _URL + "#zone2",
+        _URL.replace("https://", "http://"),
+        _URL.replace("www.example-bikes.cz", "WWW.Example-Bikes.cz"),
+    ],
+)
+def test_a_canned_page_matches_url_variants(asked: str) -> None:
+    from src.agent.tools.web import fetch_url
+
+    with fake_integrations({}, web=_WEB):
+        out = fetch_url.invoke({"url": asked})
+    assert "sweet spot" in str(out)
+
+
+def test_canned_web_calls_are_summarized() -> None:
+    from evals.fake_web import FakeWeb
+
+    fake = FakeWeb(_WEB)
+    fake.search_web_detailed("a", 3)
+    fake.fetch_response(_URL)
+    fake.fetch_response("https://elsewhere.example.org/x")
+    assert fake.summary() == {
+        "searches": 1,
+        "fetched": [_URL, "https://elsewhere.example.org/x"],
+        "missing": ["https://elsewhere.example.org/x"],
+    }

@@ -1,6 +1,6 @@
 id: fresh_opinion_current_politics
-known_failure: >
-  Failed 18/20 runs by the Nov 15 2026 audit; read a failing run before tuning for it.
+# Was a known target (failed 18/20 by Nov 15 2026): live web drifted from the
+# rubric's facts. On canned pages consistent with them it passed 2/2 (Nov 19).
 description: Advice about a current political situation looks up who is where now (Oct 2026 rebrand turn answered from stale training data)
 history:
   - role: user
@@ -13,8 +13,6 @@ history:
       (kolem 2,5 %) mohou samostatně propadnout pod 5 % a jejich hlasy
       přerozdělí D'Hondt hlavně silným stranám.
 user: "Za me by melo vzniknout neco jako spolu, ale rebrand. Lidi to spojujou s Fialou, kterymu se to uplne nepovedlo. Kdo by to mel tahnout?"
-# Live web on purpose: current politics - canned pages would freeze it
-web: live
 expect:
   rubric: >
     Gives an opinion in Czech on how a SPOLU-like rebrand could work and who
@@ -27,3 +25,812 @@ expect:
     rivalling Kupka inside ODS), Petr Fiala as the current ODS leader, or
     Markéta Pekarová Adamová as the current TOP 09 leader.
   required_tools: [research, web_search, fetch_url]
+# Canned web captured 2026-11-19 (evals/capture_web.py): ODS předseda Martin Kupka 2026; Martin Kuba Naše Česko hnutí; TOP 09 předseda 2026
+web:
+  results:
+    - url: https://www.ods.cz/clanek/27932-martin-kupka-zvolen-predsedou-obcanske-demokraticke-strany
+      title: Martin Kupka zvolen předsedou Občanské demokratické strany – ODS – Občanská demokratická strana
+      snippet:
+        "Martin Kupka zvolen předsedou Občanské demokratické strany – ODS – Občanská demokratická\
+        \ strana\n\n## Martin Kupka zvolen předsedou Občanské demokratické strany \n\n 17. ledna 2026 \n\
+        \n (www.ods.cz) ​​​​​​​Delegáti 32. kongresu ODS zvolili předsedou Občanské demokratické strany\
+        \ Martina Kupku. V tajné volbě mu podporu vyjádřilo 61,9 % přítomných hlasujících. Celkem pro něj\
+        \ hlasovalo 327 delegátů z celkového počtu 528 hlasujících. \n\nMartin Kupka bezprostředně po jeho\
+        \ zvolení: „Bude mi ctí pracovat pro O"
+    - url: https://cs.wikipedia.org/wiki/Martin_Kupka
+      title: Martin Kupka
+      snippet: "Martin Kupka
+
+
+        | Mgr. Martin Kupka | |
+
+        | --- | --- |
+
+        | Martin Kupka (2020) | |
+
+        | 20. ministr dopravy ČR | |
+
+        | Ve funkci: 17. prosince 2021 – 15. prosince 2025 | |
+
+        | Předseda vlády | Petr Fiala |
+
+        | Předchůdce | Karel Havlíček |
+
+        | Nástupce | Ivan Bednárik |
+
+        | 5. předseda ODS | |
+
+        | Úřadující | |
+
+        | Ve funkci od: 17. ledna 2026 | |
+
+        | Předchůdce | Petr Fiala |
+
+        | Místopředseda ODS | |
+
+        | Ve funkci: 18. ledna 2014 – 17. ledna 2026 | |
+
+        | Poslanec Poslanecké sněmovny PČR | |
+
+        | Úřadující | |
+
+        | Ve funkci od: "
+    - url: https://ct24.ceskatelevize.cz/clanek/domaci/ods-si-zvoli-nove-vedeni-do-cela-strany-chteji-kupka-a-ivan-369318
+      title: ▶ Novým šéfem ODS je Kupka. Prvním místopředsedou se stal Portlík — ČT24 — Česká televize
+      snippet:
+        "▶ Novým šéfem ODS je Kupka. Prvním místopředsedou se stal Portlík — ČT24 — Česká televize\n\
+        \n# Novým šéfem ODS je Kupka. Prvním místopředsedou se stal Portlík\n\nČTK, \n\nČT24, \n\nMartin\
+        \ Šnajdr\n\n, \n\n17. 1. 2026 17. 1. 2026‌‌| Zdroj: ČTK, ČT24\n\nUdálosti: ODS s novým vedením\n\
+        \nObčanští demokraté v sobotu na kongresu v Praze zvolili novým lídrem strany dosavadního místopředsedu\
+        \ Martina Kupku, po dvanácti letech vystřídal v čele strany expremiéra Petra Fialu. Neuspěl Kupkův\
+        \ protikandidát, kterým byl místost"
+    - url: https://domaci.hn.cz/c1-67961340-pul-roku-je-moc-konkurence-nam-utece-kupkuv-plan-na-zachranu-ods-narazi-uvnitr-strany
+      title: Analýza | Hospodářské noviny (HN.cz)
+      snippet:
+        "Analýza | Hospodářské noviny (HN.cz)\n\n# Půl roku je moc, konkurence nám uteče. Kupkův\
+        \ plán na záchranu ODS naráží uvnitř strany\n\n Martina Machová \n\n 18. 11. 2026 15:55 ▪ 4 min.\
+        \ čtení \n\n \n\n Martin Kupka posunul restart ODS na květen a spojil ho se svou další budoucností.\
+        \ Autor ▪ HN – Matej Slávik \n\nV edení občanských demokratů si vzalo půl roku na to, aby veřejnosti\
+        \ řeklo, jakou stranou a s jakým programem má ODS napříště být. Spolustraníkům, které vystrašil\
+        \ pád preferencí, předseda ODS Martin Ku"
+    - url: https://www.cesko.cz/
+      title: Hnutí Naše Česko
+      snippet: 'Hnutí Naše Česko
+
+
+        # PRÁVĚ ZAČÍNÁME!
+
+
+        Jsem Martin Kuba. Politik, lékař a také manžel a táta. Založil jsem nové politické hnutí Naše Česko.
+        Je to parta lidí, která plní sliby. Budeme rádi, když se přidáte. Děje se to právě teď.
+
+
+        Jsme Naše Česko. Nové politické hnutí.
+
+
+        A tipujeme, že nejste úplně spokojení se současnou politikou. Možná jste se ptali sebe sami, zda
+        se vám ta politika teď líbí. Možná jste čekali trochu víc. Od nich. Od nich všech "tam nahoře".
+        Byly nějaké volby. Pak další. A pak zase'
+    - url: https://cs.wikipedia.org/wiki/Na%C5%A1e_%C4%8Cesko
+      title: Naše Česko
+      snippet: "Naše Česko
+
+
+        | Naše Česko | |
+
+        | --- | --- |
+
+        | | |
+
+        | Zkratka | NČ |
+
+        | Datum založení | 12. března 2026 |
+
+        | Předseda | Martin Kuba |
+
+        | Zakladatel | Martin Kuba |
+
+        | Sídlo | Pražská tř. 2738/94 370 04 České Budějovice |
+
+        | Rozkol od | ODS |
+
+        | Ideologie | liberální konzervatismus proevropanismus |
+
+        | Politická pozice | středopravice |
+
+        | Barvy | bílá červená modrá |
+
+        | IČO | 24623423 (VR) |
+
+        | Rejstřík MV ČR | 643 |
+
+        | Oficiální web | www.cesko.cz |
+
+        | Zisk mandátů ve volbách | |
+
+        | Senát 2026 | 2/ 81 [pozn. "
+    - url: https://talk.youradio.cz/porady/dvacet-minut-radiozurnalu/odpovida-martin-kuba-jihocesky-hejtman-lidr-a-zakladatel-hnuti-nase-cesko
+      title: Odpovídá Martin Kuba, jihočeský hejtman, lídr a zakladatel hnutí Naše Česko | Youradio Talk
+      snippet:
+        "Odpovídá Martin Kuba, jihočeský hejtman, lídr a zakladatel hnutí Naše Česko | Youradio Talk
+
+
+        # Odpovídá Martin Kuba, jihočeský hejtman, lídr a zakladatel hnutí Naše Česko
+
+
+        ## Poslechněte si podcast
+
+
+        20. 10. 2026
+
+
+        Hnutí Naše Česko volebně zabodovalo především v jihočeském kraji, senátor Tomáš Fiala v jeho barvách
+        obhájil mandát dokonce už v prvním kole. Jak si nové hnutí rozumí s koaličními partnery? Má ambice
+        promluvit do celostátní politiky? Moderuje Tomáš Pancíř. Všechny díly podcastu Dvacet m"
+    - url: https://www.denik.cz/cesko/martin-kuba-hnuti-nase-cesko-volby-chci-byt-premier/
+      title: Martin Kuba představil své nové hnutí Naše Česko. Chci být premiér, řekl – Deník.cz
+      snippet:
+        "Martin Kuba představil své nové hnutí Naše Česko. Chci být premiér, řekl – Deník.cz\n\n\
+        # Martin Kuba představil své nové hnutí Naše Česko. Chci být premiér, řekl\n\nKateřina Perknerová\
+        \ Redaktorka\n\nČesko 3. 2. 2026• gallery 6\n\n Jihočeský hejtman Martin Kuba představil nové hnutí\
+        \ Naše Česko. \n\n Jihočeský hejtman Martin Kuba v úterý v Praze představil svoje nové hnutí Naše\
+        \ Česko s podtitulkem Poprvé pořádně. Podle něj jde o projekt pro budoucnost. „Zažíváme změnu společenského\
+        \ a politického řádu. Teď s"
+    - url: https://www.top09.cz/regiony/kralovehradecky-kraj/top-09-v-mediich/po-32-letech-je-v-cele-parlamentni-strany-hradecak-havel-se-stal-predsedou-top-09-32670.html
+      title: Po 32 letech je v čele parlamentní strany Hradečák. Havel se stal předsedou TOP 09 | TOP 09
+      snippet:
+        "Po 32 letech je v čele parlamentní strany Hradečák. Havel se stal předsedou TOP 09 | TOP
+        09
+
+
+        # Po 32 letech je v čele parlamentní strany Hradečák. Havel se stal předsedou TOP 09
+
+
+        19.10.2026
+
+
+        Matěj Ondřej Havel byl dnes zvolen novým předsedou TOP 09. Stává se tak prvním Hradečákem od roku
+        1993, který stojí v čele parlamentní strany. Poslanec, krajský zastupitel a bývalý ředitel hradeckého
+        Gymnázia J. K. Tyla uspěl na sněmu TOP 09 v Praze jako jediný kandidát, když získal podporu více
+        než 70 proce"
+    - url: https://www.top09.cz/co-delame/medialni-vystupy/novy-predseda-top-09-musime-byt-schopni-existovat-samostatne-slouceni-s-ods-neni-na-stole-32672.html
+      title:
+        "Nový předseda TOP 09: Musíme být schopni existovat samostatně, sloučení s ODS není na stole
+        | TOP 09"
+      snippet:
+        "Nový předseda TOP 09: Musíme být schopni existovat samostatně, sloučení s ODS není na stole\
+        \ | TOP 09\n\n# Nový předseda TOP 09: Musíme být schopni existovat samostatně, sloučení s ODS není\
+        \ na stole\n\n19.10.2026\n\n Prohlášení společného senátorského klubu ODS a TOP 09 k účasti ruských\
+        \ hokejových reprezentací na světových šampionátech \n\nNový předseda TOP 09 Matěj Ondřej Havel\
+        \ chce dál sázet na témata národní bezpečnosti, prozápadního ukotvení a zodpovědného hospodaření.\
+        \ Za cíl si dává, aby strana byla"
+    - url: https://www.top09.cz/o-nas/celostatni-snemy/snem-2025/vedeni-top-09-omladlo-predsedou-je-matej-ondrej-havel-32664.html
+      title: Vedení TOP 09 omládlo. Předsedou je Matěj Ondřej Havel | TOP 09
+      snippet:
+        "Vedení TOP 09 omládlo. Předsedou je Matěj Ondřej Havel | TOP 09\n\n# Vedení TOP 09 omládlo.\
+        \ Předsedou je Matěj Ondřej Havel\n\n## Usnesení 9. celostátního sněmu TOP 09\n\n## 9. celostátní\
+        \ sněm\n\nStream\n\nMateriály sněmu\n\nVýsledky voleb\n\nAutor: Veronika Rejmanová \n\nTOP 09: Vedení\
+        \ TOP 09 omládlo. Předsedou je Matěj Ondřej Havel\n\n8. 11. 2025\n\nTOP 09 povede v příštích dvou\
+        \ letech dosavadní místopředseda strany, poslanec Matěj Ondřej Havel. Do funkce 1. místopředsedy\
+        \ byl zvolen Jiří Pospíšil. Dalšími místopř"
+    - url: https://www.idnes.cz/wiki/politika/top-09.K455067
+      title: "TOP 09: program, preference, lídři a vedení - iDNES.cz"
+      snippet:
+        "TOP 09: program, preference, lídři a vedení - iDNES.cz\n\n# TOP 09\n\n Autor: iDNES.cz 2.\
+        \ září 2026 10:53 \n\n Fotogalerie 41 \n\n Předseda TOP 09 Matěj Ondřej Havel vystoupil na tiskové\
+        \ konferenci k představení programových priorit TOP 09 pro moderní a odolné Česko, 20. června 2026,\
+        \ Praha. | foto: ČTK \n\n TOP 09 patří mezi tradiční pravostředové a výrazně proevropské politické\
+        \ strany. Vznikla v roce 2009 kolem Karla Schwarzenberga a Miroslava Kalouska a dlouhodobě zdůrazňuje\
+        \ odpovědné veřejné finance, e"
+  pages:
+    https://www.ods.cz/clanek/27932-martin-kupka-zvolen-predsedou-obcanske-demokraticke-strany:
+      "## Martin\
+      \ Kupka zvolen předsedou Občanské demokratické strany\n\n(www.ods.cz) Delegáti 32. kongresu ODS\
+      \ zvolili předsedou Občanské demokratické strany Martina Kupku. V tajné volbě mu podporu vyjádřilo\
+      \ 61,9 % přítomných hlasujících. Celkem pro něj hlasovalo 327 delegátů z celkového počtu 528 hlasujících.\n\
+      \n**Martin Kupka bezprostředně po jeho zvolení:** *„Bude mi ctí pracovat pro ODS tak, aby se z ní\
+      \ opět stala kompetentní, živá, moderní a sebevědomá pravice. (…) Chci také poděkovat Radimu Ivanovi\
+      \ – když se bavíme o konkurenci a tržním prostředí, je dobře, že jsme ji dokázali vytvořit i na\
+      \ půdě ODS.“* \n\nSledujte vysílání kongresu živě: https://www.youtube.com/live/qD5r5ZAo2kM?si=WhtxOQu0DqQbJpMx\n\
+      \nPo dobu konání pro vás připravujeme kompletní tiskový servis, najdete jej na webu https://www.ods.cz/kongres/2026"
+    https://cs.wikipedia.org/wiki/Martin_Kupka:
+      "| Mgr. Martin Kupka |  | \n|---|---|\n| Martin Kupka\
+      \ (2020) |  | \n| 20. ministr dopravy ČR |  | \n| **Ve funkci:** 17. prosince 2021 – 15. prosince\
+      \ 2025 |  | \n| Předseda vlády | Petr Fiala | \n| Předchůdce | Karel Havlíček | \n| Nástupce | Ivan\
+      \ Bednárik | \n| 5. předseda ODS |  | \n| Úřadující |  | \n| **Ve funkci od:** 17. ledna 2026 |\
+      \  | \n| Předchůdce | Petr Fiala | \n| Místopředseda ODS |  | \n| **Ve funkci:** 18. ledna 2014\
+      \ – 17. ledna 2026 |  | \n| Poslanec Poslanecké sněmovny PČR |  | \n| Úřadující |  | \n| **Ve funkci\
+      \ od:** 21. října 2017 |  | \n| Zastupitel Středočeského kraje (v letech 2016–2017 také náměstek\
+      \ hejtmanky a v letech 2020–2022 pak 1. náměstek hejtmanky) |  | \n| **Ve funkci:** 8. října 2016\
+      \ – 25. ledna 2022 |  | \n| Starosta obce Líbeznice |  | \n| **Ve funkci:** 15. listopadu 2010 –\
+      \ 20. prosince 2021 |  | \n| Předchůdce | Otakar Hlavín | \n| Nástupce | Jan Havlíček | \n| Zastupitel\
+      \ obce Líbeznice (od roku 2021 také radní obce) |  | \n| Úřadující |  | \n| **Ve funkci od:** 16.\
+      \ října 2010 |  | \n| Stranická příslušnost |  | \n| Členství | ODS (od 2008) | \n| Narození | 28. října\
+      \ 1975 (51 let) Jilemnice Československo | \n| Občanství | Česko | \n| Choť | ženatý | \n| Děti\
+      \ | dvě děti | \n| Sídlo | Líbeznice | \n| Alma mater | Univerzita Karlova v Praze | \n| Profese\
+      \ | novinář a politik | \n| Webová stránka | martinkupka.eu | \n| Commons | Martin Kupka | \n| **Seznam\
+      \ děl**: SKČR \\| Knihovny.cz |  | \n| Některá data mohou pocházet z datové položky. |  | \n\n**Martin\
+      \ Kupka** (\\* 28. října 1975 Jilemnice) je český politik a bývalý novinář, od prosince 2021 do\
+      \ prosince 2025 ministr dopravy ČR ve vládě Petra Fialy, v letech 2014 až 2026 místopředseda a od\
+      \ ledna 2026 předseda ODS, v letech 2016 až 2022 zastupitel Středočeského kraje (v letech 2016 až\
+      \ 2017 také náměstek hejtmanky a v letech 2020 až 2022 pak 1. náměstek hejtmanky), v letech 2010\
+      \ až 2021 starosta obce Líbeznice. Po přezkoumání výsledků sněmovních voleb 2017 Nejvyšším správním\
+      \ soudem byl prohlášen zvoleným poslancem namísto Petra Bendla, ve sněmovních volbách v roce 2021\
+      \ byl znovu zvolen poslancem, ve sněmovních volbách v roce 2025 byl lídrem koalice SPOLU ve Středočeském\
+      \ kraji, mandát obhájil na prvním místě.\n\nAbsolvoval gymnázium v Jilemnici a poté vystudoval žurnalistiku\
+      \ a masovou komunikaci na Fakultě sociálních věd Univerzity Karlovy (1994–2001). Je ženatý a má\
+      \ dvě děti. Vedle poslechu klasické hudby tráví volný čas také v přírodě, na kole nebo na lyžích.<sup>\\\
+      [1\\]</sup> Zajímal se o klasickou hudbu a již za studií pořádal v rodné Jilemnici pod hlavičkou\
+      \ Hudební mládeže Zimní hudební festival.<sup>\\[2\\]</sup> Oblasti klasické hudby se věnoval i\
+      \ v médiích, byl moderátorem rádia Classic FM<sup>\\[3\\]</sup> a Českého rozhlasu (stanice Praha\
+      \ a Vltava).\n\nOd roku 2001 se přesunul do oblasti public relations. Stal se tiskovým mluvčím Magistrátu\
+      \ hlavního města Prahy (2001–2002, primátoři Jan Kasl a Igor Němec), později působil jako tiskový\
+      \ mluvčí nebo vedoucí tiskových odborů či mediálních sekcí Středočeského kraje (2003–2008, hejtman\
+      \ Petr Bendl), ministerstva dopravy (2009, ministr Petr Bendl) a Občanské demokratické strany (předvolební\
+      \ období 2009–2010). Jako mluvčí vedl i krizovou komunikaci při záplavách v Praze v roce 2002 a\
+      \ záplavách ve Středních Čechách v roce 2006. V roce 2010 se stal mluvčím vlády České republiky\
+      \ (při vládě Petra Nečase), kterým ale zůstal jen do zvolení členem zastupitelstva Líbeznic. Byl\
+      \ čtyřikrát vyhlášen tiskovým mluvčím roku, třikrát v kategorii veřejná správa (2006 až 2008), jednou\
+      \ v kategorii státní orgány (2009).<sup>\\[4\\]</sup>\n\nPůsobí též jako mediální poradce, jeho\
+      \ služby využíval kupř. primátor Prahy Bohuslav Svoboda.<sup>\\[5\\]</sup> Na Fakultě sociálních\
+      \ věd UK od roku 2007 vyučuje o problematice komunikace s médii a kultuře mluveného projevu.<sup>\\\
+      [4\\]</sup>\n\nČlenem ODS se stal v roce 2008 a už o dva roky později byl jako trojka na její kandidátní\
+      \ listině zvolen s druhým nejvyšším počtem preferenčních hlasů do zastupitelstva obce Líbeznice.<sup>\\\
+      [6\\]</s"
+    https://ct24.ceskatelevize.cz/clanek/domaci/ods-si-zvoli-nove-vedeni-do-cela-strany-chteji-kupka-a-ivan-369318:
+      "Published:
+      2026-01-17
+
+
+      Občanští demokraté v sobotu na kongresu v Praze zvolili novým lídrem strany dosavadního místopředsedu
+      Martina Kupku, po dvanácti letech vystřídal v čele strany expremiéra Petra Fialu. Neuspěl Kupkův
+      protikandidát, kterým byl místostarosta městského obvodu Ostrava-Jih Radim Ivan. Strana si v sobotu
+      zvolila také prvního místopředsedu, kterým se stal starosta Prahy 9 Tomáš Portlík.
+
+
+      Kupku, který měl jedenáct krajských nominací, před kongresem podpořil i Fiala, jemuž nový předseda
+      strany bezprostředně po zvolení poděkoval za práci, kterou v čele ODS odvedl. Delegáti odevzdali
+      při volbě předsedy 508 platných hlasů, z nichž 327 získal právě Kupka. Ivana podpořilo 138 hlasujících.
+      „Je to jasné slovo kongresu: Ano, to je předseda, kterému chceme věřit, který povede ODS dál,“ řekl
+      Kupka k síle svého mandátu po vyhlášení výsledků. Fiala novému předsedovi pogratuloval. „Věřím,
+      že se ti podaří naplnit tvé vize a posunout stranu kupředu. ODS bude v dobrých rukou. Hodně štěstí,“
+      napsal.
+
+
+      Kupka předpokládá, že bude intenzivně spolupracovat právě s Fialou, aby spolu ukazovali směr pro
+      českou pravici. Před hlasováním o dalším složení předsednictva Kupka nechtěl nikoho jmenovat jako
+      svého favorita. Sestava nominací, jak je určily regionální sněmy, je podle něj silná a je připravený
+      pracovat s týmem, který kongres vybere.
+
+
+      ODS se podle Kupky nyní musí zaměřit na práci v opozici. „Je na nás, abychom posílili značku, nutně
+      budeme spolupracovat s dalšími stranami v opozici, je to ale čas, abychom představili naše reformy,“
+      uvedl k pokračování koalice SPOLU, kterou tvoří občanští demokraté, lidovci a TOP 09. ODS chce Kupka
+      prezentovat jako srozumitelnou a jasnou kotvu.
+
+
+      Změny s velkou pravděpodobností nastanou ve vedení poslaneckého klubu ODS, jehož předsedou je nyní
+      Marek Benda. „Vedení se určitě převolí, objeví se tam určitě noví lidé. Kdy by se to jednání poslaneckého
+      klubu mělo odehrát, to teď nevím, ale bude to v poměrně krátké době po kongresu,“ potvrdil Kupka
+      záměr, o kterém poslanecká frakce informovala už v době, kdy se po volbách formovala.
+
+
+      Kupkův protikandidát ve volbě předsedy strany Ivan poděkoval za podporu a oznámil, že bude pokračovat
+      v práci názorové platformy ODS Česko plus. Nevyloučil, že se o vedení strany bude ucházet i za dva
+      roky.
+
+
+      ## Nominační projevy kandidátů na předsedu
+
+
+      Ještě před volbou předsedy vystoupili oba kandidáti s nominačními projevy. Jako první hovořil Ivan.
+      „Abychom se posunuli dopředu a mohli zase růst a vítězit, musíme si umět pojmenovat problém,“ řekl
+      na úvod kandidát, podle něhož ODS „neroste a nevítězí“. „Já vám slibuji, že pokud se stanu předsedou,
+      tak vám budu říkat vždycky pravdu, ne po dvanácti letech,“ prohlásil Ivan v reakci na bilanční projev
+      Fialy, který se několik desítek minut předtím loučil po dvanácti letech jako předseda. „Voliči nám
+      aktuálně nevěří, že máme vizi pro budoucí generace,“ dodal. Končící vedení podle Ivana podřídilo
+      vše strachu, že vládu SPOLU nedotáhne do konce. Kritizoval například zvýšení daní.
+
+
+      ODS se podle Ivana přestala zabývat přípravou reforem, stále se koncentruje na vítězství v jednotlivých
+      volbách, nikoli na vzdálenější budoucnost. „Možná se máme dobře, ale jde o to, aby tu žili spokojení
+      lidé za deset, dvacet let, abychom zvládli transformaci země, až budou odcházet do důchodu Husákovy
+      děti,“ řekl k výkonu bývalé vlády. „Sedli jsme si. Hráli jsme na pohodu. Pojďme se zvednout, být
+      aktivní,“ vyzval s tím, že jako mladý nabízí aktivitu a změnu.
+
+
+      Voliče by ODS podle Ivana měla přestat poučovat, naopak by podle něj měla víc dát na konstruktivní
+      zpětnou vazbu, a to například od podnikatelů. To samé má platit ve vnitřním životě strany, míní.
+      Proti Fialovi, který varoval své spolustraníky před praním špinavého prádla na veřejnosti, se vyslovil,
+      když označil za správné vyříkat si spory na sociálních sítích.
+
+
+      Kupka v kandidátském projevu prohlásil, že v ODS „jsme přirozeným domovem pro liberály, kteří chtějí
+      otevřenou ekonomiku, inovace a svobodu jednotl"
+    https://domaci.hn.cz/c1-67961340-pul-roku-je-moc-konkurence-nam-utece-kupkuv-plan-na-zachranu-ods-narazi-uvnitr-strany:
+      "Published:
+      2026-11-18
+
+
+      Vedení občanských demokratů si vzalo půl roku na to, aby veřejnosti řeklo, jakou stranou a s jakým
+      programem má ODS napříště být. Spolustraníkům, které vystrašil pád preferencí, předseda ODS Martin
+      Kupka slíbil, že personálně obmění odborné týmy a dá šanci novým tvářím či úspěšným politikům z
+      regionů, kteří mají pro ODS vytvořit nový program.
+
+
+      K zodpovědnosti za změny – jež zatím nikdo z ODS blíže nespecifikoval – se přihlásil osobně Kupka.
+      Restart má vyvrcholit příští rok v květnu na ideové konferenci. Jenže právě tento termín budí ve
+      straně rozpaky mísící se s frustrací. Jak rozzlobení a znervóznění straníci rozhodnutí svých špiček
+      přijali?
+
+
+      ## Co se dočtete dál
+
+
+      - Co říkají největší rebelové.
+
+      - Co běžní straníci.
+
+      - Jaká přišla nejtvrdší reakce.
+
+
+      **Předplatné Hospodářských novin**
+
+
+      **45 Kč**první dva měsíce
+
+
+      - Veškerý obsah
+
+      - Bez reklam
+
+      - Mobilní aplikace
+
+
+      **90 Kč**první dva měsíce
+
+
+      - Veškerý obsah
+
+      - Bez reklam
+
+      - Mobilní aplikace
+
+
+      **3290 Kč**za rok
+
+
+      - Veškerý obsah
+
+      - Bez reklam
+
+      - Mobilní aplikace"
+    https://www.cesko.cz/:
+      "# PRÁVĚ ZAČÍNÁME!\n\nJsem Martin Kuba. Politik, lékař a také manžel a táta.\n\
+      \nZaložil jsem nové politické hnutí Naše Česko. \n\nJe to parta lidí, která plní sliby.\n\nBudeme\
+      \ rádi, když se přidáte. Děje se to právě teď.\n\nJsme Naše Česko. Nové politické hnutí.\n\nA tipujeme,\
+      \ že nejste úplně spokojení se současnou politikou. Možná jste se ptali sebe sami, zda se vám ta\
+      \ politika teď líbí. Možná jste čekali trochu víc. Od nich. Od nich všech \"tam nahoře\". Byly nějaké\
+      \ volby. Pak další. A pak zase další. A po každých se stalo to samé. Nic. Místo řešení přišlo vysvětlování,\
+      \ proč je ten druhý špatný. Konflikty. Hádky. Osočování. Sto procent energie do boje. Nula procent\
+      \ do řešení problémů vás, běžných lidí. Vlády se mění, opozice se mění, a vy pořád čekáte na něco,\
+      \ co vám reálně pomůže. Na úřadě. Ve škole. V nemocnici. Doma.\n\nMy jsme si řekli, že to takhle\
+      \ dělat nebudeme. Ne proto, že bychom byli lepší lidé. Ale proto, že jsme to zkusili jinak, a fungovalo\
+      \ to. U nás v Jihočeském kraji jsme dostali důvěru 47 procent voličů. A rozhodně ne díky billboardům\
+      \ a ne díky tomu, že jsme někoho hlasitě kritizovali. Díky tomu, že jsme vystoupili ze slonovinové\
+      \ věže a začali řešit věci, které lidem reálně zjednodušily život. Roky práce. Žádné zkratky. A\
+      \ výsledek, pod který se můžeme podepsat.\n\nNaše hnutí není o tom, jestli jste víc konzervativní,\
+      \ nebo liberální. Je o tom, jestli chcete, aby se věci konečně posouvaly dopředu. Věříme, že stát\
+      \ nemá lidi vodit za ruku od kolébky do důchodu, ale stejně tak víme, že nejsme shluk jednotlivců.\
+      \ Jsme jeden národ a budeme vždycky tak silní, jak silní budou ti nejslabší z nás. Tohle je způsob,\
+      \ jakým řídíme kraj, města a obce. A chceme tak řídit celé Česko. S Vaší pomocí.\n\nNechceme vám\
+      \ vysvětlovat, proč je soupeř špatný. Chceme vám přinést konkrétní řešení – v bydlení, ve sportu,\
+      \ ve školství, v důchodech – a nechat vás posoudit, jestli dávají smysl. Žádné modré z nebe. Žádné\
+      \ sliby, které se vypaří den po volbách. Jen poctivá práce pro lidi, kteří chápou, že si za svůj\
+      \ život nesou odpovědnost, ale zároveň rozumí tomu, že bez fungujícího státu to nejde.\n\nŘíkáme\
+      \ tomu Poprvé pořádně. Protože jsme přesvědčení, že česká politika ještě nikdy nedostala šanci vypadat\
+      \ tak, jak by mohla. Racionálně. Efektivně. S respektem k lidem, k práci a k času. Přidejte se.\
+      \ Ne kvůli nám, kvůli sobě. A kvůli zemi, na kterou chceme být všichni hrdí.\n\n1. ### Politika\
+      \ je veřejná služba Politika není divadlo ani marketing. Politika má sloužit lidem a každý politik\
+      \ musí nést osobní odpovědnost za výsledky. Výsledkem politiky nemají být slova ani hádky. Má přinášet\
+      \ konkrétní řešení a změny, které lidé skutečně pocítí a které posunou Česko dopředu. Nebudeme svou\
+      \ práci měřit počtem tiskových konferencí, příspěvků na sociálních sítích ani útoky na soupeře.\
+      \ Chceme být hodnoceni podle toho, zda se staví silnice, železnice a nové byty, zda fungují nemocnice,\
+      \ školy a úřady a zda stát hospodaří lépe než včera.\n2. ### Sebevědomé Česko v silné Evropě a NATO\
+      \ Česká republika patří do Evropské unie i NATO. Chceme být sebevědomým a spolehlivým partnerem,\
+      \ který umí spolupracovat se spojenci a zároveň dokáže hájit české národní zájmy. Evropa potřebuje\
+      \ méně zbytečné regulace a více konkurenceschopnosti. Potřebuje více bezpečnosti a schopnosti rozhodovat.\
+      \ Bezpečnost nikdy nebyla a není samozřejmost. Budeme podporovat moderní armádu, silnou policii,\
+      \ energetickou bezpečnost a soběstačnost, ochranu vnějších hranic a odpovědnou migrační politiku,\
+      \ která nesmí stát na ideologii, dokáže řešit potřeby pracovního trhu, ale vždy bude chránit kulturní\
+      \ a civilizační hodnoty, na kterých naše společnost stojí.\n3. ### Věříme lidem, ne ve všemocný\
+      \ stát Věříme, že svobodní a odpovědní lidé jsou základem silné společnosti. Úkolem státu není řídit\
+      \ život lidí. Stát má chránit jejich svobodu a vytvářet spravedlivé podmínky, ve kterých mohou pracovat,\
+      \ podnikat a uspět ve všech oborech lidské činnosti. Úspěch se musí vyplácet, ne trestat. Žádná\
+      \ společnost nedokáže být úspěšná bez úspěchu ko"
+    https://cs.wikipedia.org/wiki/Na%C5%A1e_%C4%8Cesko:
+      "| Naše Česko |  | \n|---|---|\n| Zkratka | NČ\
+      \ | \n| Datum založení | 12. března 2026 | \n| Předseda | Martin Kuba | \n| Zakladatel | Martin\
+      \ Kuba | \n| Sídlo | Pražská tř. 2738/94 370 04 České Budějovice | \n| Rozkol od | ODS | \n| Ideologie\
+      \ | liberální konzervatismus proevropanismus | \n| Politická pozice | středopravice | \n| Barvy\
+      \ |  | \n| IČO | 24623423 (VR) | \n| Rejstřík MV ČR | 643 | \n| Oficiální web | www.cesko.cz | \n\
+      | Zisk mandátů ve volbách |  | \n| Senát <sup>2026</sup> | 2/81 <sup>\\[pozn. 1\\]</sup> | \n| Zastupitelstva\
+      \ obcí <sup>2026</sup> | 170/61 677 <sup>\\[1\\]</sup> | \n| Některá data mohou pocházet z datové\
+      \ položky. |  | \n\n**Naše Česko** (zkratka **NČ**) je české politické hnutí založené jihočeským\
+      \ hejtmanem Martinem Kubou. Záměr oznámil v listopadu 2025, kdy spustil podcast s názvem *Super\
+      \ Česko*.<sup>\\[2\\]</sup><sup>\\[3\\]</sup> V únoru 2026 si nechal zaregistrovat ochrannou známku\
+      \ Naše Česko.<sup>\\[4\\]</sup><sup>\\[5\\]</sup><sup>\\[6\\]</sup> Ministerstvo vnitra zaregistrovalo\
+      \ hnutí 12. března 2026.<sup>\\[7\\]</sup><sup>\\[8\\]</sup>\n\nExministr průmyslu a obchodu a hejtman\
+      \ Kuba byl 22 let členem ODS. Tuto stranu však podle něj už nelze moc „opravit“.<sup>\\[9\\]</sup>\
+      \ Ukončit členství v ODS a následovat Kubu do nového hnutí se rozhodli např. senátoři Zbyněk Sýkora<sup>\\\
+      [10\\]</sup> a Tomáš Fiala,<sup>\\[11\\]</sup> českobudějovická primátorka Dagmar Škodová Parmová<sup>\\\
+      [12\\]</sup> nebo bývalý jihočeský hejtman Jan Zahradník.<sup>\\[13\\]</sup> Do nového hnutí plánuje\
+      \ přejít také 30 ze 34 jihočeských zastupitelů, kteří byli v krajských volbách v září 2024 zvoleni\
+      \ na kandidátce ODS.<sup>\\[14\\]</sup>\n\nPo oznámení vzniku tohoto hnutí se začalo spekulovat,\
+      \ že by do něj rádi vstoupili exposlanec a bývalý moravskoslezský hejtman Ivo Vondrák,<sup>\\[15\\\
+      ]</sup> bývalý plzeňský hejtman Rudolf Špoták<sup>\\[16\\]</sup> či bývalý ostravský primátor Tomáš\
+      \ Macura<sup>\\[17\\]</sup>, který nakonec se rozhodl v politice skončit.<sup>\\[18\\]</sup><sup>\\\
+      [19\\]</sup> Původně se také předpokládalo, že by do hnutí vstoupil i pardubický hejtman Martin\
+      \ Netolický,<sup>\\[20\\]</sup> který se nakonec stal 3. února 2026 členem a místopředsedou hnutí\
+      \ My,<sup>\\[21\\]</sup> a 13. dubna téhož roku byla oznámena dohoda o spolupráci těchto dvou hnutí\
+      \ v nadcházejících komunálních volbách.<sup>\\[22\\]</sup><sup>\\[23\\]</sup><sup>\\[24\\]</sup><sup>\\\
+      [25\\]</sup> V těch nakonec hnutí Naše Česko postavilo samostatně či ve spolupráci s dalšími subjekty\
+      \ kandidátní listiny v 156 obcích.<sup>\\[26\\]</sup><sup>\\[27\\]</sup>\n\nV červnu 2026 představilo\
+      \ hnutí projekt Naše Česko hledá talent, jehož cílem je vyhledávat nové osobnosti pro veřejný život,\
+      \ zejména z řad mladých lidí.<sup>\\[28\\]</sup> Projekt vznikl ve spolupráci s odborníky na lidské\
+      \ zdroje, politologii, strategickou komunikaci a marketing. Spoluautory projektu jsou mladí členové\
+      \ hnutí Jan Lexa, Jakub Šulc a Kristýna Cirhanová.<sup>\\[29\\]</sup>\n\nHnutí se poprvé účastnilo\
+      \ voleb v roce 2026, kdy byl zvolen jeden senátor a 70 zastupitelů, členů NČ. Dalších 100 zvolených\
+      \  zastupitelů bylo stranou navrženo.<sup>\\[1\\]</sup>\n\nNový politický subjekt by měl být středopravicový\
+      \ a liberálně konzervativní, s jasným hodnotovým ukotvením v Evropské unii a NATO. Má přinést smířlivější\
+      \ styl politiky a být volbou pro ty, kteří chápou, že se o ně stát nemá ve všem starat, ale že je\
+      \ zároveň potřeba pomáhat slabším.<sup>\\[30\\]</sup>\n\n1. 1 2  Zastupitelé dle navrhující strany.\
+      \ *volby.cz* \\[online\\]. \\[cit. 2026-10-11\\]. Dostupné online.\n2. ↑  MARTIN KUBA. *Martin Kuba*\
+      \ \\[online\\]. \\[cit. 2026-04-14\\]. Dostupné online.\n3. ↑  Spotify – Web Player. *Spotify* \\\
+      [online\\]. \\[cit. 2026-01-21\\]. Dostupné online.\n4. ↑ ČTK. Hejtman Kuba si nechal zaregistrovat\
+      \ ochrannou známku Naše Česko. *Seznam Zprávy* \\[online\\]. 2026-02-03. Dostupné online.\n5. ↑\
+      \ ČTK. Nové hnutí jihočeského hejtmana Kuby se bude jmenovat Naše Česko. *ct24.ceskatelevize.cz*\
+      \ \\[online\\]. \\[cit. 2026-02-03\\]. Dostupné online.\n6. ↑ ; AJ,TČ. Kuba s manželkou tasili Naše\
+      \ Česko: Sázka na vlastenectví, řík"
+    https://talk.youradio.cz/porady/dvacet-minut-radiozurnalu/odpovida-martin-kuba-jihocesky-hejtman-lidr-a-zakladatel-hnuti-nase-cesko:
+      "Published: 2026-10-20\n\nHnutí Naše Česko volebně zabodovalo především v jihočeském kraji, senátor\
+      \ Tomáš Fiala v jeho barvách obhájil mandát dokonce už v prvním kole. Jak si nové hnutí rozumí s\
+      \ koaličními partnery? Má ambice promluvit do celostátní politiky? Moderuje Tomáš Pancíř. \n\n\n\
+      Všechny díly podcastu Dvacet minut Radiožurnálu můžete pohodlně poslouchat v mobilní aplikaci mujRozhlas\
+      \ pro  Android  a  iOS  nebo na webu  mujRozhlas.cz  .\n\n## Popis podcastu\n\nAutorský rozhovor\
+      \ jeden na jednoho s aktéry klíčových událostí veřejného dění. \n\n\nVšechny díly podcastu Dvacet\
+      \ minut Radiožurnálu můžete pohodlně poslouchat v mobilní aplikaci mujRozhlas pro  Android  a  iOS\
+      \  nebo na webu  mujRozhlas.cz  ."
+    https://www.denik.cz/cesko/martin-kuba-hnuti-nase-cesko-volby-chci-byt-premier/:
+      "Published: 2026-02-03
+
+
+      Odhodlání, potlesky ve stoje a sněhobílé košile a později černá trička s logem hnutí, tak vypadala
+      atmosféra ve smíchovském hubu Next Zone. Přišly sem klíčové osobnosti Kubova týmu. Mezi nimi i jeho
+      choť, rodačka ze slovenského Bardejova. „Manžela plně podporuji, jeho projektu a politické vizi
+      věřím. Sama se stanu členkou hnutí, ale větší angažmá neplánuji, máme doma malé dítě, takže to je
+      priorita,“ řekla Deníku.cz Denisa Kubová.
+
+
+      Nebrání se ovšem ani představě budoucího přesunu do Prahy, pokud by to manželova kariéra vyžadovala.
+      Na dotaz, zda by chtěl být premiérem, **Martin Kuba** odpověděl: „Když jdete do politiky, takovou
+      ambici musíte mít, ale není to cíl, jen nástroj, jak mít vliv na dobrou správu země.”
+
+
+      Organizační strukturu a program Našeho Česka Kuba v úterý neprozradil. „Jsme na samém začátku, do
+      sněmovních voleb zbývají tři a půl roku, nechte nám čas vše promyslet a připravit reálné koncepty,”
+      sdělil. Obsah se bude utvářet postupně na programových konferencích po celé zemi. „Nejde nám o počet
+      členů, ale o podporu osobností, které v dané obci, městě nebo kraji mají respekt a dívají se na
+      svět jako my,” dodal.
+
+
+      ## Komunální i senátní volby
+
+
+      Naše Česko se letos v říjnu zúčastní komunálních a senátních voleb. „Především to bude v Jihočeském
+      kraji, ale nejen tam, byť třeba o pražský magistrát skoro určitě usilovat nebudeme,” upřesnil. O
+      mandát v horní komoře v jeho barvách zabojuje **Tomáš Fiala**, v jednání je kandidatura královéhradeckého
+      senátora **Jana Holáska**.
+
+
+      Kuba odmítal otázky na případné koaliční partnery nebo spolupráci s ANO. „Musíme mít dobrý program,
+      s ním oslovit voliče, uspět ve volbách. Teprve pak budou na místě otázky, s kým je možné jít do
+      vlády. Znovu opakuji, že v Jihočeském kraji jsem s ANO do koalice nešel,” konstatoval.
+
+
+      V aktuálním rozhovoru pro Deník.cz pak rozvinul svoji představu o politické práci a komentoval i
+      současné dění."
+    https://www.top09.cz/regiony/kralovehradecky-kraj/top-09-v-mediich/po-32-letech-je-v-cele-parlamentni-strany-hradecak-havel-se-stal-predsedou-top-09-32670.html:
+      "Published: 2026-10-19
+
+
+      # Po 32 letech je v čele parlamentní strany Hradečák. Havel se stal předsedou TOP 09
+
+
+      Matěj Ondřej Havel byl dnes zvolen novým předsedou TOP 09. Stává se tak prvním Hradečákem od roku
+      1993, který stojí v čele parlamentní strany. Poslanec, krajský zastupitel a bývalý ředitel hradeckého
+      Gymnázia J. K. Tyla uspěl na sněmu TOP 09 v Praze jako jediný kandidát, když získal podporu více
+      než 70 procent delegátů.
+
+
+      **Havel** patří dlouhodobě k nejvýraznějším osobnostem východočeské politiky. V nedávných sněmovních
+      volbách získal v Královéhradeckém kraji přes osm tisíc preferenčních hlasů – nejvíc ze všech kandidátů
+      napříč politickým spektrem. V minulém volebním období vedl sněmovní výbor pro vzdělávání, kulturu,
+      mládež a tělovýchovu a stejnou pozici by měl zastávat i nyní.
+
+
+      Na sjezdu mimo jiné uvedl, že chce TOP 09 připravit na návrat do vlády a posílit její odborné zázemí
+      i zapojení mladých lidí. Zdůraznil, že strana má být smysluplnou opozicí s nabídkou alternativy,
+      která se opírá o proevropské a pravicové hodnoty. Zmínil také, že považuje za důležité nadále podporovat Ukrajinu.
+      *„Chtěl bych být předsedou TOP 09, která vyniká odborným přístupem, směřuje k vyšším volebním ziskům
+      – i v těch nejbližších volbách – a dává prostor osobnostem i mladým lidem z celé země,“* řekl **Havel**
+      ve svém projevu, ve kterém vznikající vládu hnutí ANO, SPD a Motoristů označil za „koalici prospěchářství“.
+
+
+      Na dnešním sněmu strany v Praze získal Havel podporu 120 ze 171 hlasujících delegátů, tedy mírně
+      přes 70 procent. Protikandidáta neměl, bývalý předseda TOP 09 Jiří Pospíšil se nominace z regionů
+      vzdal. Delegáti ho nakonec zvolili prvním místopředsedou.
+
+
+      Nový předseda TOP 09 má k Hradci Králové dlouhodobě silný vztah. Narodil se zde, maturoval na Gymnáziu
+      J. K. Tyla a vystudoval Univerzitu Hradec Králové. Jako učitel působil nejprve na Biskupském gymnáziu
+      a ve svých třiceti letech se stal ředitelem Gymnázia J. K. Tyla. Od roku 2021 je poslancem, v roce
+      2023 se stal místopředsedou TOP 09 a před rokem byl zvolen také do krajského zastupitelstva. Osmatřicetiletý
+      politik s manželkou vychovává pět dětí, ve volném čase se věnuje skautingu a hře na varhany.
+
+
+      Ještě před svým zvolením do čela TOP 09 byl **Matěj Ondřej Havel** hostem našeho podcastu. Pokud
+      se tedy o jeho názorech a plánech chcete dozvědět víc, poslechněte si rozhovor na našem webu, YouTube
+      nebo v aplikaci Spotify.
+
+
+      Zdroj: salonkyhk.cz, Tomáš Kulhánek"
+    https://www.top09.cz/co-delame/medialni-vystupy/novy-predseda-top-09-musime-byt-schopni-existovat-samostatne-slouceni-s-ods-neni-na-stole-32672.html:
+      "Published: 2026-10-19
+
+
+      # Nový předseda TOP 09: Musíme být schopni existovat samostatně, sloučení s ODS není na stole
+
+
+      Nový předseda TOP 09 Matěj Ondřej Havel chce dál sázet na témata národní bezpečnosti, prozápadního
+      ukotvení a zodpovědného hospodaření. Za cíl si dává, aby strana byla schopná existovat samostatně
+      i mimo koalici Spolu. Slučování s ODS proto podle něj není na stole. Novinkám to řekl v rozhovoru
+      krátce po jeho sobotním zvolení do čela strany.
+
+
+      **Jak vnímáte, že jste neměl žádného protikandidáta? Co to vypovídá o stavu TOP 09?**
+
+
+      Všude jsem říkal už před tou volbou, že si představuji vedení TOP 09 jako týmovou spolupráci. Asi
+      to delegáti vyslyšeli a asi to nějak takhle respektovali.
+
+
+      **Není to signál, že máte personální nouzi? Proč se do toho některým lidem nechtělo?**
+
+
+      Je to velmi zodpovědná funkce. Když vystoupáte nahoru, tak tam hodně fouká. Určitě je to tak, že
+      některým lidem se do toho nechce a já to nechci zlehčovat. Delegáti, kraje, všichni spolu mluví
+      dny a týdny před sněmem, tak to takhle vyhodnotili, že jim tahle cesta dává smysl. Znovu říkám,
+      zvu ke spolupráci všechny.
+
+
+      **Jaké měřitelné cíle si dáváte? Podle čeho vás můžeme za pár let vyhodnotit jako úspěšného nebo
+      neúspěšného předsedu?**
+
+
+      Chci, aby TOP 09 byla stabilně v preferencích volitelná do Sněmovny nad pěti procenty. Máme teď
+      velký úkol, a to jsou senátní volby. Budeme stavět vlastní kandidáty, obhajující senátory, budeme
+      pro ně chtít dohodnout podporu a taky budeme ochotni dohodnout se na podpoře pro jiné demokratické
+      kandidáty. Chceme zabránit tomu, aby do Senátu přišla nová vlna populistů, extremistů a dezinformátorů.
+
+
+      Chtěl bych, abychom rozhodně obhájili počet senátorů, který máme teď. Mohli bychom nyní postavit
+      samostatný senátorský klub a chtěl bych, abychom tuto možnost měli do budoucna.
+
+
+      V komunálních volbách pro nás bude úkolem, a to si taky dávám za svůj cíl, abychom přitáhli nové
+      osobnosti na kandidátky. V komunálu to je o osobnostech mnohem víc než o stranách a značkách.
+
+
+      A ještě mám jeden takový cíl, chci se mnohem víc, než se mi to dařilo v minulém období, kdy jsem
+      dělal místopředsedu, věnovat členské základně a objíždět kraje. Seděli jsme v obstruované Sněmovně,
+      nemohli jsme pryč. Když by teď byla někdy příležitost a doufám, že bude častěji, protože my nebudeme
+      destrukční opozicí, tak se chci věnovat i svým straníkům v regionech.
+
+
+      **Takže chcete, aby členů TOP 09 přibývalo?**
+
+
+      Jednoznačně chci, aby členů TOP 09 přibývalo. Už situace po prohraných volbách vedla k tomu, že
+      nám se hlásí lidé do strany, máme zvýšený zájem o členství. Na tom budeme pracovat a to chci podpořit.
+      Pozvat nové lidi do TOP 09.
+
+
+      **Když mluvíte o pěti procentech, o volitelnosti TOP 09, jak chcete změnit fakt, že se pohybujete
+      přinejlepším na její hranici?**
+
+
+      Každá poctivá strana oslovuje své voliče pravdivou komunikací. Je to někdy složitější a jsem z toho
+      smutný, když vidím, kolik voličů dokáže někdo přilákat populismem a extremismem nebo dezinformacemi.
+      My budeme komunikovat vždy pravdivě a nabízet taková řešení. Musíme identifikovat z našich témat
+      ta zásadní.
+
+
+      Já si myslím, že to je jednoznačně geopolitická bezpečnost, Západ, euro. Je to vzdělaná společnost
+      do budoucna, rozpočtová odpovědnost a propodnikatelské prostředí. To jsou věci, o kterých jsme přesvědčeni,
+      že vedou k blahobytu a bezpečné a prosperující společnosti, ve které má každý rovnost šancí. A tato
+      témata se budeme muset snažit srozumitelně a jazykem moderního člověka komunikovat.
+
+
+      **Nejsou to příliš velká témata? Po volbách zaznívalo, že koalice Spolu nedosáhla dobrého výsledku,
+      protože jste se zaměřili příliš na téma Západ versus Východ.**
+
+
+      To si někdo může myslet, volby ještě vyhodnocujeme. TOP 09 má už dávno v programu recepty na veškeré
+      oblasti našeho veřejného života. Ale jsou témata zásadní a jsou témata méně důležitá. A ta zásadní
+      témata, jako je třeba národní bezpečnost, rozpočtová odpovědnost, že u nás příliš málo lidí podniká.
+      To jsou věci, které jsou velké a které, pokud by nefungo"
+    https://www.top09.cz/o-nas/celostatni-snemy/snem-2025/vedeni-top-09-omladlo-predsedou-je-matej-ondrej-havel-32664.html:
+      "#
+      Vedení TOP 09 omládlo. Předsedou je Matěj Ondřej Havel
+
+
+      ## Usnesení 9. celostátního sněmu TOP 09
+
+
+      **TOP 09 povede v příštích dvou letech dosavadní místopředseda strany, poslanec Matěj Ondřej Havel.
+      Do funkce 1. místopředsedy byl zvolen Jiří Pospíšil. Dalšími místopředsedy se stali Ondřej Müller,
+      Lukáš Otys, Kateřina Pastorková a Marek Ženíšek. Své nové vedení si strana určila na 9. volebním
+      sněmu v pražském hotelu Don Giovanni.**
+
+
+      **Matěj Ondřej Havel** silný mandát 120 ze 171 hlasů. V kandidátském projevu apeloval, aby se nové
+      předsednictvo soustředilo na posílení významu TOP 09 jako strany výrazných odborníků v otázkách
+      zdravých veřejných financí, jednoznačně formulované zahraniční politiky, demytizované environmentální
+      politiky, promyšlené vzdělávací politiky a dalších.
+
+
+      Varoval také před rostoucími snahami podkopávat demokratické principy země a vyzval k důrazné obraně,
+      třeba i aktivizací občanské společnosti: *„Brzy nejspíš budeme čelit mnohem promyšlenější snaze
+      oslabit svobodu slova a svobodné šíření informací než dříve, a to snahou podmanit si a v případě
+      potřeby i omezit nezávislá, veřejnoprávní média.“*
+
+
+      *„Opět se objevuje velká snaha přesvědčit lidi, aby se nestarali o správu věcí veřejných. Lhostejnost
+      a nezájem o veřejné dění, o kroky vlády, Parlamentu a podobně jsou dobrým podhoubím pro klid na
+      práci při demontáži svobody salámovou metodou. To bude riskantní pro celou zemi a naše úloha v Parlamentu
+      je proto nezastupitelná,“* pronesl dále **Havel**. *„TOP 09 v minulosti mnohokrát prokázala, že
+      dokáže být v takových bouřích pevným a viditelným hodnotovým majákem, a bude to muset prokázat i
+      nyní.“*
+
+
+
+      Poslanec a bývalý předseda strany **Jiří Pospíšil**, v souladu se svými dřívějšími prohlášeními,
+      nominaci na předsedu TOP 09 z osobních důvodů odmítl. V průběhu sněmu byl proto vyzván ke kandidatuře
+      na 1. místopředsedu, kterou přijal a na jejímž základě byl do funkce následně i zvolen 110 hlasy.
+
+
+      Také on v kandidátském projevu apeloval k aktivní práci v kontextu povolebního vývoje politické
+      situace v zemi. *„Vládnou ti, kteří zpochybňují polistopadový vývoj, nadržují putinovskému Rusku,“*
+      uvedl. *„Nemáme prostor lízat si rány z prohraných voleb.“*
+
+
+      **Ondřej Müller**, krajský manažer TOP 09 a pardubický zastupitel, **Lukáš Otys**, krajský předseda
+      TOP 09 v Karlovarském kraji a někdejší místopředseda, a **Kateřina Pastorková**. Mandát obhájil
+      ministr pro vědu, výzkum a inovace a také jeden ze zakládajících členů strany **Marek Ženíšek**.
+
+
+      Sněm byl rovněž oficiálním rozloučením s dosavadní předsedkyní **Markétou Pekarovou Adamovou**,
+      která stranu vedla uplynulých 6 let a znovu již nekandidovala.
+
+
+      *„Nevracejte se k minulosti jako k všespásnému léku, veškeré návraty ke kořenům jsou jen brnkání
+      na strunu nostalgie. Dívejte se mnohem víc dopředu,“* doporučila straníkům na úvod sněmu **Pekarová
+      Adamová**. *„To neznamená, že se z minulosti nepoučíme, nebo že bychom ji snad ignorovali. Svět
+      kolem nás se ale velmi rychle mění a my nesmíme ustrnout.“*
+
+
+      ## Nové vedení TOP 09
+
+
+      ### Předseda
+
+
+      Matěj Ondřej Havel
+
+
+      ### První místopředseda:
+
+
+      Jiří Pospíšil
+
+
+      ### Řadoví místopředsedové:
+
+
+      Ondřej Müller
+
+
+      Lukáš Otys
+
+
+      Kateřina Pastorková
+
+
+      Marek Ženíšek
+
+
+      ## Usnesení 9. celostátního sněmu TOP 09
+
+
+      ### 1. Celostátní sněm vzal na vědomí:
+
+
+      Zprávy předsednictva, výkonného výboru, poslaneckého klubu, senátorů, europoslanců, smírčího výboru,
+      celostátní revizní komise a zprávu o hospodaření.
+
+
+      ### 2. Volby
+
+
+      Celostátní sněm:
+
+
+      2.1. Zvolil předsedou Matěje Ondřeje Havla.
+
+
+      2.2. Zvolil 1. místopředsedou Jiřího Pospíšila.
+
+
+      2.3. Schválil počet dalších místopředsedů, a to čtyři.
+
+
+      2.4. Zvolil místopředsedy, kterými se stali: Ondřej Müller, Lukáš Otys, Kateřina Pastorková a Marek
+      Ženíšek.
+
+
+      2.5. Schválil počet dalších členů předsednictva, a to devět.
+
+
+      2.6. Zvolil členy předsednictva, kterými jsou: Tomáš Aberl, Martin Horák, Jakub Lepš, Martin Leška,
+      Martin Neřád, Herbert Pavera, Jiří Slavík, Vlastimil Válek a Radka Vaňousová.
+
+
+      2.7. Zvolil dalších patnáct členů výkon"
+    https://www.idnes.cz/wiki/politika/top-09.K455067:
+      "### iDNES a reklama\n\nPokud využijete místo platby\
+      \ udělení souhlasu s reklamou (tj. souhlas s využitím cookies a dalších síťových identifikátorů\
+      \ pro účely cílené reklamy), \n                    budou Vám zobrazovány v rámci našich webů iDNES.cz,\
+      \ Lidovky.cz, Expres.cz a Antiyoutuber.cz<sup>2</sup> reklamy a to cílené i necílené. \n       \
+      \             Cílení reklam probíhá na základě profilování Vašich zvyků a zájmů z údajů získaných\
+      \ o Vašich akcích na internetu tak, \n                    aby Vám byly zobrazovány reklamy, které\
+      \ Vás budou zajímat. Toto cílení bude provádět jak MAFRA, a.s., \n                    tak reklamní\
+      \ partneři (jichž je celkem 125), jejichž seznam a další informace naleznete \n                \
+      \    zde.\n\nVáš souhlas s cílením reklamy můžete kdykoliv odvolat, pokud jej však odvoláte, budete\
+      \ vyzváni k přechodu na iDNES Premium bez reklam. Souhlas pro jiné účely, než je cílení reklam (např.\
+      \ zobrazování obsahu podle Vašich zájmů apod.), můžete změnit či odvolat, aniž byste museli přecházet\
+      \ na iDNES Premium bez reklam.\n\nNěkteré údaje (nikoliv však pro cílení reklamy) zpracováváme na\
+      \ základě tzv. oprávněného zájmu. Vznést námitku proti zpracování na základě oprávněného zájmu a\
+      \ provést další nastavení soukromí můžete v sekci Podrobné nastavení. Vámi zde provedené nastavení\
+      \ se použije pro webové stránky: iDNES.cz, Lidovky.cz, Expres.cz a Antiyoutuber.cz.\n\nMy a naši\
+      \ partneři zpracováváme údaje následujícím způsobem: \n                    **Použití omezených údajů\
+      \ k výběru reklam**, \n                    **Používání profilů pro výběr personalizovaného obsahu**,\
+      \ **Vytváření profilů pro personalizovaný obsah**, \n                    **Měření výkonu reklam,\
+      \ **Porozumění publiku prostřednictvím statistik nebo kombinací údajů z různých zdrojů, \n     \
+      \               **Používání profilů k výběru personalizované reklamy**, **Rozvoj a zlepšování služeb**,\
+      \ \n                    **Vytváření profilů pro personalizovanou reklamu**, **Měření výkonu obsahu**,\
+      \ **Technický provoz stránek******\n\nPokud se rozhodnete pro iDNES bez platby a udělíte nám souhlas\
+      \ s cílenou reklamou, \n                    **bude souhlas vždy udělen pro účely uvedené výše tučně**.\n\
+      \nBohužel z technických důvodů na straně poskytovatelů reklamy je nutné Váš nesouhlas s využitím\
+      \ k těmto účelům (u nichž z podstaty věci přichází do úvahy pouze použití ze strany naší společnosti):\n\
+      \n *(i) Používání profilů pro výběr personalizovaného obsahu, (ii) Vytváření profilů pro personalizovaný\
+      \ obsah,  \n                (iii) Měření výkonu obsahu a (iv) Technický provoz stránek,* vyjádřit\
+      \ tak, že vyjádříte nesouhlas \n                s příslušnou položkou v rámci nabídky „Zpracování\
+      \ údajů vydavateli a dalšími partnery“ či se zpracováním \n                pro tento účel jako celkem.\
+      \ Pak nebudeme takové zpracování provádět.\n\n- <sup>1</sup> Vyjma několika zvláštních reklamních\
+      \ formátů, kde je složité tyto formáty z obsahu odstranit, \n                        jakou jsou\
+      \ např. tzv. komerční sdělení či selfpromo naší společnosti a jejích dceřiných společností. \n \
+      \                       Podrobnosti naleznete v našich obchodních podmínkách.\n- <sup>2</sup> Pro\
+      \ ostatní webové stránky naší společnosti si můžete zvolit nastavení zvlášť. \n                \
+      \        Pokud však na nich udělíte souhlas s cílenou reklamou, budeme vycházet z toho, že jste\
+      \ jej udělili i pro stránky iDNES.cz, Lidovky.cz, Expres.cz a Antiyoutuber.cz."

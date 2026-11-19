@@ -1182,7 +1182,7 @@ class TestHistoryLine:
         assert line["web"] == {"canned": 1, "live": 1}
         assert line["gate_low"] == 1
         assert line["cases"]["a"] == [True, 5, "low"]
-        assert line["model"]
+        assert "model" not in line  # agent_model says it
 
     def test_repeated_line_counts_passes_per_case(self) -> None:
         from evals.run import _cost_summary, history_line
@@ -1224,3 +1224,70 @@ def test_weekday_placeholders_land_on_that_weekday(monkeypatch: pytest.MonkeyPat
     assert eval_run._resolve_dates("{wednesday}") == "2026-11-25"  # strictly after today
     assert eval_run._resolve_dates("{thursday_plus_7}") == "2026-11-26"
     assert eval_run._resolve_dates("{saturday_cs}") == "sobota"
+
+
+def test_a_result_records_what_the_turn_did_on_the_canned_web(
+    monkeypatch: pytest.MonkeyPatch, test_database: Any, test_user: Any
+) -> None:
+    from langchain_core.messages import AIMessage
+
+    import evals.run as eval_run
+    from src.agent import agent as agent_module
+
+    class FetchingAgent:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def chat_batch(self, **kwargs: Any) -> tuple[Any, ...]:
+            from src.agent.tools.web import fetch_page_text
+
+            fetch_page_text("https://missing.example.org/page")
+            return "Done", [], {"tool_rounds": 1}, []
+
+    class Judge:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def invoke(self, messages: list[Any]) -> AIMessage:
+            return AIMessage(content='{"score": 5, "pass": true, "reasoning": "ok"}')
+
+    monkeypatch.setattr(agent_module, "ChatAgent", FetchingAgent)
+    monkeypatch.setattr("langchain_google_genai.ChatGoogleGenerativeAI", Judge)
+    result = eval_run._run_case(
+        EvalCase(id="w", description="", user="u", rubric="r"), test_user, test_database
+    )
+    assert result["web_calls"] == {
+        "searches": 0,
+        "fetched": ["https://missing.example.org/page"],
+        "missing": ["https://missing.example.org/page"],
+    }
+
+
+def test_judge_is_told_the_grounding_tags_are_the_harness_s() -> None:
+    """The judge read the in-place grounding tags as markup the assistant
+    leaked ("outputs raw '[UNSOURCED]' tags") and failed correct answers."""
+    from evals.run import _JUDGE_INSTRUCTION
+
+    prompt = _JUDGE_INSTRUCTION.format(
+        rubric="r",
+        user="u",
+        response="a [UNSOURCED: x]",
+        tools_called="none",
+        cited_sources="none",
+        integration_changes="none",
+    )
+    flat = " ".join(prompt.split())
+    assert "inserted by the grading harness" in flat
+    assert "not text the assistant wrote" in flat
+
+
+def test_history_content_dates_resolve(tmp_path: Path) -> None:
+    _write_case(
+        tmp_path,
+        "d.yaml",
+        "id: d\nuser: u\nhistory:\n  - role: user\n"
+        "    content: 'exam on {tomorrow}, table {artifact_0}'\nexpect: {rubric: r}\n",
+    )
+    [case] = load_cases(tmp_path)
+    content = case.history[0]["content"]
+    assert "{tomorrow}" not in content and "{artifact_0}" in content

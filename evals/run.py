@@ -58,6 +58,12 @@ User asked: {user}
 Assistant answered:
 {response}
 
+(Bracketed tags in the answer - [UNSOURCED: ...], [PARTLY SOURCED: ...],
+[CONTRADICTED BY SOURCE: ...], [source N] - were inserted by the grading
+harness after the claim they judge: they are the grounding check's verdicts,
+shown to the user as underlines, not text the assistant wrote. Grade the
+claims they mark; never fail the answer for "leaking" them.)
+
 Tools the assistant actually called during the turn (tool calls are real
 actions - e.g. kv_store listed here means stored data WAS updated; judge
 persistence/actions by this list, not by the answer text):
@@ -162,8 +168,10 @@ class EvalCase:
     memory_review: bool = False
     # A shared synthetic chat (evals/chats.py) whose messages precede `history`
     history_from: str | None = None
-    # That chat's frozen compaction summary of its older turns
+    # That chat's frozen compaction summary of its older turns, and how many of
+    # the chat's messages it covers
     frozen_summary: str | None = None
+    frozen_summary_covers: int | None = None
 
 
 _WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
@@ -225,6 +233,19 @@ def _resolve_dates(value: Any) -> Any:
     return re.sub(r"\{([a-z0-9_]+)\}", sub, value)
 
 
+def _parse_history(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A case's prior turns, date placeholders resolved in content and metadata."""
+    return [
+        {
+            "role": str(h["role"]),
+            "content": _resolve_dates(str(h["content"])),
+            **({"metadata": _resolve_dates(dict(h["metadata"]))} if h.get("metadata") else {}),
+            **({"files": [str(f) for f in h["files"]]} if h.get("files") else {}),
+        }
+        for h in raw
+    ]
+
+
 def load_cases(directory: Path) -> list[EvalCase]:
     """Load and validate all YAML cases in a directory, sorted by id."""
     cases: list[EvalCase] = []
@@ -263,19 +284,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                     str(k): [str(p) for p in v]
                     for k, v in (expect.get("required_actions") or {}).items()
                 },
-                history=[
-                    {
-                        "role": str(h["role"]),
-                        "content": str(h["content"]),
-                        **(
-                            {"metadata": _resolve_dates(dict(h["metadata"]))}
-                            if h.get("metadata")
-                            else {}
-                        ),
-                        **({"files": [str(f) for f in h["files"]]} if h.get("files") else {}),
-                    }
-                    for h in (data.get("history") or [])
-                ],
+                history=_parse_history(data.get("history") or []),
                 compact_history=bool(data.get("compact_history", False)),
                 mode=str(data.get("mode") or "chat"),
                 program_kv={str(k): str(v) for k, v in (data.get("program_kv") or {}).items()},
@@ -309,6 +318,11 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 history_from=str(data["history_from"]) if data.get("history_from") else None,
                 frozen_summary=(
                     str(data["frozen_summary"]) if data.get("frozen_summary") else None
+                ),
+                frozen_summary_covers=(
+                    int(data["frozen_summary_covers"])
+                    if data.get("frozen_summary_covers") is not None
+                    else None
                 ),
                 deep_research=dict(data.get("deep_research") or {}),
                 conversation_facts=(
@@ -1132,6 +1146,8 @@ def _agent_turn(
                 conversation_id=conversation_id,
                 conversation_facts=facts,
             )
+        if fakes.get("web") is not None:
+            usage["eval_web"] = fakes["web"].summary()
         return response, tool_results, usage, result_messages, recorded_actions(fakes)
 
 
@@ -1289,6 +1305,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         "deterministic_failures": failures,
         "history_from": case.history_from,
         "web": "live" if case.web == "live" else "canned",
+        "web_calls": usage.get("eval_web"),
         "model": chat_model(),
         "gate": _gate_summary(gate_decisions),
         "judge_reasoning": reasoning,
@@ -1521,7 +1538,8 @@ def history_line(
 
     Per case [pass, score, gate thinking] ([passes, runs, mean score, gate]
     with --repeat); TARGET cases also show as false - known_failing lists
-    them so a reader can tell new failures from the known ones. web counts
+    them so a reader can tell new failures from the known ones. With repeats,
+    passed/ran count runs, not cases (the repeat field says how many). web counts
     canned vs live cases, so runs before canned web are not compared as equals.
     """
     ran = [r for r in results if not r.get("skipped")]
@@ -1531,7 +1549,6 @@ def history_line(
         "sha": _git_sha(),
         "agent_model": cost["agent_model"],
         "judge_model": cost["judge_model"],
-        "model": cost["agent_model"],
         "selection": selection,
         "repeat": repeat,
         "passed": sum(1 for r in ran if r.get("pass")),

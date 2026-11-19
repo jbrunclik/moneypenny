@@ -210,15 +210,28 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--model-a and --model-b go together")
     if by_model == bool(args.base):
         parser.error("give either a base ref or --model-a/--model-b")
+    if by_model and args.head:
+        parser.error("--head compares commits; model sides both run the working tree")
     return args
 
 
 def _sides(args: argparse.Namespace) -> list[tuple[str, Path, str | None, str | None]]:
     """(label, tree, model, python override) for side A then side B."""
     if args.model_a:
+        same = args.model_a == args.model_b  # a noise check: keep the sides apart
         return [
-            (args.model_a, _ROOT, args.model_a, args.head_python),
-            (args.model_b, _ROOT, args.model_b, args.head_python),
+            (
+                f"{args.model_a} (A)" if same else args.model_a,
+                _ROOT,
+                args.model_a,
+                args.head_python,
+            ),
+            (
+                f"{args.model_b} (B)" if same else args.model_b,
+                _ROOT,
+                args.model_b,
+                args.head_python,
+            ),
         ]
     head = _worktree(args.head) if args.head else _ROOT
     return [

@@ -484,6 +484,7 @@ messages:
       (vlak 18:40)","start_time":"{monday_plus_2}T18:20:00+01:00","end_time":"{monday_plus_2}T19:00:00+01:00"})
       -> {"action":"create_event","event":{"id":"ev103","summary":"Vyzvednout Klaru - hlavni nadrazi (vlak
       18:40)"}}
+summary_covers: 32
 summary: 'Uživatel řešil organizaci týdne, protože Klára měla být ve středu (9:00–17:30) na poradě v Brně.
   Asistent vypsal události z kalendáře *Rodina* (úterý 15:30–17:00 Anička keramika v DDM, třída 17. listopadu;
   středa 16:00–16:45 Matěj plavání na plaveckém stadionu; sobota 14:00–17:00 oslava Ondry v Bongu).

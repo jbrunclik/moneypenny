@@ -252,6 +252,7 @@ class FakeGarmin:
         }
         self.calls: list[str] = []
         self.actions: list[str] = []
+        self._next_step_id = 100_000
 
     def get_workouts(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
         self.calls.append("get_workouts")
@@ -266,11 +267,26 @@ class FakeGarmin:
     def update_workout(self, workout_id: Any, payload: dict[str, Any]) -> None:
         self.calls.append("update_workout")
         before = self.get_workout_by_id(workout_id)
-        self._workouts[str(workout_id)] = copy.deepcopy(payload)
+        saved = copy.deepcopy(payload)
+        self._renumber(saved)
+        self._workouts[str(workout_id)] = saved
         changes = _workout_changes(before, payload)
         self.actions.append(
             f"updated workout {payload.get('workoutName')!r}: {'; '.join(changes) or 'no change'}"
         )
+
+    def _renumber(self, workout: dict[str, Any]) -> None:
+        """Give every step a fresh stepId, as Garmin does on each save."""
+
+        def visit(step: dict[str, Any]) -> None:
+            self._next_step_id += 1
+            step["stepId"] = self._next_step_id
+            for child in step.get("workoutSteps") or []:
+                visit(child)
+
+        for segment in workout.get("workoutSegments") or []:
+            for step in segment.get("workoutSteps") or []:
+                visit(step)
 
     def __getattr__(self, name: str) -> Any:
         if name.startswith("_"):

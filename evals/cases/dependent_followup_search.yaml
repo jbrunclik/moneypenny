@@ -5,11 +5,729 @@ description: >
 user: >
   Who won the most recent men's Tour de France, and roughly how many people
   live in the town or city where that rider was born?
-# Live web on purpose: the latest race winner - canned pages would freeze it
-web: live
 expect:
   rubric: >
     Names the most recent men's Tour de France winner and their birthplace,
     and gives an approximate population for that birthplace, attributed to
-    sources; says so if a figure could not be verified.
+    sources; a figure it could not verify is labelled so in the text or
+    carries a grounding mark ([UNSOURCED], [PARTLY SOURCED] or [CONTRADICTED
+    BY SOURCE]) - the user sees that mark.
   required_tools: [web_search, research]
+# Canned web captured 2026-11-19 (evals/capture_web.py): Tour de France 2026 winner men; Tadej Pogacar birthplace Komenda population; Komenda Slovenia municipality population (added Nov 19)
+web:
+  results:
+    - url: https://www.bbc.com/sport/cycling/articles/c07r8d4d2z5o
+      title:
+        "Tour de France 2026: Tadej Pogacar wins fifth Tour as Mathieu van der Poel takes stage 21
+        - BBC Sport"
+      snippet:
+        "Tour de France 2026: Tadej Pogacar wins fifth Tour as Mathieu van der Poel takes stage 21
+        - BBC Sport
+
+
+        # Pogacar wins fifth Tour as Van der Poel takes stage
+
+
+        Image source, Getty Images
+
+
+        Image caption, Tadej Pogacar is considered one of the greatest riders of all time
+
+
+        By Matt Warwick
+
+
+        BBC Sport Senior Journalist
+
+
+        26 July 2026
+
+
+        Slovenian Tadej Pogacar won the Tour de France for a record-equalling fifth time.
+
+
+        The 27-year-old UAE Team Emirates-XRG rider crossed the line on Paris' Champs-Elysees in"
+    - url: https://www.reuters.com/sports/pogacar-wins-record-equalling-fifth-tour-de-france-title-van-der-poel-takes-2026-07-26/
+      title: Pogacar's Tour de France dynasty continues with record-equalling fifth title | Reuters
+      snippet:
+        "Pogacar's Tour de France dynasty continues with record-equalling fifth title | Reuters
+
+        Skip to main content
+
+        Exclusive news, data and analytics for financial market professionalsLearn more aboutRefinitiv
+
+
+        Subscribe
+
+        # Pogacar's Tour de France dynasty continues with record-equalling fifth title
+
+        By Vincent Daheron
+
+        July 26, 20266:13 PM UTCUpdated July 26, 2026
+
+        Text
+
+        *
+
+        Small Text
+
+        *
+
+        Medium Text
+
+        *
+
+        Large Text
+
+        *
+
+        X
+
+        *
+
+        Facebook
+
+        *
+
+        Linkedin
+
+        *
+
+        Email
+
+        *
+
+        Link
+
+        Tour de France
+
+        Item 1 of 6 Cycling - Tour de France - St"
+    - url: https://www.cyclingranking.com/races/2026/tour-de-france
+      title: Results Tour de France 2026  - General Classification - CyclingRanking.com
+      snippet:
+        "Results Tour de France 2026 - General Classification - CyclingRanking.com\n\n> 113th edition\n\
+        > \n> General Classification\n> \n> 4 July 2026 - 26 July 2026\n\n| | Rider | Team | Time |\n| ---\
+        \ | --- | --- | --- |\n| 1. | Tadej POGAČAR | UAE Team Emirates - XRG | 73h56'26\" |\n| 2. | Remco\
+        \ EVENEPOEL | Red Bull - Bora - Hansgrohe | 06'26\" |\n| 3. | Isaac DEL TORO ROMERO | UAE Team Emirates\
+        \ - XRG | 09'42\" |\n| 4. | Paul SEIXAS | Decathlon - CMA CMG Team | 11'56\" |\n| 5. | Lenny MARTINEZ\
+        \ | Bahrain Victorious | 13'"
+    - url: https://www.letour.fr/en/news/2026/van-der-poel-and-pogacar-illuminate-paris/1356643
+      title: Van der Poel and Pogacar illuminate Paris - Tour de France 2027
+      snippet:
+        "Van der Poel and Pogacar illuminate Paris - Tour de France 2027\n\n The stage film July\
+        \ 26 th 2026 - 20:10 \n\n# Van der Poel and Pogacar illuminate Paris\n\n Tour de France 2026 | Stage\
+        \ 21 | Thoiry > Paris Champs-Élysées \n\nThe final stage of the Tour de France 2026 delivered fireworks\
+        \ and crowned champions who already occupy a very special place in the history of the event. Clad\
+        \ in yellow as he rode towards a record-tying fifth overall triumph, Tadej Pogacar (UAE Emirates\
+        \ XRG) indulged himself with a"
+    - url: https://www.stat.si/obcine/en/Municip/Index/67
+      title: Komenda - Slovene regions and municipalities in figures
+      snippet: "Komenda - Slovene regions and municipalities in figures
+
+
+        Municipality Komenda, which is part of the Osrednjeslovenska statistical region, covers 24 km 2,
+        which ranks it 192 nd among Slovene municipalities.
+
+
+        Statistical data for 2024 reveal the following:
+
+
+        In mid-2024 about 6,740 people (about 3,430 men and 3,320 women) were living in the municipality,
+        placing Komenda 78 th among Slovene municipalities. The population density was 280 people per square
+        kilometre, which was above the national avera"
+    - url: https://www.uaeteamemirates.com/rider/tadej-pogacar/
+      title: Tadej Pogačar - UAE team Emirates
+      snippet:
+        "Tadej Pogačar - UAE team Emirates\n\n \n\n# Tadej Pogačar\n\n Nationality: Slovenia\n\n\
+        \ Hometown: Komenda (Slovenia)\n\n Date of birth: 21/09/1998\n\nAffectionately nicknamed \"Pogi,\"\
+        \ became a member of team in 2019. In 2026 he continues to make cycling history with five overall\
+        \ victories at the Tour de France and is the current world road race champion. \n\n| Height | 176\
+        \ cm |\n| --- | --- |\n| Weight | 66 kg |\n| Pro since | 2017 |\n| Victories | 130 |\n| Tour | 7\
+        \ |\n| Vuelta | 2 |\n| Giro | 1 |\n| World Tour rankin"
+    - url: https://www.citypopulation.de/en/slovenia/admin/osrednjeslovenska/164__komenda/
+      title: Komenda (Municipality, Slovenia) - Population Statistics, Charts, Map and Location
+      snippet: "Komenda (Municipality, Slovenia) - Population Statistics, Charts, Map and Location
+
+
+        # Komenda
+
+
+        Municipality in Slovenia
+
+
+        ## Contents: Population
+
+
+        The population development of Komenda as well as related information and services (Wikipedia, Google,
+        images).
+
+
+        | Name | Status | Population Census 2002-03-31 | Population Census 2011-01-01 | Population Census
+        2021-01-01 | Population Estimate 2026-01-01 |
+
+        | --- | --- | --- | --- | --- | --- |
+
+        | Komenda | Municipality | 4,451 | 5,457 | 6,444 | 6,800 |
+
+        |"
+    - url: https://www.olympedia.org/athletes/146565
+      title: Olympedia – Tadej Pogačar
+      snippet:
+        "Olympedia – Tadej Pogačar\n\n# Tadej Pogačar \n\n \n\n## Biographical information \n\n|\
+        \ Roles | Competed in Olympic Games | |\n| --- | --- | --- |\n| Sex | Male | |\n| Full name | Tadej•Pogačar\
+        \ | |\n| Used name | Tadej•Pogačar | |\n| Born | 21 September 1998 in Klanec, Komenda | SLO |\n\
+        | Affiliations | UAE Team Emirates — ? | UAE |\n| NOC | Slovenia | SLO |\n\n| Medals | OG |\n| ---\
+        \ | --- |\n| Gold | 0 |\n| Silver | 0 |\n| Bronze | 1 |\n| Total | 1 |\n\n## Results\n\n| Games\
+        \ | Discipline (Sport) / Event | NOC / Team | Po"
+    - url: https://dragaslovenija.si/en/municipality/komenda/statistics/
+      title: "Komenda: 6,800 residents, wages, companies"
+      snippet: "Komenda: 6,800 residents, wages, companies
+
+
+        # Komenda municipality in numbers
+
+
+        Photograph: Wikimedia Commons.
+
+
+        Komenda has 6,800 residents (1 Jan 2026) on 24 km², or 283 per km² (Slovenia: 105). The average
+        age is 40.7, below the Slovenian average of 44.6. In 2025 the population grew by 36 (5.3 per 1,000
+        residents; Slovenia 2.0).
+
+
+        Population 6,800 as at 1 Jan 2026
+
+
+        Area 24 km² municipality area
+
+
+        Population density 283/km² Slovenia: 105
+
+
+        Average age 40.7 years Slovenia: 44.6
+
+
+        Average monthly net "
+    - url: https://citypopulation.de/en/slovenia/admin/osrednjeslovenska/164__komenda/
+      title: Komenda (Municipality, Slovenia) - Population Statistics, Charts, Map and Location
+      snippet: "Komenda (Municipality, Slovenia) - Population Statistics, Charts, Map and Location
+
+
+        # Komenda
+
+
+        Municipality in Slovenia
+
+
+        ## Contents: Population
+
+
+        The population development of Komenda as well as related information and services (Wikipedia, Google,
+        images).
+
+
+        | Name | Status | Population Census 2002-03-31 | Population Census 2011-01-01 | Population Census
+        2021-01-01 | Population Estimate 2026-01-01 |
+
+        | --- | --- | --- | --- | --- | --- |
+
+        | Komenda | Municipality | 4,451 | 5,457 | 6,444 | 6,800 |
+
+        |"
+    - url: https://www.kam.si/obcina-komenda/
+      title: Občina Komenda - Kam.si
+      snippet: "Občina Komenda - Kam.si
+
+
+        # Občina Komenda
+
+
+        Vsebina:
+
+
+        Pokrajina: Gorenjska Statistična regija: Osrednjeslovenska
+
+
+        - Prebivalci: 6800 (1. 1. 2026, SURS)
+
+        - Površina: 24 km²
+
+        - Število naselij: 15
+
+        - Sedež: Komenda
+
+
+        Občina Komenda leži na ravnini severno od glavne ceste Kranj-Mengeš, med Kamnikom in Vodicami. Meri
+        24 kvadratnih kilometrov, v 15 naseljih pa je 1. 1. 2026 živelo 6800 ljudi. Središče Komenda ima
+        1026 prebivalcev, največje naselje pa so Moste. Občina je nastala leta 1994 z izločitvijo iz "
+    - url: https://skupnostobcin.si/obcina/komenda/
+      title: Komenda – Skupnost občin Slovenije
+      snippet:
+        "Komenda – Skupnost občin Slovenije\n\n# Komenda\n\n- Zajčeva 23, 1218 Komenda \n- t. 01\
+        \ 724 74 00 \n- f. 01 834 13 23 \n- e. obcina@komenda.si \n- w. https://www.komenda.si/ \n\n- Župan/Županja\
+        \ Jurij Kern\n- Direktor/direktorka občinske uprave Jasna Čarman\n\n- Statistična regija Osrednjeslovenska\
+        \ statistična regija\n- Število naselij 15\n- Število prebivalcev 6422\n- Površina občine 24\n\n\
+        ## Tedenske novice\n\nSpremljajte najnovejše informacije o delu SOS, aktualni zakonodaji, razpisih,\
+        \ dogodkih, dobrih praksah ob"
+  pages:
+    https://www.bbc.com/sport/cycling/articles/c07r8d4d2z5o: 'Published: 2026-07-26
+
+
+      - Published
+
+
+      **Slovenian Tadej Pogacar won the Tour de France for a record-equalling fifth time.**
+
+
+      The 27-year-old UAE Team Emirates-XRG rider crossed the line on Paris'' Champs-Elysees in the peloton,
+      to join Jacques Anquetil, Eddy Merckx, Bernard Hinault and Miguel Indurain as the endurance event''s
+      most successful male riders.
+
+
+      All-conquering Pogacar raised the idea that his remarkable reality is proving stranger than fiction,
+      describing it as "something you wouldn''t even maybe write in a story book".
+
+
+      The three-week Grand Tour''s final stage was won by the Netherlands'' Mathieu van der Poel of Alpecin-Premier
+      Tech after a frantic charge to the line on the French capital''s famous cobbles in which he pipped
+      team-mate Jasper Philipsen of Belgium by inches.
+
+
+      Pogacar''s victory means he is positioned by many as the greatest cyclist of all time, superseding
+      the achievements and status of Belgian legend Merckx.
+
+
+      It also marks Pogacar''s third Tour win in succession and includes a record-breaking ascent of the
+      iconic Alpe d''Huez on stage 19, when he sealed another dominant victory.
+
+
+      It was the last of five stage wins in a race in which Pogacar used his explosive launch and unmatchable
+      metronomic pace to see off his rivals, who for some time have had virtually no answer.
+
+
+      Pogacar has won almost every major race in the sport, including the Tour of Flanders, Giro d''Italia,
+      Milan-San Remo, Road World Championships, Giro di Lombardia and Liege-Bastogne-Liege.
+
+
+      Pogacar was booed by some fans during the Tour, as his performances are often so far ahead of any
+      of his peers that some feel frustrated the sport is losing its competitive edge.
+
+
+      He now has 127 wins in an eight-year elite professional career.
+
+
+      "Victory is really special," said Pogacar. "Thank you to all the fans and my team.
+
+
+      "But the biggest thanks goes to all my family who support me all my life. My parents - without them
+      I would not be standing here five times already.
+
+
+      "Seven Tours and seven times on the podium, and five wins, is something you wouldn''t even maybe
+      write in a story book, and it''s unbelievable for me.
+
+
+      "It''s a magnificent podium with some incredible champions to fight with.
+
+
+      "It''s a shame Jonas \[Vingegaard\] crashed out this time and many others. I hope they have a quick
+      recovery and next year we fight again."
+
+
+      ## High drama on the Champs-Elysees
+
+
+      The famous final stage, which for the overall contenders is an unchallenged formality, typically
+      becomes a flat bunch sprint.
+
+
+      Last year organisers ASO introduced a circuit which takes on a cobbled climb over the city''s famous
+      Montmartre hill, changing the parcours enough to encourage the heavier, more powerful riders to
+      challenge for victory.
+
+
+      On Sunday it was powerhouse classics legend Van der Poel who took victory after charging away with
+      11km remaining with Pogacar.
+
+
+      Pogacar and Van der Poel led through the picturesque and narrow lanes over Montmartre and past Sacre-Coeur,
+      where some fans had mobile phones knocked out of their hands as the riders squeezed past at speed,
+      before Pogacar began to fade after three weeks of dominance and showing no weakness.
+
+
+      Van der Poel, whose strength and staying power allow him to pull out gaps in gruelling one-day races,
+      just managed to stay ahead of a chasing pack which included several sprinters and was rapidly closing,
+      before he crossed the line, collapsed off his bike and lay under a barrier, breathing heavily for
+      several minutes.
+
+
+      Van der Poel added this prestigious victory on the famous cobbles to many of the sport''s biggest
+      one-day races, such as multiple victories in Paris-Roubaix and the Tour of Flanders.
+
+
+      He said: "We have a saying in Dutch that it has to come for your toes. I don''t know where this
+      came from, but not from my toes."
+
+
+      The stage was reduced from 133km to 89km after the redirection of emergency services to help tackle
+      wildfires in south-west France.
+
+
+      ## A future beyond Pogacar?
+
+
+      The one rider who has broken Pogacar''s stranglehold of cyclin'
+    https://www.cyclingranking.com/races/2026/tour-de-france:
+      "| 1. | Tadej POGAČAR | UAE Team Emirates\
+      \ - XRG | 73h56'26\" | \n                                | 2. | Remco EVENEPOEL | Red Bull - Bora\
+      \ - Hansgrohe | 06'26\" | \n                                | 3. | Isaac DEL TORO ROMERO | UAE Team\
+      \ Emirates - XRG | 09'42\" | \n                                | 4. | Paul SEIXAS | Decathlon -\
+      \ CMA CMG Team | 11'56\" | \n                                | 5. | Lenny MARTINEZ | Bahrain Victorious\
+      \ | 13'02\" | \n                                | 6. | Mattias SKJELMOSE JENSEN | Lidl - Trek |\
+      \ 14'59\" | \n                                | 7. | Juan AYUSO PESQUERA | Lidl - Trek | 17'48\"\
+      \ | \n                                | 8. | Richard António CARAPAZ MONTENEGRO | EF Education -\
+      \ Easypost | 20'00\" | \n                                | 9. | Jordan JEGAT | TotalEnergies | 29'28\"\
+      \ | \n                                | 10. | Thomas PIDCOCK | Pinarello - Q36.5 Pro Cycling Team\
+      \ | 33'21\" | \n                                | 11. | Yannis VOISARD | Tudor Pro Cycling Team\
+      \ | 38'02\" | \n                                | 12. | Tobias Halland JOHANNESSEN | Uno - X Mobility\
+      \ | 56'37\" | \n                                | 13. | Sepp KUSS | Team Visma - Lease a Bike |\
+      \ 1h02'23\" | \n                                | 14. | Davide PIGANZOLI | Team Visma - Lease a\
+      \ Bike | 1h03'43\" | \n                                | 15. | Jai HINDLEY | Red Bull - Bora - Hansgrohe\
+      \ | 1h23'28\" | \n                                | 16. | Nicolas PRODHOMME | Decathlon - CMA CMG\
+      \ Team | 1h25'01\" | \n                                | 17. | Tiesj BENOOT | Decathlon - CMA CMG\
+      \ Team | 1h32'56\" | \n                                | 18. | Quinn SIMMONS | Lidl - Trek | 1h35'28\"\
+      \ | \n                                | 19. | Sean QUINN | EF Education - Easypost | 1h47'05\" |\
+      \ \n                                | 20. | Egan Arley BERNAL GÓMEZ | Ineos Grenadiers | 1h47'58\"\
+      \ | \n                                | 21. | Adam YATES | UAE Team Emirates - XRG | 1h51'59\" |\
+      \ \n                                | 22. | Thymen ARENSMAN | Ineos Grenadiers | 2h02'42\" | \n\
+      \                                | 23. | Carlos VERONA QUINTANILLA | Lidl - Trek | 2h05'22\" | \n\
+      \                                | 24. | Matthew RICCITELLO | Decathlon - CMA CMG Team | 2h11'09\"\
+      \ | \n                                | 25. | Derek GEE-WEST | Lidl - Trek | 2h12'59\" | \n    \
+      \                            | 26. | Harold Alfonso TEJADA CANACUE | XDS - Astana Team | 2h19'47\"\
+      \ | \n                                | 27. | Maxim VAN GILS | Red Bull - Bora - Hansgrohe | 2h24'09\"\
+      \ | \n                                | 28. | Ben O'CONNOR | Team Jayco - AlUla | 2h31'38\" | \n\
+      \                                | 29. | Pablo CASTRILLO ZAPATER | Movistar Team | 2h31'43\" | \n\
+      \                                | 30. | Matteo JORGENSON | Team Visma - Lease a Bike | 2h33'29\"\
+      \ | \n                                | 31. | Guillaume MARTIN GUYONNET | Groupama - FDJ United\
+      \ | 2h34'15\" | \n                                | 32. | Felix GROßSCHARTNER | UAE Team Emirates\
+      \ - XRG | 2h43'22\" | \n                                | 33. | Mattia CATTANEO | Red Bull - Bora\
+      \ - Hansgrohe | 2h51'19\" | \n                                | 34. | Raúl GARCÍA PIERNA | Movistar\
+      \ Team | 2h52'32\" | \n                                | 35. | Mauro SCHMID | Team Jayco - AlUla\
+      \ | 2h53'29\" | \n                                | 36. | Kévin VAUQUELIN | Ineos Grenadiers | 3h01'17\"\
+      \ | \n                                | 37. | Antonio TIBERI | Bahrain Victorious | 3h03'52\" |\
+      \ \n                                | 38. | Sergio Andrés HIGUITA GARCIA | XDS - Astana Team | 3h04'35\"\
+      \ | \n                                | 39. | Quinten HERMANS | Pinarello - Q36.5 Pro Cycling Team\
+      \ | 3h05'23\" | \n                                | 40. | Clement BRAZ AFONSO | Groupama - FDJ United\
+      \ | 3h06'23\" | \n                                | 41. | Lennert VAN EETVELT | Lotto - Intermarché\
+      \ | 3h08'22\" | \n                                | 42. | Aurélien PARET-PEINTRE | Decathlon - CMA\
+      \ CMG Team | 3h08'28\" | \n                                | 43. | Tobia"
+    https://www.letour.fr/en/news/2026/van-der-poel-and-pogacar-illuminate-paris/1356643:
+      "**The final
+      stage of the Tour de France 2026 delivered fireworks and crowned champions who already occupy a
+      very special place in the history of the event. Clad in yellow as he rode towards a record-tying
+      fifth overall triumph, Tadej Pogacar (UAE Emirates XRG) indulged himself with a flurry of attacks
+      on the Côte de la Butte Montmartre. After the third and final ascent, only Mathieu Van der Poel
+      (Alpecin-Premier Tech) was with him at the front. The duo collaborated to fend off the bunch in
+      a most thrilling finale. As Pogacar faltered, Van der Poel covered the last 600 metres alone and
+      resisted with a mere margin the sprinters, led by his teammate Jasper Philipsen at the line. Third
+      on the day, Mads Pedersen (Lidl-Trek) is the first Danish conqueror of the green jersey, and the
+      sixth rider to win the points standings in all three Grand Tours. Richard Carapaz (EF Education-EasyPost)
+      takes both the polka dot jersey and the Super Combativity award, as he did in 2024. Third overall,
+      Isaac del Toro (UAE Emirates XRG) also takes home the white jersey as the winner of the young rider
+      standings. The roll of honour also features the USA national champion Quinn Simmons (Lidl-Trek),
+      named the best teammate of this edition.**
+
+
+      After a presentation in Thoiry, the riders head to Paris and the Champs-Élysées to start the final
+      stage of the Tour de France 2026. The route was adapted due to the exceptional circumstances currently
+      affecting France. The race is entirely held in Paris, with seven laps on the Champs-Élysées circuit
+      and then three laps on the loop featuring the Côte de la Butte Montmartre for a total distance of
+      88.7 kilometres. After more than 3,000 kilometres of racing since the Grand Départ in Barcelona,
+      this marks the 116th stage finish in Paris, and the 51st on the Champs-Élysées.
+
+
+      **First attacks**
+
+
+      The first few laps serve as a celebration of the accomplishments of the riders who survived three
+      weeks of battle. The action really kicks off when Baptiste Veistroffer (Lotto Intermarché) attacks
+      75 kilometres from the finish. The French baroudeur still has a bit of energy left but his several
+      moves are covered by the fast-paced bunch.
+
+
+      As the riders enter the final three laps, the times for the GC are taken and the peloton head to
+      the Côte de la Butte Montmartre (1 km at 6.5%). Xabier Mikel Azparren (Pinarello Q36.5) and Thibault
+      Guernalec (Total Energies) are the first to tackle it. But Mads Pedersen (Lidl-Trek) unleashes his
+      power and leads the way to the summit.
+
+
+      **Pogacar ups the ante**
+
+
+      The differences after this first ascent are minimal, and around 100 riders get back together for
+      the penultimate lap. Onto the second ascent up the Côte de la Butte Montmartre, UAE Emirates XRG
+      up the ante and Tadej Pogacar (UAE Emirates XRG) attacks.
+
+
+      Only Mathieu Van der Poel (Alpecin-Premier Tech) can follow the Maillot Jaune all the way to the
+      summit. Remco Evenepoel (Red Bull-Bora-Hansgrohe) rapidly closes the gap. Then Mads Pedersen (Lidl-Trek)
+      joins them 23 kilometres from the finish. The peloton trail by 15 seconds but Decathlon CMA CGM
+      react. Back together with 19 kilometres to go.
+
+
+      **Van der Poel takes it home**
+
+
+      Van der Poel puts in a strong attack on the final ascent of the Tour de France 2026. Pogacar follows
+      him. And the duo open a gap of up 15 seconds on a same group of chasers, with the peloton right
+      behind them. Decathlon CMA CGM are still up there, as well as NSN and Cofidis.
+
+
+      The gap decreases: 10 seconds with 3 km to go, 5 when they enter the final kilometre… As Pogacar
+      falter, Van der Poel accelerates with 600 metres to go. Sprinters swoop on him but the Flying Dutchman
+      narrowly edge them. His teammate Philipsen finishes second ahead of Mads Pedersen (Lidl-Trek).
+
+
+      Eventually 30th at the finish, Pogacar secures his fifth overall victory after the 2020, 2021, 2024,
+      and 2025 editions. He ties the record set by Jacques Anquetil, Eddy Merckx, Bernard Hinault, and
+      Miguel Indurain."
+    https://www.uaeteamemirates.com/rider/tadej-pogacar/:
+      "Published: 2025-03-09\n\n# Tadej Pogačar\n\n\
+      Nationality: Slovenia\n\nHometown: Komenda (Slovenia)\n\nDate of birth: 21/09/1998\n\nAffectionately\
+      \ nicknamed \"Pogi,\" became a member of team in 2019. In 2026 he continues to make cycling history\
+      \ with five overall victories at the Tour de France and is the current world road race champion.\n\
+      \n\n\n| Height | 176 cm | \n| Weight | 66 kg | \n| Pro since | 2017 | \n| Victories | 130 | \n|\
+      \ Tour | 7 | \n| Vuelta | 2 | \n| Giro | 1 | \n| World Tour ranking position | 1 | \n\nHere is a\
+      \ true talent, a product of the successful Slovenian school which has recently been launching many\
+      \ top-notch riders to the forefront of the cycling scene. \n\n\nHe joined UAE Team Emirates on the\
+      \ advice of Andrej Hauptmann, a Slovenian ex-pro and team manager for Tadej when he was a rookie.\
+      \ Marko Polanc, who is Jan’s father, was also Tadej’s Sports Director. \n\nTadej and Jan Polanc\
+      \ share a deep bond of friendship and the two Slovenians spend a lot of time together training.\
+      \ \n\n\nThe first thing that stands out about Tadej is his ability to stay cool and calm in any\
+      \ situation, which is quite a rare characteristic in such a young rider. \n\n\nWhen he isn’t on\
+      \ a bike, he loves hiking in the mountains. \n\n\n1x Strade Bianche\n\n\n1x Milano-Sanremo\n\n\n\
+      1x Ronde van Vlaanderen\n\n\n1x Liege-Bastogne-Liege\n\n\n4x Stages Tour de Romandie\n\n\n1x GC\
+      \ Tour de Romandie\n\n\n3x Stages Tour de Suisse\n\n\n1x GC Tour de Suisse\n\n\n5x Stages Tour de\
+      \ France\n\n\n1x GC Tour de France\n\n\n3x Stages La Vuelta\n\n2x Stages UAE Tour\n\n\n1x GC UAE\
+      \ Tour\n\n\n1x Strade Bianche\n\n\n1x Tour of Flanders\n\n\n1x La Flèche Wallonne\n\n\n1x Liège–Bastogne–Liège\n\
+      \n\n3x Stages Dauphine\n\n\n1x Dauphine GC\n\n\n4x Stages Tour de France\n\n\n1x GC Tour de France\n\
+      \n\n1 xGP Montreal \n\n\n1 x World Champion\n\n\n1x European Champion\n\n\n1x Tre Valli Varesine\n\
+      \n\n1x Il Lombardia\n\n6x Stages Tour de France\n\n\n1x Final GC Tour de France\n\n\n6x Stages Giro\
+      \ D'Italia\n\n\n1x Final GC Giro D'Italia\n\n\n1st Strade Bianche\n\n\n4x stages wins Volta Catalunya\n\
+      \n\n1x GC Volta Catalunya\n\n\n1st Liège-Bastogne-Liège\n\n\n1st Gp Montreal\n\n\n1st World Championship\n\
+      \n\n1st Giro dell'Emilia\n\n\n1st IL Lombardia\n\n4x Andalucia stages\n\n\n1x Andalucia GC\n\n\n\
+      3x Stage Paris-Nice\n\n\n1x Paris-Nice GC\n\n\n1x Ronde van Vlaanderen\n\n\n1x Amstel Gold Race\n\
+      \n\n1x La Fleche Wallone \n\n\n2x Stages Tour de France\n\n\n1x Il Lombardia\n\nStage 4(Jebel Jais),\
+      \ Stage 7(Jebel Hafeet) and GC UAE Tour\n\n\nGP Montreal \n\n\nStrede Bianche \n\n\n2 Stages and\
+      \ GC Tirreno Adriatico\n\n\n2 Stages and GC Tour of Slovenia\n\n\n3 Stages Tour de France\n\n\n\
+      Tre Valli Varesine\n\n\nIL Lombardia\n\nStage (Jebel Hafeet) and GC UAE Tour\n\nStage (Prati di\
+      \ Tivo) and GC Tirreno-Adriatico\n\nStage Basque Country: Ermualde\n\nLiege-Bastogne-Liege\n\nStage\
+      \ (Celje) and GC Tour of Slovenia\n\n3 stages (ITT Laval, Saint Lary Soulan, Luz Ardiden) Tour de\
+      \ France\n\nGeneral Classification Volta a la Comunitat Valenciana; \n\n2 Stages Volta a la Comunitat\
+      \ Valenciana:\n\nTorren, Calp.\n\n3 stages Tour de France:\n\nPau. Lyon, Lure\n\nGC Tour de France\n\
+      \nHe joins UAE Team Emirates\n\nGeneral classification: Volta ao Algarve\n\nStage Volta ao Algarve:\
+      \ Foia\n\nStage Tour of California: Mt. Baldy\n\nGeneral class. Tour of California\n\nTT Slovenian\
+      \ championship\n\n3 stages Vuelta a Espana: Cortals d'Encamp, Los Machucos, Plataforma de Gredos"
+    https://www.olympedia.org/athletes/146565:
+      "| Roles | Competed in Olympic Games |  | \n|---|---|---|\n\
+      | Sex | Male |  | \n| Full name | Tadej•Pogačar |  | \n| Used name | Tadej•Pogačar |  | \n| Born\
+      \ | 21 September 1998 in Klanec, Komenda | SLO | \n| Affiliations | UAE Team Emirates — ? | UAE\
+      \ | \n| NOC | Slovenia | SLO | \n\n| **Medals** | OG | \n| Gold | 0 | \n| Silver | 0 | \n| Bronze\
+      \ | 1 | \n| Total | 1 | \n\n| Games | Discipline (Sport) / Event | NOC / Team | Pos | Medal | As\
+      \ |  | \n|---|---|---|---|---|---|---|\n| 2020 Summer Olympics | Cycling Road (Cycling) | SLO |\
+      \  |  | Tadej Pogačar |  | \n|  | Road Race, Men (Olympic) |  | 3 | Bronze |  |  |"
+    https://dragaslovenija.si/en/municipality/komenda/statistics/:
+      "# Komenda municipality in numbers\n\
+      \n**Komenda** has **6,800** residents (1 Jan 2026) on 24 km², or 283 per km² (Slovenia: 105). The\
+      \ average age is 40.7, below the Slovenian average of 44.6. In 2025 the population grew by 36 (5.3\
+      \ per 1,000 residents; Slovenia 2.0).\n\n## About Komenda\n\nThe Municipality of Komenda is a municipality\
+      \ in the Upper Carniola region of Slovenia. The seat of the municipality is the village of Komenda.\n\
+      \n\n## Population\n\n| Indicator | Komenda | Slovenia | Per 1,000 residents | Year | \n|---|---|---|---|---|\n\
+      | Population | 6,800 | 2,135,107 |  | 1 Jan 2026 | \n| Men | 3,457 | 1,074,630 |  | 1 Jan 2026 |\
+      \ \n| Women | 3,343 | 1,060,477 |  | 1 Jan 2026 | \n| Area | 24 km² | 20,271 km² |  | 1 Jan 2026\
+      \ | \n| Population density | 283 /km² | 105 /km² |  | 1 Jan 2026 | \n| Average age | 40.7 | 44.6\
+      \ |  | 1 Jan 2026 | \n| Ageing index | 93.2 | 158.6 |  | 1 Jan 2026 | \n| Share aged under 15 |\
+      \ 17.8% | 14.2% |  | 1 Jan 2026 | \n| Share aged 65 or over | 16.5% | 22.5% |  | 1 Jan 2026 | \n\
+      | Share of foreign citizens | 8.4% | 10.5% |  | 1 Jan 2026 | \n| Live births | 63 | 16,961 | 9.3\
+      \ · SI 8.0 | 2025 | \n| Deaths | 66 | 21,223 | 9.8 · SI 10.0 | 2025 | \n| Natural increase | -3\
+      \ | -4,262 | -0.4 · SI -2.0 | 2025 | \n| Net migration with other countries | 22 | 8,519 | 3.3 ·\
+      \ SI 4.0 | 2025 | \n| Net migration between municipalities | 17 | 0 | 2.5 · SI 0.0 | 2025 | \n|\
+      \ Total increase | 36 | 4,257 |  | 2025 | \n| Total increase per 1,000 residents | 5.3 | 2.0 | \
+      \ | 2025 | \n\n## Kindergartens, schools and students\n\n| Indicator | Komenda | Slovenia | Per\
+      \ 1,000 residents | Year | \n|---|---|---|---|---|\n| Kindergartens and units | 2 | 982 |  | 2025/26\
+      \ | \n| Children in kindergartens | 304 | 79,868 | 45.0 · SI 37.5 | 2025/26 | \n| Primary schools\
+      \ and branches | 2 | 821 |  | 2025/26 | \n| Primary school pupils | 744 | 192,915 | 110.0 · SI 90.5\
+      \ | 2025/26 | \n| Secondary school pupils (by residence) | 366 | 86,624 | 54.1 · SI 40.7 | 2025/26\
+      \ | \n| Tertiary students (by residence) | 280 | 85,999 | 41.4 · SI 40.4 | 2025/26 | \n| Adults\
+      \ with tertiary education | 30.7% | 26.6% |  | 2025 | \n\n## Work, wages and income\n\nThe average\
+      \ net wage at employers in Komenda was **€1,611.29** a month in 2025, about level with the Slovenian\
+      \ average of €1,602.05. The municipality has 4,892 jobs and 3,290 working residents; a labour migration\
+      \ index of 151 means more people commute into it than out of it. There are 870 companies (2024),\
+      \ 128 per 1,000 residents (Slovenia 110).\n\n| Indicator | Komenda | Slovenia | Per 1,000 residents\
+      \ | Year | \n|---|---|---|---|---|\n| Persons in employment (by residence) | 3,290 | 940,987 | 486.6\
+      \ · SI 441.6 | 2025 | \n| Jobs in the municipality | 4,892 | 940,987 | 723.6 · SI 441.6 | 2025 |\
+      \ \n| Employees (by workplace) | 4,506 | 836,620 | 666.5 · SI 392.6 | 2025 | \n| Self-employed (by\
+      \ workplace) | 386 | 104,368 | 57.1 · SI 49.0 | 2025 | \n| Commuting index | 151 | 100 |  | 2025\
+      \ | \n| Average monthly gross wage | 2,550.95 € | 2,536.03 € |  | 2025 | \n| Average monthly net\
+      \ wage | 1,611.29 € | 1,602.05 € |  | 2025 | \n| Net income per resident (annual) | 15,166 € | 14,208\
+      \ € |  | 2024 | \n| Median net income of residents (annual) | 13,136 € | 12,455 € |  | 2024 | \n\
+      \n## Companies and tourism\n\n| Indicator | Komenda | Slovenia | Per 1,000 residents | Year | \n\
+      |---|---|---|---|---|\n| Number of companies | 870 | 234,446 | 129.1 · SI 110.4 | 2024 | \n| Persons\
+      \ employed by companies | 6,581 | 1,008,213 | 976.6 · SI 474.7 | 2024 | \n| Company turnover | 1,609,036\
+      \ k€ | 166,401,581 k€ |  | 2024 | \n| Tourist arrivals | 2,144 | 6,993,930 | 317.1 · SI 3,282.2\
+      \ | 2025 | \n| Tourist overnight stays | 4,900 | 17,843,311 | 724.7 · SI 8,373.8 | 2025 | \n| Overnight\
+      \ stays by foreign tourists | 4,703 | 13,358,792 | 695.6 · SI 6,269.2 | 2025 | \n\n## Housing\n\n\
+      At the 2021 census Komenda had **2,057** dwellings, with an average useful floor area of 109.4 m²\
+      \ (Slovenia 83.3 m²). 4,515 passenger cars are registered, 664 per 1,000 residents (Slovenia 603).\n\
+      \n| Indicator | Komenda | Slovenia | Per 1,000 res"
+    https://www.kam.si/obcina-komenda/: "Published: 2006-10-23
+
+
+      Vsebina:
+
+
+      **Pokrajina:** Gorenjska
+
+
+      **Statistična regija:** Osrednjeslovenska
+
+
+      - **Prebivalci:** 6800 (1. 1. 2026, SURS)
+
+      - **Površina:** 24 km²
+
+      - **Število naselij:** 15
+
+      - **Sedež:** Komenda
+
+
+      Občina Komenda leži na ravnini severno od glavne ceste Kranj-Mengeš, med Kamnikom in Vodicami. Meri
+      24 kvadratnih kilometrov, v 15 naseljih pa je 1. 1. 2026 živelo 6800 ljudi. Središče Komenda ima
+      1026 prebivalcev, največje naselje pa so Moste. Občina je nastala leta 1994 z izločitvijo iz občine
+      Kamnik, število prebivalcev pa v zadnjih letih hitro raste. Med naselji je tudi poslovna cona Žeje
+      brez stalnih prebivalcev.
+
+
+      Komenda je staro cerkveno središče, saj se župnik prafare sv. Petra omenja že leta 1147. Ime kraja
+      pomeni posest viteškega reda, malteški vitezi so tu imeli posest vse do 19. stoletja. Njihov grb
+      krasi gotsko znamenje iz leta 1510 ob robu pokopališča. Sedanjo baročno cerkev sv. Petra so zgradili
+      v letih od 1726 do 1729, po potresu leta 1895 pa so jo obnovili in povečali. Glavni oltar in prižnico
+      je zasnoval slikar Franc Jelovšek.
+
+
+      Peter Pavel Glavar, nezakonski sin malteškega komendatorja, je postal oskrbnik in zakupnik viteškega
+      posestva, leta 1751 pa župnik v Komendi. V beneficiatski hiši je hranil knjižnico s približno 2000
+      knjigami in ustanovil šolo za nadarjene revne učence. Prevedel in dopolnil je Janšev Pogovor o čebelnih
+      rojih. Premoženje je zapustil revnim in bolnim, iz tega denarja so leta 1804 v Komendi zgradili
+      Glavarjev špital.
+
+
+      Malteški vitezi so v Komendi in okolici pospeševali konjerejo, konjske dirke pa imajo tu tradicijo
+      že iz Valvasorjevih časov. Ohranila se je do danes s konjeniškim klubom in hipodromom. Valvasor
+      omenja tudi konjsko procesijo, ki je potekala po vsej župniji. V Mostah, skozi katere teče Tunjščica,
+      so bila značilna obrt ščetarstvo in slamnikarstvo. S Komendo je povezanih več znanih osebnosti,
+      med njimi pisatelj Ivan Sivec in kolesar Tadej Pogačar.
+
+
+      Breg pri Komendi, Gmajnica, Gora pri Komendi, Klanec, Komenda, Komendska Dobrava, Križ, Mlaka, Moste,
+      Nasovče, Podboršt pri Komendi, Potok pri Komendi, Suhadole, Žeje pri Komendi, Poslovna cona Žeje
+      pri Komendi.
+
+
+      **Zunanje povezave:**
+
+
+      Uradna občinska stran: www.komenda.si
+
+
+      Povezava na Wikipedijo"
+    https://skupnostobcin.si/obcina/komenda/:
+      "Spremljajte najnovejše informacije o delu SOS, aktualni
+      zakonodaji, razpisih, dogodkih, dobrih praksah občin ter pomembnih domačih in mednarodnih pobudah
+      za lokalne skupnosti.
+
+
+      Za občine smo pripravili aplikacijo za vizualizacijo občinskih podatkov, ki omogoča primerjavo in
+      pregled prihodkov ter odhodkov občin. Podatke lahko analizirate po posameznih področjih in spremljate
+      trende skozi čas.
+
+
+      SOS povezuje in zastopa slovenske občine ter spodbuja sodelovanje, izmenjavo dobrih praks in skupno
+      reševanje izzivov lokalne samouprave.
+
+
+      Primerjajte ključne kazalnike slovenskih občin na pregleden in interaktiven način. Dostopajte do
+      podatkov, analiz in grafičnih prikazov za lažje spremljanje razvoja lokalnih skupnosti.
+
+
+      SOS občinam nudi strokovno podporo pri pravnih, kadrovskih in organizacijskih vprašanjih ter izvaja
+      skupna javna naročila in storitve zunanjega pooblaščenca za varstvo osebnih podatkov (DPO).
+
+
+      Spodbujamo razvoj kakovostnih lokalnih okolij s programi in priznanji, kot so Mladim prijazna občina,
+      Branju prijazna občina in Občina brez plastike za enkratno uporabo na dogodkih.
+
+
+      Postanete član družine občin, ki presega meje Slovenije
+
+
+      Aktivno sodelujete in soodločate o prihodnosti občin v Sloveniji in regiji
+
+
+      Pridobite zanesljivega partnerja, ki vam pomaga pri delovanju vaše občine
+
+
+      Dostopate do nenehno ažurirane baze znanja
+
+
+      Pridobite nasvet izkušenih strokovnjakov, si zagotovite odgovore na strokovna vprašanja, ki se nanašajo
+      na delovanje vaše občine
+
+
+      Dobite pomoč pri pripravi vaših pravnih aktov, s kadrovskega, organizacijskega ali drugega področja
+
+
+      Brezplačno sodelujete na dogodkih in izobraževanjih SOS ali se jih udeležite po nižjih, članskih
+      cenah
+
+
+      Sodelujete v skupnih javnih naročilih, ki zagotavljajo nižje cene in administrativno razbremenitev
+      vaše občinske uprave
+
+
+      Volite in ste izvoljeni v organe SOS ter s tem dajete pobude in predloge v zvezi z delovanjem SOS
+
+
+      Ste redno obveščeni o novostih in dogodkih SOS
+
+
+      Aktivo sodelujete v mrežah, komisijah, delovnih skupinah in področnih strokovnih dialogih SOS
+
+
+      Se udejstvujete kot predstavnik občin članic SOS v mednarodnih institucijah in mrežah, katerih članica
+      je Skupnost občin Slovenije (Odbor Regij, Svet Evrope, Svet Evropskih občin in regij, NALAS, Zveza
+      Alpe-Jadran)
+
+
+      V času podnebnih sprememb, vročinskih valov, življenjske ogroženosti narave in človekovega zdravja
+      ter izgubljanja biotske pestrosti so mesta in lokalne skupnosti pred vse večjimi razvojnimi izzivi.
+      Ob pritiskih na javni in odprti prostor postaja ozelenjevanje urbanega okolja ena ključnih poti
+      do bolj odpornih, zdravih in kakovostnih mest. Konferenca...
+
+
+      Lokalne volitve in začetek novega mandata občinskih organov odpirajo tudi številna kadrovska in
+      delovno pravna  vprašanja. Med pomembnejšimi so položaj direktorja občinske uprave ter zaposlitve,
+      vezane na osebno zaupanje funkcionarja oziroma trajanje njegovega mandata, kjer je ZJU-1 uvedel
+      nekaj novosti. Skupnost občin Slovenije zato organizira...
+
+
+      Skupnost občin Slovenije v sodelovanju z Urbanističnim inštitutom RS (UIRS) in SRIP Pametna mesta
+      in skupnosti organizira strokovni dogodek, namenjen predstavitvi standardov in kazalnikov kot primeru
+      praktičnih orodij za spremljanje kakovosti bivanja, načrtovanje razvoja in sprejemanje odločitev
+      v občinah. Udeleženci bodo spoznali, kako lahko...
+
+
+      Praktični seminar o nalogah, pooblastilih in odgovornosti udeležencev pri občinskih investicijah
+      Projektant zatrjuje, da določena rešitev ni bila vključena v naročilo. Izvajalec zahteva dodatno
+      plačilo zaradi pomanjkljivih popisov. Nadzornik potrdi dodatna dela, občina pa zanje izve šele ob
+      prejemu situacije. Ob napakah vsak od udeležencev..."

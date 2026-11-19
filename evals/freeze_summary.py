@@ -41,6 +41,7 @@ def freeze_summary(path: Path, summarize: Any = None) -> str:
         raise RuntimeError(f"{path.name}: the summarizer failed")
     summary = render_segments(segments)
     data["summary"] = summary
+    data["summary_covers"] = len(older)  # the chat messages the summary stands for
     path.write_text(header + yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100))
     return summary
 

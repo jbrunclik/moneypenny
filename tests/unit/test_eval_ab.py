@@ -111,3 +111,20 @@ def test_model_sides_need_no_base() -> None:
         ["--model-a", "gemini-4-hydrogen", "--model-b", "gemini-4-carbon", "--only", "x"]
     )
     assert args.base is None and args.model_a == "gemini-4-hydrogen"
+
+
+def test_same_model_on_both_sides_keeps_the_sides_apart() -> None:
+    from evals.ab import _sides, parse_args
+
+    args = parse_args(["--model-a", "m", "--model-b", "m", "--only", "x"])
+    labels = [label for label, *_ in _sides(args)]
+    assert len(set(labels)) == 2
+
+
+def test_head_is_rejected_with_model_sides() -> None:
+    import pytest
+
+    from evals.ab import parse_args
+
+    with pytest.raises(SystemExit):
+        parse_args(["--model-a", "a", "--model-b", "b", "--head", "HEAD", "--only", "x"])
