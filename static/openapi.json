@@ -20514,6 +20514,19 @@
             "default": null,
             "title": "Rerun Mode"
           },
+          "replaces_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Regenerate only: the reply this re-run replaces. The server deletes it when the turn starts, so a re-run lost on the way leaves it in place",
+            "title": "Replaces Message Id"
+          },
           "deep_research": {
             "anyOf": [
               {

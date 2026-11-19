@@ -129,9 +129,16 @@ class ChatRequest(RequestModel):
     client_location: ClientLocation | None = Field(default=None)
     client_message_id: str | None = Field(default=None)
     # Re-run the agent on existing history without adding a user message:
-    # "regenerate" (after the client deleted the last assistant message) or
-    # "continue" (finish a truncated/stopped response)
+    # "regenerate" (answer the last user message again) or "continue"
+    # (finish a truncated/stopped response)
     rerun_mode: Literal["regenerate", "continue"] | None = Field(default=None)
+    replaces_message_id: str | None = Field(
+        default=None,
+        description=(
+            "Regenerate only: the reply this re-run replaces. The server deletes it "
+            "when the turn starts, so a re-run lost on the way leaves it in place"
+        ),
+    )
     deep_research: DeepResearchStart | None = Field(
         default=None, description="Run deep research from this card (stream endpoint only)"
     )
@@ -182,6 +189,8 @@ class ChatRequest(RequestModel):
     def validate_message_or_files(self) -> ChatRequest:
         """Ensure at least message or files is provided (unless re-running)."""
         message_text = self.message.strip() if self.message else ""
+        if self.replaces_message_id and self.rerun_mode != "regenerate":
+            raise ValueError("replaces_message_id needs rerun_mode=regenerate")
         if self.rerun_mode:
             if message_text or self.files:
                 raise ValueError("rerun_mode requests must not include message or files")

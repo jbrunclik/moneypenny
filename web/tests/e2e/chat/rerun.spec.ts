@@ -2,7 +2,7 @@
  * E2E tests for regenerate / continue / edit-and-resend (the
  * truncate-and-rerun family).
  */
-import { test, expect, disableStreaming, setMockResponse, clearMockResponse } from './fixtures';
+import { test, expect, disableStreaming, enableStreaming, setMockResponse, clearMockResponse } from './fixtures';
 import { appReady } from '../waits';
 
 test.describe('Chat - Regenerate / Continue / Edit', () => {
@@ -35,6 +35,54 @@ test.describe('Chat - Regenerate / Continue / Edit', () => {
     await expect(page.locator('.message.assistant')).toHaveCount(1);
     await expect(page.locator('.message.user')).toHaveCount(1);
     await expect(page.locator('#messages')).not.toContainText('First answer');
+  });
+
+  test('a regenerate lost on the way keeps the old reply and offers Retry', async ({ page }) => {
+    // The re-run never reaches the server (a network drop before the first
+    // event): the old reply must survive - on screen and after a reload
+    await page.route('**/chat/batch', (route) => route.abort('internetdisconnected'));
+    await setMockResponse(page, 'Second answer');
+    await page.click('.message.assistant .message-regenerate-btn');
+
+    const toast = page.locator('.toast').filter({ hasText: /fail|lost|network/i });
+    await expect(toast).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('.message.assistant')).toContainText('First answer');
+
+    await page.reload();
+    await appReady(page);
+    await expect(page.locator('.message.assistant')).toContainText('First answer', { timeout: 20000 });
+    await disableStreaming(page);
+
+    // The network is back: regenerate again replaces it
+    await page.unroute('**/chat/batch');
+    await page.click('.message.assistant .message-regenerate-btn');
+    await expect(page.locator('.message.assistant')).toContainText('Second answer', { timeout: 20000 });
+    await expect(page.locator('.message.assistant')).toHaveCount(1);
+  });
+
+  test('the Retry of a lost regenerate replaces the old reply', async ({ page }) => {
+    await page.route('**/chat/batch', (route) => route.abort('internetdisconnected'));
+    await setMockResponse(page, 'Second answer');
+    await page.click('.message.assistant .message-regenerate-btn');
+    const retry = page.locator('.toast button', { hasText: 'Retry' });
+    await expect(retry).toBeVisible({ timeout: 20000 });
+
+    await page.unroute('**/chat/batch');
+    await retry.click();
+    await expect(page.locator('.message.assistant')).toContainText('Second answer', { timeout: 20000 });
+    await expect(page.locator('.message.assistant')).toHaveCount(1);
+    await expect(page.locator('.message.user')).toHaveCount(1);
+  });
+
+  test('a streamed regenerate lost on the way keeps the old reply too', async ({ page }) => {
+    await enableStreaming(page);
+    await page.route('**/chat/stream', (route) => route.abort('internetdisconnected'));
+    await setMockResponse(page, 'Second answer');
+    await page.click('.message.assistant .message-regenerate-btn');
+
+    await expect(page.locator('.toast button', { hasText: 'Retry' })).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('.message.assistant')).toContainText('First answer');
+    await expect(page.locator('.message.assistant')).toHaveCount(1);
   });
 
   test('continue appends a follow-on assistant response', async ({ page }) => {

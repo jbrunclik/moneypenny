@@ -15004,6 +15004,12 @@ export interface components {
              */
             rerun_mode?: ("regenerate" | "continue") | null;
             /**
+             * Replaces Message Id
+             * @description Regenerate only: the reply this re-run replaces. The server deletes it when the turn starts, so a re-run lost on the way leaves it in place
+             * @default null
+             */
+            replaces_message_id?: string | null;
+            /**
              * @description Run deep research from this card (stream endpoint only)
              * @default null
              */

@@ -193,6 +193,8 @@ export interface SendExtras {
   action?: MessageAction;
   /** Sent by the app (an artifact's or a card's button), not typed: never answers a proposal card */
   appSent?: boolean;
+  /** Regenerate: the reply the re-run replaces (the server deletes it when the turn starts) */
+  replacesMessageId?: string;
 }
 
 /**

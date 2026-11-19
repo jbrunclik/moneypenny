@@ -19,6 +19,8 @@ import { sendStreamingMessage } from './stream-send';
 import { sendBatchMessage } from './batch-send';
 import { dispatchSend, sendUiMessage } from './messaging';
 import { reopenResearchRun } from './deep-research';
+import { reloadCurrentConversation } from './conversation';
+import type { SendExtras } from '../types/api';
 
 const log = createLogger('messaging');
 
@@ -82,7 +84,11 @@ function idleCurrentConversationId(): string | null {
  * Re-run the agent on existing history (no new user message): regenerate
  * after deleting the last assistant response, or continue a truncated one.
  */
-async function dispatchRerun(convId: string, mode: 'regenerate' | 'continue'): Promise<void> {
+async function dispatchRerun(
+  convId: string,
+  mode: 'regenerate' | 'continue',
+  extras: SendExtras = {}
+): Promise<boolean> {
   // Anchor id keeps the send pipeline's bookkeeping happy - no optimistic
   // user bubble or outbox entry exists for reruns, so all the send-state
   // updates keyed on it are harmless no-ops
@@ -92,15 +98,40 @@ async function dispatchRerun(convId: string, mode: 'regenerate' | 'continue'): P
   const clientLocation = getClientLocation();
   try {
     if (useStore.getState().streamingEnabled) {
-      await sendStreamingMessage(convId, '', [], [], rerunAnchorId, anonymousMode, clientLocation, mode);
+      await sendStreamingMessage(convId, '', [], [], rerunAnchorId, anonymousMode, clientLocation, mode, extras);
     } else {
-      await sendBatchMessage(convId, '', [], [], rerunAnchorId, anonymousMode, clientLocation, mode);
+      await sendBatchMessage(convId, '', [], [], rerunAnchorId, anonymousMode, clientLocation, mode, extras);
     }
+    return true;
   } catch (error) {
     log.error('Rerun failed', { error, conversationId: convId, mode });
     hideLoadingIndicator();
-    toast.error(error instanceof ApiError ? error.message : 'Failed to re-run the response.');
+    if (!extras.replacesMessageId) {
+      toast.error(error instanceof ApiError ? error.message : 'Failed to re-run the response.');
+    }
+    return false;
   }
+}
+
+/**
+ * A regenerate that failed before its turn started: the server still has the
+ * old reply (it deletes it only when the turn starts), so put it back on
+ * screen and offer the regenerate again.
+ */
+async function recoverLostRegenerate(convId: string, messageId: string, error: string): Promise<void> {
+  await reloadCurrentConversation(convId);
+  const stillThere = useStore.getState().getMessages(convId).some((m) => m.id === messageId);
+  toast.error(error, {
+    action: {
+      label: 'Retry',
+      onClick: () =>
+        document.dispatchEvent(
+          stillThere
+            ? new CustomEvent('message:regenerate', { detail: { messageId } })
+            : new CustomEvent('message:retry-reply', { detail: { convId } })
+        ),
+    },
+  });
 }
 
 async function regenerateResponse(messageId: string): Promise<void> {
@@ -109,16 +140,15 @@ async function regenerateResponse(messageId: string): Promise<void> {
   // A deep-research run is re-offered, not re-run as an ordinary turn
   if (await reopenResearchRun(convId, 'regenerate')) return;
   log.info('Regenerating response', { conversationId: convId, messageId });
-  try {
-    await messages.delete(messageId);
-  } catch (error) {
-    log.error('Failed to delete response for regenerate', { error, messageId });
-    toast.error('Failed to remove the previous response.');
-    return;
-  }
+  // Off the screen now; on the server the re-run replaces it when its turn
+  // starts. Deleting it first lost the reply whenever the re-run then never
+  // arrived (a network drop): the chat ended on the question, and after a
+  // reload nothing offered a retry
   useStore.getState().removeMessage(convId, messageId);
   document.querySelector(`.message[data-message-id="${messageId}"]`)?.remove();
-  await dispatchRerun(convId, 'regenerate');
+  if (!(await dispatchRerun(convId, 'regenerate', { replacesMessageId: messageId }))) {
+    await recoverLostRegenerate(convId, messageId, 'The connection failed - your previous response is kept.');
+  }
 }
 
 async function continueResponse(): Promise<void> {

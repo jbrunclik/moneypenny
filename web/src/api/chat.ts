@@ -35,6 +35,7 @@ function streamRequestBody(
     client_location: clientLocation ?? undefined,
     client_message_id: clientMessageId,
     rerun_mode: rerunMode,
+    replaces_message_id: extras.replacesMessageId,
     deep_research: extras.deepResearch,
     action: extras.action,
     ...(extras.appSent && { app_sent: true }),
@@ -102,6 +103,7 @@ export const chat = {
       client_location: clientLocation ?? undefined,
       client_message_id: clientMessageId,
       rerun_mode: rerunMode,
+      replaces_message_id: extras.replacesMessageId,
       action: extras.action,
       ...(extras.appSent && { app_sent: true }),
     };

@@ -1752,6 +1752,86 @@ class TestTruncateAndRerun:
         )
         assert response.status_code == 400
 
+    def _batch_regenerate(self, client, auth_headers, conv_id, **extra):
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = (
+                "Regenerated answer",
+                [],
+                {"input_tokens": 10, "output_tokens": 5},
+                [],
+            )
+            mock_agent_class.return_value = mock_agent
+            return client.post(
+                f"/api/conversations/{conv_id}/chat/batch",
+                headers=auth_headers,
+                json={"rerun_mode": "regenerate", **extra},
+            )
+
+    def test_regenerate_replaces_the_reply_when_the_turn_starts(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        """The old reply goes only once the re-run reached the server: a
+        re-run lost on the way (network) leaves it in place."""
+        test_database.add_message(test_conversation.id, "user", "q1")
+        old = test_database.add_message(test_conversation.id, "assistant", "a1")
+
+        response = self._batch_regenerate(
+            client, auth_headers, test_conversation.id, replaces_message_id=old.id
+        )
+
+        assert response.status_code == 200
+        messages = test_database.get_messages(test_conversation.id)
+        assert [(m.role, m.content) for m in messages] == [
+            ("user", "q1"),
+            ("assistant", "Regenerated answer"),
+        ]
+        assert old.id not in {m.id for m in messages}
+
+    def test_regenerate_refuses_to_replace_anything_but_the_last_reply(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "q1")
+        first = test_database.add_message(test_conversation.id, "assistant", "a1")
+        test_database.add_message(test_conversation.id, "user", "q2")
+        test_database.add_message(test_conversation.id, "assistant", "a2")
+
+        response = self._batch_regenerate(
+            client, auth_headers, test_conversation.id, replaces_message_id=first.id
+        )
+
+        assert response.status_code == 400
+        assert len(test_database.get_messages(test_conversation.id)) == 4
+
+    def test_regenerate_retry_after_the_reply_is_gone(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        """A retry whose first attempt already replaced the reply (it then
+        died): the chat ends on the question, so the re-run just answers it."""
+        test_database.add_message(test_conversation.id, "user", "q1")
+
+        response = self._batch_regenerate(
+            client, auth_headers, test_conversation.id, replaces_message_id="gone-id"
+        )
+
+        assert response.status_code == 200
+        assert [m.role for m in test_database.get_messages(test_conversation.id)] == [
+            "user",
+            "assistant",
+        ]
+
+    def test_replaces_message_id_only_with_regenerate(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "q1")
+        reply = test_database.add_message(test_conversation.id, "assistant", "a1")
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/batch",
+            headers=auth_headers,
+            json={"rerun_mode": "continue", "replaces_message_id": reply.id},
+        )
+        assert response.status_code == 400
+
     def test_rerun_continue_requires_assistant_last(
         self, client, auth_headers, test_conversation, test_database
     ) -> None:

@@ -472,7 +472,7 @@ All except retry/discard refuse to run while the conversation has an active requ
 |-------|--------|
 | `outbox:retry` | `retryFailedMessage()` re-dispatches the outbox entry through `dispatchSend()` (idempotent via `client_message_id`; a manual retry re-arms the auto-retry) |
 | `outbox:discard` | Drops the outbox entry and the bubble |
-| `message:regenerate` | Deletes the last assistant reply, then re-runs with `rerun_mode: "regenerate"` |
+| `message:regenerate` | Takes the last assistant reply off the screen and re-runs with `rerun_mode: "regenerate"` and `replaces_message_id`; the server deletes the reply when the turn starts |
 | `message:continue` | Re-runs with `rerun_mode: "continue"` - also what the stopped-early note's **Continue** button dispatches |
 | `message:edit` | Inline edit; saving truncates the conversation from that message (server first), then re-sends the edited text through the normal `sendMessage()` pipeline; a message with attachments is edited in place and its reply regenerated |
 
@@ -482,6 +482,17 @@ bubble or outbox entry exists, so send-state updates are no-ops). Server side,
 `_resolve_rerun()` in [chat_turn.py](../../src/api/helpers/chat_turn.py) inserts no user
 message: `regenerate` requires the conversation to end with a user message and re-answers
 it; `continue` requires a trailing assistant reply and sends a continue instruction.
+
+**Regenerate replaces on the server (Nov 19 2026).** The client used to delete the reply
+(`DELETE /api/messages/<id>`) and then send the re-run: a re-run lost on the way (a network
+drop before the first event) left the chat ending on the question, with only a toast - and
+after a reload nothing offered a retry (`lost_reply` covers only a turn that died
+mid-run). Now the re-run carries `replaces_message_id` and `_replace_last_reply()` deletes
+it once the turn is accepted (only the conversation's last message, an assistant reply;
+one already gone is fine, for a retry). A re-run that fails before that reloads the
+conversation (the reply is back) and toasts **Retry**, which regenerates it again
+(`recoverLostRegenerate` in [rerun.ts](../../web/src/core/rerun.ts)); a failure after the turn
+started goes the existing way (dead placeholder, `offerReplyRetry`).
 
 There is no draft store: an unsent message stays visible as a failed bubble with
 Retry / Discard (see [Reliable Sends](#reliable-sends-outbox)).

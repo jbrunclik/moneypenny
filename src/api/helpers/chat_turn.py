@@ -142,6 +142,8 @@ def prepare_turn(
     # out of the regenerate's way
     discard_dead_placeholders(conv_id, user.id)
     if data.rerun_mode:
+        if data.replaces_message_id:
+            _replace_last_reply(conv_id, user.id, data.replaces_message_id)
         message_text, history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
     else:
         user_msg = _save_user_message(
@@ -323,6 +325,28 @@ def _save_user_message(
         # (annotations are transient: the message was already saved without them)
         attach_gemini_file_uris(user_msg.id, files)
     return user_msg
+
+
+def _replace_last_reply(conv_id: str, user_id: str, reply_id: str) -> None:
+    """Delete the reply a regenerate replaces, now that its turn has started.
+
+    The client used to delete it first, then send the re-run: a re-run lost
+    on the way (a network drop before the first event) left the chat ending
+    on the question, with no reply and nothing offering a retry after a
+    reload. Only the conversation's last message, an assistant reply, may go;
+    one already gone (a retry whose first attempt got this far) is fine.
+    """
+    existing = db.get_messages(conv_id)
+    if not any(m.id == reply_id for m in existing):
+        return
+    last = existing[-1]
+    if last.id != reply_id or last.role != MessageRole.ASSISTANT:
+        raise_validation_error("Regenerate replaces only the conversation's last reply")
+    db.delete_message(reply_id, user_id)
+    logger.info(
+        "Regenerate replaced the reply",
+        extra={"conversation_id": conv_id, "message_id": reply_id},
+    )
 
 
 def _resolve_rerun(conv_id: str, rerun_mode: str) -> tuple[str, list[Message], Message]:
