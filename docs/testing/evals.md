@@ -30,7 +30,10 @@ out). Run it on any change to `src/agent/`. Its web cases share the laptop's
 ddgs throttling: read a web failure's reason before blaming the change.
 
 **Known targets**: `known_failure: <why>` marks a case the agent fails today
-on purpose (`cz_batched_lookups`, `fresh_opinion_current_politics`). It still
+on purpose (none since Nov 19 2026: `cz_batched_lookups` and
+`fresh_opinion_current_politics` passed once their web was canned - their
+failures came from canned search returning one list for every query and
+from live pages drifting off the rubric's frozen facts). It still
 runs and is judged, but reports `TARGET` instead of `FAIL`, so a run's FAIL
 lines are the new failures; a target that passes is reported as "TARGET
 PASSED" - drop its marker once it keeps passing.
