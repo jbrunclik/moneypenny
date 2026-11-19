@@ -31,7 +31,7 @@ def get_model_pricing(model_name: str, at: datetime | None = None) -> dict[str, 
     """Get pricing for a model as it stands at a given instant.
 
     Args:
-        model_name: The model identifier (unknown models price as 3.8 Flash)
+        model_name: The model identifier (unknown models price as Hydrogen)
         at: The instant the tokens were used; now when omitted
 
     Returns:

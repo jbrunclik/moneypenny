@@ -42,7 +42,7 @@ class TestSystemRoutes:
                 m["id"]
                 for m in client.get("/api/models", headers=auth_headers).get_json()["models"]
             ]
-        assert "gemini-4-carbon" not in ids
+        assert {"gemini-4-neon", "gemini-4-carbon"}.isdisjoint(ids)
         assert Config.DEFAULT_MODEL in ids
 
     def test_models_list_admin_only_models_for_admins(
@@ -53,7 +53,7 @@ class TestSystemRoutes:
                 m["id"]
                 for m in client.get("/api/models", headers=auth_headers).get_json()["models"]
             ]
-        assert "gemini-4-carbon" in ids
+        assert {"gemini-4-neon", "gemini-4-carbon"} <= set(ids)
 
     def test_upload_config(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         response = client.get("/api/config/upload", headers=auth_headers)
