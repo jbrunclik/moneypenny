@@ -185,7 +185,7 @@ and stores the verdicts as annotations beside the unchanged text. Design:
 |---|---|---|
 | `GROUNDING_CHECK_ENABLED` | `true` | Kill switch |
 | `GROUNDING_CHECK_MODEL` | `gemini-3.5-flash-lite` | Verifier model (priced only, not user-selectable) |
-| `GROUNDING_CHECK_MAX_SOURCE_CHARS` | `60000` | Source text cap, shared across pages |
+| `GROUNDING_CHECK_MAX_SOURCE_CHARS` | `120000` | Source text cap, shared across pages (60000 until Nov 19 2026: capped checks flagged 71% vs 39%; the log line carries `source_chars_available` and `capped`) |
 | `GROUNDING_CHECK_MAX_CLAIMS` | `20` | Max annotations per answer |
 | `GROUNDING_CHECK_MAX_QUOTE_CHARS` | `60` | Longer quotes are dropped (claims are short phrases; 120 let whole sentences through) |
 | `GROUNDING_CHECK_MAX_REASON_CHARS` | `160` | Reason clip |

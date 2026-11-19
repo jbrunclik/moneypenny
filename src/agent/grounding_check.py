@@ -357,6 +357,8 @@ def check_grounding_pages(
     """Check an answer against given numbered pages (deep research passes its
     merged pages and larger limits, and a longer timeout). Fails open."""
     sources = format_sources(pages, uncited, max_source_chars)
+    # Page text before the cap: a capped verifier misses text the answer read
+    available = sum(len(p.text) for p in pages) + len(uncited)
     started = time.monotonic()
     timeout = timeout_seconds or Config.GROUNDING_CHECK_TIMEOUT_SECONDS
     try:
@@ -382,6 +384,8 @@ def check_grounding_pages(
             "verdict_counts": dict(counts),
             "source_count": len(pages),
             "source_chars": len(sources),
+            "source_chars_available": available,
+            "capped": available > max_source_chars,
             "duration_ms": round((time.monotonic() - started) * 1000),
             "parsed": verdict is not None,
         },

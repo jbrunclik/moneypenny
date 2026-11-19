@@ -590,8 +590,12 @@ class Config:
     FRESHNESS_GATE_DEEP_THINKING_LEVEL: str = os.getenv(
         "FRESHNESS_GATE_DEEP_THINKING_LEVEL", "high"
     )
+    # Page text the verifier sees per answer. 120k from Nov 19 2026 (was 60k):
+    # checks that hit 60k were flagged 71% of the time against 39% under it -
+    # a capped verifier misses text the answer read. Flash-Lite input, so the
+    # extra ~15k tokens cost well under a cent per check
     GROUNDING_CHECK_MAX_SOURCE_CHARS: int = int(
-        os.getenv("GROUNDING_CHECK_MAX_SOURCE_CHARS", "60000")
+        os.getenv("GROUNDING_CHECK_MAX_SOURCE_CHARS", "120000")
     )
     # Claims the verifier may return per answer (supported ones included)
     GROUNDING_CHECK_MAX_CLAIMS: int = int(os.getenv("GROUNDING_CHECK_MAX_CLAIMS", "20"))

@@ -133,6 +133,23 @@ class TestCheckGrounding:
         assert outcome.summary == {"checked": True, "source_count": 1}
         assert outcome.usage == _USAGE
 
+    def test_logs_how_much_page_text_the_cap_cut(
+        self, fake_verifier: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The cap's effect has to show in the data: flagged answers ran 71% when
+        the sources hit it against 39% under it (Nov 2026)."""
+        turn = _research_turn("Kolo Brompton C Line stojí 32 990 Kč. " + "x" * 5000)
+        with (
+            patch.object(Config, "GROUNDING_CHECK_MAX_SOURCE_CHARS", 1000),
+            caplog.at_level("INFO", logger=grounding_check.logger.name),
+        ):
+            check_grounding(_ANSWER, turn)
+
+        record = next(r for r in caplog.records if r.getMessage() == "Grounding check")
+        assert record.source_chars_available > 5000  # type: ignore[attr-defined]
+        assert record.source_chars < record.source_chars_available  # type: ignore[attr-defined]
+        assert record.capped is True  # type: ignore[attr-defined]
+
     def test_problem_claims_survive_the_claim_cap(
         self, fake_verifier: MagicMock, monkeypatch: pytest.MonkeyPatch
     ) -> None:
