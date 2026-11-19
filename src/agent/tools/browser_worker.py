@@ -382,10 +382,11 @@ class BrowserWorker:
 
     def _do_select(self, conversation_id: str, selector: str, option: str) -> dict[str, object]:
         page = self._get_or_create_session(conversation_id).page
-        chosen = select_option(page, selector, option)
+        if not select_option(page, selector, option):
+            raise ValueError(f"No option {option!r} in {selector}")
         return {
             "success": True,
-            "selected": chosen,
+            "selected": option,
             "title": page.title(),
             "url": page.url,
             "elements": self._page_state(page),

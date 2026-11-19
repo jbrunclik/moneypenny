@@ -435,12 +435,16 @@ helpers, run on the worker thread and tested live in headless Chromium
   on Escape.
 - `select`: a native `<select>` by option label, else by value (clicking an
   `<option>` does nothing in Chromium).
-- `download`: clicks `selector` and waits for the download it starts (the request
-  guard covers it like any page request). A response whose `Content-Length` is over
-  `BROWSER_MAX_DOWNLOAD_BYTES` is cancelled before its body arrives -
-  `download.path()` waits for the whole transfer with no timeout, so checking the
-  size afterwards let a huge or stalled file fill the disk and hold the worker; a
-  file without a length is checked when done, and the temp file is always deleted.
+- `download`: clicks `selector` and catches the download it starts. For an
+  http(s) file Chromium's own copy is cancelled and `fetch_capped()` fetches it
+  instead, with the page's cookies (each kept to its domain): every redirect hop
+  SSRF-checked like `fetch_url`, the bytes that arrive counted against
+  `BROWSER_MAX_DOWNLOAD_BYTES` (a larger `Content-Length` is refused up front), the
+  whole fetch bounded by the page timeout. Chromium's `download.path()` waits for
+  the whole transfer with no timeout or size limit, so letting it write a huge,
+  endless or stalled file filled the disk and held the worker (post-commit
+  security review, Nov 19 2026). A `blob:`/`data:` download is already in the
+  page's memory and is checked once written; the temp file is always deleted.
   The file is attached to the reply through `store_tool_result` (like a shared
   screenshot) under a cleaned name (base name; letters, digits, `. _ -`, spaces;
   100 characters) and a type from `SAFE_DOWNLOAD_TYPES` - anything else (HTML,
@@ -448,7 +452,8 @@ helpers, run on the worker thread and tested live in headless Chromium
   served from our origin with their type. The model gets the name, type and size,
   plus the first 2,000 characters of a text format (CSV, ICS, GPX, JSON, TXT)
   framed as untrusted content. A call of its own, never in a batch. `select`
-  returns at most 10 chosen values, 80 characters each (they come from the page).
+  returns the option the model asked for, never the page's option strings (an
+  unknown option is an error).
 
 ### Page state
 
