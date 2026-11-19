@@ -188,23 +188,28 @@ test.describe('Visual: Search Loading', () => {
     await appReady(page);
     await page.waitForSelector('#search-input');
 
-    // Focus to activate search mode
+    // Hold the search request open so the loading state stays on screen:
+    // shot only if it happened to be visible, the test asserted nothing on
+    // most runs, never had a baseline, and failed CI on the run that caught
+    // it (Nov 19 2026)
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/search?*', async (route) => {
+      await held;
+      await route.continue();
+    });
+
     const searchInput = page.locator('#search-input');
     await searchInput.focus();
+    await searchInput.fill('te');
 
-    // The loading state appears briefly when typing
-    // Type slowly to capture the loading state before debounce completes
-    await searchInput.type('te', { delay: 100 });
-
-    // Small wait to ensure UI updates
+    await expect(page.locator('.search-loading')).toBeVisible();
     await nextFrames(page);
+    await expect(page.locator('#conversations-list')).toHaveScreenshot('search-loading.png');
 
-    // Note: This test may be flaky due to timing of loading state
-    // The search-loading class may appear very briefly
-    const searchLoading = page.locator('.search-loading');
-    if ((await searchLoading.count()) > 0) {
-      await expect(page.locator('#conversations-list')).toHaveScreenshot('search-loading.png');
-    }
+    // Let the search finish before the page closes (a held route then errors)
+    release();
+    await expect(page.locator('.search-loading')).toHaveCount(0);
   });
 });
 
