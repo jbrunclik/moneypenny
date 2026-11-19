@@ -63,5 +63,11 @@
     "title": "Regenerate on a report re-opens its offer instead of an ordinary turn",
     "project": "chromium",
     "todo": "Open E2E flakes (Chromium: Regenerate on a deep-research report, Nov 17 2026)"
+  },
+  {
+    "file": "e2e/deep-research.spec.ts",
+    "title": "Regenerate on a report re-opens its offer instead of an ordinary turn",
+    "project": "webkit",
+    "todo": "Open E2E flakes (Chromium deep-research Regenerate flake, Nov 17; WebKit Nov 19)"
   }
 ]
