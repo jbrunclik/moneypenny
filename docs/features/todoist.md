@@ -43,6 +43,8 @@ The `todoist` tool exposes granular actions for full Todoist management.
 | `complete_task` | `task_id` | Mark task complete |
 | `reopen_task` | `task_id` | Reopen a completed task |
 | `delete_task` | `task_id` | Delete a task |
+| `add_tasks` | `tasks` (2-25 entries: `content` + optional `due_string`/`due_date`, `priority`, `labels`, `project_id`, `section_id`), optional `project_id`/`section_id` as the default | Create several tasks in one tool call (Nov 19 2026): one REST create per entry (`todoist_add_task`), so one bad entry does not drop the rest - the result lists `added` and `failed`; an error only when none landed. A description or assignee goes through `add_task`/`update_task`. Without it a 3-task request took 3 model calls (~20k tokens each) |
+| `list_completed` | optional `since`/`until` (YYYY-MM-DD, APP_TIMEZONE dates, `until` inclusive; default the last 7 days), `project_id` | Completed tasks by completion date (`GET /tasks/completed/by_completion_date`, at most 3 months per call - Todoist's limit), newest first, with the project name and the local completion time ([todoist_completed.py](../../src/agent/tools/todoist_completed.py)) |
 
 ### Project Actions
 
@@ -77,7 +79,13 @@ API v1 returns lists 50 per page with a `next_cursor`. `todoist_api_request` fol
 cursor (up to `MAX_LIST_PAGES`, 10) and returns one list, so tasks, projects and sections
 come back whole; stopping at the first page handed a user with 51+ tasks the first 50 as
 if they were all. What reaches the model is then capped by `TODOIST_MAX_TASK_RESULTS`,
-with a `truncated` note naming how many more matched.
+with a `truncated` note naming how many more matched. Completed tasks page under `items`
+instead of `results`; an `items` key counts as a page only beside a `next_cursor`.
+
+The `add_tasks` entries (`NewTask`) carry no field descriptions: the fields mirror the
+tool's Args and the schema is re-sent on every model call that binds the tool (both
+actions together cost ~880 characters of declaration, Nov 19 2026). The tool hands the
+permission gate the entries as plain dicts, so a held call's card stores JSON.
 
 ### Todoist Filter Syntax Examples
 

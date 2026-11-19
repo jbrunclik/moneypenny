@@ -68,23 +68,29 @@ def todoist_api_request(
         Exception: On API errors
     """
     result = _todoist_request(method, endpoint, token, data, params)
-    if isinstance(result, dict) and "results" in result:
-        return _collect_pages(endpoint, token, params, result)
+    if isinstance(result, dict):
+        # Lists page under "results"; completed tasks under "items" (beside a
+        # next_cursor - an "items" key alone is not a page)
+        key = "results" if "results" in result else None
+        if key is None and "items" in result and "next_cursor" in result:
+            key = "items"
+        if key:
+            return _collect_pages(endpoint, token, params, result, key)
     return result
 
 
 def _collect_pages(
-    endpoint: str, token: str, params: TodoistParams | None, first: TodoistParams
+    endpoint: str, token: str, params: TodoistParams | None, first: TodoistParams, key: str
 ) -> TodoistItems:
     """The items of a paged list response, following next_cursor."""
-    items: TodoistItems = list(first["results"])
+    items: TodoistItems = list(first[key])
     cursor = first.get("next_cursor")
     pages = 1
     while cursor and pages < MAX_LIST_PAGES:
         page = _todoist_request("GET", endpoint, token, None, {**(params or {}), "cursor": cursor})
         if not isinstance(page, dict):
             break
-        items.extend(page.get("results") or [])
+        items.extend(page.get(key) or [])
         cursor = page.get("next_cursor")
         pages += 1
     if cursor:

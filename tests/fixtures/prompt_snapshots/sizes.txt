@@ -8,7 +8,7 @@ static prompt
 
 dynamic context (example user, 5 memories)    2439
 
-tool declarations (42 tools, 56985 chars)
+tool declarations (42 tools, 57865 chars)
   ask_choice                     768
   browser                       2388
   create_artifact               1661
@@ -46,7 +46,7 @@ tool declarations (42 tools, 56985 chars)
   search_memory                  586
   search_places                  762
   set_conversation_title         663
-  todoist                       3530
+  todoist                       4410
   trigger_agent                  602
   update_artifact               1266
   web_search                    1553

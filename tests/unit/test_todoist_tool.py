@@ -333,3 +333,37 @@ class TestTodoistListPagination:
 
         assert get.call_count == todoist_client.MAX_LIST_PAGES
         assert len(items) == todoist_client.MAX_LIST_PAGES
+
+
+class TestCompletedPagination:
+    def test_completed_pages_follow_items_cursor(self) -> None:
+        from src.agent.tools import todoist_client
+
+        def page(items: list[dict], cursor: str | None) -> MagicMock:
+            response = MagicMock(status_code=200)
+            response.json.return_value = {"items": items, "next_cursor": cursor}
+            return response
+
+        pages = [page([{"id": "1"}], "c1"), page([{"id": "2"}], None)]
+        with patch.object(todoist_client.httpx, "get", side_effect=pages):
+            items = todoist_client.todoist_api_request(
+                "GET", "/tasks/completed/by_completion_date", "tok", params={"since": "s"}
+            )
+        assert items == [{"id": "1"}, {"id": "2"}]
+
+
+class TestToolSchema:
+    """A type-less parameter breaks every chat that binds the tool."""
+
+    def test_every_param_has_a_concrete_type(self) -> None:
+        from src.agent.tools.todoist import todoist
+
+        for name, schema in todoist.args.items():
+            assert "type" in schema or "anyOf" in schema, name
+
+    def test_converts_to_genai_declaration(self) -> None:
+        from langchain_google_genai._function_utils import convert_to_genai_function_declarations
+
+        from src.agent.tools.todoist import todoist
+
+        convert_to_genai_function_declarations([todoist])

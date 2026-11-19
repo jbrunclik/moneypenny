@@ -8,8 +8,10 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from langchain_core.tools import tool
+from pydantic import BaseModel
 
 from src.agent.tools import todoist_client
+from src.agent.tools import todoist_completed as completed
 from src.agent.tools import todoist_projects as projects
 from src.agent.tools import todoist_tasks as tasks
 from src.agent.tools.errors import action_result, tool_error
@@ -44,7 +46,23 @@ _TODOIST_ACTIONS = {
     "complete_task",
     "reopen_task",
     "delete_task",
+    "add_tasks",
+    "list_completed",
 }
+
+
+# One task of an add_tasks call: add_task's common fields, without field
+# descriptions - they mirror the tool's own Args (documented once there), and
+# the schema is re-sent on every model call that binds the tool. A description
+# or assignee goes through add_task / update_task.
+class NewTask(BaseModel):
+    content: str
+    due_string: str | None = None
+    due_date: str | None = None
+    priority: int | None = None
+    labels: list[str] | None = None
+    project_id: str | None = None
+    section_id: str | None = None
 
 
 _Handler = Callable[[str, dict[str, Any]], dict[str, Any]]
@@ -153,6 +171,14 @@ _DISPATCH: dict[str, tuple[tuple[str, ...], _Handler]] = {
     "complete_task": (("task_id",), lambda t, a: tasks.todoist_complete_task(t, a["task_id"])),
     "reopen_task": (("task_id",), lambda t, a: tasks.todoist_reopen_task(t, a["task_id"])),
     "delete_task": (("task_id",), lambda t, a: tasks.todoist_delete_task(t, a["task_id"])),
+    "add_tasks": (
+        ("tasks",),
+        lambda t, a: tasks.todoist_add_tasks(t, a["tasks"], a["project_id"], a["section_id"]),
+    ),
+    "list_completed": (
+        (),
+        lambda t, a: completed.todoist_list_completed(t, a["since"], a["until"], a["project_id"]),
+    ),
 }
 
 
@@ -177,6 +203,9 @@ def todoist(
     view_style: str | None = None,
     color: str | None = None,
     section_name: str | None = None,
+    tasks: list[NewTask] | None = None,
+    since: str | None = None,
+    until: str | None = None,
 ) -> str:
     """Manage the user's Todoist tasks, projects, and sections.
 
@@ -189,7 +218,11 @@ def todoist(
       complete_task, reopen_task, delete_task (task_id); add_task (content; optional
       description, project_id, section_id, due_string/due_date, priority, labels,
       assignee_id); update_task (task_id + fields to change; assignee_id="" unassigns);
-      move_task (task_id + exactly ONE of section_id, project_id, parent_id).
+      move_task (task_id + exactly ONE of section_id, project_id, parent_id);
+      add_tasks (tasks: 2-25 tasks in one call, each content + optional due, priority,
+      labels, placement; the call's project_id/section_id are the default);
+      list_completed (optional since/until YYYY-MM-DD, default the last 7 days;
+      optional project_id).
     - Projects: list_projects; get_project, delete_project, archive_project,
       unarchive_project (project_id); add_project (project_name; optional color,
       view_style, parent_project_id, is_favorite); update_project (project_id + fields).
@@ -221,8 +254,14 @@ def todoist(
         view_style: "list" or "board"
         color: Todoist color name
         section_name: Section name (create/rename)
+        tasks: add_tasks entries
+        since: list_completed from (YYYY-MM-DD)
+        until: list_completed to, inclusive (YYYY-MM-DD)
     """
-    logger.info("todoist called", extra={"action": action, "task_id": task_id})
+    logger.info(
+        "todoist called",
+        extra={"action": action, "task_id": task_id, "task_count": len(tasks or [])},
+    )
 
     # Check if user has connected Todoist
     token = todoist_client.get_todoist_token()
@@ -232,7 +271,10 @@ def todoist(
     # The gate sees the whole call: in a run, a change it may not make alone
     # files that exact call's card and pauses; in chat a delete or archive
     # waits on the turn's card (the result says so)
-    if held := check_autonomous_permission("todoist", call_arguments(todoist, locals())):
+    # The gate stores the call for its card: tasks as plain JSON, not models
+    task_entries = [task.model_dump(exclude_none=True) for task in tasks or []]
+    scope = {**locals(), "tasks": task_entries or None}
+    if held := check_autonomous_permission("todoist", call_arguments(todoist, scope)):
         return held
 
     args: dict[str, Any] = {
@@ -254,6 +296,9 @@ def todoist(
         "view_style": view_style,
         "color": color,
         "section_name": section_name,
+        "tasks": task_entries,
+        "since": since,
+        "until": until,
     }
     return _run_todoist_action(action, token, args)
 

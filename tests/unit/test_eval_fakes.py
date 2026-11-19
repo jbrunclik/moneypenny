@@ -213,3 +213,20 @@ def test_garmin_save_renumbers_steps_like_garmin() -> None:
     assert new_id != 11
     assert "65" not in fakes["garmin"].actions[-1] or "no change" in fakes["garmin"].actions[-1]
     assert "62.5" in json.dumps(json.loads(result).get("workout", {}))
+
+
+class TestFakeTodoistCompleted:
+    def test_returns_checked_tasks_completed_in_range(self) -> None:
+        fixture = _todoist()
+        fixture["tasks"][1]["checked"] = True
+        fixture["tasks"][1]["completed_at"] = "2026-11-18T09:00:00Z"
+        fixture["tasks"][2]["checked"] = True
+        fixture["tasks"][2]["completed_at"] = "2026-10-01T09:00:00Z"
+        fake = FakeTodoist(fixture)
+        done = fake.api_request(
+            "GET",
+            "/tasks/completed/by_completion_date",
+            "tok",
+            params={"since": "2026-11-12T23:00:00Z", "until": "2026-11-19T23:00:00Z"},
+        )
+        assert [t["content"] for t in done] == ["Buy milk"]

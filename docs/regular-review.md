@@ -133,6 +133,9 @@ The review itself changes nothing in production and edits nothing but
   "Spend"); any day past `SPEND_WARNING_DAILY_USD`; the share of spend in
   deleted chats.
 - Model mix: a cheaper model doing well enough is a saving to propose.
+- Todoist `add_tasks` / `list_completed` (from Nov 19 2026; [todoist.md](features/todoist.md#task-actions)):
+  "todoist called" lines by `action`, `add_tasks` `task_count`, and turns that
+  still chained 3+ `add_task` calls - a multi-task request should be one call.
 - Weather tool (from Nov 19 2026; [location.md](features/location.md#weather)):
   "Weather fetched" lines per week by `location_kind`, `get_weather` errors in
   `message_costs.tool_errors`, and weather turns that still ran `web_search`

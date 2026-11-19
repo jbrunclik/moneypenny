@@ -1032,7 +1032,7 @@
     }
   },
   {
-    "description": "Manage the user's Todoist tasks, projects, and sections.\n\nNeeds the user's Todoist connected in Settings. A \"Todoist disconnected\" /\n\"Todoist not connected\" result says which case applies - follow its message\n(warn the user, point them to Settings); never act as if you cannot use Todoist.\n\nActions (required args in parentheses):\n- Tasks: list_tasks (optional filter_string; none = all active tasks), get_task,\n  complete_task, reopen_task, delete_task (task_id); add_task (content; optional\n  description, project_id, section_id, due_string/due_date, priority, labels,\n  assignee_id); update_task (task_id + fields to change; assignee_id=\"\" unassigns);\n  move_task (task_id + exactly ONE of section_id, project_id, parent_id).\n- Projects: list_projects; get_project, delete_project, archive_project,\n  unarchive_project (project_id); add_project (project_name; optional color,\n  view_style, parent_project_id, is_favorite); update_project (project_id + fields).\n- Sections: list_sections, add_section (project_id; add also section_name);\n  get_section, delete_section (section_id); update_section (section_id, section_name).\n- list_collaborators (project_id): IDs for assignee_id.\n\nfilter_string: Todoist filter syntax - \"today\", \"overdue\", \"tomorrow\", \"7 days\",\n\"no date\", \"p1\", \"#Project\", \"@label\", \"assigned to: me\"; combine with & and |.\nPriority: 4 = urgent (highest) ... 1 = normal; the filter \"p1\" means priority 4.\n\nArgs:\n    action: One of the actions above\n    task_id: Task ID\n    content: Task title\n    description: Task description\n    project_id: Project ID (task placement, sections, collaborators; move_task destination)\n    section_id: Section ID (task placement; move_task destination)\n    due_string: Natural language due date, e.g. \"tomorrow at 3pm\"\n    due_date: Due date as YYYY-MM-DD\n    priority: 1-4, 4 is highest\n    labels: Label names\n    assignee_id: Collaborator ID (from list_collaborators); \"\" unassigns\n    parent_id: move_task: parent task ID to make the task a subtask\n    filter_string: Filter for list_tasks\n    project_name: Project name (create/rename)\n    parent_project_id: Parent project (create/move a project under another)\n    is_favorite: Show the project in favorites\n    view_style: \"list\" or \"board\"\n    color: Todoist color name\n    section_name: Section name (create/rename)",
+    "description": "Manage the user's Todoist tasks, projects, and sections.\n\nNeeds the user's Todoist connected in Settings. A \"Todoist disconnected\" /\n\"Todoist not connected\" result says which case applies - follow its message\n(warn the user, point them to Settings); never act as if you cannot use Todoist.\n\nActions (required args in parentheses):\n- Tasks: list_tasks (optional filter_string; none = all active tasks), get_task,\n  complete_task, reopen_task, delete_task (task_id); add_task (content; optional\n  description, project_id, section_id, due_string/due_date, priority, labels,\n  assignee_id); update_task (task_id + fields to change; assignee_id=\"\" unassigns);\n  move_task (task_id + exactly ONE of section_id, project_id, parent_id);\n  add_tasks (tasks: 2-25 tasks in one call, each content + optional due, priority,\n  labels, placement; the call's project_id/section_id are the default);\n  list_completed (optional since/until YYYY-MM-DD, default the last 7 days;\n  optional project_id).\n- Projects: list_projects; get_project, delete_project, archive_project,\n  unarchive_project (project_id); add_project (project_name; optional color,\n  view_style, parent_project_id, is_favorite); update_project (project_id + fields).\n- Sections: list_sections, add_section (project_id; add also section_name);\n  get_section, delete_section (section_id); update_section (section_id, section_name).\n- list_collaborators (project_id): IDs for assignee_id.\n\nfilter_string: Todoist filter syntax - \"today\", \"overdue\", \"tomorrow\", \"7 days\",\n\"no date\", \"p1\", \"#Project\", \"@label\", \"assigned to: me\"; combine with & and |.\nPriority: 4 = urgent (highest) ... 1 = normal; the filter \"p1\" means priority 4.\n\nArgs:\n    action: One of the actions above\n    task_id: Task ID\n    content: Task title\n    description: Task description\n    project_id: Project ID (task placement, sections, collaborators; move_task destination)\n    section_id: Section ID (task placement; move_task destination)\n    due_string: Natural language due date, e.g. \"tomorrow at 3pm\"\n    due_date: Due date as YYYY-MM-DD\n    priority: 1-4, 4 is highest\n    labels: Label names\n    assignee_id: Collaborator ID (from list_collaborators); \"\" unassigns\n    parent_id: move_task: parent task ID to make the task a subtask\n    filter_string: Filter for list_tasks\n    project_name: Project name (create/rename)\n    parent_project_id: Parent project (create/move a project under another)\n    is_favorite: Show the project in favorites\n    view_style: \"list\" or \"board\"\n    color: Todoist color name\n    section_name: Section name (create/rename)\n    tasks: add_tasks entries\n    since: list_completed from (YYYY-MM-DD)\n    until: list_completed to, inclusive (YYYY-MM-DD)",
     "name": "todoist",
     "parameters": {
       "properties": {
@@ -1111,6 +1111,51 @@
           "type": "STRING"
         },
         "section_name": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "tasks": {
+          "items": {
+            "description": "NewTask",
+            "properties": {
+              "content": {
+                "type": "STRING"
+              },
+              "due_string": {
+                "type": "STRING"
+              },
+              "due_date": {
+                "type": "STRING"
+              },
+              "priority": {
+                "type": "INTEGER"
+              },
+              "labels": {
+                "items": {
+                  "type": "STRING"
+                },
+                "type": "ARRAY"
+              },
+              "project_id": {
+                "type": "STRING"
+              },
+              "section_id": {
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "content"
+            ],
+            "type": "OBJECT"
+          },
+          "nullable": true,
+          "type": "ARRAY"
+        },
+        "since": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "until": {
           "nullable": true,
           "type": "STRING"
         }

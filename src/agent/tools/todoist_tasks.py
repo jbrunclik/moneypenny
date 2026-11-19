@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.agent.tools import todoist_client
+from src.agent.tools.todoist_client import TodoistItems, TodoistParams
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -114,7 +115,7 @@ def _invalid_filter_result(filter_string: str) -> dict[str, Any]:
     }
 
 
-def _fetch_name_map(token: str, path: str, failure_message: str) -> dict[str, str]:
+def fetch_name_map(token: str, path: str, failure_message: str) -> dict[str, str]:
     """id -> name for every section or project; empty when the fetch fails."""
     try:
         items = todoist_client.todoist_api_request("GET", path, token)
@@ -166,11 +167,11 @@ def todoist_list_tasks(
     section_map: dict[str, str] = {}
     project_map: dict[str, str] = {}
     if any(t.get("section_id") for t in tasks):
-        section_map = _fetch_name_map(
+        section_map = fetch_name_map(
             token, "/sections", "Failed to fetch sections for task enrichment"
         )
     if any(t.get("project_id") for t in tasks):
-        project_map = _fetch_name_map(
+        project_map = fetch_name_map(
             token, "/projects", "Failed to fetch projects for task enrichment"
         )
 
@@ -355,3 +356,60 @@ def todoist_delete_task(token: str, task_id: str) -> dict[str, Any]:
         "task_id": task_id,
         "message": "Task deleted permanently",
     }
+
+
+# One add_tasks call adds at most this many tasks (one REST create each)
+TODOIST_MAX_BULK_ADD = 25
+_ADD_TASK_FIELDS = (
+    "description",
+    "project_id",
+    "section_id",
+    "due_string",
+    "due_date",
+    "priority",
+    "labels",
+    "assignee_id",
+)
+
+
+def todoist_add_tasks(
+    token: str,
+    entries: TodoistItems,
+    project_id: str | None = None,
+    section_id: str | None = None,
+) -> TodoistParams:
+    """Create several tasks; each entry may set its own placement, else the defaults apply."""
+    if not entries:
+        return {"error": "tasks is required for add_tasks action (a list of {content, ...})"}
+    if len(entries) > TODOIST_MAX_BULK_ADD:
+        return {
+            "error": f"add_tasks takes at most {TODOIST_MAX_BULK_ADD} tasks per call "
+            f"({len(entries)} given) - split them into several calls"
+        }
+    added: TodoistItems = []
+    failed: TodoistItems = []
+    for entry in entries:
+        fields = {name: entry.get(name) for name in _ADD_TASK_FIELDS}
+        fields["project_id"] = fields["project_id"] or project_id
+        fields["section_id"] = fields["section_id"] or section_id
+        content = str(entry.get("content") or "").strip()
+        if not content:
+            failed.append({"content": "", "error": "content is required"})
+            continue
+        try:
+            task = todoist_add_task(token, content, **fields)["task"] or {}
+        except todoist_client.TodoistTokenRejectedError:
+            raise
+        except Exception as e:  # noqa: BLE001 - one failed entry must not drop the rest
+            failed.append({"content": content, "error": str(e)})
+            continue
+        added.append({"id": task.get("id"), "content": task.get("content", content)})
+    result: TodoistParams = {
+        "action": "add_tasks",
+        "added_count": len(added),
+        "added": added,
+        "failed": failed,
+    }
+    if not added:
+        result["error"] = "No task was added: " + "; ".join(f["error"] for f in failed)
+    return result

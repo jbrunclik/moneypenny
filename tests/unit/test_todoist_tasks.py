@@ -433,3 +433,109 @@ class TestSimpleTaskActions:
 
         assert result["error"] == "Todoist disconnected"
         assert result["retriable"] is False
+
+
+class TestAddTasks:
+    def test_adds_every_entry_in_one_call(self, api: FakeTodoistApi) -> None:
+        api.responses[("POST", "/tasks")] = {"id": "new", "content": "x"}
+        result = run(
+            action="add_tasks",
+            project_id="p1",
+            tasks=[{"content": "Milk"}, {"content": "Eggs", "project_id": "p2", "priority": 4}],
+        )
+        posted = [data for method, _, data, _ in api.calls if method == "POST"]
+        assert posted == [
+            {"content": "Milk", "project_id": "p1"},
+            {"content": "Eggs", "project_id": "p2", "priority": 4},
+        ]
+        assert result["added_count"] == 2 and result["failed"] == []
+
+    def test_add_tasks_partial_failure(self, api: FakeTodoistApi) -> None:
+        def post(
+            method: str, endpoint: str, token: str, data: Any = None, params: Any = None
+        ) -> Any:
+            if data["content"] == "Bad":
+                raise Exception("Todoist API error (400): invalid due")
+            return {"id": f"id-{data['content']}", "content": data["content"]}
+
+        with patch("src.agent.tools.todoist_client.todoist_api_request", post):
+            result = run(action="add_tasks", tasks=[{"content": "Good"}, {"content": "Bad"}])
+        assert result["added"] == [{"id": "id-Good", "content": "Good"}]
+        assert result["failed"][0]["content"] == "Bad"
+        assert "invalid due" in result["failed"][0]["error"]
+
+    def test_every_entry_failing_is_an_error(self, api: FakeTodoistApi) -> None:
+        api.responses[("POST", "/tasks")] = Exception("Todoist API error (500): down")
+        result = run(action="add_tasks", tasks=[{"content": "A"}])
+        assert "error" in result
+
+    def test_add_tasks_over_the_cap(self, api: FakeTodoistApi) -> None:
+        result = run(action="add_tasks", tasks=[{"content": f"t{i}"} for i in range(26)])
+        assert "25" in result["error"]
+        assert api.calls == []
+
+    def test_add_tasks_needs_tasks(self, api: FakeTodoistApi) -> None:
+        assert "tasks" in run(action="add_tasks")["error"]
+
+
+class TestListCompleted:
+    def test_defaults_to_the_last_seven_local_days(self, api: FakeTodoistApi) -> None:
+        endpoint = "/tasks/completed/by_completion_date"
+        api.responses[("GET", endpoint)] = [
+            {
+                "id": "t1",
+                "content": "Pay trip",
+                "project_id": "p1",
+                "completed_at": "2026-11-18T09:30:00Z",
+            }
+        ]
+        api.responses[("GET", "/projects")] = [{"id": "p1", "name": "Family"}]
+        with patch("src.agent.tools.todoist_completed.utc_now") as now:
+            from datetime import UTC, datetime
+
+            now.return_value = datetime(2026, 11, 19, 12, 0, tzinfo=UTC)
+            result = run(action="list_completed")
+        params = next(p for m, e, _, p in api.calls if e == endpoint)
+        # Nov 13 00:00 and Nov 20 00:00 Prague (UTC+1)
+        assert params["since"] == "2026-11-12T23:00:00Z"
+        assert params["until"] == "2026-11-19T23:00:00Z"
+        assert result["tasks"] == [
+            {
+                "id": "t1",
+                "content": "Pay trip",
+                "project_name": "Family",
+                "completed_at": "2026-11-18 10:30",
+            }
+        ]
+
+    def test_explicit_range_and_project(self, api: FakeTodoistApi) -> None:
+        api.responses[("GET", "/tasks/completed/by_completion_date")] = []
+        run(action="list_completed", since="2026-11-01", until="2026-11-02", project_id="p9")
+        params = api.calls[0][3]
+        assert (params["since"], params["until"], params["project_id"]) == (
+            "2026-10-31T23:00:00Z",
+            "2026-11-02T23:00:00Z",
+            "p9",
+        )
+
+    def test_list_completed_bad_range(self, api: FakeTodoistApi) -> None:
+        assert "error" in run(action="list_completed", since="2026-11-10", until="2026-11-01")
+        assert (
+            "3 months"
+            in run(action="list_completed", since="2026-01-01", until="2026-11-01")["error"]
+        )
+        assert "YYYY-MM-DD" in run(action="list_completed", since="last week")["error"]
+        assert api.calls == []
+
+
+def test_add_tasks_hands_the_gate_plain_json(api: FakeTodoistApi) -> None:
+    """The gate stores the call for its approval card: the tasks must serialize."""
+    seen: dict[str, Any] = {}
+
+    def gate(tool_name: str, tool_args: dict[str, Any]) -> str:
+        seen.update(tool_args)
+        return "held"
+
+    with patch("src.agent.tools.todoist.check_autonomous_permission", gate):
+        assert todoist.invoke({"action": "add_tasks", "tasks": [{"content": "Milk"}]}) == "held"
+    assert json.loads(json.dumps(seen))["tasks"] == [{"content": "Milk"}]

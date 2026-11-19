@@ -1,0 +1,14 @@
+id: todoist_done_this_week
+description: A "what did I get done" question reads the completed tasks in Todoist
+history_from: family_logistics
+user: "Co jsem za posledni tyden uz stihl udelat?"
+expect:
+  rubric: >
+    Czech answer from Todoist's completed tasks: returning the library books
+    (Vratit knihy do knihovny) is done. Must not present open tasks (the school
+    trip payment, Matej's slippers, Ondra's gift) as done, and must not say it
+    cannot see completed tasks.
+  required_tools: [todoist]
+  required_arg_patterns:
+    todoist.action: ["^list_completed$"]
+  max_tool_rounds: 2

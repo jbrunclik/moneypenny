@@ -183,6 +183,8 @@ class FakeTodoist:
     ) -> Any:
         if endpoint == "/tasks/filter":
             return copy.deepcopy(self._filter(params.get("query", "")))
+        if endpoint == "/tasks/completed/by_completion_date":
+            return copy.deepcopy(self._completed(params))
         if len(parts) == 1:
             items = [t for t in store if not t.get("checked")]
             if params.get("project_id"):
@@ -191,6 +193,23 @@ class FakeTodoist:
         if len(parts) == 3 and parts[2] == "collaborators":
             return []
         return copy.deepcopy(self._find(store, parts[1]))
+
+    def _completed(self, params: dict[str, Any]) -> list[dict[str, Any]]:
+        """Checked tasks completed in [since, until); a fixture task without
+        completed_at counts as done at 10:00 UTC on its due date."""
+        done = []
+        for task in self.tasks:
+            if not task.get("checked"):
+                continue
+            due = (task.get("due") or {}).get("date")
+            at = task.get("completed_at") or (f"{due[:10]}T10:00:00Z" if due else None)
+            in_range = bool(at) and params.get("since", "") <= str(at) < params.get("until", "~")
+            in_project = (
+                not params.get("project_id") or task.get("project_id") == params["project_id"]
+            )
+            if in_range and in_project:
+                done.append({**task, "completed_at": at})
+        return done
 
     def _create(self, kind: str, store: list[dict[str, Any]], data: dict[str, Any]) -> Any:
         item: dict[str, Any] = {"id": self._new_id(kind[0]), **data}

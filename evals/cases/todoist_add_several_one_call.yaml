@@ -1,0 +1,21 @@
+id: todoist_add_several_one_call
+description: Several separate dated tasks go into Todoist in one add_tasks call, not one add_task per item
+history_from: family_logistics
+user: "Pridej mi ukoly: ve ctvrtek zavolat do skolky kvuli omluvence, v patek zaplatit Matejovi plavani a v nedeli koupit Ondrovi darek na narozeniny."
+expect:
+  rubric: >
+    Creates three separate Todoist tasks, each with its own day (Thursday:
+    call the kindergarten about the absence note; Friday: pay Matej's
+    swimming; Sunday: buy Ondra's birthday gift), and confirms briefly in
+    Czech. Must not merge them into one task or drop a due day.
+  required_tools: [todoist]
+  required_arg_patterns:
+    todoist.action: ["^add_tasks$"]
+  required_actions:
+    todoist:
+      [
+        "^created task .*(?i:[sš]kolk)",
+        "^created task .*(?i:plav)",
+        "^created task .*(?i:d[aá]rek)",
+      ]
+  max_tool_rounds: 2
