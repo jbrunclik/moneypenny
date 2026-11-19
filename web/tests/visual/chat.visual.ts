@@ -131,12 +131,9 @@ test.describe('Visual: Chat Interface', () => {
     await appReady(page);
     await page.click('#new-chat-btn');
     // The three-model menu overlaps the greeting, which shows through the
-    // glass: wait for its final text (it gains the name once the user loads),
-    // or the screenshot catches either version
+    // glass: the shot starts from its final text (it gains the name once the
+    // user loads) and a page at rest
     await expect(page.locator('.welcome-message h2')).toHaveText('What’s on your mind, Local?');
-    // Everything behind the glass at rest too (the composer and the bar
-    // under the third row; screenshots caught them mid-animation, 1% of
-    // pixels on the Advanced row's text)
     await pageSettled(page);
 
     // Open model selector dropdown
@@ -149,7 +146,14 @@ test.describe('Visual: Chat Interface', () => {
 
     // The open menu itself (it floats above the toolbar, outside its box -
     // a toolbar-only screenshot never showed it)
-    await expect(page.locator('#model-dropdown')).toHaveScreenshot('model-selector.png');
+    // maxDiffPixels: the menu hangs from the composer's top edge, and with three
+    // rows its last row lands on a half pixel that rounds up or down with the
+    // composer's exact height - CI's visual job and the baseline workflow
+    // differed by exactly 1 px on that row (284 px of text, Nov 19 2026). A wrong
+    // or missing row changes thousands.
+    await expect(page.locator('#model-dropdown')).toHaveScreenshot('model-selector.png', {
+      maxDiffPixels: 400,
+    });
   });
 });
 
