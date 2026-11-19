@@ -123,14 +123,14 @@ http-ece==1.2.1
     # via pywebpush
 httpcore==1.0.9
     # via httpx
-httpcore2==2.16.0 ; sys_platform != 'emscripten'
+httpcore2==2.16.2 ; sys_platform != 'emscripten'
     # via httpx2
 httpx==0.28.1
     # via
     #   -r requirements.in
     #   langchain-core
     #   langgraph-sdk
-httpx2==2.16.0
+httpx2==2.16.2
     # via
     #   -r requirements.in
     #   google-genai
@@ -157,7 +157,7 @@ jsonpointer==3.4
     # via jsonpatch
 justext==3.0.2
     # via trafilatura
-langchain-core==1.8.0
+langchain-core==1.8.3
     # via
     #   -r requirements.in
     #   langchain-google-genai
@@ -173,13 +173,13 @@ langchain-protocol==0.0.20
     #   langgraph-sdk
 langdetect==1.0.9
     # via -r requirements.in
-langgraph==1.2.20
+langgraph==1.2.23
     # via -r requirements.in
 langgraph-checkpoint==4.3.0
     # via
     #   langgraph
     #   langgraph-prebuilt
-langgraph-prebuilt==1.1.1
+langgraph-prebuilt==1.1.3
     # via langgraph
 langgraph-sdk==0.4.9
     # via langgraph
