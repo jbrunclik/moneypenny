@@ -815,6 +815,9 @@ class Config:
     # budget checked before each step. With one step bounded by the page
     # timeout, the worst case stays under STREAM_RESUME_STALL_SECONDS.
     BROWSER_MAX_BATCH_ACTIONS: int = int(os.getenv("BROWSER_MAX_BATCH_ACTIONS", "10"))
+    # A browser download larger than this is refused; one under it is attached
+    # to the reply (base64 in the message, so keep it small)
+    BROWSER_MAX_DOWNLOAD_BYTES: int = int(os.getenv("BROWSER_MAX_DOWNLOAD_BYTES", "10000000"))
     BROWSER_BATCH_TIMEOUT_SECONDS: int = int(os.getenv("BROWSER_BATCH_TIMEOUT_SECONDS", "60"))
     # Visible interactive elements summarized after page-changing actions
     BROWSER_PAGE_STATE_MAX_ELEMENTS: int = int(os.getenv("BROWSER_PAGE_STATE_MAX_ELEMENTS", "40"))

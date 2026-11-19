@@ -405,8 +405,8 @@ A batch runs a known sequence (navigate -> type -> click) in one tool call
 instead of one [tool round](../architecture/agent-graph.md#tool-round-economics)
 per step. The logic lives in [browser_steps.py](../../src/agent/tools/browser_steps.py):
 
-- Batchable actions: `navigate`, `click`, `type`, `scroll`, `back`, `extract`.
-  `screenshot` and `close` are not - use `screenshot=True` on the call instead
+- Batchable actions: `navigate`, `click`, `type`, `press`, `select`, `scroll`, `back`, `extract`.
+  `screenshot`, `download` and `close` are not - use `screenshot=True` on the call instead
   (one screenshot after the last step), and call `close` on its own.
 - `validate_batch()` checks the whole batch before anything runs: at most
   `BROWSER_MAX_BATCH_ACTIONS` steps, each passing the same `validate_action()`
@@ -422,6 +422,25 @@ per step. The logic lives in [browser_steps.py](../../src/agent/tools/browser_st
   (`extract_tool_detail()` in [tool_display.py](../../src/agent/tool_display.py)).
 - The autonomous-agent permission check sees `action="batch"` with the list of
   step URLs.
+
+### Keys, dropdowns and downloads (Nov 19 2026)
+
+[browser_actions.py](../../src/agent/tools/browser_actions.py) holds the page-level
+helpers, run on the worker thread and tested live in headless Chromium
+(`tests/integration/test_browser_actions.py`):
+
+- `press`: `text` is a Playwright key name (`Enter`, `Escape`, `Tab`, `ArrowDown`,
+  `Control+A`; `KEY_PATTERN` admits nothing else); an optional `selector` focuses
+  the element first. For search boxes without a button and dialogs that only close
+  on Escape.
+- `select`: a native `<select>` by option label, else by value (clicking an
+  `<option>` does nothing in Chromium).
+- `download`: clicks `selector` and waits for the download it starts (the request
+  guard covers it like any page request). Over `BROWSER_MAX_DOWNLOAD_BYTES` it is
+  refused; otherwise the file is attached to the reply through `store_tool_result`
+  (like a shared screenshot) and the model gets its name, type and size, plus the
+  first 2,000 characters of a text format (CSV, ICS, GPX, JSON, TXT) framed as
+  untrusted content. A call of its own, never in a batch.
 
 ### Page state
 
@@ -466,6 +485,7 @@ redirect fails with nothing returned (see Tool Security above). Blocked ranges i
 | `BROWSER_MAX_CONCURRENT_SESSIONS` | `3` | Maximum simultaneous browser sessions |
 | `BROWSER_PAGE_TIMEOUT_MS` | `30000` | Default Playwright timeout per action (ms) |
 | `BROWSER_MAX_BATCH_ACTIONS` | `10` | Maximum steps in one `actions` batch |
+| `BROWSER_MAX_DOWNLOAD_BYTES` | `10000000` | A larger `download` is refused; a smaller one is attached to the reply |
 | `BROWSER_BATCH_TIMEOUT_SECONDS` | `60` | Wall-clock budget for a batch, checked before each step |
 | `BROWSER_PAGE_STATE_MAX_ELEMENTS` | `40` | Maximum `elements` returned after a page-changing action |
 

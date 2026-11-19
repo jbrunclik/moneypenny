@@ -11,11 +11,18 @@ send them as one `actions` list instead of one call per step, e.g.
 `actions=[{"action": "navigate", "url": "..."}, {"action": "type", "selector": "#q",
 "text": "..."}, {"action": "click", "selector": "button[type=submit]"}]`.
 Steps run in order and stop at the first failure (the result says which step failed).
-Batchable: navigate, click, type, scroll, back, extract.
+Batchable: navigate, click, type, press, select, scroll, back, extract.
+
+- A search box with no button: type, then `{"action": "press", "text": "Enter"}`.
+- A native dropdown (`select` in `elements`): `{"action": "select", "selector": ...,
+  "text": "<option label>"}` - clicking an option does not work.
+- A dialog that will not close: press `Escape`.
+- A file the page offers (ticket PDF, GPX, CSV export): `download` with the link's
+  selector, as a call of its own; the file is attached to your reply for the user.
 
 ## Page state
 
-navigate/click/type/scroll/back return `elements`: the visible buttons, links and
+navigate/click/type/press/select/scroll/back return `elements`: the visible buttons, links and
 inputs with ready-to-use selectors. Prefer those selectors over guessing.
 
 ## Screenshots

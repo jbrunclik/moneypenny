@@ -36,7 +36,7 @@ _EXTRA_MIME_TYPES = {
 }
 
 
-def _guess_mime_type(filename: str) -> str:
+def guess_mime_type(filename: str) -> str:
     """Resolve a MIME type from the filename, covering fitness formats too."""
     ext = os.path.splitext(filename)[1].lower()
     if ext in _EXTRA_MIME_TYPES:
@@ -89,7 +89,7 @@ def create_file(filename: str, content: str, mime_type: str | None = None) -> st
         )
 
     resolved_mime = (
-        mime_type.strip() if mime_type and mime_type.strip() else _guess_mime_type(safe_name)
+        mime_type.strip() if mime_type and mime_type.strip() else guess_mime_type(safe_name)
     )
     encoded = base64.b64encode(data).decode("ascii")
 

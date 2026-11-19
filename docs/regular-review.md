@@ -139,6 +139,9 @@ The review itself changes nothing in production and edits nothing but
 - Garmin `get_trend` (from Nov 19 2026; [garmin.md](features/garmin.md#trends-nov-19-2026)):
   "garmin_connect called" lines by `action`/`metric`; sports turns that still
   chain 3+ single-day reads should be rare.
+- Browser `press` / `select` / `download` (from Nov 19 2026; [agent-tools.md](features/agent-tools.md#keys-dropdowns-and-downloads-nov-19-2026)):
+  "Browser downloaded a file" lines and sizes, and "Browser action failed" by
+  action - a new action failing more than click/type is a selector or timing gap.
 - Weather tool (from Nov 19 2026; [location.md](features/location.md#weather)):
   "Weather fetched" lines per week by `location_kind`, `get_weather` errors in
   `message_costs.tool_errors`, and weather turns that still ran `web_search`

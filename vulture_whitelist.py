@@ -186,6 +186,9 @@ _._do_screenshot
 _._do_extract
 _._do_scroll
 _._do_back
+_._do_press
+_._do_select
+_._do_download
 _._do_close
 _._do_cleanup_stale
 # Env vars read by the systemd unit / gunicorn command line, declared in

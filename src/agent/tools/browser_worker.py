@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
+from src.agent.tools.browser_actions import download_file, press_key, select_option
 from src.agent.tools.browser_steps import PAGE_STATE_JS
 from src.agent.tools.url_safety import check_host
 from src.agent.tools.web_content import extract_text_from_html
@@ -227,6 +228,7 @@ class BrowserWorker:
             logger.info("Evicted oldest browser session", extra={"evicted": oldest_id})
 
         context = self._browser.new_context(
+            accept_downloads=True,
             viewport={"width": 1280, "height": 720},
             user_agent=(
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -365,6 +367,46 @@ class BrowserWorker:
             "title": page.title(),
             "url": page.url,
             "elements": self._page_state(page),
+        }
+
+    def _do_press(self, conversation_id: str, key: str, selector: str | None) -> dict[str, object]:
+        page = self._get_or_create_session(conversation_id).page
+        press_key(page, key, selector)
+        return {
+            "success": True,
+            "pressed": key,
+            "title": page.title(),
+            "url": page.url,
+            "elements": self._page_state(page),
+        }
+
+    def _do_select(self, conversation_id: str, selector: str, option: str) -> dict[str, object]:
+        page = self._get_or_create_session(conversation_id).page
+        chosen = select_option(page, selector, option)
+        return {
+            "success": True,
+            "selected": chosen,
+            "title": page.title(),
+            "url": page.url,
+            "elements": self._page_state(page),
+        }
+
+    def _do_download(
+        self, conversation_id: str, selector: str, timeout_ms: int | None
+    ) -> dict[str, object]:
+        page = self._get_or_create_session(conversation_id).page
+        name, data = download_file(
+            page,
+            selector,
+            max_bytes=Config.BROWSER_MAX_DOWNLOAD_BYTES,
+            timeout_ms=timeout_ms or Config.BROWSER_PAGE_TIMEOUT_MS,
+        )
+        logger.info("Browser downloaded a file", extra={"size": len(data)})
+        return {
+            "success": True,
+            "name": name,
+            "size": len(data),
+            "data": base64.b64encode(data).decode("ascii"),
         }
 
     def _do_screenshot(self, conversation_id: str) -> dict[str, Any]:

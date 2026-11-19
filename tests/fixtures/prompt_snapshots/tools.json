@@ -23,7 +23,7 @@
     }
   },
   {
-    "description": "Browse the web with a full browser that renders JavaScript.\n\nUse when a page needs JavaScript or interaction, or fetch_url returned\nincomplete/empty content. The session persists within the conversation.\nPass EITHER `action` (one) OR `actions` (a batch). Never enter passwords or\ncredentials into web forms. Before the first browser call of a task, call\nload_skill('browser-tactics') - batching, selectors, screenshots, budget.\n\nActions: navigate (`url`), click (`selector`), type (`selector`, `text`),\nscreenshot, extract (page text as markdown), scroll (optional `selector`),\nback, close.\n\nArgs:\n    action: The browser action to perform (omit when passing `actions`)\n    url: URL to navigate to (required for navigate)\n    selector: CSS selector for the target element (required for click/type)\n    text: Text to type (required for type)\n    screenshot: If True, take a screenshot after the action (visible to you only)\n    share_screenshot: If True, also share the screenshot with the user as a file attachment\n    wait_for: CSS selector to wait for after the action completes\n    timeout_ms: Custom timeout in milliseconds for this action\n    actions: A batch of steps to run in order in this one call (instead of `action`)",
+    "description": "Browse the web with a full browser that renders JavaScript.\n\nUse when a page needs JavaScript or interaction, or fetch_url returned\nincomplete/empty content. The session persists within the conversation.\nPass EITHER `action` (one) OR `actions` (a batch). Never enter passwords or\ncredentials into web forms. Before the first browser call of a task, call\nload_skill('browser-tactics') - batching, selectors, screenshots, budget.\n\nActions: navigate (`url`), click (`selector`), type (`selector`, `text`),\npress (`text` = key: Enter, Escape, Tab, ArrowDown, Control+A; optional\n`selector` to focus), select (`selector` of a <select>, `text` = option label or\nvalue), download (`selector` of the link/button; the file is attached to the\nreply - single action only), screenshot, extract (page text as markdown),\nscroll (optional `selector`), back, close.\n\nArgs:\n    action: The browser action to perform (omit when passing `actions`)\n    url: URL to navigate to (required for navigate)\n    selector: CSS selector for the target element (required for click/type)\n    text: Text to type (type), key name (press), option (select)\n    screenshot: If True, take a screenshot after the action (visible to you only)\n    share_screenshot: If True, also share the screenshot with the user as a file attachment\n    wait_for: CSS selector to wait for after the action completes\n    timeout_ms: Custom timeout in milliseconds for this action\n    actions: A batch of steps to run in order in this one call (instead of `action`)",
     "name": "browser",
     "parameters": {
       "properties": {
@@ -62,7 +62,7 @@
             "description": "One step of a batched browser sequence.",
             "properties": {
               "action": {
-                "description": "One of: navigate, click, type, scroll, back, extract",
+                "description": "One of: navigate, click, type, press, select, scroll, back, extract",
                 "type": "STRING"
               },
               "url": {
@@ -70,11 +70,11 @@
                 "type": "STRING"
               },
               "selector": {
-                "description": "CSS selector (click/type; scroll)",
+                "description": "CSS selector (click/type/select; press, scroll)",
                 "type": "STRING"
               },
               "text": {
-                "description": "Text to type (type)",
+                "description": "Text to type (type), key name (press), option (select)",
                 "type": "STRING"
               },
               "wait_for": {

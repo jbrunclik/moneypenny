@@ -17,6 +17,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, Field
 
 from src.agent.cancellation import is_cancelled
+from src.agent.tools.browser_actions import KEY_PATTERN
 from src.agent.tools.url_safety import validate_public_url
 from src.agent.tools.web_content import wrap_untrusted_content
 from src.config import Config
@@ -25,12 +26,27 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 VALID_ACTIONS = frozenset(
-    {"navigate", "click", "type", "screenshot", "extract", "scroll", "back", "close"}
+    {
+        "navigate",
+        "click",
+        "type",
+        "press",
+        "select",
+        "download",
+        "screenshot",
+        "extract",
+        "scroll",
+        "back",
+        "close",
+    }
 )
 # screenshot and close are excluded: a batch takes its screenshot via the
 # tool's `screenshot` flag after the last step, and closing mid-batch would
-# discard the session the remaining steps need.
-BATCHABLE_ACTIONS = frozenset({"navigate", "click", "type", "scroll", "back", "extract"})
+# discard the session the remaining steps need. download ends with a file, so
+# it is a call of its own too.
+BATCHABLE_ACTIONS = frozenset(
+    {"navigate", "click", "type", "press", "select", "scroll", "back", "extract"}
+)
 
 _FAILED_STEP_HINT = (
     "Steps before failed_step already ran - the browser is on the page they left it on. "
@@ -87,10 +103,16 @@ PAGE_STATE_JS = """(max) => {
 class BrowserStep(BaseModel):
     """One step of a batched browser sequence."""
 
-    action: str = Field(description="One of: navigate, click, type, scroll, back, extract")
+    action: str = Field(
+        description="One of: navigate, click, type, press, select, scroll, back, extract"
+    )
     url: str | None = Field(default=None, description="URL (navigate)")
-    selector: str | None = Field(default=None, description="CSS selector (click/type; scroll)")
-    text: str | None = Field(default=None, description="Text to type (type)")
+    selector: str | None = Field(
+        default=None, description="CSS selector (click/type/select; press, scroll)"
+    )
+    text: str | None = Field(
+        default=None, description="Text to type (type), key name (press), option (select)"
+    )
     wait_for: str | None = Field(default=None, description="Selector to wait for after the step")
     timeout_ms: int | None = Field(default=None, description="Timeout for this step")
 
@@ -114,10 +136,15 @@ def validate_action(
         if not url:
             return "url is required for navigate action."
         return validate_public_url(url)
-    if action in ("click", "type") and not selector:
+    if action in ("click", "type", "select", "download") and not selector:
         return f"selector is required for {action} action."
-    if action == "type" and text is None:
-        return "text is required for type action."
+    if action in ("type", "select") and not text:
+        return f"text is required for {action} action."
+    if action == "press" and not KEY_PATTERN.match(text or ""):
+        return (
+            "press needs a key name in `text`, e.g. Enter, Escape, Tab, ArrowDown, "
+            "or a combination like Control+A."
+        )
     return None
 
 
@@ -130,6 +157,12 @@ def worker_kwargs(conversation_id: str, step: BrowserStep) -> dict[str, Any]:
         kwargs.update(selector=step.selector, wait_for=step.wait_for, timeout_ms=step.timeout_ms)
     elif step.action == "type":
         kwargs.update(selector=step.selector, text=step.text)
+    elif step.action == "press":
+        kwargs.update(key=step.text, selector=step.selector)
+    elif step.action == "select":
+        kwargs.update(selector=step.selector, option=step.text)
+    elif step.action == "download":
+        kwargs.update(selector=step.selector, timeout_ms=step.timeout_ms)
     elif step.action == "scroll":
         kwargs.update(selector=step.selector)
     return kwargs

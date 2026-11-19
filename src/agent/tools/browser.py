@@ -5,13 +5,16 @@ batched, see browser_steps.py) to the Playwright worker thread in
 browser_worker.py.
 """
 
+import base64
 import json
+import os
 import threading
 from typing import Any
 
 from langchain_core.tools import tool
 
 from src.agent.tool_results import get_current_request_id, store_tool_result
+from src.agent.tools.attachment import guess_mime_type
 from src.agent.tools.browser_steps import (
     BrowserStep,
     frame_page_text,
@@ -29,6 +32,7 @@ from src.agent.tools.browser_worker import (
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.web_content import wrap_untrusted_content
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -171,14 +175,17 @@ def browser(
     load_skill('browser-tactics') - batching, selectors, screenshots, budget.
 
     Actions: navigate (`url`), click (`selector`), type (`selector`, `text`),
-    screenshot, extract (page text as markdown), scroll (optional `selector`),
-    back, close.
+    press (`text` = key: Enter, Escape, Tab, ArrowDown, Control+A; optional
+    `selector` to focus), select (`selector` of a <select>, `text` = option label or
+    value), download (`selector` of the link/button; the file is attached to the
+    reply - single action only), screenshot, extract (page text as markdown),
+    scroll (optional `selector`), back, close.
 
     Args:
         action: The browser action to perform (omit when passing `actions`)
         url: URL to navigate to (required for navigate)
         selector: CSS selector for the target element (required for click/type)
-        text: Text to type (required for type)
+        text: Text to type (type), key name (press), option (select)
         screenshot: If True, take a screenshot after the action (visible to you only)
         share_screenshot: If True, also share the screenshot with the user as a file attachment
         wait_for: CSS selector to wait for after the action completes
@@ -274,6 +281,9 @@ def _run_single(
         worker = get_worker()
         result = worker.execute(step.action, **worker_kwargs(conversation_id, step))
 
+        if step.action == "download":
+            return json.dumps(_download_result(result))
+
         # Screenshot action - always returns multimodal for the LLM
         if step.action == "screenshot":
             if share:
@@ -288,6 +298,38 @@ def _run_single(
         return json.dumps(result)
     except Exception as e:  # noqa: BLE001 - a tool must never raise into the graph
         return _failure_result(step.action, step.selector, e)
+
+
+# Formats whose first characters are worth showing the model (as untrusted page text)
+_TEXT_MIME_PREFIXES = ("text/", "application/json", "application/xml", "application/gpx+xml")
+DOWNLOAD_EXCERPT_CHARS = 2000
+
+
+def _download_result(download: dict[str, object]) -> dict[str, object]:
+    """Attach a downloaded file to the reply; what the model is told about it."""
+    # The page names the file: keep only its base name
+    name = os.path.basename(str(download.get("name") or "")).strip() or "download"
+    mime_type = guess_mime_type(name)
+    request_id = get_current_request_id()
+    if request_id is not None:
+        file_entry = {
+            "name": name,
+            "mime_type": mime_type,
+            "data": download["data"],
+            "size": download["size"],
+        }
+        store_tool_result(request_id, json.dumps({"_full_result": {"files": [file_entry]}}))
+    result: dict[str, object] = {
+        "success": True,
+        "downloaded": name,
+        "mime_type": mime_type,
+        "size": download["size"],
+        "attached": request_id is not None,
+    }
+    if mime_type.startswith(_TEXT_MIME_PREFIXES):
+        text = base64.b64decode(str(download["data"])).decode("utf-8", errors="replace")
+        result["excerpt"] = wrap_untrusted_content(text[:DOWNLOAD_EXCERPT_CHARS], name)
+    return result
 
 
 def _failure_result(action: str, selector: str | None, e: Exception) -> str:
