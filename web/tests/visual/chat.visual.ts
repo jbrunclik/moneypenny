@@ -134,6 +134,10 @@ test.describe('Visual: Chat Interface', () => {
     // glass: wait for its final text (it gains the name once the user loads),
     // or the screenshot catches either version
     await expect(page.locator('.welcome-message h2')).toHaveText('What’s on your mind, Local?');
+    // Everything behind the glass at rest too (the composer and the bar
+    // under the third row; screenshots caught them mid-animation, 1% of
+    // pixels on the Advanced row's text)
+    await pageSettled(page);
 
     // Open model selector dropdown
     const modelSelectorBtn = page.locator('#model-selector-btn');
@@ -141,6 +145,7 @@ test.describe('Visual: Chat Interface', () => {
 
     // Wait for dropdown to be visible
     await expect(page.locator('#model-dropdown')).not.toHaveClass(/hidden/);
+    await pageSettled(page);
 
     // The open menu itself (it floats above the toolbar, outside its box -
     // a toolbar-only screenshot never showed it)
