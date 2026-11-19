@@ -69,7 +69,7 @@ _ACTING_TOOLS = {
     "whatsapp": "can send WhatsApp messages",
 }
 # What every run may use without a grant (ALWAYS_SAFE_TOOLS, in words)
-_BASE_TOOLS_TEXT = "web lookups, files, places lookups and its own notes"
+_BASE_TOOLS_TEXT = "web lookups, files, places and weather lookups and its own notes"
 
 
 def _tool_text(tool_name: str, writes: set[str]) -> str:

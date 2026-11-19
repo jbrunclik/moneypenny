@@ -67,6 +67,7 @@ from src.agent.tools.standing_create import create_standing_chat
 from src.agent.tools.standing_settings import edit_standing_chat
 from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
+from src.agent.tools.weather import get_weather
 from src.agent.tools.web import fetch_url, web_search
 from src.agent.tools.web_content import FETCHABLE_BINARY_TYPES
 from src.agent.tools.whatsapp import is_whatsapp_available, whatsapp
@@ -140,8 +141,8 @@ def get_available_tools() -> list[Any]:
 
     # Add places & routing tools if the Mapy.com API key is configured
     if is_places_available():
-        tools.extend([search_places, get_route, save_place, list_places, delete_place])
-        logger.debug("places tools added to available tools")
+        tools.extend([search_places, get_route, save_place, list_places, delete_place, get_weather])
+        logger.debug("places and weather tools added to available tools")
 
     # Add Todoist tool if configured
     if is_todoist_available():
@@ -313,6 +314,7 @@ _TOOL_MAP: dict[str, Any] = {
     "save_place": save_place,
     "list_places": list_places,
     "delete_place": delete_place,
+    "get_weather": get_weather,
 }
 
 

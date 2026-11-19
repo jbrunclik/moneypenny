@@ -114,6 +114,7 @@ class TestEnhancePrompt:
             patch(f"{module}._is_todoist_connected_for_user", return_value=True),
             patch(f"{module}._is_calendar_connected_for_user", return_value=False),
             patch(f"{module}._is_whatsapp_enabled_for_user", return_value=False),
+            patch(f"{module}.is_places_available", return_value=True),
         ):
             explicit = self._tool_lines(
                 client,
@@ -123,9 +124,16 @@ class TestEnhancePrompt:
             detected = self._tool_lines(client, auth_headers)
 
         base = ["- web_search", "- fetch_url", "- retrieve_file", "- generate_image"]
-        base += ["- request_approval", "- trigger_agent"]
+        base += ["- request_approval", "- trigger_agent", "- get_weather"]
         assert explicit == [*base, "- todoist", "- kv_store"]
         assert detected == [*base, "- todoist"]
+
+    def test_weather_needs_the_places_key(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        with patch("src.api.routes.agent_assist.is_places_available", return_value=False):
+            lines = self._tool_lines(client, auth_headers, tool_permissions=[])
+        assert "- get_weather" not in lines
 
     def test_image_generation_needs_the_gemini_key(
         self, client: FlaskClient, auth_headers: dict[str, str]

@@ -151,6 +151,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Planned a route",
         "icon": "map-pin",
     },
+    "get_weather": {
+        "label": "Checking the weather",
+        "label_past": "Checked the weather",
+        "icon": "weather",
+    },
     # Files
     "create_artifact": {
         "label": "Building an artifact",
@@ -245,7 +250,7 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
 
 # Place/routing tools share one detail formatter.
 _PLACE_TOOLS = frozenset(
-    {"search_places", "save_place", "list_places", "delete_place", "get_route"}
+    {"search_places", "save_place", "list_places", "delete_place", "get_route", "get_weather"}
 )
 
 
@@ -487,6 +492,9 @@ def _format_places_detail(tool_name: str, tool_args: dict[str, Any]) -> str | No
         destination = tool_args.get("destination", "")
         mode = tool_args.get("mode", "car")
         return f"{origin} → {destination} ({mode})"
+    if tool_name == "get_weather":
+        location = str(tool_args.get("location") or "current")
+        return "here" if location == "current" else location
     return None
 
 

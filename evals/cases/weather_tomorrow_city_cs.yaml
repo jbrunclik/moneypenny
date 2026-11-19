@@ -1,0 +1,13 @@
+id: weather_tomorrow_city_cs
+description: A Czech weather question for a named town is answered from the forecast tool, not a web search
+user: "Jaké bude zítra počasí v Brně? Mám vzít dětem bundy?"
+expect:
+  rubric: >
+    Czech answer about tomorrow in Brno with concrete forecast figures (low
+    and high temperature, rain or none, wind if notable) read from the
+    get_weather result, and a direct yes/no on jackets that follows from
+    them. Must not hedge with "I can't see the weather" or point the user to
+    a weather website.
+  required_tools: [get_weather]
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 2

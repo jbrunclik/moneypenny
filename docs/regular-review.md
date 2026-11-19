@@ -133,6 +133,10 @@ The review itself changes nothing in production and edits nothing but
   "Spend"); any day past `SPEND_WARNING_DAILY_USD`; the share of spend in
   deleted chats.
 - Model mix: a cheaper model doing well enough is a saving to propose.
+- Weather tool (from Nov 19 2026; [location.md](features/location.md#weather)):
+  "Weather fetched" lines per week by `location_kind`, `get_weather` errors in
+  `message_costs.tool_errors`, and weather turns that still ran `web_search`
+  (both in `tools_used`) - a weather turn should need one round.
 - Gemini 4 Neon (from Nov 19 2026, admin-only, `medium` thinking): cost per
   turn and output tokens (thinking included) in `message_costs` per model,
   Neon against Hydrogen and Carbon. Turns that cost about as much as Carbon's

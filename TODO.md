@@ -43,7 +43,8 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 - [ ] **Answer feedback signal** (Nov 15 2026 audit) - no thumbs control and no feedback table; quality is measured by evals and grounding only. A thumbs-down with a reason in the message menu, stored per message; meanwhile count Regenerate and Edit per tool or skill in `/product-review` as the implicit signal.
 
-- [ ] **More tools for the agent** (Nov 15 2026 audit) - (1) YouTube links through Gemini's native video input; (2) a `get_weather` tool on the existing Yr.no client; (3) tool depth: Todoist bulk add and completed history, Garmin date ranges, browser key press / select / download.
+- [ ] **Re-measure the weather tool** (~Dec 3 2026; shipped Nov 19 2026, [location.md](docs/features/location.md#weather)) - "Weather fetched" lines (how often, `location_kind`), turns with `get_weather` that also ran `web_search`, and `get_weather` errors. Weather turns still searching: tighten the gate's lookup=false line; "current" failing for want of a device fix: say so in the tool result's hint.
+- [ ] **More tools for the agent** (Nov 15 2026 audit) - (1) YouTube links through Gemini's native video input; (2) tool depth: Todoist bulk add and completed history, Garmin date ranges, browser key press / select / download.
 
 - [ ] **Agent safety** (Nov 15 2026 audit):
   - **Re-measure agent files** (~Nov 30 2026; shipped Nov 16 2026, [spec](docs/superpowers/specs/2026-11-16-agent-files-design.md)) - from the journal: "office text extracted" lines (count by `type`, any `error`, the `truncated` share, median `ms`), audio uploads ("Uploading file to Gemini Files API" with an `audio/` mime) and their failures ("Failed to prepare media for Gemini"), and the share of "conversation file: found" lines with `role` assistant (does the agent reuse its own outputs?).

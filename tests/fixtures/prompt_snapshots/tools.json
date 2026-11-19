@@ -422,6 +422,23 @@
     }
   },
   {
+    "description": "Get the weather forecast for a place: daily low/high, rain, wind, and the next hours.\n\nUse this for any weather question (today, tomorrow, the weekend, whether to\ntake an umbrella) instead of a web search.\n\nArgs:\n    location: \"current\" (the user's device location), a saved place name\n        (\"home\"), or a town or address (\"Brno\", \"Špindlerův Mlýn\")\n    days: How many days to forecast, 1-7, starting today",
+    "name": "get_weather",
+    "parameters": {
+      "properties": {
+        "location": {
+          "type": "STRING"
+        },
+        "days": {
+          "type": "INTEGER"
+        }
+      },
+      "required": [],
+      "title": "get_weather",
+      "type": "OBJECT"
+    }
+  },
+  {
     "description": "Manage Google Calendar events and calendars.\n\nActions:\n- \"list_calendars\": List calendars available to the user.\n- \"list_events\": List events in a calendar within a time range.\n- \"get_event\": Fetch a single event by ID.\n- \"create_event\": Create a new event (requires summary, start_time, end_time or all_day date).\n- \"update_event\": Update an existing event (requires event_id and at least one field to change).\n- \"delete_event\": Delete an event permanently (requires event_id).\n- \"respond_event\": RSVP to an event invitation (event_id + response_status: accepted/tentative/declined).\n\nDates must be ISO 8601 strings. Use calendar_id=\"primary\" when unsure.\nUse Todoist for flexible tasks and Google Calendar for time-bound commitments.",
     "name": "google_calendar",
     "parameters": {

@@ -88,6 +88,23 @@ Mapy.com data has **no ratings/reviews**. The system prompt instructs the
 agent to follow `search_places` with a `web_search` reputation check for
 restaurant/venue quality questions.
 
+## Weather
+
+`get_weather(location="current", days=3)`
+([tools/weather.py](../../src/agent/tools/weather.py), Nov 19 2026) resolves
+the place with `resolve_point()` (the same order as above) and reads the Yr.no
+forecast through `get_weather_for_location()` ([utils/weather.py](../../src/utils/weather.py), 6 h
+SQLite cache), keyed by coordinates rounded to 2 decimals so nearby asks share
+an entry. The result has one entry per APP_TIMEZONE day (`daily_weather()` from
+the planner, plus the day's max wind) and, when today is in range, the next 12
+hours. `days` is clamped to 1-7. Bound with the places tools and in
+`ALWAYS_SAFE_TOOLS`. The freshness gate's lookup=false list names weather
+forecasts and the core prompt's web-tools list points weather at this tool, so
+a weather turn no longer starts with a web search. Each call logs "Weather
+fetched" (`location_kind` current/named, `days`, `fetched_at`; a `fetched_at`
+older than the call is a cache hit). Evals: `weather_tomorrow_city_cs`,
+`weather_umbrella_today` (Nov 19 2026: 6/6, $0.19 for three runs each).
+
 ## Daily briefing
 
 The briefing prompt (prompt-only change in

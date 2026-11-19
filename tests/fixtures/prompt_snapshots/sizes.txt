@@ -1,14 +1,14 @@
 # Characters sent on every turn. Regenerate: make prompt-snapshots
 
 static prompt
-  standard       25481
-  anonymous      13871
-  planning       28629
-  standing       25481
+  standard       25509
+  anonymous      13899
+  planning       28657
+  standing       25509
 
 dynamic context (example user, 5 memories)    2439
 
-tool declarations (41 tools, 56367 chars)
+tool declarations (42 tools, 56985 chars)
   ask_choice                     768
   browser                       2388
   create_artifact               1661
@@ -23,6 +23,7 @@ tool declarations (41 tools, 56367 chars)
   garmin_workout                1365
   generate_image                2974
   get_route                      579
+  get_weather                    618
   google_calendar               2002
   kv_store                      1659
   list_places                    270

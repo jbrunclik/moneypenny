@@ -12,6 +12,7 @@ from langchain_core.messages import HumanMessage
 from src.agent.content import extract_text_content
 from src.agent.gemini_clients import chat_model
 from src.agent.tools.google_calendar import is_google_calendar_available
+from src.agent.tools.places import is_places_available
 from src.agent.tools.todoist import is_todoist_available
 from src.agent.tools.whatsapp import is_whatsapp_available
 from src.api.rate_limiting import rate_limit_conversations
@@ -44,6 +45,7 @@ _PROMPT_TOOL_DESCRIPTIONS: dict[str, str] = {
     "google_calendar": "Read or modify Google Calendar events, attendees, and reminders.",
     "whatsapp": "Send WhatsApp notifications to the user with concise summaries and links.",
     "kv_store": "Persist and retrieve key-value data across conversations and executions.",
+    "get_weather": "Get the Yr.no weather forecast (daily and next hours) for any place.",
     "load_skill": "Load detailed built-in instructions for a specific kind of task (office files, PDFs, browser tactics, weekly planning, trips, shopping).",
 }
 
@@ -55,6 +57,7 @@ _PROMPT_BASE_TOOL_ORDER = [
     "execute_code",
     "request_approval",
     "trigger_agent",
+    "get_weather",
 ]
 
 
@@ -107,6 +110,8 @@ def _tool_usable_for(user: User, tool_name: str) -> bool:
         return Config.CODE_SANDBOX_ENABLED
     if tool_name == "generate_image":
         return bool(Config.GEMINI_API_KEY)
+    if tool_name == "get_weather":
+        return is_places_available()
 
     # Check user-level connections for integration tools
     if tool_name == "todoist":

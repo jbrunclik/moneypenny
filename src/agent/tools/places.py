@@ -52,7 +52,7 @@ def _get_saved_place(name: str) -> dict[str, Any] | None:
     return None
 
 
-def _resolve_point(ref: str) -> tuple[tuple[float, float], str] | None:
+def resolve_point(ref: str) -> tuple[tuple[float, float], str] | None:
     """Resolve a location reference to ((lon, lat), label) or None."""
     ref = ref.strip()
     if ref.lower() == "current":
@@ -109,7 +109,7 @@ def search_places(query: str, near: str = "current", limit: int = 5) -> str:
         Note: results have no ratings - verify restaurant reputation with web_search.
     """
     try:
-        anchor = _resolve_point(near)
+        anchor = resolve_point(near)
         if anchor is None:
             if near.strip().lower() == "current":
                 return (
@@ -245,10 +245,10 @@ def get_route(origin: str, destination: str, mode: str = "car") -> str:
     if route_type is None:
         return f"Unknown mode '{mode}'. Use one of: {', '.join(_ROUTE_TYPES)}."
     try:
-        start = _resolve_point(origin)
+        start = resolve_point(origin)
         if start is None:
             return f"Could not resolve origin '{origin}'."
-        end = _resolve_point(destination)
+        end = resolve_point(destination)
         if end is None:
             return f"Could not resolve destination '{destination}'."
         (start_pt, start_label) = start

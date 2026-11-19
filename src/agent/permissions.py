@@ -41,6 +41,7 @@ ALWAYS_SAFE_TOOLS: set[str] = {
     "search_places",
     "get_route",
     "list_places",
+    "get_weather",  # read-only Yr.no forecast
 }
 
 

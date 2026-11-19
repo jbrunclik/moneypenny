@@ -1,0 +1,11 @@
+id: weather_umbrella_today
+description: An umbrella question for today uses the hourly forecast, not a web search
+user: "Do I need an umbrella in Prague this afternoon?"
+expect:
+  rubric: >
+    A direct yes or no for this afternoon in Prague, backed by the hours in
+    the get_weather result (rain amounts or none, roughly when). Must not
+    give a whole-week forecast or send the user to a weather website.
+  required_tools: [get_weather]
+  forbidden_tools: [web_search, research]
+  max_tool_rounds: 2

@@ -14,7 +14,7 @@ Answer lookup=true when answering needs any of:
 - current products, specs, prices, availability, rules, laws, schedules or opening hours
 - the user disputes, corrects or questions a fact, or asks to check, find, verify or look something up ("ne, bylo tam…", "najdi si to", "ověř to")
 
-Answer lookup=false for: greetings, thanks, short acknowledgements, opinions and advice on timeless or personal matters that need no new facts, writing, editing, translating or summarising given text, maths, code, timeless knowledge, history older than two years, the user's own data (calendar, tasks, memories, files, fitness), and anything about the conversation itself.
+Answer lookup=false for: greetings, thanks, short acknowledgements, opinions and advice on timeless or personal matters that need no new facts, writing, editing, translating or summarising given text, maths, code, timeless knowledge, history older than two years, the user's own data (calendar, tasks, memories, files, fitness), weather forecasts (a forecast tool answers them), and anything about the conversation itself.
 
 Answer lookup=false when the answer is in what the user attached (ATTACHMENTS below): a photo of a sign, menu, receipt, timetable or screen, a document or a screenshot is read, not searched for - "kdy maji otevreno? foto cedule v priloze" is answered from the photo. Look up only what the attachment cannot answer, or when the user asks to check it against the web.
 

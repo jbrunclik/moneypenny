@@ -45,7 +45,7 @@ Each tool's description says what it does and when to use it. On top of those:
 # When to Use Web Tools
 ALWAYS use web tools first when the user asks about:
 - Current events, news, "what happened today/recently"
-- Real-time data: stock prices, crypto, weather, sports scores
+- Real-time data: stock prices, crypto, sports scores (weather: get_weather, not a search)
 - Recent releases, updates, or announcements
 - Anything that might have changed since your training cutoff
 - Facts you're uncertain about (verify before answering)

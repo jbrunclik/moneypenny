@@ -30,6 +30,7 @@ import {
   REFRESH_ICON,
   IMAGE_ICON,
   PHONE_ICON,
+  WEATHER_PARTLY_CLOUDY_ICON,
   createIconElement,
   setIcon,
   type IconHtml,
@@ -62,6 +63,7 @@ const ICON_MAP: Record<string, IconHtml> = {
   refresh: REFRESH_ICON,
   image: IMAGE_ICON,
   message: PHONE_ICON,
+  weather: WEATHER_PARTLY_CLOUDY_ICON,
 };
 
 /**

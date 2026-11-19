@@ -13,7 +13,7 @@ language chat) too, plus `kv_store`; unattended job **runs** get
   `create_file`, `load_skill`, `request_approval`, `kv_store`, `edit_standing_chat`.
 - **`ALWAYS_SAFE_TOOLS`** ([permissions.py](../../src/agent/permissions.py)) skip the
   call-time permission check: every always-bound tool, plus the read-only places tools
-  `search_places`, `get_route`, `list_places`.
+  `search_places`, `get_route`, `list_places`, and the read-only `get_weather`.
 
 Every always-bound tool must also be in `ALWAYS_SAFE_TOOLS` — a bound tool the gate refuses
 just wastes a model round on an error (`test_every_bound_tool_passes_the_permission_gate`).
@@ -32,6 +32,7 @@ all-tools jobs (`["*"]`) or when granted explicitly.
 | `request_approval` | Request user approval | Always available |
 | `trigger_agent` | Trigger another agent | Unrestricted agents, or when granted ("Other agents" in the agent editor) |
 | `kv_store` | Per-user key-value storage | Always available |
+| `get_weather` | Yr.no forecast for any place ("current", a saved place, a town): daily low/high, rain, max wind, the next 12 hours when today is in range ([location.md](location.md#weather)) | With the places tools (`MAPY_CZ_API_KEY`); always safe for agents |
 | `generate_image` | AI image generation | Requires `GEMINI_API_KEY` |
 | `execute_code` | Code execution in sandbox | Requires `CODE_SANDBOX_ENABLED` |
 | `todoist` | Todoist task management | Requires user integration |
