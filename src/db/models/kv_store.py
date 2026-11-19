@@ -7,10 +7,10 @@ Used by autonomous agents and features that need persistent storage.
 from __future__ import annotations
 
 import sqlite3
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from src.db.models.timestamps import to_db
+from src.db.models.timestamps import from_db, to_db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
@@ -52,6 +52,16 @@ class KVStoreMixin:
                 (user_id, namespace, key),
             ).fetchone()
             return row["value"] if row else None
+
+    def kv_updated_at(self, user_id: str, namespace: str, key: str) -> datetime | None:
+        """When a key was last written, or None if it does not exist."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                "SELECT updated_at FROM kv_store WHERE user_id = ? AND namespace = ? AND key = ?",
+                (user_id, namespace, key),
+            ).fetchone()
+            return from_db(row["updated_at"]) if row else None
 
     def kv_set(self, user_id: str, namespace: str, key: str, value: str) -> None:
         """Set a key-value pair (upsert).

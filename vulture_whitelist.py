@@ -122,6 +122,8 @@ per_item_czk
 autostart
 # src/api/schemas/programs.py
 has_conversation
+last_session_at
+session_count
 # src/api/schemas/system.py
 short_name
 maxFileSize

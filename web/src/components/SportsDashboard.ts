@@ -24,6 +24,7 @@ import { createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import { createEmptyState } from './EmptyState';
 import { createLogger } from '../utils/logger';
+import { formatRelativeTime } from '../utils/relative-time';
 
 const log = createLogger('SportsDashboard');
 
@@ -90,6 +91,15 @@ export function createSportsProgramsElement(
   return container;
 }
 
+/** "Last session 2d ago · 12 sessions" (days the user wrote in the chat). */
+function programMeta(program: SportsProgram): string {
+  const count = program.session_count ?? 0;
+  if (!program.last_session_at || count === 0) return 'No sessions yet';
+  const ago = formatRelativeTime(program.last_session_at);
+  const when = ago === 'now' ? 'just now' : `${ago} ago`;
+  return `Last session ${when} · ${count} ${count === 1 ? 'session' : 'sessions'}`;
+}
+
 function createProgramCard(
   program: SportsProgram,
   onDelete: (id: string) => void,
@@ -107,7 +117,10 @@ function createProgramCard(
   card.appendChild(
     createElement('div', { class: 'sports-card-header' }, [
       createElement('span', { class: 'sports-card-emoji' }, [program.emoji]),
-      createElement('span', { class: 'sports-card-name' }, [program.name]),
+      createElement('div', { class: 'sports-card-title' }, [
+        createElement('span', { class: 'sports-card-name' }, [program.name]),
+        createElement('span', { class: 'sports-card-meta' }, [programMeta(program)]),
+      ]),
       createElement('div', { class: 'sports-card-actions' }, [continueBtn, deleteBtn]),
     ])
   );

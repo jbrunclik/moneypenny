@@ -90,6 +90,13 @@ class SportsProgramItem(ResponseModel):
     created_at: Timestamp
     has_conversation: bool = False
     quick_actions: list[QuickActionResponse] = Field(default_factory=list)
+    last_session_at: Timestamp | None = Field(
+        default=None,
+        description="When the coach last logged a session, else the user's last message",
+    )
+    session_count: int = Field(
+        default=0, description="Local days the user wrote in the program's chat"
+    )
 
 
 class SportsProgramsResponse(ResponseModel):

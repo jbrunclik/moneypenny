@@ -12,12 +12,13 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.config import Config
 from src.db.models.dataclasses import Conversation
 from src.db.models.helpers import delete_messages_blobs
-from src.db.models.timestamps import to_db
+from src.db.models.timestamps import from_db, to_db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
@@ -204,6 +205,18 @@ class ProgramConversationMixin:
                 conn, "SELECT * FROM conversations WHERE id = ?", (conv_id,)
             ).fetchone()
             return self._row_to_conversation(updated_row) if updated_row else None
+
+    def user_message_times(self, conversation_id: str) -> list[datetime]:
+        """When the user wrote in a conversation - not the app's own
+        ``[System: ...]`` messages (a program's session-start)."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                "SELECT created_at FROM messages WHERE conversation_id = ? AND role = 'user' "
+                "AND content NOT LIKE '[System:%' ORDER BY created_at",
+                (conversation_id,),
+            ).fetchall()
+            return [from_db(row["created_at"]) for row in rows]
 
     def list_program_conversations(self, namespace: str, user_id: str) -> list[Conversation]:
         """List all of a user's conversations for this program feature."""

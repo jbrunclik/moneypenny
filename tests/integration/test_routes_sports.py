@@ -85,6 +85,72 @@ class TestListPrograms:
         assert data["programs"][0]["has_conversation"] is False
 
 
+class TestProgramActivity:
+    """The card's "Last session 2d ago · 12 sessions" (Nov 19 2026): sessions are
+    the local days the user wrote in the program's chat; the last one is when
+    the coach last logged a session, else the user's last message there."""
+
+    def _chat(self, test_database: Database, user_id: str) -> str:
+        _setup_program(test_database, user_id)
+        conv = test_database.get_or_create_program_conversation("sports", user_id, "pushups")
+        return conv.id
+
+    def _say(self, test_database: Database, conv_id: str, text: str, at: str) -> None:
+        from src.db.models.timestamps import from_db
+
+        msg = test_database.add_message(conv_id, "user", text)
+        test_database.set_message_created_at(msg.id, from_db(at))
+
+    def _program(self, client: FlaskClient, auth_headers: dict[str, str]) -> dict:
+        response = client.get("/api/sports/programs", headers=auth_headers)
+        assert response.status_code == 200
+        return json.loads(response.data)["programs"][0]
+
+    def test_counts_local_days_with_a_message(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        conv_id = self._chat(test_database, test_user.id)
+        # Nov 17 twice, then 23:30 UTC on Nov 18 = Nov 19 00:30 in Prague
+        self._say(test_database, conv_id, "done 3x12", "2026-11-17T07:00:00Z")
+        self._say(test_database, conv_id, "and stretching", "2026-11-17T18:00:00Z")
+        self._say(test_database, conv_id, "late one", "2026-11-18T23:30:00Z")
+        self._say(test_database, conv_id, "[System: session-start]", "2026-11-16T07:00:00Z")
+
+        program = self._program(client, auth_headers)
+        assert program["session_count"] == 2
+        assert program["last_session_at"].startswith("2026-11-18T23:30:00")
+
+    def test_the_coachs_log_is_the_last_session(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        conv_id = self._chat(test_database, test_user.id)
+        self._say(test_database, conv_id, "done", "2026-11-10T07:00:00Z")
+        test_database.kv_set(test_user.id, "sports", "pushups:last_session", "3x12 at 60 kg")
+
+        program = self._program(client, auth_headers)
+        assert program["session_count"] == 1
+        assert program["last_session_at"] > "2026-11-10T07:00:00"
+
+    def test_a_new_program_has_none(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        _setup_program(test_database, test_user.id)
+        program = self._program(client, auth_headers)
+        assert (program["session_count"], program["last_session_at"]) == (0, None)
+
+
 class TestCreateProgram:
     """Tests for POST /api/sports/programs."""
 

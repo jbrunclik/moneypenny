@@ -109,7 +109,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **Conversation search over artifact titles** (Oct 11 2026 artifacts) - artifact titles are not indexed; for now the reply text names what was built.
 
 - [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
-  - Sports card meta line ("Last session 2d ago · 12 sessions") - needs a last-session date and session count from the programs API
   - Visual coverage: login with the real Google button (Google's script never loads in tests; the fallback state is covered)
 
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.

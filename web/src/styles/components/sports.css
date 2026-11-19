@@ -461,6 +461,22 @@
     flex-shrink: 0;
 }
 
+.sports-card-title {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-0-5);
+    flex: 1;
+    min-width: 0;
+}
+
+.sports-card-meta {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .sports-card-name {
     font-size: var(--font-size-ui);
     font-weight: 600;

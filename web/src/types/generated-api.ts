@@ -10862,6 +10862,18 @@ export interface components {
             has_conversation: boolean;
             /** Quick Actions */
             quick_actions: components["schemas"]["SportsProgramsResponse.QuickActionResponse"][];
+            /**
+             * Last Session At
+             * @description When the coach last logged a session, else the user's last message
+             * @default null
+             */
+            last_session_at: string | null;
+            /**
+             * Session Count
+             * @description Local days the user wrote in the program's chat
+             * @default 0
+             */
+            session_count: number;
         };
         /**
          * SportsProgramsResponse

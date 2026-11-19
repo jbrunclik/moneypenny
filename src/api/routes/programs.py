@@ -27,7 +27,7 @@ from src.config import Config
 from src.db.models import User, db
 from src.db.models.programs import PROGRAM_FEATURES
 from src.services.program_setup import QUICK_ACTION_DEFAULTS, resolve_quick_actions
-from src.utils.clock import to_api, utc_now
+from src.utils.clock import local_today, to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -86,13 +86,30 @@ def program_to_item(
         conv_program_ids = {
             getattr(c, column) for c in db.list_program_conversations(namespace, user_id)
         }
-    return {
+    item: dict[str, object] = {
         "id": program["id"],
         "name": program["name"],
         "emoji": program["emoji"],
         "created_at": program["created_at"],
         "has_conversation": program["id"] in conv_program_ids,
         "quick_actions": resolve_quick_actions(program, namespace),
+    }
+    if namespace == "sports" and item["has_conversation"]:
+        item.update(_program_activity(user_id, namespace, program["id"]))
+    return item
+
+
+def _program_activity(user_id: str, namespace: str, program_id: str) -> dict[str, int | str | None]:
+    """The card's "Last session 2d ago · 12 sessions": the local days the user
+    wrote in the program's chat, and when the coach last logged a session (its
+    last_session note), else the user's last message there."""
+    conv = db.get_or_create_program_conversation(namespace, user_id, program_id)
+    times = db.user_message_times(conv.id)
+    logged = db.kv_updated_at(user_id, namespace, f"{program_id}:last_session")
+    last = logged or (times[-1] if times else None)
+    return {
+        "session_count": len({local_today(at) for at in times}),
+        "last_session_at": to_api(last) if last else None,
     }
 
 

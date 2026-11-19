@@ -12267,6 +12267,26 @@
             },
             "title": "Quick Actions",
             "type": "array"
+          },
+          "last_session_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "When the coach last logged a session, else the user's last message",
+            "title": "Last Session At"
+          },
+          "session_count": {
+            "default": 0,
+            "description": "Local days the user wrote in the program's chat",
+            "title": "Session Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -12275,7 +12295,9 @@
           "emoji",
           "created_at",
           "has_conversation",
-          "quick_actions"
+          "quick_actions",
+          "last_session_at",
+          "session_count"
         ],
         "title": "SportsProgramItem",
         "type": "object"
