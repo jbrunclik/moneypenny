@@ -1,6 +1,7 @@
 id: cz_batched_lookups
-known_failure: >
-  Failed 13/13 runs by the Nov 15 2026 audit - a target for sandbox scripts that call tools (TODO, Harness hardening).
+# Was a known target (failed 13/13 by Nov 15 2026; 6-12 rounds). On canned
+# pages ranked per query it passes in 2 rounds with one batched research call,
+# with or without sandbox scripts (Nov 19 2026: 5/6 over both settings).
 description: >
   Several independent lookups in one question. Reproduces the pattern behind
   most tool-round-cap hits (Sep 2026: 98% of rounds in capped turns carried a

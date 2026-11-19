@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import contextlib
 import html
+import re
+import unicodedata
 from collections.abc import Iterator
 from typing import Any
 from unittest.mock import patch
@@ -48,8 +50,18 @@ class FakeWeb:
         self.fetched: list[str] = []
 
     def search_web_detailed(self, query: str, num_results: int) -> tuple[list[dict[str, str]], str]:
+        """The canned results, best matches for this query first (stable: ties
+        keep the canned order) - real search answers each query with its own
+        pages, which a question about several places depends on."""
         self.queries.append(query)
-        return [dict(r) for r in self.results[:num_results]], "canned"
+        words = _words(query)
+        ranked = sorted(
+            self.results,
+            key=lambda r: (
+                -len(words & _words(f"{r.get('title')} {r.get('snippet')} {r.get('url')}"))
+            ),
+        )
+        return [dict(r) for r in ranked[:num_results]], "canned"
 
     def fetch_response(
         self, url: str, timeout: float | None = None
@@ -75,6 +87,14 @@ class FakeWeb:
             "fetched": list(self.fetched),
             "missing": [u for u in self.fetched if _normalized(u) not in self.pages],
         }
+
+
+def _words(text: str) -> set[str]:
+    """Rough word stems without accents, so Czech inflection still matches
+    ("Brno" / "v Brně", "Plzeň" / "v Plzni"): the last two letters dropped,
+    at least three kept."""
+    plain = unicodedata.normalize("NFKD", text.lower()).encode("ascii", "ignore").decode()
+    return {w[: max(3, len(w) - 2)] for w in re.split(r"[^a-z0-9]+", plain) if len(w) >= 3}
 
 
 def _normalized(url: str) -> str:

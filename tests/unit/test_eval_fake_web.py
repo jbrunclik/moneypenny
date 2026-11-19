@@ -127,3 +127,40 @@ def test_canned_web_calls_are_summarized() -> None:
         "fetched": [_URL, "https://elsewhere.example.org/x"],
         "missing": ["https://elsewhere.example.org/x"],
     }
+
+
+def test_each_query_gets_its_own_matches_first() -> None:
+    """A question about four places searches four times; real search answers
+    each with that place's pages. Returning one list for every query gave a
+    research call over four places the first place's pages only."""
+    from evals.fake_web import FakeWeb
+
+    fake = FakeWeb(
+        {
+            "results": [
+                {
+                    "url": "https://www.ntm.cz/oteviraci-doba",
+                    "title": "Národní technické muzeum",
+                    "snippet": "Praha",
+                },
+                {"url": "https://www.ntm.cz/vstupne", "title": "Vstupné NTM", "snippet": "Praha"},
+                {
+                    "url": "https://www.tmbrno.cz/oteviraci-doba",
+                    "title": "Technické muzeum v Brně",
+                    "snippet": "otevírací doba",
+                },
+                {
+                    "url": "https://techmania.cz/kontakt",
+                    "title": "Techmania Science Center",
+                    "snippet": "Plzeň",
+                },
+            ]
+        }
+    )
+    brno, _ = fake.search_web_detailed("Technické muzeum Brno otevírací doba", 2)
+    assert brno[0]["url"] == "https://www.tmbrno.cz/oteviraci-doba"
+    plzen, _ = fake.search_web_detailed("Techmania Plzen", 1)
+    assert plzen[0]["url"] == "https://techmania.cz/kontakt"
+    # Nothing matches: the canned order, as before
+    other, _ = fake.search_web_detailed("xyz", 4)
+    assert [r["url"] for r in other][:1] == ["https://www.ntm.cz/oteviraci-doba"]
