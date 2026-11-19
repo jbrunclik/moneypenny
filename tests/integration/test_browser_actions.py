@@ -61,3 +61,42 @@ def test_download_returns_the_file(page: Any) -> None:
 def test_download_over_the_cap_is_refused(page: Any) -> None:
     with pytest.raises(DownloadTooLargeError):
         download_file(page, "#csv", max_bytes=5, timeout_ms=10000)
+
+
+def test_an_announced_size_over_the_cap_is_refused_before_the_body(page: Any) -> None:
+    """A server that announces a large file and then stalls: refused at once,
+    not after the transfer (download.path() would wait for it forever)."""
+    import threading
+    import time
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Stall(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Disposition", 'attachment; filename="big.bin"')
+            self.send_header("Content-Length", str(50_000_000))
+            self.end_headers()
+            self.wfile.write(b"x" * 1024)
+            self.wfile.flush()
+            time.sleep(20)  # the stall under test: the body never completes in time
+
+        def log_message(self, *args: object) -> None:
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Stall)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        page.set_content(f'<a id="big" href="http://127.0.0.1:{server.server_port}/f">Get</a>')
+        started = time.monotonic()
+        with pytest.raises(DownloadTooLargeError):
+            download_file(page, "#big", max_bytes=1000, timeout_ms=10000)
+        assert time.monotonic() - started < 10
+    finally:
+        server.shutdown()
+
+
+def test_selected_values_come_back_short(page: Any) -> None:
+    long_value = "v" * 500
+    page.set_content(f'<select id="s"><option value="{long_value}">Long</option></select>')
+    assert select_option(page, "#s", "Long") == ["v" * 80]

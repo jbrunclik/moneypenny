@@ -7,7 +7,7 @@ browser_worker.py.
 
 import base64
 import json
-import os
+import re
 import threading
 from typing import Any
 
@@ -300,6 +300,32 @@ def _run_single(
         return _failure_result(step.action, step.selector, e)
 
 
+# The types a browser download is stored as; anything else is octet-stream
+SAFE_DOWNLOAD_TYPES = frozenset(
+    {
+        "application/pdf",
+        "text/csv",
+        "text/plain",
+        "text/calendar",
+        "application/json",
+        "application/gpx+xml",
+        "application/zip",
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+    }
+)
+_UNSAFE_NAME_CHARS = re.compile(r"[^\w.\- ]")
+
+
+def _safe_download_name(raw: str) -> str:
+    """The page's file name, reduced to its base name in letters, digits, . _ - and spaces."""
+    base = raw.replace("\\", "/").rsplit("/", 1)[-1].strip()
+    cleaned = _UNSAFE_NAME_CHARS.sub("_", base)[:100].strip(". ")
+    return cleaned or "download"
+
+
 # Formats whose first characters are worth showing the model (as untrusted page text)
 _TEXT_MIME_PREFIXES = ("text/", "application/json", "application/xml", "application/gpx+xml")
 DOWNLOAD_EXCERPT_CHARS = 2000
@@ -307,9 +333,12 @@ DOWNLOAD_EXCERPT_CHARS = 2000
 
 def _download_result(download: dict[str, object]) -> dict[str, object]:
     """Attach a downloaded file to the reply; what the model is told about it."""
-    # The page names the file: keep only its base name
-    name = os.path.basename(str(download.get("name") or "")).strip() or "download"
+    name = _safe_download_name(str(download.get("name") or ""))
     mime_type = guess_mime_type(name)
+    if mime_type not in SAFE_DOWNLOAD_TYPES:
+        # Stored files are served from our origin with their type: never let a
+        # page plant HTML, SVG or script there
+        mime_type = "application/octet-stream"
     request_id = get_current_request_id()
     if request_id is not None:
         file_entry = {

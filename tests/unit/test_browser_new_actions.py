@@ -112,3 +112,31 @@ def test_download_of_a_binary_file_has_no_excerpt(worker: MagicMock) -> None:
 
 def test_download_needs_a_selector(worker: MagicMock) -> None:
     assert "selector" in _run(action="download")["error"]
+
+
+@pytest.mark.parametrize(
+    ("page_name", "stored_name", "stored_type"),
+    [
+        ("page.html", "page.html", "application/octet-stream"),
+        ("logo.svg", "logo.svg", "application/octet-stream"),
+        ("app.js", "app.js", "application/octet-stream"),
+        ("../../a<b>.pdf", "a_b_.pdf", "application/pdf"),
+        ("..\\..\\a<b>.pdf", "a_b_.pdf", "application/pdf"),
+        ("trasa.gpx", "trasa.gpx", "application/gpx+xml"),
+        ("jízdenka.pdf", "jízdenka.pdf", "application/pdf"),
+    ],
+)
+def test_a_download_keeps_only_safe_names_and_types(
+    worker: MagicMock, page_name: str, stored_name: str, stored_type: str
+) -> None:
+    """Files are served from our origin with their stored type: a page must not
+    get HTML, SVG or script stored as such."""
+    worker.execute.return_value = {"success": True, "name": page_name, "size": 1, "data": "eA=="}
+    with (
+        patch("src.agent.tools.browser.get_current_request_id", return_value="req"),
+        patch("src.agent.tools.browser.store_tool_result") as store,
+    ):
+        result = _run(action="download", selector="#a")
+    stored = json.loads(store.call_args.args[1])["_full_result"]["files"][0]
+    assert (stored["name"], stored["mime_type"]) == (stored_name, stored_type)
+    assert result["downloaded"] == stored_name

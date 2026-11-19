@@ -436,11 +436,19 @@ helpers, run on the worker thread and tested live in headless Chromium
 - `select`: a native `<select>` by option label, else by value (clicking an
   `<option>` does nothing in Chromium).
 - `download`: clicks `selector` and waits for the download it starts (the request
-  guard covers it like any page request). Over `BROWSER_MAX_DOWNLOAD_BYTES` it is
-  refused; otherwise the file is attached to the reply through `store_tool_result`
-  (like a shared screenshot) and the model gets its name, type and size, plus the
-  first 2,000 characters of a text format (CSV, ICS, GPX, JSON, TXT) framed as
-  untrusted content. A call of its own, never in a batch.
+  guard covers it like any page request). A response whose `Content-Length` is over
+  `BROWSER_MAX_DOWNLOAD_BYTES` is cancelled before its body arrives -
+  `download.path()` waits for the whole transfer with no timeout, so checking the
+  size afterwards let a huge or stalled file fill the disk and hold the worker; a
+  file without a length is checked when done, and the temp file is always deleted.
+  The file is attached to the reply through `store_tool_result` (like a shared
+  screenshot) under a cleaned name (base name; letters, digits, `. _ -`, spaces;
+  100 characters) and a type from `SAFE_DOWNLOAD_TYPES` - anything else (HTML,
+  SVG, script) is stored as `application/octet-stream`, because stored files are
+  served from our origin with their type. The model gets the name, type and size,
+  plus the first 2,000 characters of a text format (CSV, ICS, GPX, JSON, TXT)
+  framed as untrusted content. A call of its own, never in a batch. `select`
+  returns at most 10 chosen values, 80 characters each (they come from the page).
 
 ### Page state
 
