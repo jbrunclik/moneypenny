@@ -156,7 +156,7 @@
 }
 
 #current-model-name {
-    /* Fixed width to prevent button resizing when switching between 'Fast' and 'Advanced' */
+    /* Fixed width to prevent button resizing when switching between 'Fast', 'Balanced' and 'Advanced' */
     min-width: 6em;
     text-align: left;
 }

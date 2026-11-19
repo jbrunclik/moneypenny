@@ -133,6 +133,11 @@ The review itself changes nothing in production and edits nothing but
   "Spend"); any day past `SPEND_WARNING_DAILY_USD`; the share of spend in
   deleted chats.
 - Model mix: a cheaper model doing well enough is a saving to propose.
+- Gemini 4 Neon (from Nov 19 2026, admin-only, `medium` thinking): cost per
+  turn and output tokens (thinking included) in `message_costs` per model,
+  Neon against Hydrogen and Carbon. Turns that cost about as much as Carbon's
+  mean the thinking level needs another look; a clear saving on equal answers
+  makes the case for opening it to the family.
 - Implicit cache hit rate (from Nov 2026, Gemini 4 has no explicit cache):
   `SUM(cached_input_tokens) / SUM(input_tokens)` in `message_costs` per model.
   Chats send the static prompt + tools as a stable prefix

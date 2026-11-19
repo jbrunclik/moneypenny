@@ -480,7 +480,7 @@ trigger a job that's already in the current chain, and the chain is capped at
 | `AGENT_EXECUTION_TIMEOUT_MINUTES` | 10 | Max time a run stays `running` before the scheduler's zombie cleanup closes it as failed (a run `waiting_approval` stays until its card is answered or expires; since Nov 15 2026) |
 | `AGENT_MAX_TRIGGER_DEPTH` | 3 | Maximum job-to-job trigger chain length (cycles are always blocked) |
 | `AGENT_MAX_RETRIES` | 3 | Max retry attempts for transient failures |
-| `AGENT_MODEL_SDK_MAX_RETRIES` | 1 | Retries inside the Gemini SDK per chat-model call; a model that is down falls back to the other tier |
+| `AGENT_MODEL_SDK_MAX_RETRIES` | 1 | Retries inside the Gemini SDK per chat-model call; a model that is down falls back to its MODELS `"fallback"` (Hydrogen -> Carbon, Neon/Carbon -> Hydrogen) |
 | `AGENT_RETRY_BASE_DELAY_SECONDS` | 1.0 | Initial retry delay |
 | `AGENT_RETRY_MAX_DELAY_SECONDS` | 30.0 | Maximum retry delay |
 | `STANDING_CHATS_MAX_PER_USER` | 10 | Standing chats a user may have; guards against creating them in a loop |

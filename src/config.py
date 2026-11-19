@@ -24,6 +24,8 @@ class Config:
     # Available models - each model has a full name and short name for compact display.
     # Optional per-model key "thinking_level" (e.g. "low"/"high") sets Gemini 3+
     # native reasoning depth; omit it to use the API default (create_chat_model).
+    # "fallback" names the model a turn retries on when this one is overloaded
+    # or down (other_model_tier in src/agent/chat_model.py).
     MODELS: ClassVar[dict[str, dict[str, str]]] = {
         "gemini-4-hydrogen": {
             "name": "Gemini 4 Hydrogen",
@@ -31,17 +33,29 @@ class Config:
             # The API default is high (Nov 2026: tripled thinking output against
             # 3.8 Flash); the freshness gate raises a chat's hardest turns to it
             "thinking_level": "medium",
+            "fallback": "gemini-4-carbon",
+        },
+        "gemini-4-neon": {
+            "name": "Gemini 4 Neon",
+            "short_name": "Balanced",
+            # The API default out-thinks its own high (~1,930 thinking tokens
+            # vs ~1,470 on a trip-plan probe, Nov 19 2026), so a default call
+            # cost what Carbon does from Dec 1; medium ~1,430 at ~28 s
+            "thinking_level": "medium",
+            "fallback": "gemini-4-hydrogen",
         },
         "gemini-4-carbon": {
             "name": "Gemini 4 Carbon",
             "short_name": "Advanced",
+            "fallback": "gemini-4-hydrogen",
         },
     }
     DEFAULT_MODEL = "gemini-4-hydrogen"
     # Models only ADMIN_EMAILS accounts may pick for chats and jobs; everyone
     # else runs them on DEFAULT_MODEL (src/utils/model_access.py). Carbon costs
-    # $4/$20 per 1M tokens from Dec 1 2026, against Hydrogen's $1.50/$7.50.
-    ADMIN_ONLY_MODELS: frozenset[str] = frozenset({"gemini-4-carbon"})
+    # $4/$20 per 1M tokens from Dec 1 2026 and Neon $3/$15, against Hydrogen's
+    # $1.50/$7.50. Neon is admin-only until its cost is measured (TODO.md).
+    ADMIN_ONLY_MODELS: frozenset[str] = frozenset({"gemini-4-neon", "gemini-4-carbon"})
 
     # Image generation model
     IMAGE_GENERATION_MODEL = "gemini-3-pro-image"
@@ -203,6 +217,12 @@ class Config:
             "input": 1.50,  # $1.50 per million input tokens
             "cached_input": 0.075,
             "output": 7.50,  # $7.50 per million output tokens
+        },
+        "gemini-4-neon": {
+            # Released Nov 18 2026; no dated change announced (implicit cache)
+            "input": 3.00,  # $3.00 per million input tokens
+            "cached_input": 0.15,
+            "output": 15.00,  # $15.00 per million output tokens
         },
         "gemini-4-carbon": {
             # Introductory pricing through Nov 30, 2026; the Dec 1, 2026

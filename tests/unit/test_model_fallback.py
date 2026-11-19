@@ -56,10 +56,18 @@ class TestDetection:
 
 
 class TestOtherTier:
-    def test_each_model_falls_back_to_the_other_one(self) -> None:
-        fast, advanced = list(Config.MODELS)
-        assert other_model_tier(fast) == advanced
-        assert other_model_tier(advanced) == fast
+    def test_hydrogen_falls_back_to_carbon(self) -> None:
+        assert other_model_tier("gemini-4-hydrogen") == "gemini-4-carbon"
+
+    def test_neon_and_carbon_fall_back_to_hydrogen(self) -> None:
+        """Neon must not take Hydrogen's outage traffic (unmeasured, admin-only)."""
+        assert other_model_tier("gemini-4-neon") == "gemini-4-hydrogen"
+        assert other_model_tier("gemini-4-carbon") == "gemini-4-hydrogen"
+
+    def test_every_fallback_is_another_configured_model(self) -> None:
+        for name in Config.MODELS:
+            fallback = other_model_tier(name)
+            assert fallback in Config.MODELS and fallback != name, name
 
     def test_unknown_model_has_no_fallback(self) -> None:
         assert other_model_tier("some-other-model") is None
@@ -161,7 +169,7 @@ def test_cost_is_priced_at_the_model_that_answered(monkeypatch: pytest.MonkeyPat
 def test_fallback_model_is_built_once_with_the_same_tools(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fast, advanced = list(Config.MODELS)
+    fast, advanced = "gemini-4-hydrogen", "gemini-4-carbon"
     built = MagicMock(return_value="backup-model")
     monkeypatch.setattr(chat_model, "create_chat_model", built)
     tools = [MagicMock(name="tool")]

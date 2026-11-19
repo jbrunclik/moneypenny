@@ -73,9 +73,9 @@ def create_chat_model(
 
 
 def other_model_tier(model_name: str) -> str | None:
-    """The other user-selectable model (Fast <-> Advanced), if there is one."""
-    others = [name for name in Config.MODELS if name != model_name]
-    return others[0] if model_name in Config.MODELS and others else None
+    """The model a turn falls back to when this one fails ("fallback" on its
+    MODELS entry), or None for a model that is not user-selectable."""
+    return Config.MODELS.get(model_name, {}).get("fallback")
 
 
 def fallback_model_factory(

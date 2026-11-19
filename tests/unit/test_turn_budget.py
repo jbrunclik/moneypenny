@@ -22,7 +22,7 @@ from src.agent.turn_budget import (
 from src.config import Config
 from src.services.costs import calculate_token_cost
 
-FAST, ADVANCED = list(Config.MODELS)
+FAST, ADVANCED = "gemini-4-hydrogen", "gemini-4-carbon"
 
 
 def _reply(text: str = "ok", inp: int = 1000, out: int = 100) -> AIMessage:

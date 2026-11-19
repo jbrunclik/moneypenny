@@ -73,6 +73,10 @@ class TestDatedPricing:
         pricing = get_model_pricing("gemini-4-hydrogen", at=_JAN_1_2027)
         assert (pricing["input"], pricing["cached_input"], pricing["output"]) == (1.50, 0.075, 7.50)
 
+    def test_neon_has_no_dated_change(self) -> None:
+        pricing = get_model_pricing("gemini-4-neon", at=datetime(2027, 1, 2, tzinfo=UTC))
+        assert (pricing["input"], pricing["cached_input"], pricing["output"]) == (3.00, 0.15, 15.00)
+
     def test_the_schedule_does_not_mutate_the_base_table(self) -> None:
         get_model_pricing("gemini-3.8-flash", at=_JAN_1_2027)
         assert get_model_pricing("gemini-3.8-flash", at=_BEFORE_SWITCH)["output"] == 3.75

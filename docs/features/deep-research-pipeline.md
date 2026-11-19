@@ -99,7 +99,7 @@ agent loop:
    section per sub-question, a table for comparisons, failed or skipped items
    named, what is still open; at most `DEEP_RESEARCH_REPORT_MAX_WORDS`; no
    citation markers. A writer that is unavailable before its first token falls
-   back to the other tier (`other_model_tier()`).
+   back to its `"fallback"` model (`other_model_tier()`; Carbon -> Hydrogen).
 8. **Check**: `check_grounding_pages()` ([grounding_check.py](../../src/agent/grounding_check.py))
    on the report with the merged pages, the run's search snippets as
    unnumbered text (`board.search_snippets()`: digests carry facts first seen
