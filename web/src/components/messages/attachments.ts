@@ -7,6 +7,7 @@ import { createElement } from '../../utils/dom';
 import { observeThumbnail } from './thumbnail-loader';
 import { getFileIcon, DOWNLOAD_ICON, PLAY_ICON, createIconButton, createIconElement, setIcon } from '../../utils/icons';
 import type { FileMetadata } from '../../types/api';
+import { trackBlobUrl } from '../../utils/thumbnail-blob-urls';
 
 /**
  * One gallery image: a local preview, a lazily fetched thumbnail, or (an
@@ -225,7 +226,7 @@ function renderVideoAttachment(
       hint.textContent = 'Loading…';
       try {
         const blob = await filesApi.fetchFile(messageId, fileIndex);
-        const video = createVideoElement(URL.createObjectURL(blob));
+        const video = createVideoElement(mediaBlobUrl(messageId, blob));
         wrapper.replaceChildren(video);
         void video.play();
       } catch (error) {
@@ -270,7 +271,7 @@ function renderAudioAttachment(file: FileMetadata, messageId: string, fileIndex:
         audio.className = 'message-audio-player';
         audio.controls = true;
         audio.preload = 'metadata';
-        audio.src = URL.createObjectURL(blob);
+        audio.src = mediaBlobUrl(messageId, blob);
         play.remove();
         hint.remove();
         chip.appendChild(audio);
@@ -284,6 +285,17 @@ function renderAudioAttachment(file: FileMetadata, messageId: string, fileIndex:
     })();
   });
   return chip;
+}
+
+/**
+ * A blob URL for a played video or memo, registered with its message so it
+ * is revoked when the conversation is left (like fetched thumbnails) - a
+ * 100 MB video's blob otherwise stayed in memory until the page closed.
+ */
+function mediaBlobUrl(messageId: string, blob: Blob): string {
+  const url = URL.createObjectURL(blob);
+  trackBlobUrl(messageId, url);
+  return url;
 }
 
 function createVideoElement(src: string): HTMLVideoElement {

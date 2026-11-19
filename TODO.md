@@ -119,8 +119,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **Video uploads follow-ups** (Jul 2026, docs/superpowers/specs/2026-07-19-video-upload-design.md):
   - Multipart streaming upload endpoint (approach B in the spec) - revisit if base64 JSON memory spikes or >100 MB clips become a real problem
   - Poster-frame thumbnails (needs ffmpeg on the server)
-  - Dedupe repeated base64 decodes of upload payloads (validate_files → save_file_to_blob_store → extract_file_metadata → attach_gemini_file_uris each decode; ~400 MB transient for a 100 MB video)
-  - Revoke video blob object URLs when message elements are removed (attachments.ts tap-to-load player; bounded leak)
   - Sweep scan: track the last-swept cutoff instead of rescanning all old messages daily (fine at current scale)
 
 ## Integrations & proactive nudges

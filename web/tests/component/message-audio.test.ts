@@ -54,3 +54,23 @@ describe('audio attachments', () => {
     expect(el.querySelector('.audio-hint')?.textContent).toMatch(/expired/i);
   });
 });
+
+describe('media blob URLs', () => {
+  it('a played memo or video is released when the conversation is left', async () => {
+    const { cleanupBlobUrlsForConversation } = await import('@/utils/thumbnail-blob-urls');
+    const revoke = vi.fn();
+    URL.revokeObjectURL = revoke;
+    fetchFile.mockResolvedValue(new Blob(['x'], { type: 'audio/mp4' }));
+    URL.createObjectURL = vi.fn().mockReturnValueOnce('blob:memo').mockReturnValueOnce('blob:clip');
+
+    const el = renderMessageFiles([memo, { name: 'clip.mp4', type: 'video/mp4' } as FileMetadata], 'm1');
+    el.querySelector<HTMLButtonElement>('button.audio-play')?.click();
+    await vi.waitFor(() => expect(el.querySelector('audio.message-audio-player')).not.toBeNull());
+    el.querySelector<HTMLButtonElement>('button.message-video-load')?.click();
+    await vi.waitFor(() => expect(el.querySelector('video')).not.toBeNull());
+
+    cleanupBlobUrlsForConversation('c1');
+    expect(revoke).toHaveBeenCalledWith('blob:memo');
+    expect(revoke).toHaveBeenCalledWith('blob:clip');
+  });
+});
