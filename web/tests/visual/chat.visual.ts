@@ -130,6 +130,10 @@ test.describe('Visual: Chat Interface', () => {
     await page.goto('/');
     await appReady(page);
     await page.click('#new-chat-btn');
+    // The three-model menu overlaps the greeting, which shows through the
+    // glass: wait for its final text (it gains the name once the user loads),
+    // or the screenshot catches either version
+    await expect(page.locator('.welcome-message h2')).toHaveText('What’s on your mind, Local?');
 
     // Open model selector dropdown
     const modelSelectorBtn = page.locator('#model-selector-btn');
