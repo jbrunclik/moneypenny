@@ -17,7 +17,7 @@ it hits the live Gemini API and is deliberately NOT part of CI or `make test`.
 A full run on Gemini 4 Hydrogen cost ~$8 and took ~23 minutes (107 cases,
 all web live, Nov 14 2026). The Nov 18 2026 suite (145 cases: 25 long-chat
 cases at $0.93 together, canned web for all but 13 cases) is estimated at
-~$5-6 and has not had a full run yet (TODO). For a targeted change run only the affected cases with
+~$5-6 and has not had a full run yet: its first full run is the Hydrogen side of the Gemini 4 Helix comparison (TODO). On Nov 19 2026 the smoke subset cost $0.99 (live web $0.10 of it). For a targeted change run only the affected cases with
 `--only`, and A/B a suspicious failure against the previous commit in a
 worktree before trusting one run.
 

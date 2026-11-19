@@ -833,6 +833,7 @@ def _seeded_history(
             conversation_id,
             store_messages=case.mode not in _CANNED_PROGRAMS,
             history=with_artifact_ids(case.history, artifact_ids),
+            summary=with_artifact_ids([{"text": case.frozen_summary}], artifact_ids)[0]["text"],
         )
         return frozen, {"input": 0.0, "output": 0.0}
     history = with_artifact_ids(case.history, artifact_ids) or None

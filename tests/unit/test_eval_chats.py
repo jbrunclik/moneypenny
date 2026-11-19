@@ -229,3 +229,25 @@ def test_frozen_summary_history_gets_artifact_ids(test_database: Any, test_user:
     _, sent, _ = eval_run._seed_case(case, test_user, test_database, conv.id)
     assert sent is not None
     assert "{artifact_0}" not in sent[-1]["content"]
+
+
+def test_frozen_summary_gets_artifact_ids(test_database: Any, test_user: Any) -> None:
+    """The chat's artifact may be mentioned only in its summarized part."""
+    import evals.run as eval_run
+    from src.agent.conversation_compaction import KV_NAMESPACE
+    from src.config import Config
+
+    keep = Config.CONVERSATION_COMPACTION_KEEP_RECENT
+    case = EvalCase(
+        id="c",
+        description="",
+        user="u",
+        history=_long_history(keep + 2),
+        frozen_summary="Srovnání je v tabulce {artifact_0}.",
+        artifacts=[{"title": "Srovnání", "html": "<p>x</p>"}],
+    )
+    conv = test_database.create_conversation(test_user.id, "eval-c")
+    _, sent, _ = eval_run._seed_case(case, test_user, test_database, conv.id)
+    assert sent is not None
+    assert "{artifact_" not in sent[0]["content"]
+    assert "{artifact_" not in test_database.kv_get(test_user.id, KV_NAMESPACE, conv.id)

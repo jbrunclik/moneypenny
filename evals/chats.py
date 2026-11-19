@@ -71,6 +71,7 @@ def seed_frozen_summary(
     *,
     store_messages: bool = True,
     history: list[dict[str, Any]] | None = None,
+    summary: str | None = None,
 ) -> list[dict[str, Any]]:
     """Seed the chat's frozen summary as production stores compaction state.
 
@@ -78,12 +79,14 @@ def seed_frozen_summary(
     reach the summarized part) unless the program path already stored them;
     the older part is covered by one segment holding the frozen summary.
     Returns the history the turn sees: the summary message plus the recent tail.
-    ``history`` overrides the case's (e.g. with seeded artifact ids filled in).
+    ``history`` and ``summary`` override the case's (e.g. with seeded artifact
+    ids filled in - an artifact may be mentioned only in the summarized part).
     """
     from src.agent.conversation_compaction import KV_NAMESPACE, _summary_message
     from src.config import Config
 
     turns = case.history if history is None else history
+    text = case.frozen_summary if summary is None else summary
     if store_messages:
         for turn in turns:
             db.add_message(conversation_id, turn["role"], turn["content"])
@@ -91,8 +94,8 @@ def seed_frozen_summary(
     covered = max(0, len(turns) - keep)
     recent = turns[covered:]
     state = {
-        "segments": [{"text": case.frozen_summary, "end": covered, "passes": 1}],
+        "segments": [{"text": text, "end": covered, "passes": 1}],
         "covered_count": covered,
     }
     db.kv_set(user.id, KV_NAMESPACE, conversation_id, json.dumps(state))
-    return [_summary_message(case.frozen_summary), *recent]
+    return [_summary_message(text), *recent]

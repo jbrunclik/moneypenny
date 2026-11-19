@@ -43,6 +43,11 @@ def run_cases(
         max_workers=min(workers, len(cases)),
         mp_context=multiprocessing.get_context("spawn"),
         initializer=_init_worker,
+        # One case per worker process: a timed-out case's thread is abandoned
+        # while still inside its fakes' patches (every case patches the web),
+        # so a worker that took another case could run it on live web or
+        # record the old turn's writes as the new case's actions. ~2 s each.
+        max_tasks_per_child=1,
     )
     futures = {pool.submit(_run_in_worker, case): case for case in cases}
     try:

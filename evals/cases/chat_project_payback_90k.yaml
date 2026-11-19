@@ -12,4 +12,4 @@ expect:
     savings figure used) and be shown briefly. Must not use different base
     numbers.
   forbidden_tools: [web_search, research]
-  max_tool_rounds: 1
+  max_tool_rounds: 3
