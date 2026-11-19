@@ -69,7 +69,7 @@
     "highlight.js": "^11.12.0",
     "katex": "^0.19.1",
     "marked": "^18.2.0",
-    "mediabunny": "^1.65.0",
+    "mediabunny": "^1.66.0",
     "mermaid": "^12.3.0",
     "pdfjs-dist": "^6.5.438",
     "zustand": "^5.1.0"
