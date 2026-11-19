@@ -1,3 +1,5 @@
+# Dated: the reminder is for 15 March 2028 (a Wednesday) - move it, its
+# payload and the rubric to a later date before then.
 id: schedule_reminder_confirm
 description: >
   After the reminder card, the user's typed yes approves it before the turn

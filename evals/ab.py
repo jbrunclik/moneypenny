@@ -64,8 +64,9 @@ class CaseStats:
 
 
 def _is_infra(result: dict[str, Any]) -> bool:
-    """A timeout or a crash: the run says nothing about the code under test."""
-    return bool(result.get("timed_out") or result.get("error"))
+    """A timeout, a crash or a dead live search: the run says nothing about
+    the code under test."""
+    return bool(result.get("timed_out") or result.get("error") or result.get("infra"))
 
 
 def aggregate(runs: list[list[dict[str, Any]]]) -> dict[str, CaseStats]:

@@ -203,6 +203,11 @@ def _english_weekday(day: date) -> str:
     return day.strftime("%A")
 
 
+def _english_long(day: date) -> str:
+    """ "Tuesday 24 November" - how a notice or an email names a day."""
+    return f"{day.strftime('%A')} {day.day} {day.strftime('%B')}"
+
+
 def _czech_weekday(day: date) -> str:
     return _CZECH_WEEKDAYS[day.weekday()]
 
@@ -211,7 +216,8 @@ def _resolve_dates(value: Any) -> Any:
     """Replace {today}, {tomorrow}, {yesterday}, {in_N_days}, {N_days_ago}
     placeholders in fixture strings, so date-relative fixtures stay valid.
     A `_weekday` suffix ({today_weekday}) gives the English weekday name,
-    `_cs` ({tomorrow_cs}) the Czech one - prose that names days then agrees
+    `_long` ({tuesday_long}) "Tuesday 24 November", `_cs` ({tomorrow_cs}) the
+    Czech weekday - prose that names days then agrees
     with the fixture's dates whatever day the suite runs."""
     if isinstance(value, dict):
         return {k: _resolve_dates(v) for k, v in value.items()}
@@ -223,7 +229,11 @@ def _resolve_dates(value: Any) -> Any:
 
     def sub(match: re.Match[str]) -> str:
         placeholder = match.group(1)
-        for suffix, name in (("_weekday", _english_weekday), ("_cs", _czech_weekday)):
+        for suffix, name in (
+            ("_weekday", _english_weekday),
+            ("_cs", _czech_weekday),
+            ("_long", _english_long),
+        ):
             if placeholder.endswith(suffix):
                 day = _placeholder_date(placeholder.removesuffix(suffix), today)
                 return name(day) if day else match.group(0)
@@ -263,7 +273,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
             EvalCase(
                 id=str(data["id"]),
                 description=str(data.get("description", "")),
-                user=str(data["user"]),
+                user=_resolve_dates(str(data["user"])),
                 requires=list(data.get("requires") or []),
                 smoke=bool(data.get("smoke", False)),
                 known_failure=str(data["known_failure"]) if data.get("known_failure") else None,
@@ -1151,6 +1161,37 @@ def _agent_turn(
         return response, tool_results, usage, result_messages, recorded_actions(fakes)
 
 
+_SEARCH_TOOLS = frozenset({"web_search", "research"})
+
+
+def _search_failed(content: str) -> bool:
+    """A web_search/research result in which every search failed (no results
+    found is a real outcome, not a failure)."""
+    if "All searches failed" in content:
+        return True
+    try:
+        parsed = json.loads(content)
+    except ValueError:
+        return False
+    items = parsed if isinstance(parsed, list) else [parsed]
+    return bool(items) and all(
+        isinstance(i, dict) and "error" in i and not i.get("results") for i in items
+    )
+
+
+def search_outage(result_messages: list[Any]) -> bool:
+    """Every search the turn made failed - the provider, not the agent (the
+    laptop's ddgs throttles after many evals)."""
+    from langchain_core.messages import ToolMessage
+
+    searches = [
+        str(m.content)
+        for m in result_messages
+        if isinstance(m, ToolMessage) and m.name in _SEARCH_TOOLS
+    ]
+    return bool(searches) and all(_search_failed(c) for c in searches)
+
+
 def _tools_used(result_messages: list[Any]) -> set[str]:
     """Tools the turn executed, plus every tool call it requested."""
     from langchain_core.messages import ToolMessage
@@ -1287,6 +1328,12 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     )
 
     passed = judge_pass and not failures
+    # A live case that failed while every search it made failed: infrastructure
+    infra = (
+        "live search failed"
+        if not passed and case.web == "live" and search_outage(result_messages)
+        else None
+    )
     return {
         "id": case.id,
         "pass": passed,
@@ -1306,6 +1353,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         "history_from": case.history_from,
         "web": "live" if case.web == "live" else "canned",
         "web_calls": usage.get("eval_web"),
+        **({"infra": infra} if infra else {}),
         "model": chat_model(),
         "gate": _gate_summary(gate_decisions),
         "judge_reasoning": reasoning,
@@ -1365,6 +1413,8 @@ def _status(result: dict[str, Any]) -> str:
     """PASS, FAIL, or TARGET for a failing case marked known_failure."""
     if result.get("pass"):
         return "PASS"
+    if result.get("infra"):
+        return "INFRA"
     return "TARGET" if result.get("known_failure") else "FAIL"
 
 
@@ -1389,11 +1439,21 @@ def _print_summary(
     ran = [r for r in results if not r.get("skipped")]
     passed = sum(1 for r in ran if r.get("pass"))
     targets = [r for r in ran if _status(r) == "TARGET"]
+    infra = [r for r in ran if _status(r) == "INFRA"]
     print(
         f"\n{passed}/{len(ran)} passed ({len(results) - len(ran)} skipped"
         + (f", {len(targets)} known targets failing" if targets else "")
+        + (f", {len(infra)} infra - not the agent" if infra else "")
         + f") in {elapsed / 60:.1f} min on {workers} workers"
     )
+    gaps: dict[str, list[str]] = {
+        r["id"]: list((r.get("web_calls") or {}).get("missing") or []) for r in ran
+    }
+    gaps = {k: v for k, v in gaps.items() if v}
+    if gaps:
+        print("  Canned pages missing (recapture? evals/capture_web.py):")
+        for case_id, urls in gaps.items():
+            print(f"    {case_id}: {', '.join(urls[:3])}" + (" ..." if len(urls) > 3 else ""))
 
     print(f"\nCost: {_usd(cost['total_usd'])} total for {cost['cases_priced']} priced cases")
     if cost.get("live_web_usd"):
@@ -1562,6 +1622,13 @@ def history_line(
             "live": sum(1 for r in first.values() if r.get("web") == "live"),
         },
         "gate_low": sum(1 for r in first.values() if _gate_thinking(r) == "low"),
+        # Failures that say nothing about the agent, and canned captures with gaps
+        "infra": sorted({r["id"] for r in ran if r.get("infra")}),
+        "canned_missing": {
+            r["id"]: len((r.get("web_calls") or {}).get("missing") or [])
+            for r in first.values()
+            if (r.get("web_calls") or {}).get("missing")
+        },
         "cases": _per_case(ran, repeat),
     }
 

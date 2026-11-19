@@ -38,13 +38,31 @@ runs and is judged, but reports `TARGET` instead of `FAIL`, so a run's FAIL
 lines are the new failures; a target that passes is reported as "TARGET
 PASSED" - drop its marker once it keeps passing.
 
+**Not the agent** (Nov 19 2026): a `web: live` case that fails while every
+search of its turn failed (`web_search` errors, `research` "All searches
+failed" - the laptop's ddgs throttles) reports `INFRA` instead of `FAIL`, like
+a timeout; `ab.py` counts it outside the pass rate. "No results" is a real
+outcome and still a FAIL. A canned case whose turn fetched a page its
+capture lacks is listed under "Canned pages missing" in the summary
+(`web_calls.missing` in the results): an incomplete capture made
+`dependent_followup_search` untestable until a population page was added -
+recapture before blaming the agent.
+
+**Dates in fixtures**: never write a fixed date or weekday the case depends
+on - "exam on the 20th" (`ask_choice_real_fork`) and "Tuesday 12 November"
+(`memory_injection_pasted_email`) went stale within days and failed correct
+answers. Use the placeholders (they expand in the user message, history,
+rubric and fixtures alike). `schedule_reminder_confirm` is deliberately dated
+(15 March 2028; its header says to move it before then).
+
 **Run log**: every run appends one line to the tracked
 [evals/history.jsonl](../../evals/history.jsonl) (`evals/results/` is
 gitignored): time, git sha (`-dirty` with uncommitted changes), agent and
 judge model, the selection (`all`, `smoke` or the `--only` patterns), repeat,
 passed over ran, the known targets that failed, cost (and the part spent in
 live-web cases), minutes, canned vs live web case counts, the number of
-gate-`low` cases, and `[pass, score, gate thinking]` per case
+gate-`low` cases, the `infra` cases and `canned_missing` (pages fetched but
+not captured, per case), and `[pass, score, gate thinking]` per case
 (`[passes, runs, mean score, gate]` with `--repeat`). Runs before Nov 18 2026
 had no canned web and fewer, shorter cases - do not compare them as equals. Commit it with the change it measured, so the next run has
 something to compare against.
@@ -124,8 +142,8 @@ integrations:                   # optional: fake backends (evals/fakes.py) behin
     tasks: [{id: t1, content: "Send invoice", project_id: p1, due: {date: "{today}"}}]
   garmin:                       # {yesterday}, {in_N_days}, {N_days_ago} expand;
     state: connected            # {tuesday} / {monday_plus_N} = the next such weekday
-    data: {get_hrv_data: {hrvSummary: {lastNightAvg: 41}}}   # (+N days); _cs / _weekday
-    workouts: [<raw get_workout_by_id JSON>]   # suffixes give the Czech / English day name.
+    data: {get_hrv_data: {hrvSummary: {lastNightAvg: 41}}}   # (+N days); _cs / _weekday / _long
+    workouts: [<raw get_workout_by_id JSON>]   # give "středa" / "Wednesday" / "Wednesday 25 November".
                                 # Saved workouts are stateful; garmin_workout updates
                                 # are recorded ("updated workout 'X': field old->new")
   calendar:                     # Google Calendar fake (fake_calendar.py): range-filtered
@@ -322,7 +340,7 @@ worktree under `.claude/worktrees/eval-ab-<sha>`, the head the working tree
 (uncommitted changes included) or `--head <ref>` - alternating sides so
 provider drift hits both, then prints per case passes over judged runs, mean
 judge score and tool rounds, marking a case whose pass rate moved by half or
-whose score moved by a point (`<<`). Timeouts and crashes count as `infra`,
+whose score moved by a point (`<<`). Timeouts, crashes and `INFRA` results count as `infra`,
 outside the pass rate (a search outage says nothing about the change). Use
 it before trusting one run: on Nov 14 a ZWO case went 0/2 vs 2/2 on the
 previous commit - a real regression a single run could not tell from noise.

@@ -1291,3 +1291,108 @@ def test_history_content_dates_resolve(tmp_path: Path) -> None:
     [case] = load_cases(tmp_path)
     content = case.history[0]["content"]
     assert "{tomorrow}" not in content and "{artifact_0}" in content
+
+
+def test_user_message_and_long_dates_resolve(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A pasted notice in the user's message names its day: "Tuesday 12
+    November" went stale (and wrong - it was a Thursday) a week after writing."""
+    from datetime import date
+
+    import evals.run as eval_run
+
+    monkeypatch.setattr(eval_run, "local_today", lambda: date(2026, 11, 18))  # a Wednesday
+    _write_case(
+        tmp_path,
+        "n.yaml",
+        "id: n\nuser: 'Water off on {tuesday_long} 9:00-13:00'\nexpect: {rubric: 'on {tuesday_long}'}\n",
+    )
+    [case] = load_cases(tmp_path)
+    assert case.user == "Water off on Tuesday 24 November 9:00-13:00"
+    assert case.rubric == "on Tuesday 24 November"
+
+
+class TestInfrastructure:
+    """A throttled live search or a gap in a canned capture is not the agent."""
+
+    def _tool(self, name: str, content: str) -> Any:
+        from langchain_core.messages import ToolMessage
+
+        return ToolMessage(name=name, content=content, tool_call_id="1")
+
+    def test_search_outage_needs_every_search_to_fail(self) -> None:
+        from evals.run import search_outage
+
+        failed = self._tool(
+            "web_search", '{"query": "q", "results": [], "error": "No results found."}'
+        )
+        research_failed = self._tool(
+            "research",
+            '{"error": "All searches failed (search providers unavailable). Try again"}',
+        )
+        worked = self._tool("web_search", '{"query": "q", "results": [{"url": "u"}]}')
+        empty = self._tool("web_search", '{"query": "q", "results": [], "note": "No results"}')
+        assert search_outage([failed, research_failed]) is True
+        assert search_outage([failed, worked]) is False
+        assert search_outage([empty]) is False  # found nothing is a real outcome
+        assert search_outage([self._tool("todoist", "{}")]) is False
+
+    def test_infra_status_and_log(self) -> None:
+        from evals.run import _cost_summary, _status, history_line
+
+        results = [
+            {"id": "a", "pass": False, "score": 1, "infra": "live search failed", "web": "live"},
+            {
+                "id": "b",
+                "pass": True,
+                "score": 5,
+                "web": "canned",
+                "web_calls": {"searches": 1, "fetched": ["u"], "missing": ["u"]},
+            },
+        ]
+        assert _status(results[0]) == "INFRA"
+        line = history_line(results, _cost_summary(results), "all", 60.0)
+        assert line["infra"] == ["a"]
+        assert line["canned_missing"] == {"b": 1}
+
+    def test_ab_counts_infra_outside_the_pass_rate(self) -> None:
+        from evals.ab import aggregate
+
+        stats = aggregate([[{"id": "a", "pass": False, "score": 1, "infra": "live search failed"}]])
+        assert stats["a"].infra == 1 and stats["a"].judged == 0
+
+
+def test_a_live_case_failing_on_dead_search_is_infra(
+    monkeypatch: pytest.MonkeyPatch, test_database: Any, test_user: Any
+) -> None:
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    import evals.run as eval_run
+    from src.agent import agent as agent_module
+
+    class DeadSearchAgent:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def chat_batch(self, **kwargs: Any) -> tuple[Any, ...]:
+            dead = ToolMessage(
+                name="web_search",
+                content='{"query": "q", "results": [], "error": "No results found."}',
+                tool_call_id="1",
+            )
+            return "I could not look it up.", [], {"tool_rounds": 1}, [dead]
+
+    class FailingJudge:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def invoke(self, messages: list[Any]) -> AIMessage:
+            return AIMessage(content='{"score": 1, "pass": false, "reasoning": "no price"}')
+
+    monkeypatch.setattr(agent_module, "ChatAgent", DeadSearchAgent)
+    monkeypatch.setattr("langchain_google_genai.ChatGoogleGenerativeAI", FailingJudge)
+    live = EvalCase(id="l", description="", user="u", rubric="r", web="live")
+    canned = EvalCase(id="c", description="", user="u", rubric="r")
+    assert eval_run._run_case(live, test_user, test_database)["infra"] == "live search failed"
+    assert "infra" not in eval_run._run_case(canned, test_user, test_database)
