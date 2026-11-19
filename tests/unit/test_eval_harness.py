@@ -1396,3 +1396,31 @@ def test_a_live_case_failing_on_dead_search_is_infra(
     canned = EvalCase(id="c", description="", user="u", rubric="r")
     assert eval_run._run_case(live, test_user, test_database)["infra"] == "live search failed"
     assert "infra" not in eval_run._run_case(canned, test_user, test_database)
+
+
+class TestGroundingSummary:
+    """Each result row says how much of the answer its pages backed - the
+    measure for reports that are mostly unsourced (TODO, Oct 2026)."""
+
+    def test_counts_verdicts_and_keeps_the_unsupported_quotes(self) -> None:
+        from evals.run import grounding_summary
+
+        usage = {
+            "grounding": {
+                "annotations": [
+                    {"quote": "Sony WF-1000XM5", "verdict": "supported"},
+                    {"quote": "5 990 Kč u Alzy " + "x" * 200, "verdict": "not_found"},
+                    {"quote": "IPX4", "verdict": "partial"},
+                ]
+            }
+        }
+        summary = grounding_summary(usage)
+        assert summary["counts"] == {"supported": 1, "not_found": 1, "partial": 1}
+        assert summary["unsupported"][0].startswith("5 990 Kč u Alzy")
+        assert len(summary["unsupported"][0]) <= 80
+        assert summary["unsupported"][1] == "IPX4"
+
+    def test_no_check_is_none(self) -> None:
+        from evals.run import grounding_summary
+
+        assert grounding_summary({}) is None

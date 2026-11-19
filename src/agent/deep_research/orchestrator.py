@@ -390,10 +390,25 @@ def merge_attempts(first: ItemResult, retry: ItemResult | None) -> ItemResult:
     return ItemResult(first.index, status, digest, pages, usage)
 
 
+def _round_robin(lists: list[list[SourcePage]]) -> list[SourcePage]:
+    """One page from each list in turn, each list in its own order."""
+    out: list[SourcePage] = []
+    for round_ in range(max((len(pages) for pages in lists), default=0)):
+        out.extend(pages[round_] for pages in lists if round_ < len(pages))
+    return out
+
+
 def merge_pages(results: list[ItemResult], board: ResearchBoard) -> list[SourcePage]:
-    """All pages read, de-duplicated by URL in first-read order, capped and trimmed."""
+    """All pages read, de-duplicated by URL, capped and trimmed.
+
+    Sub-questions take turns (one page each per round) so the cap keeps a fair
+    share of every one: a first-read cut gave the first two sub-questions all
+    40 places (22 + 21 pages, Nov 19 2026) and dropped the price question's
+    shop pages - the report stated its prices from the digest, uncited, and
+    the check flagged them. Board pages (shared findings) come last.
+    """
     merged: dict[str, SourcePage] = {}
-    for page in [p for r in results for p in r.pages] + board.pages():
+    for page in _round_robin([r.pages for r in results]) + board.pages():
         if page.url not in merged:
             merged[page.url] = page
     limit = Config.DEEP_RESEARCH_PAGE_MAX_CHARS

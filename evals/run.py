@@ -34,6 +34,7 @@ import sys
 import tempfile
 import threading
 import time
+from collections import Counter
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -404,6 +405,31 @@ def _judge_tag(ann: dict[str, Any]) -> str:
         return f" [source {ann['source']}]" if ann.get("source") else ""
     reason = f": {ann['reason']}" if ann.get("reason") else ""
     return f" [{_JUDGE_LABELS.get(ann.get('verdict', ''), 'UNSOURCED')}{reason}]"
+
+
+# What the judge reads of a response. 8000 until Nov 19 2026: a 1,500-word
+# deep-research report with the grounding tags runs past it, and the judge
+# failed it for "cutting off mid-word" - a cut the user never sees
+JUDGE_RESPONSE_MAX_CHARS = 20_000
+_UNSUPPORTED_VERDICTS = ("not_found", "partial", "contradicted")
+_SUMMARY_QUOTE_CHARS = 80
+
+
+def grounding_summary(usage: dict[str, Any]) -> dict[str, Any] | None:
+    """The grounding check's verdict counts and its unsupported quotes, for the
+    result row (how much of a report its pages backed); None when unchecked."""
+    grounding = usage.get("grounding")
+    if not grounding:
+        return None
+    annotations = [a for a in grounding.get("annotations") or [] if isinstance(a, dict)]
+    return {
+        "counts": dict(Counter(str(a.get("verdict")) for a in annotations)),
+        "unsupported": [
+            str(a.get("quote", ""))[:_SUMMARY_QUOTE_CHARS]
+            for a in annotations
+            if a.get("verdict") in _UNSUPPORTED_VERDICTS
+        ],
+    }
 
 
 def annotate_for_judge(response: str, grounding: dict[str, Any] | None) -> str:
@@ -1232,7 +1258,9 @@ def _judge(
                 content=_JUDGE_INSTRUCTION.format(
                     rubric=case.rubric,
                     user=case.user,
-                    response=annotate_for_judge(response, usage.get("grounding"))[:8000],
+                    response=annotate_for_judge(response, usage.get("grounding"))[
+                        :JUDGE_RESPONSE_MAX_CHARS
+                    ],
                     tools_called=", ".join(sorted(tools_used)) or "none",
                     cited_sources=json.dumps(cited, ensure_ascii=False) if cited else "none",
                     integration_changes=integration_changes,
@@ -1358,6 +1386,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         "gate": _gate_summary(gate_decisions),
         "judge_reasoning": reasoning,
         "response_preview": response[:200],
+        "grounding": grounding_summary(usage),
     }
 
 

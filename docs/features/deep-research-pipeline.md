@@ -86,9 +86,18 @@ agent loop:
    - Agents are labelled ① ② ... (`agent_label()`, mirrored by `agentLabel()`
      on the client).
 6. **Merge**: `merge_pages()` de-duplicates the pages of all items and the board
-   by URL in first-read order, caps them at `DEEP_RESEARCH_MAX_PAGES` and each
+   by URL, the items taking turns (one page each per round, each in its own
+   order; board pages last), caps them at `DEEP_RESEARCH_MAX_PAGES` and each
    at `DEEP_RESEARCH_PAGE_MAX_CHARS`. This numbered list is what the writer,
    the grounding check and the sources popup share.
+   **Pitfall - a first-read cut (Nov 19 2026):** in first-read order the first
+   two sub-questions' 22 + 21 pages took all 40 places, so the price question's
+   shop pages never reached the sources: the writer stated its prices from that
+   sub-question's digest (the writer reads digests, the check does not), uncited,
+   and the check flagged them - `deep_research_end_to_end` 0/4 with 5-9 unsourced
+   claims, 2/2 with 2-4 after the round-robin. Measured with a probe that dumped
+   the verifier's sources and the writer's input (`sitecustomize.py` on
+   PYTHONPATH reaches the spawned eval workers).
 7. **Write** ([writer.py](../../src/agent/deep_research/writer.py)): Pro
    (`DEEP_RESEARCH_WRITER_MODEL`) streams the report from `REPORT_PROMPT`: the
    question, context, an earlier report, every item's digest with its status,

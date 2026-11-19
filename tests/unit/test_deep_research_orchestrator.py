@@ -236,6 +236,34 @@ def test_merge_pages_dedupes_caps_and_keeps_order(monkeypatch: pytest.MonkeyPatc
     assert merged[0].text == "long"
 
 
+def test_merge_pages_keeps_every_sub_questions_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nov 19 2026: sub-questions 1 and 2 read 22 + 21 pages, so a first-40 cut
+    dropped all of the price question's shop pages - the report stated its
+    prices from the digest and the check flagged them as unsourced."""
+    monkeypatch.setattr(Config, "DEEP_RESEARCH_MAX_PAGES", 40)
+    board = ResearchBoard()
+
+    def pages(tag: str, n: int) -> list[SourcePage]:
+        return [SourcePage(f"{tag}{i}", f"https://{tag}{i}.cz", "t") for i in range(n)]
+
+    results = [
+        ItemResult(0, "done", "", pages("fit", 22), {}),
+        ItemResult(1, "done", "", pages("anc", 21), {}),
+        ItemResult(2, "done", "", pages("shop", 12), {}),
+    ]
+
+    merged = merge_pages(results, board)
+
+    assert len(merged) == 40
+    per_item = {tag: sum(p.title.startswith(tag) for p in merged) for tag in ("fit", "anc", "shop")}
+    assert per_item["shop"] == 12  # all of the small one's pages
+    assert per_item["fit"] >= 13 and per_item["anc"] >= 13
+    # Each sub-question's own pages keep their reading order
+    assert [p.title for p in merged if p.title.startswith("shop")] == [
+        f"shop{i}" for i in range(12)
+    ]
+
+
 def test_brief_carries_context_date_and_previous_report() -> None:
     plan = _plan(2)
     plan.previous_report = "Round 1 found X."
