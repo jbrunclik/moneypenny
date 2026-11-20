@@ -169,6 +169,32 @@ so "the model searched itself" = web turns minus gate lookups):
   search itself more often - an extra round, without the gate's dated
   queries. Two days are too few to act on; re-measured ~Nov 21 (TODO.md).
 
+### Re-measured Nov 20 2026
+
+From `message_costs` (`turn_timing.gate_lookup`, `tools_used`; Hydrogen chat
+turns) and the "Freshness gate" journal lines, Nov 15-20:
+
+| | Nov 1-12 | Nov 13-14 | Nov 15-20 |
+|---|---|---|---|
+| Chat turns | 916 | 146 | 487 |
+| Gate lookups | 10% | 5% | 14% |
+| The model searched itself | 9% | 14% | 18.5% |
+| Disputed turns (of them without a lookup) | 10 (2) | 0 | 8 (2) |
+| Timeouts | 1 | 0 | 5 |
+
+- **The gate's lookups recovered**: the 5% was two days of noise, not the
+  thinking choice.
+- **The model searches on its own more**: 90 turns where the gate ran no
+  lookup and the chat model then called `web_search`, `research` or
+  `fetch_url` (29 at low thinking, 36 medium, 22 high). About two thirds are
+  turn 4 or later of a thread about choosing or buying specific products
+  (lighting, bike parts, tools), where the message alone reads as a remark
+  ("I can't put a dimmer under the switch") but the answer needs specs and
+  prices. The gate logged an empty `reason` on most of its no-lookup
+  decisions, so the reasons do not explain them. Follow-up in TODO.md.
+- **Timeouts**: all 5 on Nov 19 between 15:47 and 17:55 (3.0 s limit), which
+  reads as one slow afternoon at the provider; watch the count.
+
 ## Dated search results
 
 Providers' publish dates ride on each `web_search` result as `published`

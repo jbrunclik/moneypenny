@@ -203,6 +203,29 @@ caching affects tracked cost:
   sequential tool rounds pays this fixed overhead N times — the main reason
   multi-round tool turns dominate cost.
 
+### Per-turn cost after the prompt cuts (Nov 20 2026)
+
+The Nov 14 cuts took a minimal live call from 23,435 to 17,217 input tokens
+(tool manuals moved into skills or onto tool results, duplicate prompt
+sections removed). Measured a week later from `message_costs` (Hydrogen chat
+turns, no job runs):
+
+| | To Nov 14 | Nov 17-20 |
+|---|---|---|
+| All turns: cost | $0.0717 (149 turns) | $0.0686 (262 turns) |
+| All turns: input / cached | 73.2k / 37.3k (51%) | 66.9k / 34.9k (52%) |
+| No-tool turns: cost | $0.0454 (100 turns, Nov 12-14) | $0.0361 (134 turns) |
+| No-tool turns: input, cached share | 35.1k, 29% | 26.1k, 30% |
+
+- No-tool turns show the cut cleanly: 26% fewer input tokens, 20% cheaper.
+- Across all turns the gain is 4%: history length and tool rounds dominate
+  (Nov 15-16 averaged $0.0824 at 1.25 rounds on two long product threads).
+- The smallest first call of a day was 19.7k-23.1k tokens (`turn_timing.calls`,
+  from Nov 15): a real turn adds the `[CONTEXT]` block and memories to the
+  17.2k floor.
+- The cached share did not move: 30% on no-tool turns, 20% on the first call
+  of all turns. A shorter `[CONTEXT]` (Nov 16) saves tokens, not cache misses.
+
 ## Currency Rate Updates
 
 Currency exchange rates are stored in the database (`app_settings` table) and updated daily via a systemd timer.
