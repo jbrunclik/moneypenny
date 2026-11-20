@@ -131,7 +131,8 @@ all agree — the first two are the obvious ones, the third is easy to miss:
   PDFs go the same way: `research` sends a `.pdf` link (or a response that turns out
   to be a PDF) to Exa as text, and `fetch_url` a PDF over
   `FETCH_URL_MAX_FILE_SIZE_BYTES` (a small one stays multimodal). Reddit never goes
-  to Exa (refused there too; it waits for its own API, TODO.md). The spend shares
+  to Exa (refused there too). Reddit threads are not readable at all: Reddit
+  declined API access on Nov 20 2026 (it takes no new public API requests). The spend shares
   Exa's search credit: billed into its usage counter by `costDollars` ($0.007 a
   unit, the fraction carried in kv), stopped at `WEB_EXTRACT_QUOTA_SHARE` (90%) of
   the quota, and Exa's 402 benches it for search too; other failures leave search

@@ -42,7 +42,7 @@ _MAX_REDIRECTS = 5
 # A direct fetch refused with these is read through Exa instead (shops,
 # Wikipedia in bursts, manual sites refuse the production host whatever it sends)
 _REFUSED_STATUSES = frozenset({403, 429})
-# Reddit refuses Exa too; it waits for its own API (TODO.md)
+# Reddit refuses Exa too, and declined API access (Nov 20 2026): its threads stay unreadable
 _NO_FALLBACK_DOMAIN = "reddit.com"
 _ALSO_UNAVAILABLE = " (also unavailable through the reading service)"
 

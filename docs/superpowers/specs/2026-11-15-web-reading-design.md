@@ -1,8 +1,8 @@
 # Web reading: blocked pages, faster research, longer and richer reads
 
-Date: 2026-11-15. Size: project. Status: approaches agreed in chat (Exa
-fallback; Reddit through its official API once Reddit approves the app), design
-for review.
+Date: 2026-11-15. Size: project. Status: phase 1 shipped Nov 15 2026 (Exa
+fallback); phase 2 (Reddit through its official API) dropped Nov 20 2026, Reddit
+declined the request.
 
 ## Why
 
@@ -80,7 +80,14 @@ For Reddit: its official API (picked, by the user) over a home route
 - Timeout: Exa call `WEB_EXTRACT_TIMEOUT_SECONDS` = 15, on top of the direct
   fetch's own (so a research page takes at most ~30 s, against 90 today).
 
-### 2. Reddit through its API (phase 2, after approval)
+### 2. Reddit through its API (phase 2, dropped Nov 20 2026)
+
+> **Dropped.** Reddit declined the request on Nov 20 2026: it no longer accepts
+> public API access requests, and apps must run on its Developer Platform (apps
+> that live inside Reddit, which does not fit an outside assistant reading a
+> thread on demand). Reddit threads stay unreadable: logged out, Reddit serves no
+> thread content to the production host, a home address or Exa (see Why). The
+> design below is kept as the record of what was planned.
 
 - The user applies for a Reddit API app (Developer Support form: a family
   assistant reading public threads on demand, a few dozen requests a day).
