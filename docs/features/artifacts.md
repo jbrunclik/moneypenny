@@ -230,6 +230,8 @@ first:
   tabs, stats).
 - Recipes (always a card), calculators, converters, trackers, charts,
   timelines, small games.
+- From Nov 20 2026 also comparisons, step-by-step guides, things to buy for
+  a project and study guides, made without being asked (see below).
 
 And prose for: a short answer or quick fact, text the user will copy or edit
 (an email, message, translation, code), and items going into Todoist or
@@ -256,6 +258,40 @@ ignored, and a hint on research results would not reach these turns (the
 checklist and explainer evals answered with zero tool rounds before the
 change). `test_description_names_checklists_and_explainers_and_the_prose_cases`
 guards the wording.
+
+### Usage and the proactive wording (Nov 20 2026)
+
+A week on Gemini 4 Hydrogen changed nothing: 2 new artifacts in 649 chat
+user turns (Nov 13-20), the same rate as the 2.5 weeks before (2 in 987).
+Both were recipes on the first turn of a chat whose ask said "recipe"; the
+two busiest accounts got none in 302 and 211 turns. No checklist has a saved
+tick yet (one recipe holds an empty `checklist` state; one "Artifact read"
+with `checklist_items` 7). The old prose heuristic (over 2,500 characters,
+5+ `###` headings) undercounts on Hydrogen, which writes fewer headings and
+more tables: 21 such replies, but 18 replies with a markdown table against
+3 before. Read by chat title and the start of the ask, about 15 of the ~210
+replies over 1,500 characters were fits: product and option comparisons,
+things to buy with installation steps (one 9,300-character reply at turn 22
+of a thread), how-to guides, a workout, a meal idea answered with a dish, a
+lesson plan. About 25 long replies were rightly prose (posts, prompts and
+summaries for someone else to use); no artifact was made where prose was
+right.
+
+The canonical cases were never the problem: the checklist, recipe and
+explainer evals passed on that day's build. New cases shaped like the misses
+did not: a product comparison and a how-to guide got prose 2 times out of 2.
+The description now opens with "be proactive: make one without being
+asked", says it holds in the middle of a prose conversation and after
+research or search, and names comparisons, what to buy for a project,
+step-by-step guides, study guides and a meal idea answered with a dish;
+prose stays for short answers, an opinion or advice in conversation, text
+the user copies or hands on (including a summary or prompt for another
+agent), and Todoist or Calendar items. After the change all 16 `artifact_*`
+cases passed twice (32/32), the five prose guards included.
+`test_description_names_the_fits_the_nov_2026_audit_found_in_prose` guards
+the wording. The description grew by 838 characters (roughly 200 tokens) on every call that
+binds the tool. Evals are single clean asks; whether it holds in real
+threads with memories and long history is the re-measure in TODO.md.
 
 ## Sizing across devices
 

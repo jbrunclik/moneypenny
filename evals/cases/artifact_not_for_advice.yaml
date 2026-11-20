@@ -1,0 +1,12 @@
+id: artifact_not_for_advice
+description: A request for an opinion in a conversation stays a prose reply, not an artifact
+user: >-
+  Dostala jsem nabídku práce na plný úvazek z domu za 65 tisíc hrubého, teď
+  mám 60 a chodím třikrát týdně do kanceláře, kde mě to ale baví kvůli
+  lidem. Co bys udělala na mém místě?
+expect:
+  rubric: >
+    Answers in Czech as an ordinary conversational text reply that weighs
+    the small raise and working from home against losing the contact with
+    colleagues, and gives a view or asks what matters most. No artifact.
+  forbidden_tools: [create_artifact, update_artifact]

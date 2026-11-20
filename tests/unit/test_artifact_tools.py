@@ -187,6 +187,20 @@ def test_description_names_checklists_and_explainers_and_the_prose_cases() -> No
     assert "never for plain answers, lists, tables" not in text
 
 
+def test_description_names_the_fits_the_nov_2026_audit_found_in_prose() -> None:
+    """Nov 20 2026 re-measure on Hydrogen: 2 artifacts in 649 chat turns, both
+    recipes asked for by name, while comparisons, things to buy, step-by-step
+    guides and school material went out as long prose, often deep in a thread."""
+    text = create_artifact.description.lower()
+    for use in ("what to buy", "step-by-step", "study guide", "meal idea"):
+        assert use in text, use
+    for nudge in ("without being asked", "middle of a conversation"):
+        assert nudge in text, nudge
+    # Still prose: an opinion in conversation, and text handed to someone else
+    for prose in ("opinion", "another agent"):
+        assert prose in text, prose
+
+
 def _agent_run_names(tool_permissions: list[str] | None) -> set[str]:
     from src.agent.tools import tools_for_grants
 

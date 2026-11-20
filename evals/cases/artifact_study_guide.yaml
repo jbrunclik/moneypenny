@@ -1,0 +1,22 @@
+id: artifact_study_guide
+description: Material to learn for school becomes a study-guide artifact
+user: >-
+  Zítra píšu v osmičce test z přírodopisu na buňku - stavba rostlinné a
+  živočišné buňky a co která organela dělá. Udělej mi přehled, co se mám
+  naučit.
+expect:
+  rubric: >
+    Replies in Czech and delivers the overview as an artifact
+    (create_artifact was called): the organelles and their functions and how
+    plant and animal cells differ, at the level of a 13-14 year old. The
+    text reply is brief and does not repeat the overview.
+  required_tools: [create_artifact]
+  forbidden_arg_patterns:
+    create_artifact.html:
+      - '(color|background|fill|stroke|border)[^;{}"]*#[0-9a-fA-F]{3,8}\b'
+      # Fixed widths: in CSS, and as an attribute on layout elements. Shapes
+      # inside an SVG (<rect width="250">) are viewBox units and scale
+      - '(?<![-\w])width\s*:\s*\d{3,}(px)?(?![\d%])'
+      - '<(svg|img|table|canvas|iframe|div|td|th)\b[^>]*\swidth\s*=\s*["'']?\d{3,}(?![\d%])'
+      - "https?://"
+      - '\b\d+(\.\d+)?[dsl]?v[hw]\b'

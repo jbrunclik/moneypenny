@@ -1,0 +1,23 @@
+id: artifact_comparison
+description: A choice between two products becomes a comparison artifact, not a prose table
+user: >-
+  Chci si doma hrát s lokálními AI modely. Je lepší koupit Mac Mini, nebo
+  postavit PC s výkonnou grafickou kartou?
+expect:
+  rubric: >
+    Replies in Czech and delivers the comparison as an artifact
+    (create_artifact was called): the two options side by side (performance
+    or memory for models, price, noise or power, who each suits). The text
+    reply is brief - a sentence or two - and does not repeat the whole
+    comparison; the recommendation may sit in the artifact, which you cannot
+    see, and missing live prices are not a fault.
+  required_tools: [create_artifact]
+  forbidden_arg_patterns:
+    create_artifact.html:
+      - '(color|background|fill|stroke|border)[^;{}"]*#[0-9a-fA-F]{3,8}\b'
+      # Fixed widths: in CSS, and as an attribute on layout elements. Shapes
+      # inside an SVG (<rect width="250">) are viewBox units and scale
+      - '(?<![-\w])width\s*:\s*\d{3,}(px)?(?![\d%])'
+      - '<(svg|img|table|canvas|iframe|div|td|th)\b[^>]*\swidth\s*=\s*["'']?\d{3,}(?![\d%])'
+      - "https?://"
+      - '\b\d+(\.\d+)?[dsl]?v[hw]\b'

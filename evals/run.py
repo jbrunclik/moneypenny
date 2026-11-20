@@ -565,9 +565,13 @@ def _arg_pattern_failures(case: EvalCase, tool_calls: list[dict[str, Any]]) -> l
         tool_name, _, arg = key.partition(".")
         for call in tool_calls:
             value = str(call["args"].get(arg, "")) if call["name"] == tool_name else ""
-            hits = [p for p in patterns if value and re.search(p, value)]
+            found = [(p, re.search(p, value)) for p in patterns] if value else []
+            hits = [p for p, m in found if m]
             if hits:
-                failures.append(f"{key} matched forbidden pattern(s) {hits}")
+                # The matched text with its surroundings: the pattern alone
+                # does not say what the model wrote
+                seen = [value[max(0, m.start() - 40) : m.end() + 20] for _, m in found if m]
+                failures.append(f"{key} matched forbidden pattern(s) {hits} at {seen}")
     for key, patterns in case.required_arg_patterns.items():
         tool_name, _, arg = key.partition(".")
         values = [str(c["args"].get(arg, "")) for c in tool_calls if c["name"] == tool_name]

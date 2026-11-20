@@ -1,0 +1,19 @@
+id: artifact_recipe_unnamed
+description: A meal idea that is answered with a recipe becomes a recipe card even when the user never says "recipe"
+user: Poraď mi nějakou dobrou večeři z vajec a brokolice, ale ne obyčejnou omeletu.
+expect:
+  rubric: >
+    Replies in Czech with a dinner based on eggs and broccoli that is not a
+    plain omelette, shown as an artifact (create_artifact was called) with
+    its ingredients and steps. The text reply is brief and does not repeat
+    the recipe.
+  required_tools: [create_artifact]
+  forbidden_arg_patterns:
+    create_artifact.html:
+      - '(color|background|fill|stroke|border)[^;{}"]*#[0-9a-fA-F]{3,8}\b'
+      # Fixed widths: in CSS, and as an attribute on layout elements. Shapes
+      # inside an SVG (<rect width="250">) are viewBox units and scale
+      - '(?<![-\w])width\s*:\s*\d{3,}(px)?(?![\d%])'
+      - '<(svg|img|table|canvas|iframe|div|td|th)\b[^>]*\swidth\s*=\s*["'']?\d{3,}(?![\d%])'
+      - "https?://"
+      - '\b\d+(\.\d+)?[dsl]?v[hw]\b'

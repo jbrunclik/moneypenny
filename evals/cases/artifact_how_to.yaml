@@ -1,0 +1,19 @@
+id: artifact_how_to
+description: A step-by-step how-to becomes an artifact the user can follow, not long prose
+user: Dej mi návod, jak si doma seřídit zadní přehazovačku na kole.
+expect:
+  rubric: >
+    Replies in Czech and delivers the guide as an artifact (create_artifact
+    was called): the steps of adjusting a rear derailleur in order (limit
+    screws, cable tension, checking the shifting). The text reply is brief
+    and does not repeat the steps.
+  required_tools: [create_artifact]
+  forbidden_arg_patterns:
+    create_artifact.html:
+      - '(color|background|fill|stroke|border)[^;{}"]*#[0-9a-fA-F]{3,8}\b'
+      # Fixed widths: in CSS, and as an attribute on layout elements. Shapes
+      # inside an SVG (<rect width="250">) are viewBox units and scale
+      - '(?<![-\w])width\s*:\s*\d{3,}(px)?(?![\d%])'
+      - '<(svg|img|table|canvas|iframe|div|td|th)\b[^>]*\swidth\s*=\s*["'']?\d{3,}(?![\d%])'
+      - "https?://"
+      - '\b\d+(\.\d+)?[dsl]?v[hw]\b'

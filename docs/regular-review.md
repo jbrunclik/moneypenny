@@ -224,6 +224,12 @@ The review itself changes nothing in production and edits nothing but
   what is offered, and does the next-message expiry close offers they wanted?
   The "Deep research reopened" lines by `reason`: many `retry` means runs
   are killed (deploys mid-run); many `regenerate` means reports disappoint.
+- Artifact use (proactive wording from Nov 20 2026;
+  [artifacts.md](features/artifacts.md#usage-and-the-proactive-wording-nov-20-2026)):
+  new `artifacts` rows per week against chat user turns (baseline 2 in 649,
+  Nov 13-20) and per user, and replies over 1,500 characters that read as a
+  comparison, a how-to or a buy list but carry no artifact. Also the other
+  way: artifacts on a short answer, an opinion, or text meant to be copied.
 - Artifact checklists: artifacts whose `state` has a non-empty `checklist`
   against all checklist artifacts, and the "Artifact read" lines with
   `checklist_items > 0` - do people tick items, and does the agent read them

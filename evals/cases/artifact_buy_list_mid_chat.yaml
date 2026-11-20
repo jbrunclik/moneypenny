@@ -1,0 +1,47 @@
+id: artifact_buy_list_mid_chat
+description: Deep in a prose conversation, "write up what to buy and how to do it" still becomes an artifact
+history:
+  - role: user
+    content: Chci si v pracovně udělat lepší světlo. Večer mě z toho studeného stropního světla bolí oči.
+  - role: assistant
+    content: >-
+      Dává smysl rozdělit to na tři vrstvy: stropní světlo s teplejší a
+      stmívatelnou žárovkou (2700 K, CRI 90+), stolní lampu s nastavitelným
+      ramenem na práci a nepřímé světlo za monitorem, které sníží kontrast
+      mezi obrazovkou a zdí. Jakou máš ve stropním svítidle patici a je na
+      vypínači stmívač?
+  - role: user
+    content: Patice E27, stmívač nemám. Stůl mám 160 cm u zdi, monitor 34 palců.
+  - role: assistant
+    content: >-
+      Pak bych šel do chytré E27 žárovky, která se stmívá sama bez zásahu do
+      elektroinstalace, lampy s ramenem aspoň 80 cm, aby dosáhla přes půlku
+      stolu, a LED pásku asi 1,5 m za monitor, napájeného z USB. Pásek stačí
+      teplý bílý, barvy nepotřebuješ.
+  - role: user
+    content: A dá se to celé ovládat jedním tlačítkem?
+  - role: assistant
+    content: >-
+      Ano, když vezmeš žárovku i zásuvku pro lampu a pásek od jednoho
+      výrobce, přidáš k nim bezdrátové tlačítko na stůl a nastavíš na něj
+      scénu "práce" a "večer".
+user: >-
+  Dobře, jdu do toho. Sepiš mi prosím, co všechno mám koupit a pak postup,
+  jak to nainstalovat.
+expect:
+  rubric: >
+    Replies in Czech and delivers the write-up as an artifact
+    (create_artifact was called): what to buy (bulb, desk lamp, LED strip,
+    smart plug, button) as a list the user can tick off, and the
+    installation steps in order, consistent with the conversation. The text
+    reply is brief and does not repeat the list.
+  required_tools: [create_artifact]
+  forbidden_arg_patterns:
+    create_artifact.html:
+      - '(color|background|fill|stroke|border)[^;{}"]*#[0-9a-fA-F]{3,8}\b'
+      # Fixed widths: in CSS, and as an attribute on layout elements. Shapes
+      # inside an SVG (<rect width="250">) are viewBox units and scale
+      - '(?<![-\w])width\s*:\s*\d{3,}(px)?(?![\d%])'
+      - '<(svg|img|table|canvas|iframe|div|td|th)\b[^>]*\swidth\s*=\s*["'']?\d{3,}(?![\d%])'
+      - "https?://"
+      - '\b\d+(\.\d+)?[dsl]?v[hw]\b'
