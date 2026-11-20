@@ -121,7 +121,21 @@ class TestDeterministicFailures:
             forbidden_tools=expect.get("forbidden_tools", []),  # type: ignore[arg-type]
             max_tool_rounds=expect.get("max_tool_rounds", 0),  # type: ignore[arg-type]
             required_skill=expect.get("required_skill"),  # type: ignore[arg-type]
+            gate_lookup=expect.get("gate_lookup"),  # type: ignore[arg-type]
         )
+
+    def test_gate_lookup_checks_the_gates_own_decision(self) -> None:
+        """A search the chat model ran itself does not satisfy gate_lookup."""
+        case = self._case(gate_lookup=True)
+        looked_up = {"thinking": "high", "lookup": True}
+        skipped = {"thinking": "low", "lookup": False}
+        assert deterministic_failures(case, {"research"}, tool_rounds=1, gate=looked_up) == []
+        assert deterministic_failures(case, {"web_search"}, tool_rounds=1, gate=skipped)
+        assert deterministic_failures(case, set(), tool_rounds=0, gate=None)
+        quiet = self._case(gate_lookup=False)
+        assert deterministic_failures(quiet, set(), tool_rounds=0, gate=skipped) == []
+        assert deterministic_failures(quiet, {"research"}, tool_rounds=1, gate=looked_up)
+        assert deterministic_failures(self._case(), set(), tool_rounds=0, gate=None) == []
 
     def test_required_tools_any_of(self) -> None:
         case = self._case(required_tools=["research", "web_search"])

@@ -1,0 +1,17 @@
+id: fresh_gate_precision_product_thanks
+description: Accepting a product recommendation needs no lookup (the product-thread rule must not fire on every reply in such a thread)
+history:
+  - role: user
+    content: Jaké chytré žárovky do stropních světel v obýváku?
+  - role: assistant
+    content: >-
+      Do stropních svítidel bych dal Philips Hue White Ambiance E27 (asi
+      650 Kč za kus, 1100 lm) nebo levnější IKEA Tradfri E27 (249 Kč,
+      806 lm). Obě umí teplotu bílé 2200-6500 K a stmívání.
+user: Díky, objednám ty Philipsy.
+expect:
+  rubric: >
+    A short friendly acknowledgement in Czech, perhaps with one practical
+    tip. It does not start a new product search or a long comparison.
+  gate_lookup: false
+  forbidden_tools: [research, web_search, fetch_url]

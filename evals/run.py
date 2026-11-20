@@ -102,6 +102,10 @@ class EvalCase:
     # load_skill must have been called with THIS skill name (required_tools
     # only proves some load_skill call happened)
     required_skill: str | None = None
+    # What the freshness gate must decide for the turn (a lookup before the
+    # model starts, or none): required_tools cannot tell the gate's prefetch
+    # from a search the chat model ran itself
+    gate_lookup: bool | None = None
     # Regexes that must NOT match a tool argument, keyed "tool.arg" (e.g.
     # create_artifact.html: hex colours) - the judge never sees tool args
     forbidden_arg_patterns: dict[str, list[str]] = field(default_factory=dict)
@@ -283,6 +287,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 forbidden_tools=list(expect.get("forbidden_tools") or []),
                 max_tool_rounds=int(expect.get("max_tool_rounds") or 0),
                 required_skill=expect.get("required_skill"),
+                gate_lookup=expect.get("gate_lookup"),
                 forbidden_arg_patterns={
                     str(k): [str(p) for p in v]
                     for k, v in (expect.get("forbidden_arg_patterns") or {}).items()
@@ -600,10 +605,14 @@ def deterministic_failures(
     skills_loaded: set[str] | None = None,
     tool_calls: list[dict[str, Any]] | None = None,
     actions: dict[str, list[str]] | None = None,
+    gate: dict[str, Any] | None = None,
 ) -> list[str]:
     """Rule-based checks that need no LLM. required_tools is any-of."""
     failures: list[str] = _arg_pattern_failures(case, tool_calls or [])
     failures += _action_failures(case, actions or {})
+    if case.gate_lookup is not None and (gate or {}).get("lookup") is not case.gate_lookup:
+        decided = "did not run" if gate is None else f"decided lookup={gate.get('lookup')}"
+        failures.append(f"the freshness gate {decided}, expected lookup={case.gate_lookup}")
     if case.required_skill and case.required_skill not in (skills_loaded or set()):
         failures.append(
             f"skill {case.required_skill!r} was not loaded ({sorted(skills_loaded or set()) or 'none'})"
@@ -1344,6 +1353,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         skills_loaded=skills_loaded_in(result_messages),
         tool_calls=tool_calls_in(result_messages),
         actions=actions,
+        gate=_gate_summary(gate_decisions),
     )
     score, judge_pass, reasoning, judge_input, judge_output = _judge(
         case, response, usage, result_messages, tools_used, describe_recorded(actions)

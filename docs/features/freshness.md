@@ -191,9 +191,43 @@ turns) and the "Freshness gate" journal lines, Nov 15-20:
   (lighting, bike parts, tools), where the message alone reads as a remark
   ("I can't put a dimmer under the switch") but the answer needs specs and
   prices. The gate logged an empty `reason` on most of its no-lookup
-  decisions, so the reasons do not explain them. Follow-up in TODO.md.
+  decisions, so the reasons do not explain them.
 - **Timeouts**: all 5 on Nov 19 between 15:47 and 17:55 (3.0 s limit), which
   reads as one slow afternoon at the provider; watch the count.
+
+### Product threads are looked up (Nov 20 2026)
+
+The week's 467 gate inputs (the user's message and the head of the previous
+reply) were replayed through the gate, once per prompt. Its reasons showed
+the cause: it filed "recommend a thermostatic shower mixer", "a matched set
+from one maker" and "give me a link" under timeless advice or a stated
+preference, although "current products, specs, prices" was already on the
+lookup list.
+
+| Gate looked up on | Old prompt | New prompt |
+|---|---|---|
+| 89 turns where the chat model searched itself | 13 | 35 |
+| 308 turns with no web use | 5 | 7 |
+| 70 turns where the gate had looked up | 56 | 63 |
+
+- The prompt now says that recommending, comparing, choosing or finding
+  specific products, services, shops, events or places is never timeless;
+  that a follow-up adding a constraint, a measurement, a preference or a
+  doubt while the previous reply names products is looked up; and that any
+  request for a link or to find something is a lookup. Accepting, thanking,
+  reporting what one owns and asking for a summary stay without one.
+- **The gate is noisy at the boundary**: replaying the old prompt reproduced
+  only 56 of its own 70 lookups and fired on 13 turns it had skipped, so
+  small differences between weeks are not signal.
+- Of the remaining 54 model-searched turns many are not the gate's to catch
+  (a TV plot, a pet's diet, edits of a post); the rest were not read one by
+  one under the new prompt.
+- Side effect: the thinking choice moved with it, 90 `high` verdicts against
+  75 on the same turns, since product follow-ups now read as choosing
+  products.
+- Evals: `fresh_product_followup` and `fresh_gate_precision_product_thanks`
+  assert the gate's own decision (`expect.gate_lookup`); all `fresh_*` cases
+  passed twice bar one live-web failure. Re-measure in TODO.md.
 
 ## Dated search results
 

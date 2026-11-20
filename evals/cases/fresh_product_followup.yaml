@@ -1,0 +1,21 @@
+id: fresh_product_followup
+description: A new preference while choosing products is looked up by the gate, not left to the chat model (Nov 2026 re-measure)
+history:
+  - role: user
+    content: Chci si doma začít brousit kuchyňské nože. Co si mám pořídit?
+  - role: assistant
+    content: >-
+      Na začátek stačí tři věci: kombinovaný brusný kámen King KDS 1000/6000
+      (asi 1 100 Kč), obtahovací řemen BeaverCraft (kolem 450 Kč) a vodítko
+      úhlu Wedgek, které pomůže držet stálý sklon. Kámen před broušením
+      namoč na deset minut.
+user: Manžel by chtěl ideálně sladěný set od jednoho výrobce.
+# No canned pages on purpose: the case checks the gate's decision, and the
+# reply may say the lookup found nothing
+expect:
+  rubric: >
+    Replies in Czech about a matching knife-sharpening set from a single
+    maker (stones, a strop or a holder from one brand), or says honestly
+    that its lookup found nothing and suggests what to look for. It does
+    not ignore the wish for one manufacturer.
+  gate_lookup: true

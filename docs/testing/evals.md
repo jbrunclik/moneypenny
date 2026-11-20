@@ -171,6 +171,8 @@ expect:
   required_tools: [research, web_search]   # optional, any-of
   forbidden_tools: [delegate_task]         # optional
   max_tool_rounds: 4                       # optional, 0 = no limit
+  gate_lookup: true                        # optional: the freshness gate's own
+                                           # decision (true = it looked up first)
   forbidden_arg_patterns:                  # optional: regexes that must NOT
     create_artifact.html: ['https?://']    # match a tool argument ("tool.arg")
   required_arg_patterns:                   # optional: each regex must match the
