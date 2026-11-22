@@ -582,8 +582,11 @@
         justify-content: center;
     }
 
+    /* minmax(0, ...): a bare 1fr track never shrinks below the card's
+       min-content, so a no-wrap name or meta line pushed the card and its
+       buttons past the screen edge instead of ellipsizing */
     .language-programs-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .language-program-card {

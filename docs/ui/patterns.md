@@ -24,7 +24,11 @@ Every feature's main page follows the same header structure:
 - **Title row**: Feature icon (SVG, accent color) + `h2` (display face, 600, `--text-primary`;
   no gradient text) + action buttons (right-aligned, pill-shaped)
 - **Action button**: Accent background, white text, `PLUS_ICON` + label (e.g., "New Program", "New Agent")
-- **Cards**: Grid layout with `auto-fill, minmax(280px, 1fr)`, single column on mobile
+- **Cards**: Grid layout with `auto-fill, minmax(280px, 1fr)`, single column on mobile as
+  `minmax(0, 1fr)`, never a bare `1fr`: a `1fr` track can't shrink below the card's
+  min-content, so a no-wrap (ellipsized) name or meta line widens the card past the phone
+  screen instead of truncating (Sports, Nov 2026). `web/tests/e2e/mobile-overflow.spec.ts`
+  loads each page at 375px with long text and fails on anything sticking out - add new pages there
 - **Empty state**: `createEmptyState()` (`components/EmptyState.ts`, styles in
   `empty-state.css`) - tinted 44px icon, title, muted hint and the ONE create button (the
   header button is not rendered while the list is empty). `variant: 'success'` for an
