@@ -226,6 +226,37 @@ turns, no job runs):
 - The cached share did not move: 30% on no-tool turns, 20% on the first call
   of all turns. A shorter `[CONTEXT]` (Nov 16) saves tokens, not cache misses.
 
+### Cache levers decided (Nov 23 2026)
+
+A week of per-call telemetry (`turn_timing.calls`, Nov 16-23, 600 Hydrogen
+chat turns, $0.068 a turn, 66k input, 53% cached) settled the levers from the
+[cost telemetry spec](../superpowers/specs/2026-11-15-cost-telemetry-design.md):
+
+| Gap since the prefix was last sent | First calls | Cached |
+|---|---|---|
+| under 1 min | 159 | 38% |
+| 1-5 min | 237 | 30% |
+| 5-15 min | 73 | 12% |
+| 15-60 min | 66 | 5% |
+| over 60 min | 47 | 0% |
+
+Later rounds of a turn were 77% cached (570 calls).
+
+- **Per-user tool sets: go.** 152 of 600 first calls (25%) followed another
+  user's send of the same prefix, and those were only 9% cached (the same
+  user's: 30%). Splitting the prefix loses at most their 417k cached tokens a
+  week (~$0.55), less than leaving out unused integration tools saves. Users
+  already sent 3-16 distinct prefixes each (models, profiles), so the prefix
+  was never one shared block.
+- **Keeping the prefix warm: no.** The implicit cache fades after about 5
+  minutes. A ping every few minutes through the day costs ~$4 a week, and it
+  would win ~$2 on the 186 first calls that came 5+ minutes after the last send.
+- **Condensed memories: keep.** 8 of 600 turns (1.3%) fetched a memory's full
+  text, against the 1-in-4 limit; every memory over 150 characters has a summary.
+- **Side calls** that week: compaction $1.28 (55 calls, 0% cached), memory
+  review $0.88, defrag $0.16, titles and memory summaries ~$0.01 each;
+  `ai_assist` had no calls since Nov 12. Chat turns: $42.63.
+
 ## Currency Rate Updates
 
 Currency exchange rates are stored in the database (`app_settings` table) and updated daily via a systemd timer.

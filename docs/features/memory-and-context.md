@@ -325,7 +325,10 @@ rereads the turns since its last review and may add or patch up to `MEMORY_REVIE
   change log and the open chat's merge patches it in place
   (`patchMemoryNotes` in `core/remote-merge.ts`), no re-render.
 - **Cost**: added to that reply's cost row (`add_message_cost_usd`), thinking
-  tokens billed as output; about $0.0006 a pass in the evals.
+  tokens billed as output; about $0.0006 a pass in the evals, $0.014 in
+  production (Nov 16-23 2026: 64 passes, $0.89, ~$3.80 a month).
+- **Measured Nov 16-23 2026**: 64 passes wrote 14 times (9 patches, 5 adds);
+  none of the written memories was deleted afterwards, so no sign of noise.
 - **Logs**: "Memory review pass" (per pass: messages reviewed, applied, cost)
   and "Memory review applied" (per write: action, memory id, length - no text).
 - **Evals**: `memory_review: true` cases call the pass directly on a seeded

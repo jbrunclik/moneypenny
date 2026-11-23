@@ -214,6 +214,8 @@ Since Nov 9 2026 a turn stops on what it costs and how long it runs, not on a ro
 | Round backstop against runaways (a run can override it, e.g. deep-research subagents: `round_cap_override`) | `TURN_MAX_TOOL_ROUNDS` (20) | `rounds` |
 | The same failing call keeps coming back | `TURN_LOOP_BLOCK_AFTER` (2) + 2 | `loop` |
 
+Measured Nov 23 2026 (`message_costs`, chat turns): before Nov 9 the round cap stopped 2.4% (p90 $0.070, 32.5 s); Nov 9-18 at $0.15, 4.3% stopped, nearly all on `cost`; since the $0.40 cap (Nov 18) none of 426 chat turns or 20 job runs stopped (p90 $0.114, 36 s; 2.27 rounds per tool-using turn). The cap stays as a runaway guard.
+
 The wrap-up notice rides on the last tool result once either budget passes `TURN_WRAP_UP_FRACTION` (0.8) - time or cost (cost since Nov 17 2026), so a cost stop is announced a round ahead like a time stop.
 
 State keys (`AgentState`): `turn_started_at`, `turn_cost_usd`, `failed_calls`, `recent_rounds`, `seen_results`, `final_answer` (the stop reason), `wrap_up_noticed`, `batching_hinted`, `ab_warned`; `initial_state()` seeds them for both invokes.
