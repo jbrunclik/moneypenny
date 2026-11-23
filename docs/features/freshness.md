@@ -106,8 +106,13 @@ needs careful reasoning or a plan (product or place recommendations, trip or
 training plans, multi-source research, maths/data/code/files, real trade-offs,
 a disputed fact), `medium` for other several-part tasks (a short plan or
 how-to, a lookup to put together, a follow-up that changes a plan, a
-multi-step action on the user's data), `low` for the rest - chit-chat, quick
-facts, short follow-ups, rewriting or translating, a single simple action.
+multi-step action on the user's data, a lasting correction of how to reply),
+`low` for the rest - chit-chat, quick facts, short follow-ups, rewriting or
+translating, a single simple action. A lasting correction ("from now on",
+"always", "stop doing X") went `medium` on Nov 23 2026: at `low` the model
+sometimes said it had suggested the instructions card without calling
+`propose_instruction_change` (`instructions_style_rule` 5/10 at `low`, 10/10
+at `medium`, then 10/10 with the gate choosing `medium` itself).
 `low` turns run on `ChatAgent.light_graph` at
 `FRESHNESS_GATE_LIGHT_THINKING_LEVEL`, `high` ones on `ChatAgent.deep_graph`
 at `FRESHNESS_GATE_DEEP_THINKING_LEVEL`, and `medium` ones on the model's own

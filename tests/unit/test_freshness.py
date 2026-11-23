@@ -90,6 +90,15 @@ class TestDecide:
         assert "TODAY: 2026-10-10" in prompt
         assert "Jaký externí modely maj?" in prompt and "Siri AI běží" in prompt
 
+    def test_a_lasting_correction_of_the_reply_form_is_not_a_low_turn(self) -> None:
+        """At low thinking the model narrated the instructions card instead of
+        calling propose_instruction_change (instructions_style_rule: 5/10 at
+        low, 10/10 at medium, Nov 23 2026)."""
+        from src.agent.prompt_texts.freshness import FRESHNESS_GATE_PROMPT
+
+        medium = FRESHNESS_GATE_PROMPT.split('thinking="medium"')[1].split('thinking="low"')[0]
+        assert "from now on" in medium
+
     def test_the_prompt_says_when_the_message_has_attachments(self) -> None:
         # cz_image_reading: "kdy tam maji otevreno v sobotu? foto cedule v priloze"
         # looked opening hours up on the web; the gate never saw the photo
