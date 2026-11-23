@@ -960,6 +960,16 @@ test.describe('Scroll to bottom behavior', () => {
     const distanceFromBottom = await messagesContainer.evaluate((el) => {
       return el.scrollHeight - el.scrollTop - el.clientHeight;
     });
+    if (distanceFromBottom <= 50) {
+      // Failed twice in Nov 2026 (42 px) but never in 52 runs since: the
+      // heights tell content that shrank (scrollHeight down) from a partial
+      // chase (scrollTop up)
+      const after = await messagesContainer.evaluate((el) => `${el.scrollHeight}/${el.scrollTop}`);
+      await attachScrollLog(
+        page,
+        `distanceFromBottom=${distanceFromBottom} scrollHeight/scrollTop before=${scrollInfo.scrollHeight}/${scrollTopAfterScroll} after=${after}`
+      );
+    }
     expect(distanceFromBottom).toBeGreaterThan(50); // Should be more than 50px from bottom
   });
 
