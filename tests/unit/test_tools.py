@@ -43,6 +43,15 @@ def _names(**kwargs: Any) -> set[str]:
     return {t.name for t in get_tools_for_request(**kwargs)}
 
 
+_INTEGRATION_TOOL_NAMES = (
+    "todoist",
+    "google_calendar",
+    "garmin_connect",
+    "garmin_workout",
+    "rouvy_workout",
+)
+
+
 # Bound only in unattended job runs (by grant), never in an interactive chat
 _JOB_RUN_ONLY = {"delegate_task", "whatsapp"}
 
@@ -63,7 +72,12 @@ class TestGetToolsForRequest:
     def test_withholds_tools_of_integrations_the_user_never_connected(self) -> None:
         """Per-user tool sets (Nov 23 2026): unconnected integrations cost
         ~1-3k tokens a call and their tool can only say "not connected"."""
-        names = _names(unconnected=frozenset({"garmin", "rouvy"}))
+        from src.agent import tools as tools_module
+
+        # Every integration configured, as in production (CI configures none)
+        everything = [tools_module._TOOL_MAP[n] for n in _INTEGRATION_TOOL_NAMES]
+        with patch.object(tools_module, "get_available_tools", return_value=everything):
+            names = _names(unconnected=frozenset({"garmin", "rouvy"}))
 
         assert not names & {"garmin_connect", "garmin_workout", "rouvy_workout"}
         assert {"todoist", "google_calendar"} <= names
