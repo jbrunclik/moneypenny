@@ -106,3 +106,55 @@ def test_a_title_records_its_cost(database: Database) -> None:
 
     [row] = _rows(database)
     assert (row["feature"], row["model"]) == ("title", Config.TITLE_GENERATION_MODEL)
+
+
+class TestEmbeddingCost:
+    """Embeddings were the last side call outside side_costs (Nov 23 2026).
+    The Gemini API returns no usage for them, so tokens are estimated from
+    the characters sent."""
+
+    def test_an_embedding_records_estimated_tokens_at_the_embedding_price(
+        self, database: Database
+    ) -> None:
+        from src.config import Config
+        from src.constants import EMBEDDING_CHARS_PER_TOKEN
+
+        database.record_embedding_cost("x" * 4000, user_id="u1")
+
+        [row] = _rows(database)
+        tokens = 4000 // EMBEDDING_CHARS_PER_TOKEN
+        price = Config.MODEL_PRICING[Config.EMBEDDING_MODEL]["input"]
+        assert row["feature"] == "embedding"
+        assert row["model"] == Config.EMBEDDING_MODEL
+        assert row["input_tokens"] == tokens
+        assert row["output_tokens"] == 0
+        assert row["cost_usd"] == pytest.approx(tokens * price / 1_000_000)
+        assert row["user_id"] == "u1"
+
+    def test_only_the_characters_actually_sent_count(self, database: Database) -> None:
+        from src.constants import EMBEDDING_CHARS_PER_TOKEN
+        from src.utils.embeddings import MAX_EMBED_CHARS
+
+        database.record_embedding_cost("y" * (MAX_EMBED_CHARS * 3), user_id=None)
+
+        [row] = _rows(database)
+        assert row["input_tokens"] == MAX_EMBED_CHARS // EMBEDDING_CHARS_PER_TOKEN
+
+    def test_a_failed_write_never_raises(self, database: Database) -> None:
+        with patch.object(database, "add_side_cost", side_effect=RuntimeError("disk")):
+            database.record_embedding_cost("text", user_id="u1")  # no exception
+
+    def test_a_background_embed_records_its_cost(self, database: Database) -> None:
+        import threading
+
+        from src.db.models import embeddings as embeddings_module
+
+        done = threading.Event()
+        with (
+            patch.object(embeddings_module, "embed_text", return_value=[0.1, 0.2]),
+            patch.object(embeddings_module.Config, "EMBEDDINGS_ENABLED", True),
+            patch.object(database, "upsert_embedding", side_effect=lambda *a, **k: done.set()),
+        ):
+            database.embed_and_store_async("u1", "message", "m1", "hello there")
+            assert done.wait(5)
+        assert [r["feature"] for r in _rows(database)] == ["embedding"]

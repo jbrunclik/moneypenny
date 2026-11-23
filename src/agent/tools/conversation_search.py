@@ -205,6 +205,7 @@ def _semantic_matches(
     query_vec = embed_text(query)
     if query_vec is None:
         return []
+    db.record_embedding_cost(query, user_id)
 
     stored = (
         db.get_message_embeddings(user_id, after, before)

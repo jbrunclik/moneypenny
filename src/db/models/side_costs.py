@@ -5,11 +5,17 @@ from __future__ import annotations
 import sqlite3
 from typing import TYPE_CHECKING
 
+from src.config import Config
+from src.constants import EMBEDDING_CHARS_PER_TOKEN
 from src.db.models.timestamps import to_db
 from src.utils.clock import utc_now
+from src.utils.embeddings import MAX_EMBED_CHARS
+from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
+
+logger = get_logger(__name__)
 
 
 class SideCostsMixin:
@@ -53,3 +59,16 @@ class SideCostsMixin:
                 ),
             )
             conn.commit()
+
+    def record_embedding_cost(self, text: str, user_id: str | None) -> None:
+        """Record one embedding call: the API returns no usage, so its tokens
+        are estimated from the characters sent. Logged, never raised."""
+        try:
+            tokens = len(text.strip()[:MAX_EMBED_CHARS]) // EMBEDDING_CHARS_PER_TOKEN
+            model = Config.EMBEDDING_MODEL
+            # Flat rate: embeddings have no dated price changes
+            price = Config.MODEL_PRICING.get(model, {}).get("input", 0.0)
+            cost = tokens * price / 1_000_000
+            self.add_side_cost("embedding", model, (tokens, 0, 0), cost, user_id=user_id)
+        except Exception:  # telemetry must not break the call it measures
+            logger.exception("Embedding cost not recorded")

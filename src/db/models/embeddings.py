@@ -74,6 +74,11 @@ class EmbeddingsMixin:
             )
             conn.commit()
 
+    if TYPE_CHECKING:
+
+        def record_embedding_cost(self, text: str, user_id: str | None) -> None:
+            """Defined in SideCostsMixin."""
+
     def embed_and_store_async(self, user_id: str, kind: str, ref_id: str, text: str) -> None:
         """Embed text and upsert it into the embeddings table on a daemon thread.
 
@@ -87,6 +92,7 @@ class EmbeddingsMixin:
             vec = embed_text(text)
             if vec is None:
                 return
+            self.record_embedding_cost(text, user_id)
             try:
                 self.upsert_embedding(
                     user_id, kind, ref_id, Config.EMBEDDING_MODEL, len(vec), pack_vector(vec)

@@ -543,6 +543,29 @@ class TestStopVisibility:
         # Both calls are paid for
         assert out["turn_cost_usd"] > call_cost_usd(model.invoke.return_value, FAST)
 
+    def test_the_replaced_reply_s_tokens_stay_in_the_saved_usage(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A batch turn's cost is summed over its final messages: the tools-only
+        reply the retry replaces was billed too, so its tokens ride on the
+        answer (Nov 23 2026: they were dropped from message_costs)."""
+        plain = MagicMock()
+        plain.invoke.return_value = _reply("Done: three meetings.", inp=5000)
+        monkeypatch.setattr(chat_node_module, "create_chat_model", lambda *a, **k: plain)
+        model = MagicMock(model_name=FAST)
+        model.invoke.return_value = AIMessage(
+            content="",
+            tool_calls=[{"name": "web_search", "args": {}, "id": "c9"}],
+            usage_metadata={"input_tokens": 1000, "output_tokens": 10, "total_tokens": 1010},
+        )
+
+        out = chat_node(_final_state(), model, model_name=FAST)
+
+        [reply] = out["messages"]
+        retry_usage = plain.invoke.return_value.usage_metadata
+        assert reply.usage_metadata["input_tokens"] == 1000 + retry_usage["input_tokens"]
+        assert reply.usage_metadata["output_tokens"] == 10 + retry_usage["output_tokens"]
+
     def test_when_the_retry_is_empty_too_the_fallback_line_stands(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

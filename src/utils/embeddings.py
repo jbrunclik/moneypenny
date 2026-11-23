@@ -23,7 +23,7 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-_MAX_EMBED_CHARS = 8000
+MAX_EMBED_CHARS = 8000
 
 
 def _new_client() -> Any:
@@ -50,7 +50,7 @@ def embed_text(text: str) -> list[float] | None:
     try:
         response = _get_client().models.embed_content(
             model=Config.EMBEDDING_MODEL,
-            contents=text[:_MAX_EMBED_CHARS],
+            contents=text[:MAX_EMBED_CHARS],
             config={"output_dimensionality": Config.EMBEDDING_DIM},
         )
         values: list[float] = list(response.embeddings[0].values)

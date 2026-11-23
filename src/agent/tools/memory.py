@@ -615,6 +615,7 @@ def _semantic_ids(user_id: str, query: str, live_ids: set[str]) -> list[str]:
     query_vec = embed_text(query)
     if query_vec is None:
         return []
+    db.record_embedding_cost(query, user_id)
     candidates = [
         (ref_id, vector)
         for ref_id, _dim, vector in db.get_embeddings(user_id, "memory")

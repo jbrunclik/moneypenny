@@ -211,6 +211,13 @@ class Config:
     # not attributed per message - caches are shared across workers with
     # short TTLs, so it is negligible.
     MODEL_PRICING: ClassVar[dict[str, dict[str, float]]] = {
+        "gemini-embedding-001": {
+            # Embeddings bill input only ($0.15 per million tokens, no cache);
+            # priced from estimated tokens (record_embedding_cost)
+            "input": 0.15,
+            "cached_input": 0.15,
+            "output": 0.0,
+        },
         "gemini-4-hydrogen": {
             # No dated change announced; cached_input is the implicit-cache
             # rate (Gemini 4 has no explicit caching)

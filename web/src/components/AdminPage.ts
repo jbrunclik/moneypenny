@@ -51,6 +51,7 @@ const SIDE_CALL_LABELS: Record<string, string> = {
   memory_review: 'Memory review',
   memory_defrag: 'Memory defrag',
   memory_summary: 'Memory summaries',
+  embedding: 'Embeddings',
 };
 
 function seconds(ms: number | null | undefined): string {

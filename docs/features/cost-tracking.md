@@ -78,8 +78,13 @@ Model calls outside a chat turn record their spend in `side_costs` (`feature`,
 usage and never raises into the call: `title`, `program_review`,
 `instructions_review`, `ai_assist`, `compaction`, `memory_review`,
 `memory_defrag` (the nightly script) and `memory_summary`. The freshness gate
-and the grounding check are part of the turn's cost already. Embeddings are not
-recorded yet (priced per character, a few cents a month). The admin page adds
+and the grounding check are part of the turn's cost already. Embeddings (Nov 23
+2026) are recorded as `embedding` by `db.record_embedding_cost` - in the db layer,
+since the background message and memory embeds run there - at every embed (saved
+messages and memories, `search_memory` and past-chat search queries). The Gemini
+API returns no usage for them, so tokens are estimated as characters sent /
+`EMBEDDING_CHARS_PER_TOKEN` (4), priced at `gemini-embedding-001`'s $0.15 per 1M;
+expect a few cents a month. The admin page adds
 them to the family totals and lists them per feature (Nov 16 2026,
 [admin.md](admin.md)).
 

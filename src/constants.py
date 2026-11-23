@@ -56,3 +56,7 @@ GEMINI_MIN_REQUEST_DEADLINE_SECONDS = 10
 # (a UUID prefix: a clash in one bank of 200 is ~1 in 200,000); the memory tools
 # take that prefix or the full id
 MEMORY_SHORT_ID_CHARS = 8
+
+# Gemini's documented average for estimating tokens from text: the embedding
+# API returns no usage, so embedding spend is priced from characters sent
+EMBEDDING_CHARS_PER_TOKEN = 4

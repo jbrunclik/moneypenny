@@ -6,6 +6,7 @@ from typing import Any
 
 from langchain_core.callbacks import BaseCallbackManager
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
+from langchain_core.messages.ai import add_usage
 from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.config import get_stream_writer
@@ -231,7 +232,14 @@ def _final_answer(
     answered = retry is not None and bool(extract_text_content(retry.content).strip())
     _tell_the_stream(response, reason, facts, answered)
     if answered and retry is not None:
-        merged = retry.model_copy(update={"response_metadata": {**retry.response_metadata}})
+        # The replaced tools-only reply was billed too: a batch turn's saved
+        # cost sums its final messages, so its tokens ride on the answer
+        merged = retry.model_copy(
+            update={
+                "response_metadata": {**retry.response_metadata},
+                "usage_metadata": add_usage(response.usage_metadata, retry.usage_metadata),
+            }
+        )
         return final_reply(merged, messages, reason, facts), cost
     return final_reply(response, messages, reason, facts), cost
 
