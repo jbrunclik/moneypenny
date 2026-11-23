@@ -94,3 +94,28 @@ class TestToolsUseIt:
 
         assert parsed["error"] == "Todoist disconnected"
         assert parsed["retriable"] is False
+
+
+class TestUnconnectedIntegrations:
+    """Per-user tool sets (Nov 23 2026): only integrations the user never
+    connected are withheld - a lapsed connection keeps its tool, so the
+    agent can still say it got disconnected."""
+
+    def test_never_connected_integrations_are_listed(self, user) -> None:
+        user(todoist_access_token="t", google_calendar_connected_at=datetime(2026, 8, 1))
+
+        assert integration_status.unconnected_integrations("u1") == {"garmin", "rouvy"}
+
+    def test_a_lapsed_connection_counts_as_connected(self, user) -> None:
+        user(garmin_connected_at=datetime(2026, 8, 1), rouvy_session="s")
+
+        assert integration_status.unconnected_integrations("u1") == {
+            "todoist",
+            "google_calendar",
+        }
+
+    def test_unknown_user_withholds_nothing(self, user) -> None:
+        user()
+        integration_status.db.get_user_by_id.return_value = None
+
+        assert integration_status.unconnected_integrations("u1") == frozenset()

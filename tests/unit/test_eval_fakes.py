@@ -230,3 +230,18 @@ class TestFakeTodoistCompleted:
             params={"since": "2026-11-12T23:00:00Z", "until": "2026-11-19T23:00:00Z"},
         )
         assert [t["content"] for t in done] == ["Buy milk"]
+
+
+def test_the_cases_integrations_decide_which_tools_are_bound() -> None:
+    """Per-user tool sets: the eval user holds no tokens, so the case's
+    integrations block says what is connected (disconnected stays bound)."""
+    from src.agent.tools import integration_status
+
+    spec = {"todoist": {}, "garmin": {"state": "disconnected"}}
+    with fake_integrations(spec):
+        assert integration_status.unconnected_integrations("any") == {
+            "google_calendar",
+            "rouvy",
+        }
+    with fake_integrations({"calendar": {"state": "not_connected"}}):
+        assert "google_calendar" in integration_status.unconnected_integrations("any")

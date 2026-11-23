@@ -53,6 +53,14 @@ class TestGetStaticPromptForProfile:
         assert "Core Principles" in prompt
         assert "Tools Available" in prompt
 
+    def test_standard_without_productivity_integrations(self) -> None:
+        """A user with neither Todoist nor Calendar connected skips their section."""
+        from src.agent.prompts import get_static_prompt_for_profile
+
+        prompt = get_static_prompt_for_profile("standard", productivity=False)
+        assert "Strategic Productivity Partner" not in prompt
+        assert "Tools Available" in prompt
+
     def test_anonymous_excludes_productivity(self) -> None:
         from src.agent.prompts import get_static_prompt_for_profile
 

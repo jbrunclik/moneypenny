@@ -1175,10 +1175,11 @@ def _agent_turn(
     from src.agent.agent import ChatAgent
     from src.db.models import db
 
-    agent = ChatAgent(model_name=chat_model(), standing=standing)
     # Fake integration backends replace only the HTTP/client seams, so
-    # the real tool code runs (no-op when the case declares none)
+    # the real tool code runs (no-op when the case declares none). The agent
+    # is built inside them: its tools follow the case's connected integrations.
     with fake_integrations(case.integrations, web=case.web) as fakes:
+        agent = ChatAgent(model_name=chat_model(), standing=standing, user_id=user.id)
         # tool_results is needed for pricing: image generations and
         # delegate_task subagent tokens are only visible in there.
         if case.deep_research:

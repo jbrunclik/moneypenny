@@ -367,3 +367,47 @@ def test_files_without_ids_get_no_listing() -> None:
     )
 
     assert not any(isinstance(b, dict) and "execute_code" in b.get("text", "") for b in blocks)
+
+
+class TestPerUserToolSets:
+    """Nov 23 2026: integrations a user never connected are not bound, their
+    prompt section is left out, and the context names them so the agent
+    still offers them once connected."""
+
+    @staticmethod
+    def _agent(unconnected: frozenset[str]):
+        from unittest.mock import patch
+
+        from src.agent.agent import ChatAgent
+
+        with patch(
+            "src.agent.tools.integration_status.unconnected_integrations",
+            return_value=unconnected,
+        ):
+            return ChatAgent(user_id="u1")
+
+    def test_tools_and_prompt_follow_the_users_connections(self) -> None:
+        agent = self._agent(frozenset({"todoist", "google_calendar", "garmin"}))
+
+        names = {t.name for t in agent.active_tools}
+        messages = agent._build_messages("hi")
+        system, context = str(messages[0].content), str(messages[-2].content)
+
+        assert agent.unconnected == {"todoist", "google_calendar", "garmin"}
+        assert not names & {"todoist", "google_calendar", "garmin_connect", "garmin_workout"}
+        assert "Strategic Productivity Partner" not in system
+        assert "Not connected" in context
+        assert "Garmin" in context and "Todoist" in context
+
+    def test_a_fully_connected_user_keeps_the_shared_prefix(self) -> None:
+        from src.agent.prompts import get_static_prompt_for_profile
+
+        messages = self._agent(frozenset())._build_messages("hi")
+
+        assert messages[0].content == get_static_prompt_for_profile("standard")
+        assert "Not connected" not in str(messages[-2].content)
+
+    def test_no_user_withholds_nothing(self) -> None:
+        from src.agent.agent import ChatAgent
+
+        assert ChatAgent().unconnected == frozenset()

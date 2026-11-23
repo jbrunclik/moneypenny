@@ -60,6 +60,17 @@ _ORDINARY_CHAT_ONLY = {
 class TestGetToolsForRequest:
     """Tests for get_tools_for_request function."""
 
+    def test_withholds_tools_of_integrations_the_user_never_connected(self) -> None:
+        """Per-user tool sets (Nov 23 2026): unconnected integrations cost
+        ~1-3k tokens a call and their tool can only say "not connected"."""
+        names = _names(unconnected=frozenset({"garmin", "rouvy"}))
+
+        assert not names & {"garmin_connect", "garmin_workout", "rouvy_workout"}
+        assert {"todoist", "google_calendar"} <= names
+
+    def test_withholds_nothing_without_unconnected_integrations(self) -> None:
+        assert _names(unconnected=frozenset()) == _names()
+
     def test_returns_all_tools_by_default(self) -> None:
         """Should return all tools when anonymous_mode is False."""
         tools = get_tools_for_request(anonymous_mode=False)

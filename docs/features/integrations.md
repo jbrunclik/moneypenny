@@ -18,9 +18,9 @@ Operator setup (creating OAuth clients, API keys) is in [setup.md](../setup.md).
 
 ## Tool Binding
 
-Integration tools are bound when the integration is available **server-side**, not
-when the current user has connected it (`get_available_tools()` in
-[tools/__init__.py](../../src/agent/tools/__init__.py)):
+Integration tools are bound when the integration is available **server-side**
+(`get_available_tools()` in [tools/__init__.py](../../src/agent/tools/__init__.py)) and
+the current user has ever connected it:
 
 | Tool | Bound when |
 |------|------------|
@@ -30,13 +30,29 @@ when the current user has connected it (`get_available_tools()` in
 | `rouvy_workout` | `is_rouvy_available()` - `BROWSER_ENABLED` and Chromium installed |
 | `whatsapp` | app-level config complete; agents additionally need the user's phone number (`_is_whatsapp_available_for_user`) |
 
+**Per-user tool sets (Nov 23 2026).** In chat turns, `ChatAgent(user_id=...)` asks
+`unconnected_integrations(user_id)` ([integration_status.py](../../src/agent/tools/integration_status.py))
+which integrations the user **never** connected - neither the credential nor
+`<integration>_connected_at` set - and `get_tools_for_request(unconnected=...)` withholds
+their tools (`INTEGRATION_TOOLS`: Garmin 2 tools, ~4.4k characters a call; Todoist ~4.4k;
+Calendar ~2k; Rouvy ~1k). A user with neither Todoist nor Calendar also loses the
+~1.5k-token productivity section of the static prompt (`get_static_prompt_for_profile(...,
+productivity=False)`). The `[CONTEXT]` block then names them ("Not connected: Garmin,
+Rouvy. If the user asks for one, say you can use it once they connect it in Settings."),
+so the agent still offers them. Decided from a week of cache telemetry: only 25% of
+first calls rode another user's prefix and those were 9% cached, so splitting the
+prefix per user loses less than the declarations cost ([cost-tracking.md](cost-tracking.md#cache-levers-decided-nov-23-2026)).
+Job runs bind by grant (`tools_for_grants`) and are unaffected. In evals the case's
+`integrations:` block decides what is connected (`evals/fakes.py`).
+
 [Anonymous mode](memory-and-context.md#anonymous-mode) unbinds `todoist`,
 `google_calendar`, `garmin_connect` and `garmin_workout` (`_INTEGRATION_TOOLS`), along
 with memory, saved-place and conversation-search tools.
 
 ## Not-Connected Results
 
-Because the tool stays bound, a user whose connection lapsed still reaches it. The tool
+Because the tool stays bound once a user has connected it, a user whose connection lapsed
+still reaches it. The tool
 then returns `not_connected_result(integration)` from
 [integration_status.py](../../src/agent/tools/integration_status.py), which
 distinguishes two cases that need different replies:

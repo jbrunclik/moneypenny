@@ -39,6 +39,7 @@ from src.agent.tools.garmin_workout import garmin_workout
 from src.agent.tools.google_calendar import google_calendar, is_google_calendar_available
 from src.agent.tools.image_generation import generate_image
 from src.agent.tools.instructions_tool import propose_instruction_change
+from src.agent.tools.integration_status import INTEGRATION_TOOLS
 from src.agent.tools.memory import manage_memory, search_memory
 from src.agent.tools.metadata import (
     EXTRACT_ONLY_TOOL_NAMES,
@@ -244,6 +245,7 @@ def get_tools_for_request(
     anonymous_mode: bool = False,
     is_planning: bool = False,
     standing: bool = False,
+    unconnected: frozenset[str] = frozenset(),
 ) -> list[Any]:
     """The tools to bind for an interactive chat turn.
 
@@ -255,11 +257,17 @@ def get_tools_for_request(
         anonymous_mode: If True, excludes personal integrations (Todoist, Calendar...).
         is_planning: If True, the planner's tools (refresh_planner_dashboard).
         standing: If True, a standing chat - adds kv_store.
+        unconnected: Integrations the user never connected
+            (integration_status.unconnected_integrations): their tools are withheld.
     """
     # Computed per request (not a frozen import-time constant) so availability
     # changes - Playwright installed, an integration configured - apply without
     # a process restart.
-    withheld = _JOB_RUN_ONLY_TOOLS | (_ANONYMOUS_EXCLUDED_TOOLS if anonymous_mode else set())
+    withheld = (
+        _JOB_RUN_ONLY_TOOLS
+        | (_ANONYMOUS_EXCLUDED_TOOLS if anonymous_mode else set())
+        | {name for i in unconnected for name in INTEGRATION_TOOLS[i]}
+    )
     tools = [t for t in get_available_tools() if t.name not in withheld]
 
     if not is_planning:

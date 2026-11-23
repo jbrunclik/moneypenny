@@ -27,7 +27,7 @@ from src.agent.prompts import (
 )
 from src.agent.standing import StandingContext
 from src.agent.stream_events import StreamEventProcessor
-from src.agent.tools import get_tools_for_request
+from src.agent.tools import get_tools_for_request, integration_status
 from src.agent.turn_budget import initial_state
 from src.agent.turn_usage import TurnClock, batch_usage_info, with_model_timing
 from src.config import Config
@@ -115,6 +115,7 @@ class ChatAgent:
         system_prompt_override: str | None = None,
         memoize_graph: bool = True,
         include_memories: bool = True,
+        user_id: str | None = None,
     ) -> None:
         self.model_name = model_name
         # False: the prompt carries the user's context (language, saved
@@ -133,13 +134,24 @@ class ChatAgent:
         # prompt assembly entirely - the profiles all embed the standard
         # static prompt.
         self.system_prompt_override = system_prompt_override
+        # Integrations the user never connected: their tools are not bound and
+        # their prompt section is left out (per-user tool sets, Nov 23 2026)
+        self.unconnected: frozenset[str] = (
+            integration_status.unconnected_integrations(user_id)
+            if user_id and tools is None and with_tools and not anonymous_mode
+            else frozenset()
+        )
         # Use provided tools, or get filtered tools based on mode
         if tools is not None:
             active_tools = tools
         else:
             active_tools = get_tools_for_request(
-                anonymous_mode, is_planning, standing=standing is not None
+                anonymous_mode,
+                is_planning,
+                standing=standing is not None,
+                unconnected=self.unconnected,
             )
+        self.active_tools = active_tools
 
         # Look current facts up before the turn (src/agent/freshness.py) - chats
         # that can research, standing chats included; never runs, the planner or subagents
@@ -278,8 +290,14 @@ class ChatAgent:
             # context assembly
             messages.append(SystemMessage(content=self.system_prompt_override))
         elif static_prefix_profile:
+            unconnected: frozenset[str] = getattr(self, "unconnected", frozenset())
+            productivity = not {"todoist", "google_calendar"} <= unconnected
             messages.append(
-                SystemMessage(content=get_static_prompt_for_profile(static_prefix_profile.value))
+                SystemMessage(
+                    content=get_static_prompt_for_profile(
+                        static_prefix_profile.value, productivity=productivity
+                    )
+                )
             )
             dynamic = get_dynamic_prompt_parts(
                 force_tools=force_tools,
@@ -294,6 +312,7 @@ class ChatAgent:
                 include_memories=self.include_memories,
                 conversation_title=conversation_title,
                 conversation_facts=conversation_facts,
+                unconnected=unconnected,
             )
             dynamic_context_msg = HumanMessage(content=f"[CONTEXT]\n{dynamic}\n[/CONTEXT]")
         else:

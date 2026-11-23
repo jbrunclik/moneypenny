@@ -1,7 +1,8 @@
 """Uniform "integration not connected" tool results.
 
-Integration tools stay bound whenever the integration is configured
-server-side, so a user whose connection lapsed still reaches the tool and
+An integration tool is bound for a user unless they never connected it
+(``unconnected_integrations``, Nov 23 2026 - the declarations cost ~1-3k
+tokens a call), so a user whose connection lapsed still reaches the tool and
 gets this result. It distinguishes the two cases, because they need
 different replies:
 
@@ -40,17 +41,45 @@ _TOKEN_FIELDS = {
 }
 
 
+# The tools each integration binds (withheld while it was never connected)
+INTEGRATION_TOOLS = {
+    "garmin": ("garmin_connect", "garmin_workout"),
+    "todoist": ("todoist",),
+    "google_calendar": ("google_calendar",),
+    "rouvy": ("rouvy_workout",),
+}
+
+
+def integration_label(integration: str) -> str:
+    """The name users see for an integration ("Google Calendar")."""
+    return _LABELS[integration]
+
+
+def _ever_connected(user: object, integration: str) -> bool:
+    return bool(
+        getattr(user, _TOKEN_FIELDS[integration], None)
+        or getattr(user, f"{integration}_connected_at", None)
+    )
+
+
 def _was_connected(integration: str) -> bool:
     _, user_id = get_conversation_context()
     if not user_id:
         return False
     user = db.get_user_by_id(user_id)
-    if not user:
-        return False
-    return bool(
-        getattr(user, _TOKEN_FIELDS[integration], None)
-        or getattr(user, f"{integration}_connected_at", None)
-    )
+    return user is not None and _ever_connected(user, integration)
+
+
+def unconnected_integrations(user_id: str) -> frozenset[str]:
+    """The integrations this user never connected (nothing for an unknown user).
+
+    A lapsed connection (token or ``*_connected_at`` left) counts as
+    connected: its tool stays bound to report the disconnect.
+    """
+    user = db.get_user_by_id(user_id)
+    if user is None:
+        return frozenset()
+    return frozenset(i for i in _TOKEN_FIELDS if not _ever_connected(user, i))
 
 
 def not_connected_result(

@@ -458,6 +458,7 @@ class TurnContext:
             anonymous_mode=self.anonymous_mode,
             is_planning=self.is_planning,
             standing=self.standing,
+            user_id=self.user_id,
         )
 
     def _agent_text(self) -> str:

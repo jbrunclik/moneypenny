@@ -34,6 +34,7 @@ from src.agent.skills import skills_index_prompt
 from src.agent.standing import StandingContext
 from src.agent.tools import get_available_tools
 from src.agent.tools.context import get_location_context
+from src.agent.tools.integration_status import integration_label
 from src.config import Config
 from src.db.models import ConversationFact, db
 from src.utils.clock import to_local, utc_now
@@ -242,7 +243,7 @@ def _standing_prompt(standing: StandingContext | None) -> str:
     return "\n\n" + format_standing_section(standing) if standing is not None else ""
 
 
-def get_static_prompt_for_profile(profile: str) -> str:
+def get_static_prompt_for_profile(profile: str, productivity: bool = True) -> str:
     """Return only the static (cacheable) portion of the system prompt for a given profile.
 
     It leads every request unchanged, so Gemini's implicit cache reuses it.
@@ -251,6 +252,8 @@ def get_static_prompt_for_profile(profile: str) -> str:
 
     Args:
         profile: One of "standard", "anonymous", "planning", "standing" (= standard)
+        productivity: False when the user connected neither Todoist nor
+            Calendar - their ~1.5k-token section is left out (Nov 23 2026)
 
     Returns:
         Static prompt string suitable for caching
@@ -263,7 +266,7 @@ def get_static_prompt_for_profile(profile: str) -> str:
     if is_mapy_configured():
         prompt += TOOLS_SYSTEM_PROMPT_PLACES
     # All non-anonymous profiles get productivity tools (mirrors get_system_prompt)
-    if profile in ("standard", "planning", "standing"):
+    if productivity and profile in ("standard", "planning", "standing"):
         prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
     # All profiles get context/citation section
     prompt += TOOLS_SYSTEM_PROMPT_CONTEXT
@@ -306,6 +309,7 @@ def get_dynamic_prompt_parts(
     conversation_title: str | None = None,
     conversation_facts: list[ConversationFact] | None = None,
     include_memories: bool = True,
+    unconnected: frozenset[str] = frozenset(),
 ) -> str:
     """Return only the dynamic (per-request) parts of the prompt.
 
@@ -322,6 +326,7 @@ def get_dynamic_prompt_parts(
         dashboard_data: Dashboard data dict for planner
         planner_dashboard_context: Refreshed dashboard data
         standing: A standing chat's instructions and data (agent / program chats)
+        unconnected: Integrations the user never connected (their tools are not bound)
 
     Returns:
         Dynamic prompt string
@@ -356,10 +361,23 @@ def get_dynamic_prompt_parts(
     if standing is not None:
         parts.append(format_standing_section(standing))
 
+    if unconnected:
+        parts.append(unconnected_integrations_line(unconnected))
+
     if force_tools:
         parts.append(get_force_tools_prompt(force_tools))
 
     return "\n\n".join(parts)
+
+
+def unconnected_integrations_line(unconnected: frozenset[str]) -> str:
+    """Names the integrations whose tools are withheld, so the agent offers
+    them instead of saying it cannot do that."""
+    labels = ", ".join(sorted(integration_label(i) for i in unconnected))
+    return (
+        f"Not connected: {labels}. If the user asks for one, say you can use it "
+        "once they connect it in Settings."
+    )
 
 
 def _tools_prompt(anonymous_mode: bool) -> str:

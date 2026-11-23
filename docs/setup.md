@@ -232,7 +232,7 @@ GARMIN_API_TIMEOUT_SECONDS=15  # Optional, default is 15 seconds
    - "Show me my last 5 runs"
    - "What was my resting heart rate this week?"
 
-**Disabling:** If you do not want Garmin Connect to appear, it is available whenever the `garminconnect` Python package is installed (included in `requirements.txt`). Users who have not connected an account get a "connect Garmin in Settings" reply if the agent tries to use it.
+**Disabling:** If you do not want Garmin Connect to appear, it is available whenever the `garminconnect` Python package is installed (included in `requirements.txt`). Users who never connected an account do not get the Garmin tools; the agent offers Garmin once they connect it in Settings.
 
 ## Setting up WhatsApp Integration (Autonomous Agents)
 

@@ -359,6 +359,17 @@ def _workout_changes(before: dict[str, Any], after: dict[str, Any]) -> list[str]
     return changes
 
 
+def _unconnected(spec: dict[str, Any]) -> frozenset[str]:
+    """The integrations a case's ``integrations:`` block leaves unconnected."""
+    from src.agent.tools.integration_status import INTEGRATION_TOOLS
+
+    connected = {"todoist"} if "todoist" in spec else set()
+    for key, integration in (("calendar", "google_calendar"), ("garmin", "garmin")):
+        if key in spec and (spec[key] or {}).get("state") != "not_connected":
+            connected.add(integration)
+    return frozenset(INTEGRATION_TOOLS) - connected
+
+
 @contextlib.contextmanager
 def fake_integrations(
     spec: dict[str, Any], web: dict[str, Any] | str | None = None
@@ -376,6 +387,14 @@ def fake_integrations(
         web_fake = stack.enter_context(canned_web(web))
         if web_fake is not None:
             fakes["web"] = web_fake
+        # Per-user tool sets: the eval user holds no tokens, so declare what the
+        # case connected (a disconnected integration stays bound, as in prod)
+        stack.enter_context(
+            patch(
+                "src.agent.tools.integration_status.unconnected_integrations",
+                lambda user_id: _unconnected(spec),
+            )
+        )
         if "todoist" in spec:
             todo = FakeTodoist(spec["todoist"] or {})
             fakes["todoist"] = todo

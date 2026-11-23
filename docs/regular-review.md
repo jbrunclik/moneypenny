@@ -95,7 +95,11 @@ The review itself changes nothing in production and edits nothing but
   `same_user`): the cached share by `gap_s` bucket (<1 min, 1-5, 5-15, 15-60, >60
   min) - where Gemini's implicit cache stops paying; the share of first calls cached
   thanks to another user (`same_user` false) - what per-user tool sets would lose;
-  first call vs later rounds. Decides per-user tools and keeping the prefix warm.
+  first call vs later rounds. Decided Nov 23 2026: per-user tool sets yes, keeping
+  the prefix warm no ([cost-tracking.md](features/cost-tracking.md#cache-levers-decided-nov-23-2026)).
+  Since then first-call input per user should sit lower for users missing an
+  integration; a falling cached share on first calls means the split costs more than
+  the week's numbers said.
 - Condensed memories (from Nov 15 2026; [memory-and-context.md](features/memory-and-context.md)):
   the share of chat turns with `turn_timing.memory_fetches` > 0 (they pay off while
   under ~1 in 4; an extra round costs ~$0.018), "Memory summaries written" per day,

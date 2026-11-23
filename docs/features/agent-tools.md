@@ -5,7 +5,8 @@ Which tools the agent can use, how availability and permissions are decided, and
 ## Tools for Autonomous Agents
 
 Interactive chat binds every available tool (`get_tools_for_request(anonymous_mode,
-is_planning, standing)`) - in standing chats (the user writing in an agent, sports or
+is_planning, standing, unconnected)`; integrations the user never connected are left out -
+[integrations.md](integrations.md#tool-binding)) - in standing chats (the user writing in an agent, sports or
 language chat) too, plus `kv_store`; unattended job **runs** get
 `tools_for_grants(grants, user_id)`, filtered by the job's `grants`. Two lists matter:
 
