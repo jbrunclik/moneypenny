@@ -7,6 +7,7 @@ way the background memory review's saves are.
 """
 
 from src.agent.memory_review import format_note
+from src.agent.tools.memory import take_project_writes
 from src.db.models import db
 from src.utils.logging import get_logger
 
@@ -18,7 +19,8 @@ def note_shared_project_writes(conv_id: str, user_id: str, assistant_message_id:
     project = db.project_for_conversation(conv_id, user_id)
     if project is None or not project.shared:
         return
-    written = db.project_memories_written_this_turn(conv_id)
+    noted = set(take_project_writes(user_id, conv_id))
+    written = [m for m in db.list_project_memories(project.id) if m.id in noted]
     if not written:
         return
     db.set_memory_note(

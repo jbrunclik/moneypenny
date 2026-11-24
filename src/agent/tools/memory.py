@@ -17,6 +17,7 @@ and can act on it. It also means memory writes are bounded per call, which
 matters because the operation list can be influenced by fetched web content.
 """
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
@@ -42,6 +43,8 @@ from src.utils.threat_patterns import find_injection
 logger = get_logger(__name__)
 
 _SEARCH_MEMORY_MAX_RESULTS = 10
+# kv namespace: a turn's writes to its project's memory, until the reply notes them
+PROJECT_WRITES_NAMESPACE = "project_writes"
 
 VALID_ACTIONS = frozenset({"add", "patch", "delete"})
 VALID_CATEGORIES = frozenset({"preference", "fact", "context", "goal"})
@@ -127,6 +130,8 @@ class _Planned:
 
     write: MemoryWrite
     old_chars: int = 0
+    # The project the written row belongs to (None: personal)
+    project_id: str | None = None
 
 
 @dataclass
@@ -147,6 +152,8 @@ class _BatchState:
     # The chat's project (its memories are in scope too) and their count
     project_id: str | None = None
     project_count: int = 0
+    # Rows of the chat's project seen in this batch (their deletes free a project slot)
+    project_rows: set[str] = field(default_factory=set)
 
     def full_ids(self, ref: str) -> list[str]:
         """The full ids a model-given id names (it may be the list's short id),
@@ -168,7 +175,13 @@ class _BatchState:
             self.contents[memory_id] = memory.content
             if memory.protected:
                 self.protected.add(memory_id)
+            if memory.project_id:
+                self.project_rows.add(memory_id)
         return self.contents[memory_id]
+
+    def row_project(self, memory_id: str) -> str | None:
+        """The project of a row the batch has looked up, None when personal."""
+        return self.project_id if memory_id in self.project_rows else None
 
 
 def _scoped_memories(user_id: str, project_id: str | None) -> list[Memory]:
@@ -246,7 +259,8 @@ def _plan_add(op: MemoryOp, state: _BatchState) -> _Planned | str:
             category=category,
             valid_until=valid_until or None,
             project_id=project_id,
-        )
+        ),
+        project_id=project_id,
     )
 
 
@@ -307,7 +321,7 @@ def _plan_patch(op: MemoryOp, state: _BatchState) -> _Planned | str:
         category=category,
         valid_until=valid_until,
     )
-    return _Planned(write, old_chars=len(content))
+    return _Planned(write, old_chars=len(content), project_id=state.row_project(memory_id))
 
 
 def _patch_fields(op: MemoryOp) -> tuple[str | None, str | None] | str:
@@ -343,8 +357,12 @@ def _plan_delete(op: MemoryOp, state: _BatchState) -> _Planned | str:
             "Use 'patch' if the fact has changed.",
         )
     state.deleted.add(memory_id)
-    state.count -= 1
-    return _Planned(MemoryWrite("delete", memory_id))
+    project_id = state.row_project(memory_id)
+    if project_id is None:
+        state.count -= 1
+    else:
+        state.project_count -= 1
+    return _Planned(MemoryWrite("delete", memory_id), project_id=project_id)
 
 
 _PLANNERS = {"add": _plan_add, "patch": _plan_patch, "delete": _plan_delete}
@@ -513,9 +531,35 @@ def _run_batch(user_id: str, conversation_id: str | None, operations: list[Memor
             "Error processing memory operations", extra={"user_id": user_id, "error": str(e)}
         )
         return [_reject("batch", f"storage error: {e}. Nothing was applied.")]
-    return [
+    lines = [
         _applied_line(user_id, p, new_id, count) for p, new_id in zip(planned, new_ids, strict=True)
     ]
+    written = [
+        str(new_id or p.write.memory_id)
+        for p, new_id in zip(planned, new_ids, strict=True)
+        if p.project_id and p.write.action != "delete"
+    ]
+    if written and conversation_id:
+        _best_effort(note_project_writes, user_id, conversation_id, *written)
+    return lines
+
+
+def note_project_writes(user_id: str, conversation_id: str, *memory_ids: str) -> None:
+    """Remember the project memories this chat's turn wrote (added or patched,
+    whoever first wrote them), for the reply's note (api/helpers/project_notes.py)."""
+    key = conversation_id
+    known = json.loads(db.kv_get(user_id, PROJECT_WRITES_NAMESPACE, key) or "[]")
+    ids = [*known, *(m for m in memory_ids if m not in known)]
+    db.kv_set(user_id, PROJECT_WRITES_NAMESPACE, key, json.dumps(ids))
+
+
+def take_project_writes(user_id: str, conversation_id: str) -> list[str]:
+    """The project memory ids noted for the chat's turn, cleared as they are read."""
+    raw = db.kv_get(user_id, PROJECT_WRITES_NAMESPACE, conversation_id)
+    if raw is None:
+        return []
+    db.kv_delete(user_id, PROJECT_WRITES_NAMESPACE, conversation_id)
+    return [str(m) for m in json.loads(raw)]
 
 
 def _normalized(text: str) -> str:

@@ -30,6 +30,7 @@ from src.config import Config
 from src.db.models import db
 from src.services.side_costs import record_side_cost
 from src.utils.logging import get_logger
+from src.utils.memory_ids import matching_memory_ids
 from src.utils.service_tier import STANDARD, served_tier
 
 if TYPE_CHECKING:
@@ -177,10 +178,33 @@ def review_messages(
     )
     project_id = project.id if project else None
     for op in parse_ops(text):
+        to_project = _targets_project(op, project_id)
         applied = apply_single_op(user_id, conversation_id, op, project_id)
         if applied is not None:
             result.applied.append(applied)
             result.ops.append(op)
-            if op.get("scope") == "project":
+            if to_project:
                 result.project_applied.append(applied)
     return result
+
+
+def _targets_project(op: MemoryOp, project_id: str | None) -> bool:
+    """Whether the op writes the project's memory: an add with the project
+    scope, or a patch of one of the project's memories."""
+    if project_id is None:
+        return False
+    if op.get("action") == "add":
+        return op.get("scope") == "project"
+    ref = str(op.get("id") or "").strip()
+    project_ids = [m.id for m in db.list_project_memories(project_id)]
+    return bool(ref) and len(matching_memory_ids(ref, project_ids)) == 1
+
+
+def review_note(result: ReviewResult, project_name: str | None, shared: bool) -> str:
+    """The reply's label: the personal items, then the project's - named as
+    the project's (members read them) only in a shared project."""
+    if not (project_name and shared and result.project_applied):
+        return format_note(result.applied)
+    personal = [text for text in result.applied if text not in result.project_applied]
+    project_note = format_note(result.project_applied, project_name=project_name)
+    return f"{format_note(personal)}; {project_note}" if personal else project_note

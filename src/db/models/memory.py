@@ -595,22 +595,6 @@ class MemoryMixin:
             ).fetchall()
             return [self._row_to_memory(row) for row in rows]
 
-    def project_memories_written_this_turn(self, conversation_id: str) -> list[Memory]:
-        """Project memories this chat added or changed since its latest user
-        message (the turn now ending), oldest first."""
-        with self._pool.get_connection() as conn:
-            rows = self._execute_with_timing(
-                conn,
-                """SELECT * FROM user_memories
-                   WHERE source_conversation_id = ? AND project_id IS NOT NULL
-                     AND deleted_at IS NULL
-                     AND updated_at >= (SELECT MAX(created_at) FROM messages
-                                        WHERE conversation_id = ? AND role = 'user')
-                   ORDER BY updated_at""",
-                (conversation_id, conversation_id),
-            ).fetchall()
-            return [self._row_to_memory(row) for row in rows]
-
     def list_deleted_memories(self, user_id: str) -> list[Memory]:
         """List soft-deleted memories still inside the retention window.
 

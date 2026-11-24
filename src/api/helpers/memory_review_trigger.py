@@ -22,7 +22,7 @@ from dataclasses import dataclass
 
 from langchain_core.messages import AIMessage, BaseMessage
 
-from src.agent.memory_review import format_note, review_messages
+from src.agent.memory_review import review_messages, review_note
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import Message
@@ -213,8 +213,12 @@ def _run_pass(conv_id: str, user_id: str, window: _Window) -> None:
             cost *= Config.FLEX_PRICE_RATIO
         if target is not None:
             if result.applied:
-                project_name = project.name if project and result.project_applied else None
-                db.set_memory_note(target, format_note(result.applied, project_name))
+                db.set_memory_note(
+                    target,
+                    review_note(
+                        result, project.name if project else None, bool(project and project.shared)
+                    ),
+                )
             _record_cost(target, cost)
         last = messages[-1]
         _save_cursor(user_id, conv_id, _Cursor(last.id, to_db(last.created_at)))

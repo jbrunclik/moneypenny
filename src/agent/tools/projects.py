@@ -138,8 +138,10 @@ def _rename(op: ProjectOp, user_id: str) -> str:
 
 def _set_instructions(op: ProjectOp, user_id: str) -> str:
     project = _find_project(user_id, op.project)
+    # Required: a call that left the field out must not wipe the instructions
+    # (they have no undo); clearing them is done on the project page
     text = _checked_text(
-        op.instructions, Config.PROJECT_INSTRUCTIONS_MAX_CHARS, "instructions", required=False
+        op.instructions, Config.PROJECT_INSTRUCTIONS_MAX_CHARS, "instructions", required=True
     )
     if not db.update_project(project.id, user_id, instructions=text):
         raise _RejectedError("the project could not be updated")

@@ -186,3 +186,14 @@ class TestBinding:
 
     def test_not_extract_only(self) -> None:
         assert "manage_project" not in EXTRACT_ONLY_TOOL_NAMES
+
+
+class TestSetInstructionsNeedsText:
+    def test_empty_instructions_rejected_not_wiped(
+        self, test_database: Database, test_user: User, chat: Conversation
+    ) -> None:
+        project = test_database.create_project(test_user.id, "Home", "Keep me")
+        assert "REJECTED (set_instructions)" in _ops({"op": "set_instructions", "project": "Home"})
+        got = test_database.get_project(project.id, test_user.id)
+        assert got is not None
+        assert got.instructions == "Keep me"

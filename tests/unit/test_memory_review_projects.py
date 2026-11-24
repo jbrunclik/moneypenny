@@ -130,3 +130,41 @@ def test_review_scope_project_outside_project_dropped(
 
 def test_note_names_project() -> None:
     assert "Home project" in format_note(["Garage has 3-phase power"], project_name="Home")
+
+
+def test_review_patch_of_project_memory_counts_as_project_write(
+    fake_model: _FakeModels, test_database: Database, test_user: User, project: Project
+) -> None:
+    from src.db.models.memory import MemoryWrite
+
+    [memory_id] = test_database.apply_memory_batch(
+        test_user.id,
+        None,
+        [
+            MemoryWrite(
+                action="add", content="Breaker is 16 A", category="fact", project_id=project.id
+            )
+        ],
+        project_id=project.id,
+    )
+    assert memory_id is not None
+    fake_model.reply = json.dumps(
+        [{"action": "patch", "id": memory_id[:8], "old_text": "16 A", "new_text": "32 A"}]
+    )
+    conv_id, messages = _messages(test_database, test_user, project)
+
+    result = review_messages(test_user.id, conv_id, messages, project)
+
+    assert result.project_applied == ["Breaker is 32 A"]
+
+
+def test_review_note_labels_only_the_project_items_and_only_when_shared() -> None:
+    from src.agent.memory_review import ReviewResult, review_note
+
+    result = ReviewResult(
+        applied=["Likes tea", "Garage 3-phase"], project_applied=["Garage 3-phase"]
+    )
+    assert review_note(result, "Home", shared=True) == (
+        "Likes tea; " + format_note(["Garage 3-phase"], project_name="Home")
+    )
+    assert review_note(result, "Home", shared=False) == "Likes tea, Garage 3-phase"

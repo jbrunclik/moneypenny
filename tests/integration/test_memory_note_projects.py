@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from src.agent.memory_review import format_note
+from src.agent.tools.memory import note_project_writes
 from src.api.helpers.project_notes import note_shared_project_writes
 from src.db.models.memory import MemoryWrite
 from src.enums import MessageRole
@@ -20,12 +21,14 @@ def _turn(db: Database, user: User, conv_id: str, project_id: str | None, text: 
     """A user message, a project memory written by the turn, the reply's id."""
     db.add_message(conv_id, MessageRole.USER, "Note this")
     if project_id:
-        db.apply_memory_batch(
+        [memory_id] = db.apply_memory_batch(
             user.id,
             conv_id,
             [MemoryWrite(action="add", content=text, category="fact", project_id=project_id)],
             project_id=project_id,
         )
+        # What manage_memory records for the reply's note
+        note_project_writes(user.id, conv_id, str(memory_id))
     return db.add_message(conv_id, MessageRole.ASSISTANT, "Noted").id
 
 
@@ -70,7 +73,8 @@ class TestSharedProjectNote:
         project = test_database.create_project(test_user.id, "Home")
         test_database.add_project_member(project.id, test_user.id, jana.id)
         conv = test_database.create_conversation(test_user.id, "Wallbox", project_id=project.id)
-        _turn(test_database, test_user, conv.id, project.id, "Garage has 3-phase power")
+        first = _turn(test_database, test_user, conv.id, project.id, "Garage has 3-phase power")
+        note_shared_project_writes(conv.id, test_user.id, first)  # that turn's save
         reply = _turn(test_database, test_user, conv.id, None, "")
 
         note_shared_project_writes(conv.id, test_user.id, reply)
@@ -83,3 +87,56 @@ def test_format_note_names_the_project() -> None:
     assert note.startswith("Garage has 3-phase power")
     assert "Home" in note
     assert format_note(["x"]) == "x"
+
+
+@pytest.mark.usefixtures("app")
+class TestNoteCoversPatches:
+    def test_patch_of_earlier_chats_memory_is_noted(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        from src.agent.tools.context import set_conversation_context
+        from src.agent.tools.memory import manage_memory
+
+        jana = test_database.get_or_create_user(email="jana@example.com", name="Jana")
+        project = test_database.create_project(test_user.id, "Family")
+        test_database.add_project_member(project.id, test_user.id, jana.id)
+        earlier = test_database.create_conversation(test_user.id, "Earlier", project_id=project.id)
+        [memory_id] = test_database.apply_memory_batch(
+            test_user.id,
+            earlier.id,
+            [
+                MemoryWrite(
+                    action="add",
+                    content="Presentation on Friday",
+                    category="fact",
+                    project_id=project.id,
+                )
+            ],
+            project_id=project.id,
+        )
+        assert memory_id is not None
+        conv = test_database.create_conversation(test_user.id, "Now", project_id=project.id)
+        test_database.add_message(conv.id, MessageRole.USER, "update it")
+        set_conversation_context(conv.id, test_user.id)
+        try:
+            manage_memory.invoke(
+                {
+                    "operations": [
+                        {
+                            "action": "patch",
+                            "id": memory_id,
+                            "old_text": "Friday",
+                            "new_text": "Monday",
+                        }
+                    ]
+                }
+            )
+        finally:
+            set_conversation_context(None, None)
+        reply = test_database.add_message(conv.id, MessageRole.ASSISTANT, "Done").id
+
+        note_shared_project_writes(conv.id, test_user.id, reply)
+
+        assert _note(test_database, reply) == format_note(
+            ["Presentation on Monday"], project_name="Family"
+        )

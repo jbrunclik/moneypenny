@@ -38,6 +38,7 @@ RESERVED_NAMESPACES = frozenset(
         "interject",
         "lost_actions",
         "memory_review",
+        "project_writes",
         "oauth_state",
         "search-usage",
         "prefix-cache",

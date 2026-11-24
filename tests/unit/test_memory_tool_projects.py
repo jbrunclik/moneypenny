@@ -184,3 +184,40 @@ class TestSearch:
     ) -> None:
         _project_memory(test_database, test_user.id, project.id, "Garage has 3-phase power")
         assert "3-phase" not in str(search_memory.invoke({"query": "garage"}))
+
+
+class TestReviewFixes:
+    def test_delete_then_add_at_project_cap(
+        self,
+        test_database: Database,
+        test_user: User,
+        project: Project,
+        project_chat: Conversation,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(Config, "PROJECT_MEMORY_MAX_ENTRIES", 1)
+        old = _project_memory(test_database, test_user.id, project.id, "Old fact")
+        result = _invoke(
+            {"action": "delete", "id": old},
+            {"action": "add", "content": "New fact", "category": "fact", "scope": "project"},
+        )
+        assert "REJECTED" not in result
+        assert [m.content for m in test_database.list_project_memories(project.id)] == ["New fact"]
+
+    def test_deleting_project_memory_frees_no_personal_slot(
+        self,
+        test_database: Database,
+        test_user: User,
+        project: Project,
+        project_chat: Conversation,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(Config, "MEMORY_MAX_ENTRIES", 1)
+        test_database.add_memory(test_user.id, "Personal one")
+        old = _project_memory(test_database, test_user.id, project.id, "Project fact")
+        result = _invoke(
+            {"action": "delete", "id": old},
+            {"action": "add", "content": "Personal two", "category": "fact"},
+        )
+        assert "REJECTED (add)" in result
+        assert len(test_database.list_memories(test_user.id)) == 1
