@@ -677,6 +677,57 @@
     }
   },
   {
+    "description": "List, create and rename the user's projects (folders of chats with their\nown instructions and memory), file chats under them, and set a project's\ninstructions. Act when the user asks; when a chat clearly belongs to one of\ntheir projects, or a topic keeps coming back, offer first and act only after\na yes. Sharing and deleting projects are done by the user on the project page.\n\nArgs:\n    operations: Each has an \"op\":\n        - \"list\": the user's projects (id, name, shared/solo, chats)\n        - \"create\": \"name\"; optional \"instructions\" (draft them from the chat\n          when the user asks), \"move_current_chat\" (default true)\n        - \"move_chat\": \"project\" (id or exact name); optional \"chat\" (a\n          conversation id; default this chat)\n        - \"remove_chat\": optional \"chat\" (default this chat)\n        - \"rename\": \"project\", \"name\" (owner only)\n        - \"set_instructions\": \"project\", \"instructions\" (replaces them all;\n          only when the user asks for it)\n\nReturns:\n    One line per operation: CREATED/MOVED/REMOVED/RENAMED/UPDATED or the\n    list, or REJECTED with the reason.",
+    "name": "manage_project",
+    "parameters": {
+      "properties": {
+        "operations": {
+          "items": {
+            "description": "One manage_project operation (fields per op: see the tool).",
+            "properties": {
+              "op": {
+                "enum": [
+                  "list",
+                  "create",
+                  "move_chat",
+                  "remove_chat",
+                  "rename",
+                  "set_instructions"
+                ],
+                "type": "STRING"
+              },
+              "project": {
+                "type": "STRING"
+              },
+              "name": {
+                "type": "STRING"
+              },
+              "instructions": {
+                "type": "STRING"
+              },
+              "chat": {
+                "type": "STRING"
+              },
+              "move_current_chat": {
+                "type": "BOOLEAN"
+              }
+            },
+            "required": [
+              "op"
+            ],
+            "type": "OBJECT"
+          },
+          "type": "ARRAY"
+        }
+      },
+      "required": [
+        "operations"
+      ],
+      "title": "manage_project",
+      "type": "OBJECT"
+    }
+  },
+  {
     "description": "Open a document from the user's saved documents to read it in full.\n\nOpen it whenever the conversation matches a document's \"Use for\" or needs a\ndetail its summary does not give - answer from the document, not from the\nsummary.\n\nArgs:\n    id: The document's id from the saved documents list.\n\nReturns:\n    The document's content (PDFs and images as-is, Office files as text).",
     "name": "open_document",
     "parameters": {

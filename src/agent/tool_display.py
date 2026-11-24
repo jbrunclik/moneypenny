@@ -256,6 +256,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Suggested an instruction",
         "icon": "edit",
     },
+    "manage_project": {
+        "label": "Updating projects",
+        "label_past": "Updated projects",
+        "icon": "folder",
+    },
 }
 
 # Place/routing tools share one detail formatter.
@@ -281,6 +286,7 @@ _CONDITIONAL_TOOLS = frozenset(
         "ask_choice",  # ordinary chats only, never for agents
         "propose_setup_change",  # interactive standing chats only
         "propose_instruction_change",  # ordinary non-anonymous chats only
+        "manage_project",  # ordinary non-anonymous chats only
     }
 )
 
@@ -725,6 +731,21 @@ def _standing_create_detail(tool_args: dict[str, object]) -> str | None:
     return f"preview: {_snippet(name, 50)}" if name else "preview"
 
 
+def _project_detail(tool_args: dict[str, object]) -> str | None:
+    """'create: Bikes, move_chat: Home' - each operation's verb and name."""
+    ops = tool_args.get("operations")
+    if not isinstance(ops, list):
+        return None
+    parts = []
+    for op in ops[:3]:
+        if not isinstance(op, dict):
+            continue
+        name = str(op.get("name") or op.get("project") or "")
+        verb = str(op.get("op") or "")
+        parts.append(f"{verb}: {_snippet(name, 30)}" if name else verb)
+    return ", ".join(p for p in parts if p) or None
+
+
 def _facts_detail(tool_args: dict[str, object]) -> str | None:
     """Fact edits as their keys - e.g. 'partition-walls, -blinds'."""
     sets = tool_args.get("set")
@@ -769,6 +790,7 @@ _DETAIL_FORMATTERS: dict[str, DetailFormatter] = {
     "record_conversation_facts": _facts_detail,
     "schedule": _schedule_detail,
     "create_standing_chat": _standing_create_detail,
+    "manage_project": _project_detail,
     "ask_choice": _truthy_arg("question"),
     "propose_setup_change": _truthy_arg("reason", 80),
     "propose_instruction_change": _truthy_arg("reason", 80),

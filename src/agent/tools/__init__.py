@@ -60,6 +60,7 @@ from src.agent.tools.planner import (
     refresh_planner_dashboard,
 )
 from src.agent.tools.program_setup_tool import propose_setup_change
+from src.agent.tools.projects import manage_project
 from src.agent.tools.request_approval import ApprovalRequestedException, request_approval
 from src.agent.tools.research import research
 from src.agent.tools.rouvy import is_rouvy_available, rouvy_workout
@@ -91,6 +92,7 @@ _ANONYMOUS_EXCLUDED_TOOLS = _INTEGRATION_TOOLS | {
     # The saved-document library is the user's own data, like memories
     "manage_documents",
     "open_document",
+    "manage_project",
     # Write persistent user data (saved places) - not allowed from anonymous chats
     "save_place",
     "delete_place",
@@ -295,6 +297,8 @@ def get_tools_for_request(
         # lasting style corrections for the user's custom instructions
         tools.append(create_standing_chat)
         tools.append(propose_instruction_change)
+        # Projects: create, file chats, set instructions (never sharing)
+        tools.append(manage_project)
 
     return tools
 
@@ -349,6 +353,7 @@ _NON_PERMISSIONED_TOOLS = frozenset(
         "propose_setup_change",  # interactive standing chats only, never a grant
         "propose_instruction_change",  # ordinary non-anonymous chats only, never a grant
         "create_standing_chat",  # ordinary chats only, never a grant
+        "manage_project",  # ordinary chats only, never a grant
         # Inline artifacts: chats only, never granted to agents
         "create_artifact",
         "update_artifact",

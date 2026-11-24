@@ -22,6 +22,7 @@ ANONYMOUS_WITHHELD = {
     "search_memory",
     "manage_documents",
     "open_document",
+    "manage_project",
     "save_place",
     "delete_place",
     "search_conversations",
@@ -65,6 +66,7 @@ _ORDINARY_CHAT_ONLY = {
     "create_standing_chat",
     "ask_choice",
     "propose_instruction_change",
+    "manage_project",
 }
 
 

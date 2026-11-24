@@ -256,5 +256,3 @@ update_workout  # evals/fakes.py FakeGarmin, called by name through garmin.safe_
 # Projects slice A (docs/superpowers/plans/2026-11-24-projects.md): the agent
 # side (slice B) calls these - drop these lines when it lands
 get_memory_in_scope  # src/db/models/memory.py
-project_for_conversation  # src/db/models/projects.py
-PROJECT_MAX_OPS_PER_CALL  # src/config.py, manage_project's batch cap
