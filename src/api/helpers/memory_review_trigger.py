@@ -203,7 +203,8 @@ def _run_pass(conv_id: str, user_id: str, window: _Window) -> None:
         messages = messages_to_review(conv_id, window)
         if not messages:
             return
-        result = review_messages(user_id, conv_id, messages)
+        project = db.project_for_conversation(conv_id, user_id)
+        result = review_messages(user_id, conv_id, messages, project)
         target = _note_target(conv_id, window)
         cost = calculate_token_cost(
             Config.AI_ASSIST_MODEL, result.input_tokens, result.output_tokens
@@ -212,7 +213,8 @@ def _run_pass(conv_id: str, user_id: str, window: _Window) -> None:
             cost *= Config.FLEX_PRICE_RATIO
         if target is not None:
             if result.applied:
-                db.set_memory_note(target, format_note(result.applied))
+                project_name = project.name if project and result.project_applied else None
+                db.set_memory_note(target, format_note(result.applied, project_name))
             _record_cost(target, cost)
         last = messages[-1]
         _save_cursor(user_id, conv_id, _Cursor(last.id, to_db(last.created_at)))

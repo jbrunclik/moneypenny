@@ -20,7 +20,11 @@ from google.genai.types import GenerateContentConfig, ThinkingConfig, ThinkingLe
 
 from src.agent.flex import generate_on_flex
 from src.agent.gemini_clients import shared_genai_client
-from src.agent.prompt_texts.memory_review import MEMORY_REVIEW_PROMPT
+from src.agent.prompt_texts.memory_review import (
+    MEMORY_REVIEW_PROJECT_BLOCK,
+    MEMORY_REVIEW_PROMPT,
+    MEMORY_REVIEW_SHARED_RULE,
+)
 from src.agent.tools.memory import MemoryOp, apply_single_op
 from src.config import Config
 from src.db.models import db
@@ -29,7 +33,7 @@ from src.utils.logging import get_logger
 from src.utils.service_tier import STANDARD, served_tier
 
 if TYPE_CHECKING:
-    from src.db.models import Memory
+    from src.db.models import Memory, Project
     from src.db.models.dataclasses import Message
 
 logger = get_logger(__name__)
@@ -46,6 +50,8 @@ class ReviewResult:
 
     applied: list[str] = field(default_factory=list)
     ops: list[MemoryOp] = field(default_factory=list)
+    # The applied texts that went to the project's memory
+    project_applied: list[str] = field(default_factory=list)
     input_tokens: int = 0
     output_tokens: int = 0
     # The Gemini tier that served the call (flex bills FLEX_PRICE_RATIO)
@@ -69,12 +75,16 @@ def parse_ops(text: str) -> list[MemoryOp]:
     return ops[: Config.MEMORY_REVIEW_MAX_OPS]
 
 
-def format_note(applied: list[str]) -> str:
-    """The reply's label: up to two items, then "and N more"."""
+def format_note(applied: list[str], project_name: str | None = None) -> str:
+    """The reply's label: up to two items, then "and N more"; for a shared
+    project's memory, which project's members now read it."""
     items = [_truncate(text) for text in applied[:_NOTE_MAX_ITEMS]]
     note = ", ".join(items)
     rest = len(applied) - len(items)
-    return f"{note}, and {rest} more" if rest > 0 else note
+    note = f"{note}, and {rest} more" if rest > 0 else note
+    if project_name:
+        note += f" (in the {project_name} project - its members see it)"
+    return note
 
 
 def _truncate(text: str) -> str:
@@ -103,7 +113,17 @@ def _transcript(messages: list[Message]) -> str:
     return "\n\n".join(lines)
 
 
-def build_prompt(user_id: str, messages: list[Message]) -> str:
+def _project_block(project: Project | None) -> str:
+    if project is None:
+        return ""
+    return MEMORY_REVIEW_PROJECT_BLOCK.format(
+        name=" ".join(project.name.split()),
+        shared_rule=MEMORY_REVIEW_SHARED_RULE if project.shared else "",
+        memories=_memory_lines(db.list_project_memories(project.id), with_ids=True),
+    )
+
+
+def build_prompt(user_id: str, messages: list[Message], project: Project | None = None) -> str:
     # A random boundary the conversation cannot forge: text inside it is data
     boundary = f"conversation-{secrets.token_hex(8)}"
     return MEMORY_REVIEW_PROMPT.format(
@@ -112,6 +132,7 @@ def build_prompt(user_id: str, messages: list[Message]) -> str:
         memories=_memory_lines(db.list_memories(user_id), with_ids=True),
         deleted=_memory_lines(db.list_deleted_memories(user_id), with_ids=False),
         transcript=_transcript(messages),
+        project_block=_project_block(project),
     )
 
 
@@ -138,23 +159,28 @@ def _call_model(prompt: str) -> tuple[str, int, int, str]:
     return response.text or "", tokens_in, tokens_out, served_tier(response)
 
 
-def review_messages(user_id: str, conversation_id: str, messages: list[Message]) -> ReviewResult:
+def review_messages(
+    user_id: str, conversation_id: str, messages: list[Message], project: Project | None = None
+) -> ReviewResult:
     """Review a chat's recent messages and apply what is worth remembering.
 
     Synchronous (the trigger runs it on a daemon thread; evals call it directly).
     Raises when the model call fails - the caller logs and retries next time.
     """
     started = time.monotonic()
-    text, tokens_in, tokens_out, tier = _call_model(build_prompt(user_id, messages))
+    text, tokens_in, tokens_out, tier = _call_model(build_prompt(user_id, messages, project))
     result = ReviewResult(
         input_tokens=tokens_in,
         output_tokens=tokens_out,
         service_tier=tier,
         model_ms=round((time.monotonic() - started) * 1000),
     )
+    project_id = project.id if project else None
     for op in parse_ops(text):
-        applied = apply_single_op(user_id, conversation_id, op)
+        applied = apply_single_op(user_id, conversation_id, op, project_id)
         if applied is not None:
             result.applied.append(applied)
             result.ops.append(op)
+            if op.get("scope") == "project":
+                result.project_applied.append(applied)
     return result

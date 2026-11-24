@@ -31,7 +31,7 @@ from src.agent.tools.turn_usage import record_tool_call
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import Memory
-from src.db.models.memory import MemoryWrite, MemoryWriteConflictError
+from src.db.models.memory import MemoryLimitError, MemoryWrite, MemoryWriteConflictError
 from src.utils.clock import local_today
 from src.utils.embeddings import embed_text, top_k_similar
 from src.utils.logging import get_logger
@@ -56,6 +56,7 @@ class MemoryOp(TypedDict, total=False):
     old_text: str
     new_text: str
     valid_until: str
+    scope: str
 
 
 def _reject(action: str, reason: str) -> str:
@@ -142,11 +143,17 @@ class _BatchState:
     protected: set[str] = field(default_factory=set)
     deleted: set[str] = field(default_factory=set)
     known_ids: list[str] | None = None
+    # The chat's project (its memories are in scope too) and their count
+    project_id: str | None = None
+    project_count: int = 0
 
     def full_ids(self, ref: str) -> list[str]:
-        """The full ids a model-given id names (it may be the list's short id)."""
+        """The full ids a model-given id names (it may be the list's short id),
+        among the personal memories and the chat's project's."""
         if self.known_ids is None:
-            self.known_ids = [memory.id for memory in db.list_memories(self.user_id)]
+            self.known_ids = [
+                memory.id for memory in _scoped_memories(self.user_id, self.project_id)
+            ]
         return matching_memory_ids(ref, self.known_ids) or [ref]
 
     def content_of(self, memory_id: str) -> str | None:
@@ -154,13 +161,41 @@ class _BatchState:
         if memory_id in self.deleted:
             return None
         if memory_id not in self.contents:
-            memory = db.get_memory(memory_id, self.user_id)
+            memory = db.get_memory_in_scope(memory_id, self.user_id, self.project_id)
             if memory is None:
                 return None
             self.contents[memory_id] = memory.content
             if memory.protected:
                 self.protected.add(memory_id)
         return self.contents[memory_id]
+
+
+def _scoped_memories(user_id: str, project_id: str | None) -> list[Memory]:
+    """The personal memories, then the chat's project's (none outside a project)."""
+    memories = db.list_memories(user_id)
+    if project_id is not None:
+        memories = [*memories, *db.list_project_memories(project_id)]
+    return memories
+
+
+def chat_project_id(conversation_id: str | None, user_id: str) -> str | None:
+    """The project the chat is filed under, if the user is still a member."""
+    if not conversation_id:
+        return None
+    project = db.project_for_conversation(conversation_id, user_id)
+    return project.id if project else None
+
+
+def _add_scope(op: MemoryOp, state: _BatchState) -> tuple[str | None, str | None]:
+    """The add's project id (None: personal), and a rejection."""
+    scope = str(op.get("scope") or "personal")
+    if scope == "personal":
+        return None, None
+    if scope != "project":
+        return None, _reject("add", f'unknown scope \'{scope}\'. Use "personal" or "project".')
+    if state.project_id is None:
+        return None, _reject("add", 'this chat is not in a project: save it with scope "personal".')
+    return state.project_id, None
 
 
 def _memory_id(action: str, op: MemoryOp, state: _BatchState) -> tuple[str, str | None]:
@@ -204,9 +239,21 @@ def _plan_add(op: MemoryOp, state: _BatchState) -> _Planned | str:
     valid_until, rejection = _valid_until("add", op)
     if rejection:
         return rejection
-    state.count += 1
+    project_id, rejection = _add_scope(op, state)
+    if rejection:
+        return rejection
+    if project_id is None:
+        state.count += 1
+    else:
+        state.project_count += 1
     return _Planned(
-        MemoryWrite("add", content=content, category=category, valid_until=valid_until or None)
+        MemoryWrite(
+            "add",
+            content=content,
+            category=category,
+            valid_until=valid_until or None,
+            project_id=project_id,
+        )
     )
 
 
@@ -326,13 +373,21 @@ def _plan_op(op: MemoryOp, state: _BatchState) -> _Planned | str:
     return planner(op, state)
 
 
-def _plan_batch(user_id: str, operations: list[MemoryOp]) -> tuple[list[_Planned | str], int]:
+def _plan_batch(
+    user_id: str, operations: list[MemoryOp], project_id: str | None = None
+) -> tuple[list[_Planned | str], int]:
     """Validate every operation against the batch's final state.
 
     Returns the plan and the bank size the batch leaves.
     """
-    state = _BatchState(user_id, count=db.get_memory_count(user_id))
+    state = _BatchState(
+        user_id,
+        count=db.get_memory_count(user_id),
+        project_id=project_id,
+        project_count=len(db.list_project_memories(project_id)) if project_id else 0,
+    )
     plan = [_plan_op(op, state) for op in operations]
+    plan = _project_cap(plan, state)
     if state.count > Config.MEMORY_MAX_ENTRIES:
         full = (
             f"memory bank would be full ({state.count}/{Config.MEMORY_MAX_ENTRIES} after this "
@@ -344,6 +399,20 @@ def _plan_batch(user_id: str, operations: list[MemoryOp]) -> tuple[list[_Planned
             for p in plan
         ]
     return plan, state.count
+
+
+def _project_cap(plan: list[_Planned | str], state: _BatchState) -> list[_Planned | str]:
+    """Reject the batch's project adds when they would pass the project's cap."""
+    limit = Config.PROJECT_MEMORY_MAX_ENTRIES
+    if state.project_id is None or state.project_count <= limit:
+        return plan
+    full = (
+        f"the project memory would be full ({state.project_count}/{limit} after this batch). "
+        "Merge two related project memories or delete one that no longer applies."
+    )
+    return [
+        _reject("add", full) if isinstance(p, _Planned) and p.write.project_id else p for p in plan
+    ]
 
 
 def _rejected_batch(plan: list[_Planned | str]) -> list[str]:
@@ -383,6 +452,17 @@ def _applied_line(user_id: str, planned: _Planned, new_id: str | None, count: in
         )
         _best_effort(db.embed_and_store_async, user_id, "memory", str(new_id), str(write.content))
         until = f", until {write.valid_until}" if write.valid_until else ""
+        if write.project_id:
+            logger.info(
+                "Project memory write",
+                extra={
+                    "project_id": write.project_id,
+                    "author": user_id,
+                    "op": "add",
+                    "source": "tool",
+                },
+            )
+            return f"added id={new_id}{until} to the project memory"
         return f"added id={new_id}{until} ({count}/{Config.MEMORY_MAX_ENTRIES} used)"
     if write.action == "patch":
         content = str(write.content)
@@ -416,11 +496,16 @@ def _applied_line(user_id: str, planned: _Planned, new_id: str | None, count: in
 def _run_batch(user_id: str, conversation_id: str | None, operations: list[MemoryOp]) -> list[str]:
     """Plan the batch, then write all of it in one transaction or none of it."""
     try:
-        plan, count = _plan_batch(user_id, operations)
+        project_id = chat_project_id(conversation_id, user_id)
+        plan, count = _plan_batch(user_id, operations, project_id)
         planned = [p for p in plan if isinstance(p, _Planned)]
         if len(planned) < len(plan):
             return _rejected_batch(plan)
-        new_ids = db.apply_memory_batch(user_id, conversation_id, [p.write for p in planned])
+        new_ids = db.apply_memory_batch(
+            user_id, conversation_id, [p.write for p in planned], project_id=project_id
+        )
+    except MemoryLimitError as e:
+        return [_reject("batch", f"{e}. Nothing was applied.")]
     except MemoryWriteConflictError as e:
         logger.info("Memory write rejected", extra={"action": "batch", "reason": "conflict"})
         return [
@@ -444,13 +529,15 @@ def _normalized(text: str) -> str:
     return " ".join(text.casefold().split()).strip(" .!")
 
 
-def _already_known(user_id: str, content: str) -> bool:
+def _already_known(user_id: str, content: str, project_id: str | None = None) -> bool:
     """Whether the bank holds this text already (a reread must not duplicate)."""
     wanted = _normalized(content)
-    return any(_normalized(m.content) == wanted for m in db.list_memories(user_id))
+    return any(_normalized(m.content) == wanted for m in _scoped_memories(user_id, project_id))
 
 
-def apply_single_op(user_id: str, conversation_id: str | None, op: MemoryOp) -> str | None:
+def apply_single_op(
+    user_id: str, conversation_id: str | None, op: MemoryOp, project_id: str | None = None
+) -> str | None:
     """Apply one add or patch through the tool's guards (the background review).
 
     Returns the memory's new text, or None when the op was rejected or failed
@@ -460,14 +547,16 @@ def apply_single_op(user_id: str, conversation_id: str | None, op: MemoryOp) -> 
     if action not in ("add", "patch"):
         logger.info("Memory review op refused", extra={"user_id": user_id, "action": action})
         return None
-    if action == "add" and _already_known(user_id, str(op.get("content") or "")):
+    if action == "add" and _already_known(user_id, str(op.get("content") or ""), project_id):
         logger.info("Memory review add skipped: already known", extra={"user_id": user_id})
         return None
     try:
-        [planned], count = _plan_batch(user_id, [op])
+        [planned], count = _plan_batch(user_id, [op], project_id)
         if isinstance(planned, str):
             return None  # _reject logged why
-        [new_id] = db.apply_memory_batch(user_id, conversation_id, [planned.write])
+        [new_id] = db.apply_memory_batch(
+            user_id, conversation_id, [planned.write], project_id=project_id
+        )
     except Exception:
         logger.warning("Memory review op failed", extra={"user_id": user_id}, exc_info=True)
         return None
@@ -505,6 +594,8 @@ def manage_memory(operations: list[dict[str, Any]]) -> str:
               once), "new_text" (its replacement; "" removes it); optionally
               "category" to recategorize and/or "valid_until" (old_text may
               then be omitted)
+            "scope" (add): "personal" (default) or "project" - only in a
+              project chat: facts about the project's topic go to the project
             "valid_until": the last day (YYYY-MM-DD) a temporary fact holds
               ("away until Friday", "on antibiotics this week"); the memory is
               deleted after that day. "" removes the end date.
@@ -572,7 +663,9 @@ def search_memory(query: str) -> str:
         return tool_error("'query' is required.")
 
     today = local_today()
-    memories = [mem for mem in db.list_memories(user_id) if not mem.expired(today)]
+    conversation_id, _ = get_conversation_context()
+    project_id = chat_project_id(conversation_id, user_id)
+    memories = [m for m in _scoped_memories(user_id, project_id) if not m.expired(today)]
     by_id = {mem.id: mem for mem in memories}
     as_id = query.removeprefix("id=").strip("'\" ")
     named = matching_memory_ids(as_id, by_id)
@@ -639,4 +732,5 @@ def _fetched(user_id: str, mem: Memory) -> str:
 
 def _search_line(mem: Memory) -> str:
     until = f" (until {mem.valid_until.isoformat()})" if mem.valid_until else ""
-    return f"- id={mem.id} [{mem.category or 'uncategorized'}]{until} {mem.content}"
+    scope = " (project)" if mem.project_id else ""
+    return f"- id={mem.id} [{mem.category or 'uncategorized'}]{until}{scope} {mem.content}"

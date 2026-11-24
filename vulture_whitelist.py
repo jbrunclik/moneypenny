@@ -253,6 +253,3 @@ route_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dum
 ready_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
 get_workouts  # evals/fakes.py FakeGarmin, called by name through garmin.safe_api_call
 update_workout  # evals/fakes.py FakeGarmin, called by name through garmin.safe_api_call
-# Projects slice A (docs/superpowers/plans/2026-11-24-projects.md): the agent
-# side (slice B) calls these - drop these lines when it lands
-get_memory_in_scope  # src/db/models/memory.py

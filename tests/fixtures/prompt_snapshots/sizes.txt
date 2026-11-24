@@ -10,7 +10,7 @@ dynamic context (example user, 5 memories)    2676
   + a solo project (2 memories)      3254
   + a shared project (2 memories)    3460
 
-tool declarations (45 tools, 64049 chars)
+tool declarations (45 tools, 64423 chars)
   ask_choice                     768
   browser                       2736
   create_artifact               2499
@@ -31,11 +31,11 @@ tool declarations (45 tools, 64049 chars)
   list_places                    270
   load_skill                     479
   manage_documents              1999
-  manage_memory                 1609
+  manage_memory                 1760
   manage_project                1758
   open_document                  553
   propose_deep_research         1298
-  propose_instruction_change    1515
+  propose_instruction_change    1738
   propose_setup_change          1557
   read_artifact                  470
   read_conversation              913

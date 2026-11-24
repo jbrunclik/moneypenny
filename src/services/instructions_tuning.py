@@ -84,7 +84,14 @@ class Turn(TypedDict):
     reply: str
 
 
-def load_state(user_id: str) -> TuningState:
+def load_state(user_id: str, project_id: str | None = None) -> TuningState:
+    """The user's instructions and memories, or with ``project_id`` a
+    project's instructions (a project card changes only those)."""
+    if project_id is not None:
+        project = db.get_project(project_id, user_id)
+        if project is None:
+            raise InstructionsChangeError("That project is gone - nothing was changed.")
+        return {"instructions": project.instructions, "memories": []}
     user = db.get_user_by_id(user_id)
     return {
         "instructions": (user.custom_instructions or "") if user else "",
@@ -482,13 +489,47 @@ def target_name(change: InstructionChange) -> str:
     return "instructions" if "instructions" in change else "memory"
 
 
-def apply_change(user_id: str, raw: Mapping[str, object]) -> str:
+def _apply_project_change(user_id: str, project_id: str, change: InstructionChange) -> str:
+    """A project card: the project's instructions, landing only while they
+    still hold the text the change was computed from."""
+    state = load_state(user_id, project_id)
+    edit = change.get("instructions")
+    if edit is None or "memory" in change:
+        raise InstructionsChangeError("A project card changes only the project's instructions.")
+    if duplicate := already_there(state, change):
+        raise InstructionsChangeError(duplicate)
+    text = _edited_text(state["instructions"], edit)
+    if len(text) > Config.PROJECT_INSTRUCTIONS_MAX_CHARS:
+        raise InstructionsChangeError(
+            f"The project's instructions would be over {Config.PROJECT_INSTRUCTIONS_MAX_CHARS} "
+            "characters - nothing was changed."
+        )
+    if not db.update_project(
+        project_id, user_id, instructions=text, expected_instructions=state["instructions"]
+    ):
+        raise InstructionsConflictError(_CHANGED_MEANWHILE)
+    logger.info(
+        "Instructions changed",
+        extra={
+            "user_id": user_id,
+            "target": "project",
+            "project_id": project_id,
+            "length": len(text),
+        },
+    )
+    return text
+
+
+def apply_change(user_id: str, raw: Mapping[str, object], project_id: str | None = None) -> str:
     """Apply an approved change, all or nothing; returns the instructions as they
-    now are. Raises InstructionsChangeError (InstructionsConflictError when
-    something it touches changed since it was suggested)."""
+    now are (the project's, with ``project_id``). Raises InstructionsChangeError
+    (InstructionsConflictError when something it touches changed since it was
+    suggested)."""
     change = validate_change(raw)
     if isinstance(change, str):
         raise InstructionsChangeError(change)
+    if project_id is not None:
+        return _apply_project_change(user_id, project_id, change)
     state = load_state(user_id)
     if duplicate := already_there(state, change):
         raise InstructionsChangeError(duplicate)

@@ -25,7 +25,9 @@ class _Reviewer:
         self.result = ReviewResult(applied=["Ema - ballet on Tuesdays"], input_tokens=1000)
         self.error: Exception | None = None
 
-    def __call__(self, user_id: str, conversation_id: str, messages: list[Any]) -> ReviewResult:
+    def __call__(
+        self, user_id: str, conversation_id: str, messages: list[Any], project: Any = None
+    ) -> ReviewResult:
         self.calls.append(messages)
         if self.error:
             raise self.error

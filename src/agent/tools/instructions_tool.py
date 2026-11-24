@@ -23,7 +23,7 @@ from src.agent.proposals import ProposalFailedError, card_shown, file_proposal, 
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.config import Config
-from src.db.models import Conversation, Proposal, ProposalOption, db
+from src.db.models import Conversation, Project, Proposal, ProposalOption, db
 from src.services import instructions_tuning as it
 from src.services import program_setup as setup
 from src.utils.clock import utc_now
@@ -85,14 +85,19 @@ def _offered_again_too_soon(user_id: str, conversation_id: str, mark: str) -> st
     return None
 
 
-def _summary(change: it.InstructionChange) -> str:
+def _summary(change: it.InstructionChange, project: Project | None = None) -> str:
     op = change.get("instructions", {}).get("op")
     verb = {"append": "Add to", "replace": "Change", "remove": "Remove from"}.get(str(op), "Change")
-    return f"{verb} your instructions"
+    target = f"the {project.name} instructions" if project else "your instructions"
+    return f"{verb} {target}"
 
 
 def _checked(
-    change: str, user_id: str, conversation_id: str, evidence: list[str]
+    change: str,
+    user_id: str,
+    conversation_id: str,
+    evidence: list[str],
+    project: Project | None = None,
 ) -> it.InstructionChange | str:
     """The validated change, or why it is not proposed."""
     try:
@@ -104,7 +109,9 @@ def _checked(
         return f"{checked}."
     if "instructions" not in checked:
         return "a card changes the instructions; a fact about the user goes to manage_memory."
-    state = it.load_state(user_id)
+    if project is not None and "memory" in checked:
+        return "a project card changes only the project's instructions - drop the memory part."
+    state = it.load_state(user_id, project.id if project else None)
     if duplicate := it.already_there(state, checked):
         return duplicate
     if problem := it.evidence_problem(evidence, setup.chat_dates(conversation_id), state, checked):
@@ -113,7 +120,9 @@ def _checked(
 
 
 @tool
-def propose_instruction_change(change: str, evidence: list[str], reason: str) -> str:
+def propose_instruction_change(
+    change: str, evidence: list[str], reason: str, scope: str = "personal"
+) -> str:
     """Propose a change to the user's custom instructions (the rules in every
     chat's system prompt) when the user corrects the form of your replies in a
     way meant to last: format, length, tone, language ("stop using bullet
@@ -132,6 +141,9 @@ def propose_instruction_change(change: str, evidence: list[str], reason: str) ->
             Write the rule in the user's language, as a short instruction.
         evidence: 1-5 items, each "YYYY-MM-DD: what the user said" from this chat.
         reason: One sentence, for the user, on why this helps.
+        scope: "personal" (the user's instructions, every chat) or, in a project
+            chat, "project" (that project's instructions) for a rule about the
+            project's topic or client.
     """
     conversation_id, user_id = get_conversation_context()
     if (
@@ -144,8 +156,11 @@ def propose_instruction_change(change: str, evidence: list[str], reason: str) ->
             "anonymous chat).",
             retriable=False,
         )
+    project = _card_project(scope, conversation_id, user_id)
+    if isinstance(project, str):
+        return _refused(project, retriable=False)
     items = [e.strip() for e in evidence if e.strip()]
-    checked = _checked(change, user_id, conversation_id, items)
+    checked = _checked(change, user_id, conversation_id, items, project)
     if isinstance(checked, str):
         return _refused(checked)
     if it.blocked_by_decline(it.declined(user_id), checked, items):
@@ -158,7 +173,19 @@ def propose_instruction_change(change: str, evidence: list[str], reason: str) ->
     if refusal := _offered_again_too_soon(user_id, conversation_id, mark):
         return _refused(refusal, retriable=False)
     _retire_elsewhere(user_id, conversation_id, mark)
-    return _file(user_id, checked, items, reason.strip())
+    return _file(user_id, checked, items, reason.strip(), project)
+
+
+def _card_project(scope: str, conversation_id: str, user_id: str) -> Project | str | None:
+    """The project a card changes (None: the user's instructions), or why not."""
+    if scope == "personal":
+        return None
+    if scope != "project":
+        return f'unknown scope \'{scope}\': use "personal" or "project".'
+    project = db.project_for_conversation(conversation_id, user_id)
+    if project is None:
+        return 'this chat is not in a project: use scope "personal".'
+    return project
 
 
 def _retire_elsewhere(user_id: str, conversation_id: str, mark: str) -> None:
@@ -174,8 +201,14 @@ def _retire_elsewhere(user_id: str, conversation_id: str, mark: str) -> None:
             db.finish_proposal(p.id, "expired", "Offered again in another chat.")
 
 
-def _file(user_id: str, change: it.InstructionChange, evidence: list[str], reason: str) -> str:
-    state = it.load_state(user_id)
+def _file(
+    user_id: str,
+    change: it.InstructionChange,
+    evidence: list[str],
+    reason: str,
+    project: Project | None = None,
+) -> str:
+    state = it.load_state(user_id, project.id if project else None)
     try:
         rows = it.field_changes(state, change)
     except it.InstructionsChangeError as e:
@@ -188,15 +221,17 @@ def _file(user_id: str, change: it.InstructionChange, evidence: list[str], reaso
         # The card shows these as field rows (proposal_to_response)
         "changes": list(rows),
     }
+    if project is not None:
+        payload["project_id"] = project.id
     option: ProposalOption = {"label": _APPROVE_LABEL, "description": "", "payload": payload}
     changed = "\n".join(f"{r['field']}: {r['before'] or '—'} → {r['after'] or '—'}" for r in rows)
     details = {
         "Change": changed or "—",
-        "Applies to": APPLIES_TO,
+        "Applies to": f"Every chat in the {project.name} project" if project else APPLIES_TO,
         "Why": reason,
         "Based on": "\n".join(evidence),
     }
-    proposal = file_proposal(KIND, _summary(change), details, [option])
+    proposal = file_proposal(KIND, _summary(change, project), details, [option])
     logger.info("Instructions change proposed", extra={"target": it.target_name(change)})
     # Steering rides on the result: the rule is on its card, not in memory too
     return f"{card_shown(proposal)} Don't also save this rule as a memory."
@@ -209,13 +244,20 @@ def _change(option: ProposalOption) -> it.InstructionChange:
 def apply_instructions_card(proposal: Proposal, option: ProposalOption) -> str:
     """Apply exactly the approved change (re-checked; a stale one fails with its reason)."""
     change = _change(option)
+    project_id = option["payload"].get("project_id")
     try:
-        it.apply_change(proposal.user_id, change)
+        it.apply_change(
+            proposal.user_id, change, str(project_id) if isinstance(project_id, str) else None
+        )
     except it.InstructionsChangeError as e:
         it.log_resolved("card", "failed", change)
         raise ProposalFailedError(str(e)) from e
     it.log_resolved("card", "approved", change)
-    return "Your instructions are updated."
+    return (
+        "The project's instructions are updated."
+        if project_id
+        else "Your instructions are updated."
+    )
 
 
 def decline_instructions_card(proposal: Proposal) -> None:
