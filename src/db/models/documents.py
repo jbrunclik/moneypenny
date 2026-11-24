@@ -197,6 +197,7 @@ class DocumentMixin:
             source_message_id=row["source_message_id"],
             deleted_at=from_db_or_none(row["deleted_at"]),
             last_opened_at=from_db_or_none(row["last_opened_at"]),
+            project_id=row["project_id"],
         )
 
     def get_document(self, document_id: str, user_id: str) -> Document | None:

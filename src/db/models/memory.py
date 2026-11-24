@@ -437,6 +437,7 @@ class MemoryMixin:
             summary=row["summary"],
             valid_until=date.fromisoformat(row["valid_until"]) if row["valid_until"] else None,
             previous_content=row["previous_content"],
+            project_id=row["project_id"],
         )
 
     def memories_needing_summary(self, min_chars: int, limit: int) -> list[Memory]:
@@ -500,6 +501,18 @@ class MemoryMixin:
                 (user_id,),
             ).fetchall()
 
+            return [self._row_to_memory(row) for row in rows]
+
+    def list_project_memories(self, project_id: str) -> list[Memory]:
+        """A project's live memories (every member's), newest first. The
+        caller has checked membership."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT * FROM user_memories WHERE project_id = ? AND deleted_at IS NULL
+                   ORDER BY updated_at DESC""",
+                (project_id,),
+            ).fetchall()
             return [self._row_to_memory(row) for row in rows]
 
     def list_deleted_memories(self, user_id: str) -> list[Memory]:

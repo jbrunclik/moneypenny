@@ -62,6 +62,7 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
         standing_type=row["standing_type"],
         deleted_at=from_db_or_none(row["deleted_at"]),
         read_message_count=int(row["read_message_count"] or 0),
+        project_id=row["project_id"],
     )
 
 

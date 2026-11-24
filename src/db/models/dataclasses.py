@@ -140,6 +140,8 @@ class Conversation:
     # Message count as of the last time any of the user's devices showed it
     # (unread = message_count - read_message_count, shared across devices)
     read_message_count: int = 0
+    # The project the chat is filed under (None: the main list)
+    project_id: str | None = None
 
 
 @dataclass
@@ -229,6 +231,8 @@ class Memory:
     valid_until: date | None = None
     # The text before the last content change (any writer), for undo
     previous_content: str | None = None
+    # Set for a project memory (user_id is then its author); None = personal
+    project_id: str | None = None
 
     def expired(self, today: date) -> bool:
         """Past its last day: the nightly sweep deletes it (protected ones stay)."""
@@ -257,10 +261,42 @@ class Document:
     source_message_id: str | None = None
     deleted_at: datetime | None = None
     last_opened_at: datetime | None = None
+    # Set for a project document (user_id is then its author); None = personal
+    project_id: str | None = None
 
     def expired(self, today: date) -> bool:
         """Past its last day."""
         return self.valid_until is not None and self.valid_until < today
+
+
+@dataclass
+class Project:
+    """A folder of chats with its own instructions, memory and documents.
+    Members share those; each member's chats stay their own."""
+
+    id: str
+    owner_id: str
+    name: str
+    instructions: str
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: datetime | None = None
+    member_ids: list[str] = field(default_factory=list)
+
+    @property
+    def shared(self) -> bool:
+        """More members than the owner: family members read its memory."""
+        return len(self.member_ids) > 1
+
+
+@dataclass
+class ProjectSummary:
+    """A project as one user's sidebar shows it: counts are of their own chats."""
+
+    project: Project
+    member_names: list[str]
+    chat_count: int
+    unread_count: int
 
 
 @dataclass

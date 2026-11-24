@@ -38,6 +38,8 @@ from src.db.models.dataclasses import (
     Memory,
     Message,
     MessagePagination,
+    Project,
+    ProjectSummary,
     Proposal,
     ProposalOption,
     PushSubscription,
@@ -70,6 +72,7 @@ from src.db.models.message_files import MessageFileMixin
 from src.db.models.message_pagination import MessagePaginationMixin
 from src.db.models.planner import PlannerMixin
 from src.db.models.programs import ProgramConversationMixin
+from src.db.models.projects import ProjectMixin
 from src.db.models.proposals import ProposalsMixin
 from src.db.models.push import PushSubscriptionMixin
 from src.db.models.scheduled_items import ScheduledItemsMixin
@@ -101,6 +104,7 @@ class Database(
     MessageFileMixin,
     MemoryMixin,
     DocumentMixin,
+    ProjectMixin,
     PlannerMixin,
     CacheMixin,
     CostMixin,
@@ -228,6 +232,8 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     "JobRun",
     "StandingChat",
     "PushSubscription",
+    "Project",
+    "ProjectSummary",
     "Proposal",
     "ProposalOption",
     # Helper functions
