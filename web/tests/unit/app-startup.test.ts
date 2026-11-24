@@ -246,6 +246,12 @@ vi.mock('@/core/language', () => ({
   navigateToLanguageProgram: h.recAsync('navigateToLanguageProgram'),
 }));
 vi.mock('@/core/kv-store', () => ({ navigateToStorage: h.recAsync('navigateToStorage') }));
+vi.mock('@/core/projects', () => ({
+  leaveProjectView: h.rec('leaveProjectView'),
+  loadProjects: vi.fn(() => Promise.resolve()),
+  navigateToProject: h.recAsync('navigateToProject'),
+  createProjectAndOpen: h.recAsync('createProjectAndOpen'),
+}));
 vi.mock('@/core/remote-merge', () => ({ mergeExternalChanges: h.recAsync('mergeExternalChanges') }));
 vi.mock('@/core/conversation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/core/conversation')>()),
@@ -405,13 +411,15 @@ describe('app startup (signed in)', () => {
 
   it('hands conversation selection every view leaver, keeping the main area for agents', () => {
     const [leavers] = argsOf('setViewLeavers') as [Record<string, () => void>];
-    expect(Object.keys(leavers).sort()).toEqual(['agents', 'sports']);
+    expect(Object.keys(leavers).sort()).toEqual(['agents', 'project', 'sports']);
 
     leavers.agents?.();
     leavers.sports?.();
+    leavers.project?.();
 
     expect(argsOf('leaveAgentsView')).toEqual([false]);
     expect(argsOf('leaveSportsView')).toEqual([]);
+    expect(argsOf('leaveProjectView')).toEqual([false]);
   });
 
   it("hands conversation switching the agent header's actions", async () => {

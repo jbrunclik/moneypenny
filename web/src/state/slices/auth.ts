@@ -12,6 +12,7 @@ import { initialSearchData } from './search';
 import { initialSettingsData } from './settings';
 import { initialSportsData } from './sports';
 import { initialStorageData } from './storage';
+import { initialProjectsData } from './projects';
 import { initialUiSessionData } from './ui';
 
 export interface AuthSlice {
@@ -52,6 +53,7 @@ export const createAuthSlice: AppSlice<AuthSlice> = (set) => ({
       ...initialTrashData(),
       ...initialSelectionData(),
       ...initialStorageData(),
+      ...initialProjectsData(),
       ...initialSportsData(),
       ...initialLanguageData(),
       ...initialSettingsData(),

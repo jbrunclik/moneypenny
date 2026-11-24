@@ -6,7 +6,7 @@
  * for regular conversations (the mobile header takes over); program
  * variants keep it visible via their extraClass.
  */
-import { CHAT_HEADER_BACK_ICON, setIcon, type IconHtml } from '../utils/icons';
+import { CHAT_HEADER_BACK_ICON, FOLDER_ICON, setIcon, type IconHtml } from '../utils/icons';
 
 export interface ChatHeaderOptions {
   title: string;
@@ -17,6 +17,8 @@ export interface ChatHeaderOptions {
   onBack?: () => void;
   onRenameCommit?: (title: string) => void;
   actions?: HTMLElement[];
+  /** The project the chat is filed under: a link to its page before the title */
+  project?: { name: string; href: string } | undefined;
 }
 
 function getHeaderEl(): HTMLElement | null {
@@ -46,6 +48,20 @@ export function createChatHeader(opts: ChatHeaderOptions): HTMLElement {
     icon.className = 'chat-header-icon';
     setIcon(icon, opts.iconHtml);
     header.appendChild(icon);
+  }
+
+  if (opts.project) {
+    const link = document.createElement('a');
+    link.className = 'chat-header-project';
+    link.href = opts.project.href;
+    link.title = `Open the project ${opts.project.name}`;
+    const icon = document.createElement('span');
+    icon.className = 'chat-header-project-icon';
+    setIcon(icon, FOLDER_ICON);
+    const name = document.createElement('span');
+    name.textContent = opts.project.name;
+    link.append(icon, name);
+    header.appendChild(link);
   }
 
   const title = document.createElement('h2');

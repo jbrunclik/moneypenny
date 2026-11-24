@@ -156,6 +156,7 @@ export function trackViewedAgentConversation(
 interface ViewLeavers {
   agents: () => void;
   sports: () => void;
+  project: () => void;
 }
 // UI-local (F2): injected by startup (F1)
 let viewLeavers: ViewLeavers | null = null;
@@ -189,6 +190,9 @@ function leaveSpecialViewsForChat(): void {
   }
   if (store.isSportsView) {
     leaveView('sports');
+  }
+  if (store.isProjectView) {
+    leaveView('project');
   }
   store.setActiveView('chat');
 }
@@ -315,7 +319,8 @@ function reuseEmptyConversation(): boolean {
     store.isAgentsView ||
     store.isStorageView ||
     store.isSportsView ||
-    store.isLanguageView;
+    store.isLanguageView ||
+    store.isProjectView;
   const alreadyViewingIt = store.currentConversation?.id === reusable.id && !inSpecialView;
   if (!alreadyViewingIt) {
     void selectConversation(reusable.id);
@@ -324,7 +329,7 @@ function reuseEmptyConversation(): boolean {
 }
 
 /** Add a local-only conversation with a temp ID and make it current. */
-function addTempConversation(): { conv: Conversation; pendingAnonymous: boolean } {
+function addTempConversation(projectId: string | null): { conv: Conversation; pendingAnonymous: boolean } {
   const store = useStore.getState();
   const tempId = `temp-${Date.now()}`;
   const now = new Date().toISOString();
@@ -341,6 +346,8 @@ function addTempConversation(): { conv: Conversation; pendingAnonymous: boolean 
     created_at: now,
     updated_at: now,
     messages: [],
+    // Saved into this project with its first message
+    project_id: projectId,
   };
 
   store.addConversation(conv);
@@ -398,14 +405,15 @@ export async function reloadCurrentConversation(conversationId: string): Promise
 /**
  * Create a new conversation (local only - saved to DB on first message).
  */
-export function createConversation(): void {
-  log.debug('Creating new conversation');
+export function createConversation(projectId: string | null = null): void {
+  log.debug('Creating new conversation', { projectId });
 
   // A navigation of its own, like a switch: a view still loading (planner,
   // agents, sports...) checks its token and must not render over the new chat
   useStore.getState().startNavigation();
 
-  if (reuseEmptyConversation()) return;
+  // An empty main-list chat is reused; a chat in a project is always new
+  if (projectId === null && reuseEmptyConversation()) return;
 
   // Leave any special view before creating new conversation
   leaveSpecialViewsForChat();
@@ -424,7 +432,7 @@ export function createConversation(): void {
   // Clean up blob URLs from the previous conversation to prevent memory leaks
   setCurrentConversationForBlobs(null);
 
-  const { conv, pendingAnonymous } = addTempConversation();
+  const { conv, pendingAnonymous } = addTempConversation(projectId);
 
   renderConversationsList();
   setActiveConversation(conv.id);

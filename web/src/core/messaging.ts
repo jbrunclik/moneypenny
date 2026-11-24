@@ -137,7 +137,7 @@ async function unarchiveForSend(store: StoreState, conv: Conversation): Promise<
 async function persistTempConversation(store: StoreState, conv: Conversation): Promise<Conversation | null> {
   if (!isTempConversation(conv.id)) return conv;
   try {
-    const persistedConv = await conversations.create(conv.model);
+    const persistedConv = await conversations.create(conv.model, conv.project_id);
     const tempId = conv.id;
 
     // Migrate anonymous mode state from temp ID to persistent ID

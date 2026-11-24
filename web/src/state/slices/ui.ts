@@ -35,7 +35,7 @@ interface ActiveRequestState {
   assistantMessageId?: string;
 }
 
-export type ActiveView = 'chat' | 'planner' | 'agents' | 'storage' | 'sports' | 'language';
+export type ActiveView = 'chat' | 'planner' | 'agents' | 'storage' | 'sports' | 'language' | 'project';
 
 /** UI state that belongs to the signed-in user's session (wiped on logout). */
 export interface UiSessionData {
@@ -313,5 +313,6 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
       isStorageView: view === 'storage',
       isSportsView: view === 'sports',
       isLanguageView: view === 'language',
+      isProjectView: view === 'project',
     }),
 });

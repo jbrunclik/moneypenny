@@ -61,13 +61,23 @@ function buildChatHeaderActions(convId: string): HTMLElement[] {
  * Temp conversations get a plain header (no rename/actions until persisted).
  */
 export function renderChatHeaderForConversation(conv: Conversation): void {
+  const project = projectLink(conv);
   if (isTempConversation(conv.id)) {
-    renderChatHeader({ title: conv.title });
+    renderChatHeader({ title: conv.title, project });
     return;
   }
   renderChatHeader({
     title: conv.title,
     onRenameCommit: (newTitle) => void renameConversationTo(conv.id, newTitle),
     actions: buildChatHeaderActions(conv.id),
+    project,
   });
+}
+
+/** A link to the chat's project page (the hash route opens it). */
+function projectLink(conv: Conversation): { name: string; href: string } | undefined {
+  const projectId =
+    conv.project_id ?? useStore.getState().conversations.find((c) => c.id === conv.id)?.project_id;
+  const project = projectId ? useStore.getState().projects.find((p) => p.id === projectId) : undefined;
+  return project ? { name: project.name, href: `#/projects/${project.id}` } : undefined;
 }

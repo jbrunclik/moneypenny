@@ -57,6 +57,7 @@
 @import "./components/planner.css";
 @import "./components/agents.css";
 @import "./components/kv-store.css";
+@import "./components/projects.css";
 @import "./components/admin.css";
 @import "./components/device-checks.css";
 @import "./components/sports.css";

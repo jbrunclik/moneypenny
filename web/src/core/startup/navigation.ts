@@ -7,6 +7,7 @@
 import { handleAgentEditById, handleStandingRun, leaveAgentsView, navigateToAgents } from '../agents';
 import { setViewLeavers } from '../conversation';
 import { setAgentHeaderActions } from '../conversation-switch';
+import { leaveProjectView } from '../projects';
 import { leaveSportsView } from '../sports';
 
 /**
@@ -14,7 +15,11 @@ import { leaveSportsView } from '../sports';
  */
 export function initNavigation(): void {
   // The agents view leaves the main area to the conversation being opened
-  setViewLeavers({ agents: () => leaveAgentsView(false), sports: leaveSportsView });
+  setViewLeavers({
+    agents: () => leaveAgentsView(false),
+    sports: leaveSportsView,
+    project: () => leaveProjectView(false),
+  });
   setAgentHeaderActions({
     openAgents: () => navigateToAgents(),
     editAgent: handleAgentEditById,

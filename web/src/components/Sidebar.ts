@@ -2,10 +2,10 @@ import { createElement, getElementById, clearElement } from '../utils/dom';
 import { formatRelativeTime, groupForDate } from '../utils/relative-time';
 import { createUserAvatarElement } from '../utils/avatar';
 import { isSidebarPreviewsEnabled, getSwipeQuickAction } from '../utils/preferences';
-import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, CLOCK_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPARKLES_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON, createIconButton, createIconElement, iconNodes, type IconHtml } from '../utils/icons';
+import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, CLOCK_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, FOLDER_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPARKLES_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON, createIconButton, createIconElement, iconNodes, type IconHtml } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
-import type { Conversation, JobsOverviewResponse, User } from '../types/api';
+import type { Conversation, JobsOverviewResponse, Project, User } from '../types/api';
 import { conversations as conversationsApi } from '../api/conversations';
 import { costs } from '../api/costs';
 import { createLogger } from '../utils/logger';
@@ -187,6 +187,39 @@ function groupLabel(text: string): HTMLElement {
   return el('div', { class: 'conversation-group-label' }, [text]);
 }
 
+/** A project row: name, a shared marker, an unread dot (any of the user's chats in it). */
+function projectItem(project: Project, isActive: boolean, conversations: Conversation[]): HTMLElement {
+  const unread =
+    project.unread_count > 0 ||
+    conversations.some((c) => c.project_id === project.id && (c.unreadCount ?? 0) > 0);
+  return el(
+    'div',
+    {
+      class: `project-item ${isActive ? 'active' : ''}`,
+      'data-project-id': project.id,
+      role: 'button',
+      tabindex: '0',
+      title: project.name,
+    },
+    [
+      createIconElement('project-item-icon', FOLDER_ICON),
+      el('span', { class: 'project-item-name' }, [project.name]),
+      project.shared && el('span', { class: 'project-item-shared', title: `Shared: ${project.member_names.join(', ')}` }, ['Shared']),
+      unread && el('span', { class: 'project-item-unread', 'aria-label': 'Unread messages' }),
+    ]
+  );
+}
+
+/** The Projects group (none until the user has a project; New project is in the user menu). */
+function projectGroup(conversations: Conversation[]): HTMLElement[] {
+  const { projects, isProjectView, activeProjectId } = useStore.getState();
+  if (projects.length === 0) return [];
+  return [
+    groupLabel('Projects'),
+    ...projects.map((p) => projectItem(p, isProjectView && p.id === activeProjectId, conversations)),
+  ];
+}
+
 /** The conversation rows: a Pinned group, then recency groups with labels. */
 function conversationGroups(conversations: Conversation[]): HTMLElement[] {
   const { currentConversation, isPlannerView, isAgentsView, isSportsView, isLanguageView, isStorageView } = useStore.getState();
@@ -194,14 +227,16 @@ function conversationGroups(conversations: Conversation[]): HTMLElement[] {
   // views (planner, agents, sports, language, storage) set currentConversation
   // to their own conversation, which must not re-highlight a list row on
   // re-render
-  const inSpecialView = isPlannerView || isAgentsView || isSportsView || isLanguageView || isStorageView;
+  const { isProjectView } = useStore.getState();
+  const inSpecialView = isPlannerView || isAgentsView || isSportsView || isLanguageView || isStorageView || isProjectView;
   const activeId = inSpecialView ? undefined : currentConversation?.id;
 
   // Pinned conversations get their own group at the top; the rest are
   // grouped by recency (list arrives sorted by updated_at desc, so a label
   // is emitted whenever the group changes)
   const pinnedConversations = conversations.filter((c) => c.pinned);
-  const regularConversations = conversations.filter((c) => !c.pinned);
+  // A project's chats live on its page; a pinned one stays in Pinned
+  const regularConversations = conversations.filter((c) => !c.pinned && !c.project_id);
 
   const rows: HTMLElement[] = [];
   if (pinnedConversations.length) {
@@ -267,6 +302,7 @@ export function renderConversationsList(): void {
     lastRenderedList = null;
     container.replaceChildren(
       ...nav,
+      ...projectGroup(conversations),
       el('div', { class: 'conversations-empty' }, [
         el('p', {}, ['No conversations yet']),
         el('p', { class: 'text-muted' }, ['Start a new chat to begin']),
@@ -278,6 +314,7 @@ export function renderConversationsList(): void {
   const list = document.createDocumentFragment();
   list.append(
     ...nav,
+    ...projectGroup(conversations),
     ...conversationGroups(conversations),
     // Loading indicator for "load more" if there are more pages
     ...(conversationsPagination.hasMore ? [loadMoreDots('conversations-load-more', conversationsPagination.isLoadingMore)] : [])
@@ -448,6 +485,7 @@ export function renderUserInfo(): void {
       menuItem({ class: 'user-menu-item user-menu-trash hidden', 'data-route': 'trash' }, DELETE_ICON, 'Trash', [
         el('span', { class: 'archive-count trash-count' }, ['0']),
       ]),
+      menuItem({ id: 'new-project-btn', class: 'user-menu-item' }, FOLDER_ICON, 'New project'),
       menuItem({ id: 'select-chats-btn', class: 'user-menu-item' }, CHECK_ICON, 'Select chats'),
       menuItem({ id: 'cost-history-btn', class: 'user-menu-item' }, COST_ICON, 'Cost history'),
       ...(user.is_admin ? [menuItem({ id: 'admin-btn', class: 'user-menu-item' }, ACTIVITY_ICON, 'Admin')] : []),

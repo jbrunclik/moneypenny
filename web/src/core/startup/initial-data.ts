@@ -27,6 +27,7 @@ import { markAppReady } from './app-ready';
 import { startSync } from './sync';
 import { markBootStage, reportBootTiming } from './boot-timing';
 import { openSharedText } from '../share-link';
+import { loadProjects } from '../projects';
 
 const log = createLogger('init');
 
@@ -139,6 +140,8 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
 
   try {
     storeInitialData(store, await fetchInitialData());
+    // The sidebar's Projects group; not awaited (the chat list leads)
+    void loadProjects();
     markBootStage('data');
     renderInitialData();
 

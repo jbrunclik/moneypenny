@@ -19,16 +19,17 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('deeplink');
 
 /** Route types supported by the router */
-type RouteType = 'home' | 'conversation' | 'planner' | 'agents' | 'storage' | 'sports' | 'language' | 'archive' | 'trash' | 'new' | 'unknown';
+type RouteType = 'home' | 'conversation' | 'project' | 'planner' | 'agents' | 'storage' | 'sports' | 'language' | 'archive' | 'trash' | 'new' | 'unknown';
 
 /** Parsed route information */
 interface ParsedRoute {
   type: RouteType;
   conversationId?: string;
+  projectId?: string;
 }
 
 /** Callback when hash changes to a conversation, planner, agents, storage, sports, or language */
-type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean, isTrash?: boolean) => void;
+type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean, isTrash?: boolean, projectId?: string | null) => void;
 
 // Module state
 // UI-local (F2): the hash listener's wiring
@@ -81,6 +82,12 @@ export function parseHash(hash: string = window.location.hash): ParsedRoute {
   const viewRoute = matchViewRoute(cleanHash);
   if (viewRoute) {
     return { type: viewRoute };
+  }
+
+  // Match /projects/{id}
+  const projectId = cleanHash.match(/^\/projects\/([a-zA-Z0-9-]+)$/)?.[1];
+  if (projectId !== undefined) {
+    return { type: 'project', projectId };
   }
 
   // Match /conversations/{id}
@@ -247,6 +254,19 @@ export function setAgentsHash(): void {
   }, 0);
 }
 
+/** Set the URL hash to a project's page. */
+export function setProjectHash(projectId: string): void {
+  const newHash = `#/projects/${projectId}`;
+  if (window.location.hash === newHash) {
+    return;
+  }
+  isIgnoringHashChange = true;
+  history.pushState(null, '', newHash);
+  setTimeout(() => {
+    isIgnoringHashChange = false;
+  }, 0);
+}
+
 /**
  * Set the URL hash to the storage route.
  */
@@ -367,6 +387,8 @@ function handleHashChange(): void {
       hashChangeCallback(null, false, false, false, false, false, true, false);
     } else if (route.type === 'trash') {
       hashChangeCallback(null, false, false, false, false, false, false, true);
+    } else if (route.type === 'project' && route.projectId) {
+      hashChangeCallback(null, false, false, false, false, false, false, false, route.projectId);
     } else if (route.type === 'conversation' && route.conversationId) {
       hashChangeCallback(route.conversationId, false, false, false, false, false, false, false);
     } else {
@@ -386,6 +408,8 @@ export interface InitialRoute {
   isLanguage: boolean;
   isArchive: boolean;
   isTrash: boolean;
+  /** A project's page (#/projects/{id}) */
+  projectId?: string | null;
 }
 
 /**
@@ -439,6 +463,11 @@ export function initDeepLinking(onHashChange: HashChangeCallback): InitialRoute 
   if (initialRoute.type === 'archive') {
     log.info('Initial route is archive');
     return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: true, isTrash: false };
+  }
+
+  if (initialRoute.type === 'project' && initialRoute.projectId) {
+    log.info('Initial route is a project', { projectId: initialRoute.projectId });
+    return { conversationId: null, isPlanner: false, isAgents: false, isStorage: false, isSports: false, isLanguage: false, isArchive: false, isTrash: false, projectId: initialRoute.projectId };
   }
 
   if (initialRoute.type === 'conversation' && initialRoute.conversationId) {

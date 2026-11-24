@@ -130,6 +130,8 @@ function updateExisting(
   store.updateConversation(serverConv.id, {
     title: serverConv.title,
     updated_at: serverConv.updated_at,
+    // Moved into or out of a project (here or on another device)
+    project_id: serverConv.project_id,
     messageCount: serverConv.message_count,
     last_message_preview: serverConv.last_message_preview,
     scheduled_count: serverConv.scheduled_count,
@@ -169,6 +171,7 @@ export function listEntryFromSummary(conv: ConversationSummary, unreadCount: num
     messageCount: conv.message_count,
     last_message_preview: conv.last_message_preview,
     pinned: conv.pinned,
+    project_id: conv.project_id,
     is_whats_new: conv.is_whats_new,
     scheduled_count: conv.scheduled_count,
     unreadCount,

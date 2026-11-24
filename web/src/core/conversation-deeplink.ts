@@ -38,6 +38,7 @@ import { leaveStorageView, navigateToStorage } from './kv-store';
 import { leaveSportsView, navigateToSportsProgram, navigateToSports } from './sports';
 import { leaveLanguageView, navigateToLanguageProgram, navigateToLanguage } from './language';
 import { leaveAgentsView, navigateToAgents } from './agents';
+import { leaveProjectView, navigateToProject } from './projects';
 
 const log = createLogger('conversation');
 
@@ -225,6 +226,9 @@ function leaveViewsForHashNavigation(): void {
   if (store.isTrashView) {
     leaveTrashView();
   }
+  if (store.isProjectView) {
+    leaveProjectView(false);
+  }
 }
 
 /**
@@ -249,8 +253,13 @@ function showHomeFromHash(store: ReturnType<typeof useStore.getState>): void {
  * Handle deep link navigation (browser back/forward buttons).
  * This is called when the URL hash changes via browser navigation.
  */
-export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean, isTrash?: boolean): void {
-  log.debug('Deep link navigation', { conversationId, isPlanner, isAgents, isStorage, isSports, isLanguage });
+export function handleDeepLinkNavigation(conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean, isTrash?: boolean, projectId?: string | null): void {
+  log.debug('Deep link navigation', { conversationId, isPlanner, isAgents, isStorage, isSports, isLanguage, projectId });
+
+  if (projectId) {
+    void navigateToProject(projectId).catch((error: unknown) => log.error('Failed to open project', { error }));
+    return;
+  }
 
   if (navigateToViewFromHash({ isPlanner, isAgents, isStorage, isSports, isLanguage, isArchive, isTrash })) {
     return;

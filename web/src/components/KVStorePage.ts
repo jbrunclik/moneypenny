@@ -43,16 +43,28 @@ export function renderKVStoreLoading(): HTMLDivElement {
   return container;
 }
 
-/** Callbacks for the storage page */
-export interface KVStoreCallbacks extends DocumentCallbacks {
-  onRefresh: () => void;
-  onNamespaceExpand: (namespace: string) => Promise<KVKeysResponse>;
-  onDeleteKey: (namespace: string, key: string) => Promise<void>;
-  onClearNamespace: (namespace: string) => Promise<void>;
+/** A memory list's actions (the Data page's and a project page's) */
+export interface MemoryCallbacks {
   onDeleteMemory: (memoryId: string) => Promise<void>;
   onSetMemoryProtected: (memoryId: string, isProtected: boolean) => Promise<void>;
   onRestoreMemory: (memoryId: string) => Promise<void>;
   onRestorePreviousMemory: (memoryId: string) => Promise<Memory>;
+}
+
+/** Callbacks for the storage page */
+export interface KVStoreCallbacks extends DocumentCallbacks, MemoryCallbacks {
+  onRefresh: () => void;
+  onNamespaceExpand: (namespace: string) => Promise<KVKeysResponse>;
+  onDeleteKey: (namespace: string, key: string) => Promise<void>;
+  onClearNamespace: (namespace: string) => Promise<void>;
+}
+
+/** How a memory list is shown: its cap, empty-state hint, and authors (shared projects) */
+export interface MemoriesSectionOptions {
+  limit?: number;
+  emptyHint?: string;
+  /** memory id -> author's name, shown in a shared project */
+  authors?: ReadonlyMap<string, string> | undefined;
 }
 
 /** Category labels */
@@ -129,10 +141,10 @@ export function renderKVStorePage(
 /**
  * Render the memories section.
  */
-function renderMemoriesSection(
+export function renderMemoriesSection(
   memories: Memory[],
-  callbacks: KVStoreCallbacks,
-  options?: { limit?: number },
+  callbacks: MemoryCallbacks,
+  options?: MemoriesSectionOptions,
 ): HTMLDivElement {
   const section = document.createElement('div');
   section.className = 'kv-store-section';
@@ -146,7 +158,7 @@ function renderMemoriesSection(
     section.appendChild(createEmptyState({
       icon: BRAIN_ICON,
       title: 'No memories yet',
-      hint: 'Important things from your conversations are remembered here automatically.',
+      hint: options?.emptyHint ?? 'Important things from your conversations are remembered here automatically.',
       compact: true,
     }));
     return section;
@@ -156,7 +168,7 @@ function renderMemoriesSection(
   list.className = 'kv-memories-list';
 
   for (const memory of memories) {
-    list.appendChild(renderMemoryItem(memory, section, list, callbacks));
+    list.appendChild(renderMemoryItem(memory, section, list, callbacks, options?.authors?.get(memory.id)));
   }
 
   section.appendChild(list);
@@ -166,9 +178,10 @@ function renderMemoriesSection(
 /**
  * A memory's badges (category, protected, last day) and its age.
  */
-function renderMemoryMeta(memory: Memory, isProtected: boolean): HTMLDivElement {
+function renderMemoryMeta(memory: Memory, isProtected: boolean, author?: string): HTMLDivElement {
   const categoryConfig = memory.category ? CATEGORY_CONFIG[memory.category] : null;
   return createElement('div', { class: 'memory-meta' }, [
+    author && createElement('span', { class: 'memory-author' }, [author]),
     categoryConfig &&
       createElement('span', { class: `memory-category memory-category--${categoryConfig.class}` }, [
         categoryConfig.label,
@@ -189,7 +202,8 @@ function renderMemoryItem(
   initial: Memory,
   section: HTMLDivElement,
   list: HTMLDivElement,
-  callbacks: KVStoreCallbacks,
+  callbacks: MemoryCallbacks,
+  author?: string,
 ): HTMLDivElement {
   const item = document.createElement('div');
   item.className = 'memory-item';
@@ -222,7 +236,7 @@ function renderMemoryItem(
         ),
         createIconButton({ class: 'memory-delete', title: 'Delete memory' }, DELETE_ICON),
       ]),
-      renderMemoryMeta(memory, isProtected),
+      renderMemoryMeta(memory, isProtected, author),
       ...(showPrevious && previous ? [renderPrevious(previous)] : [])
     );
     attachHandlers();

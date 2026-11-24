@@ -12,7 +12,7 @@ import {
   initSidebarTimeRefresh,
   cleanupSidebarTimeRefresh,
 } from '@/components/Sidebar';
-import type { Conversation, User } from '@/types/api';
+import type { Conversation, Project, User } from '@/types/api';
 
 // Mock the costs API
 vi.mock('@/api/costs', () => ({
@@ -968,6 +968,59 @@ describe('Sidebar list layout', () => {
     const ids = [...list.querySelectorAll<HTMLElement>('[data-conv-id]')].map((el) => el.dataset.convId);
     expect(ids).toEqual(['b', 'a']);
     expect(list.querySelector('[data-pin-id="b"]')?.getAttribute('aria-label')).toBe('Unpin');
+  });
+
+  it('hides unpinned project chats and keeps a pinned one in Pinned', () => {
+    useStore.setState({
+      conversations: [conv('a'), conv('b', { project_id: 'p1' }), conv('c', { project_id: 'p1', pinned: true })],
+    });
+    renderConversationsList();
+
+    const list = document.getElementById('conversations-list') as HTMLElement;
+    const ids = [...list.querySelectorAll<HTMLElement>('[data-conv-id]')].map((el) => el.dataset.convId);
+    expect(ids).toEqual(['c', 'a']);
+  });
+
+  it('lists projects in their own group, with shared marker and unread dot', () => {
+    const project = (id: string, name: string, extra: Partial<Project> = {}): Project => ({
+      id,
+      name,
+      owner_id: 'user-1',
+      is_owner: true,
+      shared: false,
+      member_names: ['Test User'],
+      member_ids: ['user-1'],
+      chat_count: 1,
+      unread_count: 0,
+      created_at: '2026-11-01T00:00:00Z',
+      updated_at: '2026-11-01T00:00:00Z',
+      deleted_at: null,
+      ...extra,
+    });
+    useStore.setState({
+      conversations: [conv('a'), conv('b', { project_id: 'p2', unreadCount: 2 })],
+      projects: [project('p1', 'Bikes', { shared: true, member_names: ['Test User', 'Jana'] }), project('p2', 'Home')],
+      isProjectView: true,
+      activeProjectId: 'p1',
+    });
+    renderConversationsList();
+
+    const list = document.getElementById('conversations-list') as HTMLElement;
+    const labels = [...list.querySelectorAll('.conversation-group-label')].map((l) => l.textContent);
+    expect(labels[0]).toBe('Projects');
+    const rows = [...list.querySelectorAll<HTMLElement>('.project-item')];
+    expect(rows.map((r) => r.dataset.projectId)).toEqual(['p1', 'p2']);
+    expect(rows[0]?.classList.contains('active')).toBe(true);
+    expect(rows[0]?.querySelector('.project-item-shared')).not.toBeNull();
+    expect(rows[0]?.querySelector('.project-item-unread')).toBeNull();
+    expect(rows[1]?.querySelector('.project-item-unread')).not.toBeNull();
+    useStore.setState({ projects: [], isProjectView: false, activeProjectId: null });
+  });
+
+  it('shows no Projects group without projects', () => {
+    useStore.setState({ conversations: [conv('a')], projects: [] });
+    renderConversationsList();
+    expect(document.querySelector('.project-item')).toBeNull();
   });
 
   it('does not highlight the special view conversation as a row', () => {

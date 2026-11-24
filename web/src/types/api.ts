@@ -415,6 +415,26 @@ export type SavedDocument = Schemas['DocumentsResponse.SavedDocumentResponse'];
 export type DocumentsResponse = Schemas['DocumentsResponse'];
 
 // =============================================================================
+// Project types
+// =============================================================================
+
+/** A folder of chats with shared instructions, memory and documents; counts are of the caller's own chats */
+export type Project = Schemas['ProjectsListResponse.ProjectResponse'];
+
+/** The caller's projects (owned or shared with them) and the owned-projects cap */
+export type ProjectsListResponse = Schemas['ProjectsListResponse'];
+
+/** One project with its instructions, memory (with authors) and documents */
+export type ProjectDetail = Schemas['ProjectDetailResponse'];
+
+/** A family member a project can be shared with */
+export type Person = Schemas['PeopleResponse.PersonResponse'];
+
+export type CreateProjectRequest = Schemas['CreateProjectRequest'];
+export type UpdateProjectRequest = Schemas['UpdateProjectRequest'];
+export type BulkMoveRequest = Schemas['BulkMoveRequest'];
+
+// =============================================================================
 // Settings types
 // =============================================================================
 

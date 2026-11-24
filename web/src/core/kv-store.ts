@@ -48,7 +48,7 @@ let isRefreshing = false;
  * Reset the chat-only controls: the anonymous toggle goes off and the input
  * area and scroll button hide (the storage view is not a chat).
  */
-function hideChatChrome(): void {
+export function hideChatChrome(): void {
   const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
   if (anonymousBtn) {
     updateAnonymousButtonState(anonymousBtn, false);

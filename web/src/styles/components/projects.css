@@ -1,0 +1,186 @@
+/* Projects: the sidebar group and the project page (kv-store.css gives the
+   page its layout; these are the project's own pieces). */
+
+/* ---------- Sidebar group ---------- */
+
+.project-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-1);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--font-size-ui);
+    color: var(--text-primary);
+    background-color: transparent;
+    transition: background-color var(--transition-fast);
+    -webkit-tap-highlight-color: var(--white-a10);
+}
+
+.project-item:hover {
+    background-color: var(--bg-hover);
+}
+
+.project-item.active {
+    background-color: var(--bg-tertiary);
+}
+
+.project-item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.project-item-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.project-item-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.project-item-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-item-shared {
+    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.project-item-unread {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+/* ---------- Project page ---------- */
+
+.project-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+.project-name {
+    overflow-wrap: anywhere;
+}
+
+.project-members {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.project-new-chat {
+    margin-bottom: var(--space-3);
+}
+
+.project-chat-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.project-chat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-3);
+    text-align: left;
+    font: inherit;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+}
+
+.project-chat:hover {
+    background-color: var(--bg-hover);
+}
+
+.project-chat-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-chat-time {
+    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.project-more-chats {
+    margin-top: var(--space-3);
+}
+
+.project-instructions-input {
+    width: 100%;
+    min-height: 120px;
+    box-sizing: border-box;
+}
+
+.project-instructions-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.memory-author {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* ---------- Chat header: the chat's project ---------- */
+
+.chat-header-project {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex-shrink: 0;
+    max-width: 40%;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    text-decoration: none;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.chat-header-project:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.chat-header-project-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Sections without a count (Instructions) show no empty pill */
+.project-page .kv-store-section-count:empty {
+    display: none;
+}

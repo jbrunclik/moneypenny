@@ -25,7 +25,7 @@ type ConversationListItem = ConversationsResponse['conversations'][number];
  * are left out. `withUnread`: the unread badge from the server-side read
  * state (read_count, shared across devices), so it shows from the first paint.
  */
-function toConversation(conv: ConversationListItem, withUnread = false): Conversation {
+export function toConversation(conv: ConversationListItem, withUnread = false): Conversation {
   const { message_count, read_count, archived, pinned, ...rest } = conv;
   return {
     ...rest,

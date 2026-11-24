@@ -14,6 +14,7 @@ import { loadDeepLinkedConversation } from '../conversation-deeplink';
 import { navigateToStorage } from '../kv-store';
 import { navigateToLanguage, navigateToLanguageProgram } from '../language';
 import { navigateToPlanner } from '../planner';
+import { navigateToProject } from '../projects';
 import { navigateToSports, navigateToSportsProgram } from '../sports';
 import { navigateToTrash } from '../trash';
 
@@ -32,6 +33,7 @@ export function initialRouteFromHash(): InitialRoute {
     isLanguage: route.type === 'language',
     isArchive: route.type === 'archive',
     isTrash: route.type === 'trash',
+    ...(route.type === 'project' && route.projectId ? { projectId: route.projectId } : {}),
   };
 }
 
@@ -72,6 +74,8 @@ export async function openInitialRoute(initialRoute: InitialRoute | null | undef
     navigateToArchive();
   } else if (initialRoute.isTrash) {
     navigateToTrash();
+  } else if (initialRoute.projectId) {
+    await navigateToProject(initialRoute.projectId);
   } else if (initialRoute.conversationId && isValidConversationId(initialRoute.conversationId)) {
     await loadDeepLinkedConversation(initialRoute.conversationId);
   }

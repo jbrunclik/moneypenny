@@ -9,6 +9,7 @@ import { createConversationsSlice, type ConversationsSlice } from './slices/conv
 import { createLanguageSlice, type LanguageSlice } from './slices/language';
 import { createMessagesSlice, type MessagesSlice } from './slices/messages';
 import { createPlannerSlice, type PlannerSlice } from './slices/planner';
+import { createProjectsSlice, type ProjectsSlice } from './slices/projects';
 import { createSearchSlice, type SearchSlice } from './slices/search';
 import { createSettingsSlice, type SettingsSlice } from './slices/settings';
 import { createSportsSlice, type SportsSlice } from './slices/sports';
@@ -31,6 +32,7 @@ export type AppState = AuthSlice &
   TrashSlice &
   SelectionSlice &
   StorageSlice &
+  ProjectsSlice &
   SportsSlice &
   LanguageSlice &
   SettingsSlice;
@@ -58,6 +60,7 @@ export const useStore = create<AppState>()(
         ...createTrashSlice(...a),
         ...createSelectionSlice(...a),
         ...createStorageSlice(...a),
+        ...createProjectsSlice(...a),
         ...createSportsSlice(...a),
         ...createLanguageSlice(...a),
         ...createSettingsSlice(...a),

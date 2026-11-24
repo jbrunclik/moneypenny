@@ -402,3 +402,28 @@ def seed_document() -> tuple[dict[str, Any], int]:
     if data.get("deleted"):
         g.db.delete_document(doc.id, user.id)
     return {"id": doc.id}, 200
+
+
+@fixtures_bp.route("/test/seed-project-memory", methods=["POST"])
+def seed_project_memory() -> tuple[dict[str, Any], int]:
+    """Write a project memory (normally the agent's job) for the auth-bypass
+    user, who must be a member of the project."""
+    from src.db.models.memory import MemoryWrite
+
+    data = request.get_json() or {}
+    user = g.db.get_or_create_user(email="local@localhost", name="Local User")
+    project_id = str(data["project_id"])
+    [memory_id] = g.db.apply_memory_batch(
+        user.id,
+        None,
+        [
+            MemoryWrite(
+                action="add",
+                content=str(data.get("content", "Garage has 3-phase power")),
+                category=str(data.get("category", "fact")),
+                project_id=project_id,
+            )
+        ],
+        project_id=project_id,
+    )
+    return {"id": memory_id}, 200

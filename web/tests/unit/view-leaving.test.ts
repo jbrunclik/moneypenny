@@ -12,6 +12,7 @@ import type { ConversationDetailResponse } from '@/types/api';
 const m = vi.hoisted(() => ({
   leaveAgentsView: vi.fn(),
   leaveSportsView: vi.fn(),
+  leaveProjectView: vi.fn(),
   getConversation: vi.fn(),
   log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -24,6 +25,7 @@ vi.mock('@/core/agents', () => ({
   handleStandingRun: vi.fn(() => Promise.resolve()),
 }));
 vi.mock('@/core/sports', () => ({ leaveSportsView: m.leaveSportsView }));
+vi.mock('@/core/projects', () => ({ leaveProjectView: m.leaveProjectView }));
 vi.mock('@/core/conversation-switch', () => ({
   switchToConversation: vi.fn(),
   setAgentHeaderActions: vi.fn(),
@@ -140,6 +142,21 @@ describe('opening a conversation from a feature view', () => {
 
     expect(m.leaveAgentsView).toHaveBeenCalledWith(false);
     expectChatView();
+  });
+
+  it('a new chat in a project leaves the project page and carries the project', () => {
+    useStore.getState().setActiveView('project');
+
+    createConversation('p1');
+
+    expect(m.leaveProjectView).toHaveBeenCalledWith(false);
+    expect(useStore.getState().currentConversation?.project_id).toBe('p1');
+    expectChatView();
+  });
+
+  it('a plain new chat carries no project', () => {
+    createConversation();
+    expect(useStore.getState().currentConversation?.project_id).toBeNull();
   });
 
   it('leaves nothing from a chat', async () => {

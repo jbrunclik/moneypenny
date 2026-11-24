@@ -23,6 +23,7 @@ import { enterSelectionMode } from '../components/SidebarSelection';
 import { navigateToPlanner } from './planner';
 import { navigateToAgents } from './agents';
 import { navigateToSports } from './sports';
+import { createProjectAndOpen, navigateToProject } from './projects';
 import { navigateToLanguage } from './language';
 import { navigateToStorage } from './kv-store';
 import { openFileInNewTab, downloadFile, copyMessageContent, copyInlineContent, exportConversation } from './file-actions';
@@ -122,6 +123,7 @@ const USER_MENU_ACTIONS: ReadonlyArray<readonly [selector: string, run: () => vo
   ['#admin-btn', openAdminFromMenu],
   ['.user-menu-archive', () => navigateToArchive()],
   ['.user-menu-trash', () => navigateToTrash()],
+  ['#new-project-btn', () => createProjectAndOpen()],
   ['#select-chats-btn', () => enterSelectionMode()],
   ['#settings-btn', () => void import('../components/SettingsPopup').then((m) => m.openSettingsPopup())],
 ];
@@ -271,6 +273,15 @@ const CONVERSATION_LIST_ACTIONS: readonly ClickAction[] = [
     run: onEntry(() => navigateToAgents().catch((error: unknown) => log.error('Failed to open agents', { error }))),
   },
   { selector: '.sports-entry', run: onEntry(navigateToSports) },
+  {
+    selector: '.project-item[data-project-id]',
+    run: (el) => {
+      const id = el.dataset.projectId;
+      if (!id) return;
+      resetSwipeStates();
+      void navigateToProject(id).catch((error: unknown) => log.error('Failed to open project', { error }));
+    },
+  },
   { selector: '.language-entry', run: onEntry(navigateToLanguage) },
   {
     // Conversation selection
@@ -342,7 +353,7 @@ const MESSAGE_ACTIONS: readonly ClickAction[] = [
 
 export function setupEventListeners(): void {
   // New chat button
-  getElementById('new-chat-btn')?.addEventListener('click', createConversation);
+  getElementById('new-chat-btn')?.addEventListener('click', () => createConversation());
 
   // Mobile menu button
   getElementById('menu-btn')?.addEventListener('click', toggleSidebar);
