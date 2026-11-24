@@ -39,7 +39,7 @@ AB_WARNING = (
     "approach, or answer with what you have."
 )
 # Tools whose success changes the world (so a failed read may now succeed)
-_WRITES = frozenset({*WRITE_LEVEL_TOOLS, "manage_memory"})
+_WRITES = frozenset({*WRITE_LEVEL_TOOLS, "manage_memory", "manage_documents"})
 
 
 def call_signature(name: str, args: Mapping[str, object]) -> str:

@@ -26,6 +26,9 @@
       "name": "Memory"
     },
     {
+      "name": "Documents"
+    },
+    {
       "name": "Settings"
     },
     {
@@ -666,6 +669,27 @@
           "Memory"
         ],
         "summary": "List all memories for the current user."
+      }
+    },
+    "/api/documents": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Documents"
+        ],
+        "summary": "The user's saved documents and the recently deleted ones."
       }
     },
     "/api/approvals": {
@@ -3321,6 +3345,46 @@
         "summary": "Reset the program conversation (delete messages)."
       }
     },
+    "/api/documents/{document_id}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Delete a saved document (soft delete, restorable for a while)."
+      }
+    },
     "/api/conversations/{conv_id}": {
       "get": {
         "parameters": [
@@ -4711,6 +4775,44 @@
         "summary": "Restore a soft-deleted memory."
       }
     },
+    "/api/documents/{document_id}/file": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "The file, as an attachment"
+          }
+        },
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Download a saved document"
+      }
+    },
     "/api/users/me/instructions-review": {
       "post": {
         "parameters": [],
@@ -5407,6 +5509,56 @@
             }
           }
         }
+      }
+    },
+    "/api/documents/{document_id}/restore": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "tags": [
+          "Documents"
+        ],
+        "summary": "Restore a deleted document, unless the library is full."
       }
     },
     "/api/conversations/{conv_id}/archive": {
@@ -9973,6 +10125,156 @@
           "limit"
         ],
         "title": "MemoriesListResponse",
+        "type": "object"
+      },
+      "DocumentsResponse.SavedDocumentResponse": {
+        "description": "One saved document (its metadata; the file is a separate download).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What the document contains",
+            "title": "Summary",
+            "type": "string"
+          },
+          "use_for": {
+            "description": "When the assistant should open it",
+            "title": "Use For",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Last local day the document holds (YYYY-MM-DD)",
+            "title": "Valid Until"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          },
+          "last_opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Opened At"
+          },
+          "source_conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Conversation Id"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "use_for",
+          "filename",
+          "mime_type",
+          "size_bytes",
+          "created_at",
+          "valid_until",
+          "deleted_at",
+          "last_opened_at",
+          "source_conversation_id"
+        ],
+        "title": "SavedDocumentResponse",
+        "type": "object"
+      },
+      "DocumentsResponse": {
+        "description": "The user's saved documents, the recently deleted ones and the caps.",
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentsResponse.SavedDocumentResponse"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "deleted": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentsResponse.SavedDocumentResponse"
+            },
+            "title": "Deleted",
+            "type": "array"
+          },
+          "limit": {
+            "description": "Maximum saved documents per user",
+            "title": "Limit",
+            "type": "integer"
+          },
+          "bytes_used": {
+            "description": "Bytes stored, deleted documents included until purged",
+            "title": "Bytes Used",
+            "type": "integer"
+          },
+          "bytes_limit": {
+            "description": "Maximum bytes stored per user",
+            "title": "Bytes Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "documents",
+          "deleted",
+          "limit",
+          "bytes_used",
+          "bytes_limit"
+        ],
+        "title": "DocumentsResponse",
         "type": "object"
       },
       "PendingApprovalsResponse.ProposalDetailResponse": {

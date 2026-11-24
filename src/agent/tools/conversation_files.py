@@ -21,6 +21,10 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+# Starts the error for an attachment past retention (callers match on it)
+FILE_CLEANED_UP = "This file has been cleaned up"
+
+
 @dataclass(frozen=True)
 class ConversationFile:
     """A conversation attachment's bytes, as stored."""
@@ -116,8 +120,7 @@ def load_conversation_file(message_id: str, file_index: int) -> ConversationFile
     # sweep has deleted the blob (videos 7 days, images 30 days)
     if is_file_expired(mime_type, message.created_at):
         return tool_error(
-            f"This file has been cleaned up and is no longer available. "
-            f"{retention_note(mime_type)}."
+            f"{FILE_CLEANED_UP} and is no longer available. {retention_note(mime_type)}."
         )
 
     loaded = _load_file_data(message_id, file_index, file_meta, mime_type)

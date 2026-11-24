@@ -1,0 +1,122 @@
+"""Integration tests for the saved-documents routes (list, download, delete, restore)."""
+
+from unittest.mock import patch
+
+import pytest
+from flask.testing import FlaskClient
+
+from src.config import Config
+from src.db.models import Database, User
+
+
+def _add(db: Database, user_id: str, data: bytes = b"%PDF-1.4 x", title: str = "Lease") -> str:
+    return db.add_document(
+        user_id,
+        title=title,
+        summary="Flat lease",
+        use_for="Rent questions",
+        filename="lease.pdf",
+        mime_type="application/pdf",
+        data=data,
+        valid_until=None,
+        source_conversation_id=None,
+        source_message_id=None,
+    ).id
+
+
+class TestDocumentRoutes:
+    def test_list_separates_deleted(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        live = _add(test_database, test_user.id, title="Live")
+        gone = _add(test_database, test_user.id, title="Gone")
+        test_database.delete_document(gone, test_user.id)
+
+        response = client.get("/api/documents", headers=auth_headers)
+
+        assert response.status_code == 200
+        body = response.get_json()
+        assert [d["id"] for d in body["documents"]] == [live]
+        assert [d["id"] for d in body["deleted"]] == [gone]
+        assert body["documents"][0]["title"] == "Live"
+        assert body["documents"][0]["use_for"] == "Rent questions"
+        assert body["limit"] == Config.DOCUMENTS_MAX_ENTRIES
+        assert body["bytes_used"] == 20
+        assert body["bytes_limit"] == Config.DOCUMENTS_MAX_TOTAL_BYTES
+
+    def test_download_sets_attachment_header(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        doc_id = _add(test_database, test_user.id, data=b"%PDF-bytes")
+
+        response = client.get(f"/api/documents/{doc_id}/file", headers=auth_headers)
+
+        assert response.status_code == 200
+        assert response.data == b"%PDF-bytes"
+        assert response.mimetype == "application/pdf"
+        assert "attachment" in response.headers["Content-Disposition"]
+        assert "lease.pdf" in response.headers["Content-Disposition"]
+
+    def test_delete_then_restore(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        doc_id = _add(test_database, test_user.id)
+
+        assert client.delete(f"/api/documents/{doc_id}", headers=auth_headers).status_code == 200
+        assert test_database.list_documents(test_user.id) == []
+        restore = client.post(f"/api/documents/{doc_id}/restore", headers=auth_headers)
+        assert restore.status_code == 200
+        assert [d.id for d in test_database.list_documents(test_user.id)] == [doc_id]
+
+    def test_restore_over_cap_conflicts(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        gone = _add(test_database, test_user.id)
+        test_database.delete_document(gone, test_user.id)
+        _add(test_database, test_user.id)
+
+        with patch.object(Config, "DOCUMENTS_MAX_ENTRIES", 1):
+            response = client.post(f"/api/documents/{gone}/restore", headers=auth_headers)
+
+        assert response.status_code == 409
+        assert test_database.list_documents(test_user.id)[0].id != gone
+
+    @pytest.mark.parametrize(
+        ("method", "suffix"),
+        [("get", "/file"), ("delete", ""), ("post", "/restore")],
+    )
+    def test_other_users_document_is_not_found(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        method: str,
+        suffix: str,
+    ) -> None:
+        other = test_database.get_or_create_user("other@example.com", "Other")
+        doc_id = _add(test_database, other.id)
+        if method == "post":
+            test_database.delete_document(doc_id, other.id)
+
+        response = getattr(client, method)(f"/api/documents/{doc_id}{suffix}", headers=auth_headers)
+
+        assert response.status_code == 404
+
+    def test_requires_auth(self, client: FlaskClient) -> None:
+        assert client.get("/api/documents").status_code == 401

@@ -505,3 +505,21 @@ class TestDefragmentUserMemories:
         result = defragment_user_memories(mock_user, sample_memories, mock_llm)
 
         assert result["skipped"] is True
+
+
+class TestSweepDocuments:
+    """Saved documents expire and purge in the same nightly job (document memory)."""
+
+    @patch("scripts.defragment_memories.db")
+    def test_expires_then_purges_documents(self, mock_db):
+        from scripts.defragment_memories import sweep_documents
+        from src.utils.clock import local_today
+
+        mock_db.expire_documents.return_value = 2
+        mock_db.purge_deleted_documents.return_value = 1
+
+        assert sweep_documents() == (2, 1)
+        mock_db.expire_documents.assert_called_once_with(local_today())
+        mock_db.purge_deleted_documents.assert_called_once_with(
+            Config.DOCUMENTS_SOFT_DELETE_RETENTION_DAYS
+        )

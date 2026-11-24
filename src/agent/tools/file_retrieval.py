@@ -6,7 +6,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
-from src.agent.gemini_files import GeminiFileError, ensure_gemini_file_uri
+from src.agent.gemini_files import GeminiFileError, ensure_gemini_file_uri_for_key
 from src.agent.message_content import office_text_for_model
 from src.agent.tools.conversation_files import load_conversation_file
 from src.agent.tools.errors import tool_error
@@ -59,23 +59,37 @@ def retrieve_file(
     loaded = load_conversation_file(message_id, file_index)
     if isinstance(loaded, str):
         return loaded
-    return _build_file_content(message_id, file_index, loaded.name, loaded.mime_type, loaded.data)
+    return build_file_content(
+        source=f"message {message_id}",
+        file_id=loaded.file_id,
+        file_name=loaded.name,
+        mime_type=loaded.mime_type,
+        data=loaded.data,
+    )
 
 
-def _build_file_content(
-    message_id: str,
-    file_index: int,
+def build_file_content(
+    *,
+    source: str,
+    file_id: str,
     file_name: str,
     mime_type: str,
-    binary_data: bytes,
+    data: bytes,
 ) -> str | list[dict[str, Any]]:
-    """Turn retrieved file bytes into tool content the chat model can consume.
+    """Turn file bytes into tool content the chat model can consume
+    (retrieve_file and open_document).
 
     Everything returned here is sent inline on every later model call in the
     turn, so it must stay well under Gemini's ~20 MB inline request limit.
+
+    Args:
+        source: Where the file comes from, for the header ("message <id>")
+        file_id: The file's id - its Files API cache key and the id Office
+            text names ("<message_id>:<index>", "doc:<id>")
     """
+    binary_data = data
     file_size = len(binary_data)
-    header = f"Here is {file_name} ({mime_type}, {file_size} bytes) from message {message_id}:"
+    header = f"Here is {file_name} ({mime_type}, {file_size} bytes) from {source}:"
 
     # Analysis doesn't need more than ~2K pixels; shrinks 4K generations ~10x
     if mime_type.startswith("image/"):
@@ -89,12 +103,12 @@ def _build_file_content(
     if is_media_mime(mime_type) or (is_visual and too_big_inline):
         kind = mime_type.split("/")[0] if is_media_mime(mime_type) else "file"
         try:
-            uri = ensure_gemini_file_uri(message_id, file_index, binary_data, mime_type)
+            uri = ensure_gemini_file_uri_for_key(file_id, binary_data, mime_type)
         except GeminiFileError as e:
             return tool_error(f"Failed to prepare {kind} for viewing: {e}")
         logger.info(
             "retrieve_file: file prepared via Files API",
-            extra={"message_id": message_id, "file_index": file_index, "mime_type": mime_type},
+            extra={"file_id": file_id, "mime_type": mime_type},
         )
         return [
             {"type": "text", "text": header},
@@ -112,7 +126,6 @@ def _build_file_content(
         ]
 
     if mime_type in OFFICE_KINDS:
-        file_id = f"{message_id}:{file_index}"
         return office_text_for_model(file_name, mime_type, binary_data, file_id)
 
     # For text files, decode and return as (capped) text
@@ -139,8 +152,7 @@ def _build_file_content(
         {
             "success": True,
             "file": {
-                "message_id": message_id,
-                "file_index": file_index,
+                "id": file_id,
                 "name": file_name,
                 "type": mime_type,
                 "size": file_size,

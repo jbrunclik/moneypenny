@@ -23,6 +23,7 @@ Route Organization:
 - costs.py: Cost tracking (4 routes)
 - settings.py: User settings (2 routes); instructions_review.py adds the instructions Review (3)
 - memory.py: User memory management (2 routes)
+- documents.py: Saved documents (4 routes)
 - system.py: System routes (5 routes)
 - kv_store.py: K/V store management (6 routes)
 - artifacts.py: Artifact versions and saved state (2 routes)
@@ -58,6 +59,7 @@ from src.api.routes import (
     conversation_trash,  # noqa: F401 - imported for its routes
     conversations,
     costs,
+    documents,
     files,
     garmin,
     instructions_review,  # noqa: F401 - imported for its routes
@@ -98,6 +100,7 @@ def register_blueprints(app: APIFlask) -> None:
     # Register API blueprints (under /api prefix)
     app.register_blueprint(system.api)
     app.register_blueprint(memory.api)
+    app.register_blueprint(documents.api)
     app.register_blueprint(settings.api)
     app.register_blueprint(conversations.api)
     app.register_blueprint(planner.api)

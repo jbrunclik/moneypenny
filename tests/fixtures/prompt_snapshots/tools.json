@@ -603,6 +603,61 @@
     }
   },
   {
+    "description": "Keep important documents the user shares (contracts, financial models,\nstatements, policies) in their document library, which you see in every\nlater chat, or change and delete saved ones.\n\nSave only when the user asks you to keep a document, or after offering and\ngetting a yes. When a save sets an end date (valid_until) or replaces an\nolder version, say so and wait for a yes first. Contracts that renew\nautomatically get no end date. An amendment or annex is its own document,\nnever a replacement. Write the summary for recall (what is in it: key\nfigures, parties, terms) and use_for for when to open it (topics,\ndecisions). The batch is all-or-nothing.\n\nArgs:\n    operations: Each has an action:\n        - \"save\": file_id (the \"message_id:file_index\" id of a file in this\n          conversation), title, summary, use_for; optional valid_until\n          (YYYY-MM-DD, the last day it holds) and replaces (an older\n          version's id - it is moved to Recently deleted)\n        - \"update\": id, plus any of title, summary, use_for, valid_until\n          (\"\" removes the end date)\n        - \"delete\": id (moved to Recently deleted, restorable for a while)\n\nReturns:\n    One line per operation: SAVED/UPDATED/DELETED with the id, or REJECTED\n    with the reason.",
+    "name": "manage_documents",
+    "parameters": {
+      "properties": {
+        "operations": {
+          "items": {
+            "description": "One manage_documents operation (fields per action: see the tool).",
+            "properties": {
+              "action": {
+                "enum": [
+                  "save",
+                  "update",
+                  "delete"
+                ],
+                "type": "STRING"
+              },
+              "file_id": {
+                "type": "STRING"
+              },
+              "id": {
+                "type": "STRING"
+              },
+              "title": {
+                "description": "title is {'default': '', 'title': 'Title', 'type': 'string'}",
+                "type": "STRING"
+              },
+              "summary": {
+                "type": "STRING"
+              },
+              "use_for": {
+                "type": "STRING"
+              },
+              "valid_until": {
+                "type": "STRING"
+              },
+              "replaces": {
+                "type": "STRING"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "type": "OBJECT"
+          },
+          "type": "ARRAY"
+        }
+      },
+      "required": [
+        "operations"
+      ],
+      "title": "manage_documents",
+      "type": "OBJECT"
+    }
+  },
+  {
     "description": "Store, edit, or delete user memories for personalization.\n\nCall this when you learn new facts about the user that should be remembered\nfor future conversations. Write facts about the user, not rules for your\nreplies: \"Works night shifts, reads replies on the phone\", not \"Always\nanswer briefly\". The batch is applied all-or-nothing: if any\noperation is rejected, none is applied and the result says why - fix it and\nresubmit the whole batch. Limits are checked on the batch's end state.\n\nArgs:\n    operations: List of memory operations. Each dict has an \"action\":\n        - \"add\": \"content\", \"category\" (one of \"preference\", \"fact\",\n          \"context\", \"goal\"); optionally \"valid_until\"\n        - \"patch\": \"id\", \"old_text\" (an exact span of the memory, matching\n          once), \"new_text\" (its replacement; \"\" removes it); optionally\n          \"category\" to recategorize and/or \"valid_until\" (old_text may\n          then be omitted)\n        \"valid_until\": the last day (YYYY-MM-DD) a temporary fact holds\n          (\"away until Friday\", \"on antibiotics this week\"); the memory is\n          deleted after that day. \"\" removes the end date.\n        - \"delete\": \"id\"\n        To merge memories: add the merged one and delete the old ones in\n        one batch.\n\nReturns:\n    One result line per operation, in the order submitted.",
     "name": "manage_memory",
     "parameters": {
@@ -618,6 +673,22 @@
         "operations"
       ],
       "title": "manage_memory",
+      "type": "OBJECT"
+    }
+  },
+  {
+    "description": "Open a document from the user's saved documents to read it in full.\n\nOpen it whenever the conversation matches a document's \"Use for\" or needs a\ndetail its summary does not give - answer from the document, not from the\nsummary.\n\nArgs:\n    id: The document's id from the saved documents list.\n\nReturns:\n    The document's content (PDFs and images as-is, Office files as text).",
+    "name": "open_document",
+    "parameters": {
+      "properties": {
+        "id": {
+          "type": "STRING"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "open_document",
       "type": "OBJECT"
     }
   },

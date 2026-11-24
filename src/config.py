@@ -1108,6 +1108,21 @@ class Config:
     MEMORY_SOFT_DELETE_RETENTION_DAYS: int = int(
         os.getenv("MEMORY_SOFT_DELETE_RETENTION_DAYS", "7")
     )
+    # Saved documents (document memory, Nov 24 2026): a per-user library the
+    # chat context lists every turn, so both caps bound the per-turn cost and
+    # the storage. A deleted (or expired) document is restorable this long.
+    DOCUMENTS_MAX_ENTRIES: int = int(os.getenv("DOCUMENTS_MAX_ENTRIES", "50"))
+    DOCUMENTS_MAX_TOTAL_BYTES: int = int(
+        os.getenv("DOCUMENTS_MAX_TOTAL_BYTES", str(200 * BYTES_PER_MB))
+    )
+    DOCUMENTS_SOFT_DELETE_RETENTION_DAYS: int = int(
+        os.getenv("DOCUMENTS_SOFT_DELETE_RETENTION_DAYS", "30")
+    )
+    DOCUMENT_TITLE_MAX_CHARS: int = int(os.getenv("DOCUMENT_TITLE_MAX_CHARS", "80"))
+    DOCUMENT_SUMMARY_MAX_CHARS: int = int(os.getenv("DOCUMENT_SUMMARY_MAX_CHARS", "300"))
+    DOCUMENT_USE_FOR_MAX_CHARS: int = int(os.getenv("DOCUMENT_USE_FOR_MAX_CHARS", "200"))
+    DOCUMENTS_MAX_OPS_PER_CALL: int = int(os.getenv("DOCUMENTS_MAX_OPS_PER_CALL", "5"))
+
     # Memories created or updated this recently are read-only to the defrag
     # job: it was deleting fresh "remember this" writes within days.
     MEMORY_DEFRAG_GRACE_DAYS: int = int(os.getenv("MEMORY_DEFRAG_GRACE_DAYS", "14"))

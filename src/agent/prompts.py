@@ -11,6 +11,10 @@ from typing import Any
 
 from src.agent.prompt_agents import get_autonomous_agent_prompt
 from src.agent.prompt_dashboard import get_dashboard_context_prompt
+from src.agent.prompt_documents import (
+    get_documents_instructions_prompt,
+    get_user_documents_list_prompt,
+)
 from src.agent.prompt_memory import (
     get_memory_instructions_prompt,
     get_user_memories_list_prompt,
@@ -274,6 +278,7 @@ def get_static_prompt_for_profile(profile: str, productivity: bool = True) -> st
     # Anonymous profiles have no memory tool bound, so they get neither.
     if profile != "anonymous":
         prompt += "\n\n" + get_memory_instructions_prompt()
+        prompt += "\n\n" + get_documents_instructions_prompt()
     # Planning profile gets the planner prompt
     if profile == "planning":
         prompt += PLANNER_SYSTEM_PROMPT
@@ -350,6 +355,9 @@ def get_dynamic_prompt_parts(
     if user_id and not anonymous_mode and include_memories:
         # Instructions live in the cached static prefix; only the list is dynamic
         parts.append(get_user_memories_list_prompt(user_id))
+        documents = get_user_documents_list_prompt(user_id)
+        if documents:
+            parts.append(documents)
 
     if is_planning:
         active_dashboard = (
@@ -393,6 +401,16 @@ def _tools_prompt(anonymous_mode: bool) -> str:
         prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
     # Always include context and citation section
     return prompt + TOOLS_SYSTEM_PROMPT_CONTEXT
+
+
+def _personal_library_prompt(user_id: str) -> str:
+    """Memories and saved documents, instructions and lists, for the
+    single-message system prompt (no cached prefix)."""
+    parts = [get_user_memories_prompt(user_id), get_documents_instructions_prompt()]
+    documents = get_user_documents_list_prompt(user_id)
+    if documents:
+        parts.append(documents)
+    return "\n\n".join(parts)
 
 
 def get_system_prompt(
@@ -484,7 +502,7 @@ def get_system_prompt(
 
     # Add user memories if user_id is provided (skip in anonymous mode)
     if user_id and not anonymous_mode and include_memories:
-        prompt += "\n\n" + get_user_memories_prompt(user_id)
+        prompt += "\n\n" + _personal_library_prompt(user_id)
 
     # Add force tools instruction if specified
     if force_tools:

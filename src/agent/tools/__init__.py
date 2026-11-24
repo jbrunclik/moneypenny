@@ -33,6 +33,7 @@ from src.agent.tools.context import (
 from src.agent.tools.conversation_search import read_conversation, search_conversations
 from src.agent.tools.deep_research import propose_deep_research
 from src.agent.tools.delegate import delegate_task
+from src.agent.tools.documents import manage_documents, open_document
 from src.agent.tools.file_retrieval import retrieve_file
 from src.agent.tools.garmin import garmin_connect, is_garmin_available
 from src.agent.tools.garmin_workout import garmin_workout
@@ -87,6 +88,9 @@ _INTEGRATION_TOOLS = {"todoist", "google_calendar", "garmin_connect", "garmin_wo
 _ANONYMOUS_EXCLUDED_TOOLS = _INTEGRATION_TOOLS | {
     "manage_memory",
     "search_memory",
+    # The saved-document library is the user's own data, like memories
+    "manage_documents",
+    "open_document",
     # Write persistent user data (saved places) - not allowed from anonymous chats
     "save_place",
     "delete_place",
@@ -119,6 +123,8 @@ def get_available_tools() -> list[Any]:
         set_conversation_title,
         manage_memory,
         search_memory,
+        manage_documents,
+        open_document,
         search_conversations,
         read_conversation,
     ]
@@ -314,6 +320,8 @@ _TOOL_MAP: dict[str, Any] = {
     "whatsapp": whatsapp,
     "manage_memory": manage_memory,
     "search_memory": search_memory,
+    "manage_documents": manage_documents,
+    "open_document": open_document,
     "search_conversations": search_conversations,
     "read_conversation": read_conversation,
     "kv_store": kv_store,
@@ -496,6 +504,8 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     "record_conversation_facts",
     "manage_memory",
     "search_memory",
+    "manage_documents",
+    "open_document",
     "search_conversations",
     "read_conversation",
     "kv_store",

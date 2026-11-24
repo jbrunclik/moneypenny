@@ -39,8 +39,8 @@ def _get_client() -> genai.Client:
     return shared_genai_client()
 
 
-def _get_cached_uri(message_id: str, file_index: int) -> str | None:
-    raw = db.kv_get(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, cache_key(message_id, file_index))
+def _get_cached_uri(key: str) -> str | None:
+    raw = db.kv_get(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, key)
     if not raw:
         return None
     try:
@@ -53,28 +53,30 @@ def _get_cached_uri(message_id: str, file_index: int) -> str | None:
 
 
 def ensure_gemini_file_uri(message_id: str, file_index: int, data: bytes, mime_type: str) -> str:
-    """Return an ACTIVE Gemini Files API URI for this file, uploading if needed.
+    """Return an ACTIVE Gemini Files API URI for an attachment, uploading if needed.
 
     Raises:
         GeminiFileError: if upload or server-side processing fails.
     """
-    cached = _get_cached_uri(message_id, file_index)
+    return ensure_gemini_file_uri_for_key(cache_key(message_id, file_index), data, mime_type)
+
+
+def ensure_gemini_file_uri_for_key(key: str, data: bytes, mime_type: str) -> str:
+    """Return an ACTIVE Gemini Files API URI for these bytes, cached under ``key``
+    ("<message_id>:<index>" for attachments, "doc:<id>" for saved documents).
+
+    Raises:
+        GeminiFileError: if upload or server-side processing fails.
+    """
+    cached = _get_cached_uri(key)
     if cached:
-        logger.debug(
-            "Gemini file URI cache hit",
-            extra={"message_id": message_id, "file_index": file_index},
-        )
+        logger.debug("Gemini file URI cache hit", extra={"cache_key": key})
         return cached
 
     client = _get_client()
     logger.info(
         "Uploading file to Gemini Files API",
-        extra={
-            "message_id": message_id,
-            "file_index": file_index,
-            "mime_type": mime_type,
-            "size": len(data),
-        },
+        extra={"cache_key": key, "mime_type": mime_type, "size": len(data)},
     )
 
     def _state_name(f: Any) -> str:
@@ -108,7 +110,7 @@ def ensure_gemini_file_uri(message_id: str, file_index: int, data: bytes, mime_t
     db.kv_set(
         SYSTEM_KV_USER_ID,
         GEMINI_FILES_NAMESPACE,
-        cache_key(message_id, file_index),
+        key,
         json.dumps({"uri": gfile.uri, "name": gfile.name, "expires_at": expires_at}),
     )
     return str(gfile.uri)

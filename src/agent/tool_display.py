@@ -4,7 +4,7 @@ This module contains tool metadata for UI display and functions
 for extracting human-readable details from tool calls.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from src.agent.tools import get_all_tool_names, get_available_tools
@@ -88,6 +88,16 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label": "Searching memory",
         "label_past": "Searched memory",
         "icon": "brain",
+    },
+    "manage_documents": {
+        "label": "Saving document",
+        "label_past": "Saved document",
+        "icon": "file",
+    },
+    "open_document": {
+        "label": "Opening saved document",
+        "label_past": "Opened saved document",
+        "icon": "file",
     },
     "search_conversations": {
         "label": "Searching past conversations",
@@ -596,6 +606,22 @@ def _fetch_conversation_title(conversation_id: str) -> str | None:
         return None
 
 
+def _open_document_detail(args: Mapping[str, object]) -> str | None:
+    """The saved document's title, for the open_document pill (best-effort)."""
+    ref = str(args.get("id") or "").strip()
+    if not ref:
+        return None
+    try:
+        _, user_id = get_conversation_context()
+        if not user_id:
+            return None
+        found = [d for d in db.list_documents(user_id) if d.id.startswith(ref)]
+        return found[0].title if len(found) == 1 else None
+    except Exception:  # display nicety; never break the pill
+        logger.debug("Document lookup for tool display failed", exc_info=True)
+        return None
+
+
 DetailFormatter = Callable[[dict[str, Any]], str | None]
 
 
@@ -662,6 +688,18 @@ def _retrieve_file_detail(args: dict[str, Any]) -> str | None:
     return f"file {args.get('file_index', 0)} from an earlier message"
 
 
+def _documents_detail(args: Mapping[str, object]) -> str | None:
+    """The titles saved, or the actions taken ("Flat lease; deleted 1")."""
+    operations = args.get("operations")
+    if not isinstance(operations, list):
+        return None
+    titles = [str(op["title"]) for op in operations if isinstance(op, dict) and op.get("title")]
+    if titles:
+        return _snippet("; ".join(titles), 70)
+    actions = [str(op.get("action")) for op in operations if isinstance(op, dict)]
+    return f"{', '.join(actions)} ({len(actions)})" if actions else None
+
+
 def _approval_detail(args: dict[str, Any]) -> str | None:
     if not args.get("action_description"):
         return None
@@ -712,6 +750,8 @@ _DETAIL_FORMATTERS: dict[str, DetailFormatter] = {
     "todoist": _with_action(_format_todoist_detail),
     "google_calendar": _with_action(_format_calendar_detail),
     "manage_memory": _memory_detail,
+    "manage_documents": _documents_detail,
+    "open_document": _open_document_detail,
     "search_memory": _truthy_arg("query"),
     "search_conversations": _truthy_arg("query"),
     "read_conversation": _read_conversation_detail,

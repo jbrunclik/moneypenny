@@ -33,6 +33,7 @@ from src.db.models.cost import CostMixin
 from src.db.models.dataclasses import (
     Conversation,
     ConversationFact,
+    Document,
     JobRun,
     Memory,
     Message,
@@ -46,6 +47,7 @@ from src.db.models.dataclasses import (
     User,
 )
 from src.db.models.device_checks import DeviceChecksMixin
+from src.db.models.documents import DocumentMixin
 from src.db.models.embeddings import EmbeddingsMixin
 from src.db.models.helpers import (
     build_cursor,
@@ -98,6 +100,7 @@ class Database(
     MessagePaginationMixin,
     MessageFileMixin,
     MemoryMixin,
+    DocumentMixin,
     PlannerMixin,
     CacheMixin,
     CostMixin,
@@ -218,6 +221,7 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     "ConversationFact",
     "Message",
     "Memory",
+    "Document",
     "MessagePagination",
     "RecentConversation",
     "SearchResult",

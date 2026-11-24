@@ -20,6 +20,8 @@ ANONYMOUS_WITHHELD = {
     "garmin_workout",
     "manage_memory",
     "search_memory",
+    "manage_documents",
+    "open_document",
     "save_place",
     "delete_place",
     "search_conversations",

@@ -39,6 +39,11 @@ def make_blob_key(message_id: str, file_index: int) -> str:
     return f"{message_id}/{file_index}"
 
 
+def make_document_blob_key(document_id: str) -> str:
+    """Blob key for a saved document's bytes (outside the attachment sweep)."""
+    return f"doc/{document_id}"
+
+
 def make_thumbnail_key(message_id: str, file_index: int) -> str:
     """Create blob key for a thumbnail."""
     return f"{message_id}/{file_index}.thumb"

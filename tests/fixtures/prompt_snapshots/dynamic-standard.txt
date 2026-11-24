@@ -50,3 +50,6 @@ No facts recorded yet.
 - 00000003 | goal | 2026-03-03, upd 2026-04-03 | Running a half marathon in April 2027, 3 runs a week
 - 00000004 | context | 2026-03-04 | Planning a family trip to Lake Garda in July 2027
 - 00000005 | fact | 2026-03-05, upd 2026-04-05 | Ema: ballet Mon/Wed 16:00, piano Thu 17:00 (condensed from 223 chars)
+
+## Saved documents (1/50)
+- 0000abcd | Flat lease | lease.pdf, saved 2026-10-02, until 2027-09-30 | Lease of the Vinohradska flat: 25,000 CZK a month, 3-month notice, deposit 50,000 | Use for: Rent, notice, deposit and moving questions

@@ -21,19 +21,20 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
 from langchain_core.tools import BaseTool
 from langchain_google_genai._function_utils import convert_to_genai_function_declarations
 
+import src.agent.prompt_documents as prompt_documents_module
 import src.agent.prompt_memory as prompt_memory_module
 import src.agent.prompts as prompts_module
 import src.agent.tools as tools_module
 from src.agent.prompts import CacheProfile, get_dynamic_prompt_parts, get_static_prompt_for_profile
 from src.config import Config
-from src.db.models.dataclasses import Memory
+from src.db.models.dataclasses import Document, Memory
 
 SNAPSHOT_DIR = Path(__file__).parents[1] / "fixtures" / "prompt_snapshots"
 UPDATE_ENV_VAR = "UPDATE_PROMPT_SNAPSHOTS"
@@ -76,6 +77,23 @@ _EXAMPLE_MEMORIES = [
 ]
 
 
+_EXAMPLE_DOCUMENTS = [
+    Document(
+        id="0000abcd-0000-4000-8000-000000000000",
+        user_id="example-user",
+        title="Flat lease",
+        summary="Lease of the Vinohradska flat: 25,000 CZK a month, 3-month notice, deposit 50,000",
+        use_for="Rent, notice, deposit and moving questions",
+        filename="lease.pdf",
+        mime_type="application/pdf",
+        size_bytes=180_000,
+        created_at=datetime(2026, 10, 2, tzinfo=UTC),
+        updated_at=datetime(2026, 10, 2, tzinfo=UTC),
+        valid_until=date(2027, 9, 30),
+    )
+]
+
+
 @pytest.fixture
 def pinned_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(prompts_module, "is_mapy_configured", lambda: True)
@@ -92,6 +110,9 @@ def pinned_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(
         prompt_memory_module.db, "list_memories", lambda _user_id: list(_EXAMPLE_MEMORIES)
+    )
+    monkeypatch.setattr(
+        prompt_documents_module.db, "list_documents", lambda _user_id: list(_EXAMPLE_DOCUMENTS)
     )
 
 

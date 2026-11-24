@@ -64,6 +64,7 @@ _ACTING_TOOLS = {
     "generate_image": "can create images",
     "kv_store": "keeps its own notes",
     "manage_memory": "can edit your memories",
+    "manage_documents": "can change your saved documents",
     "save_place": "can save places for you",
     "trigger_agent": "can start your other agents",
     "whatsapp": "can send WhatsApp messages",

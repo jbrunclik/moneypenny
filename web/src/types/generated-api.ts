@@ -842,6 +842,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The user's saved documents and the recently deleted ones. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DocumentsResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/approvals": {
         parameters: {
             query?: never;
@@ -3934,6 +3970,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a saved document (soft delete, restorable for a while). */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    document_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}": {
         parameters: {
             query?: never;
@@ -5347,6 +5430,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/documents/{document_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a saved document */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    document_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The file, as an attachment */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/me/instructions-review": {
         parameters: {
             query?: never;
@@ -6105,6 +6235,62 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/documents/{document_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a deleted document, unless the library is full. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    document_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/conversations/{conv_id}/archive": {
@@ -9676,6 +9862,83 @@ export interface components {
              * @default 0
              */
             limit: number;
+        };
+        /**
+         * SavedDocumentResponse
+         * @description One saved document (its metadata; the file is a separate download).
+         */
+        "DocumentsResponse.SavedDocumentResponse": {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Summary
+             * @description What the document contains
+             */
+            summary: string;
+            /**
+             * Use For
+             * @description When the assistant should open it
+             */
+            use_for: string;
+            /** Filename */
+            filename: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Valid Until
+             * @description Last local day the document holds (YYYY-MM-DD)
+             * @default null
+             */
+            valid_until: string | null;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
+            /**
+             * Last Opened At
+             * @default null
+             */
+            last_opened_at: string | null;
+            /**
+             * Source Conversation Id
+             * @default null
+             */
+            source_conversation_id: string | null;
+        };
+        /**
+         * DocumentsResponse
+         * @description The user's saved documents, the recently deleted ones and the caps.
+         */
+        DocumentsResponse: {
+            /** Documents */
+            documents: components["schemas"]["DocumentsResponse.SavedDocumentResponse"][];
+            /** Deleted */
+            deleted: components["schemas"]["DocumentsResponse.SavedDocumentResponse"][];
+            /**
+             * Limit
+             * @description Maximum saved documents per user
+             */
+            limit: number;
+            /**
+             * Bytes Used
+             * @description Bytes stored, deleted documents included until purged
+             */
+            bytes_used: number;
+            /**
+             * Bytes Limit
+             * @description Maximum bytes stored per user
+             */
+            bytes_limit: number;
         };
         /**
          * ProposalDetailResponse

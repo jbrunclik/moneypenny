@@ -517,6 +517,17 @@ def defragment_user_memories(
         return result
 
 
+def sweep_documents() -> tuple[int, int]:
+    """Expire saved documents past their last day, then purge deleted ones
+    past their recovery window (rows and blobs). Returns (expired, purged)."""
+    expired = db.expire_documents(local_today())
+    logger.info("Documents expired", extra={"expired": expired})
+    retention_days = Config.DOCUMENTS_SOFT_DELETE_RETENTION_DAYS
+    purged = db.purge_deleted_documents(retention_days)
+    logger.info("Documents purged", extra={"purged": purged, "retention_days": retention_days})
+    return expired, purged
+
+
 def main() -> int:
     """Run memory defragmentation for eligible users.
 
@@ -563,6 +574,8 @@ def main() -> int:
                 "retention_days": Config.MEMORY_SOFT_DELETE_RETENTION_DAYS,
             },
         )
+        # Saved documents share the nightly sweep (all users, no LLM)
+        sweep_documents()
 
     # Validate API key
     if not Config.GEMINI_API_KEY:

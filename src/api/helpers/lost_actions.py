@@ -31,6 +31,7 @@ SIDE_EFFECT_TOOLS = frozenset(
         "google_calendar",
         "whatsapp",
         "manage_memory",
+        "manage_documents",
         "kv_store",
         "garmin_workout",
         "rouvy_workout",

@@ -12,6 +12,7 @@ from src.agent.gemini_files import (
     GeminiFileError,
     attach_gemini_file_uris,
     ensure_gemini_file_uri,
+    ensure_gemini_file_uri_for_key,
 )
 from src.services.gemini_file_cache import (
     GEMINI_FILES_NAMESPACE,
@@ -49,6 +50,16 @@ class TestEnsureGeminiFileUri:
             uri = ensure_gemini_file_uri("msg-1", 0, b"vid", "video/mp4")
         assert uri == "https://files.example/f1"
         cached = test_database.kv_get(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, "msg-1:0")
+        assert cached is not None
+        assert json.loads(cached)["uri"] == uri
+
+    def test_any_key_caches_under_that_key(self, test_database) -> None:
+        client = _mock_client(("ACTIVE",))
+        with patch("src.agent.gemini_files._get_client", return_value=client):
+            uri = ensure_gemini_file_uri_for_key("doc:abc", b"%PDF", "application/pdf")
+            ensure_gemini_file_uri_for_key("doc:abc", b"%PDF", "application/pdf")
+        assert client.files.upload.call_count == 1
+        cached = test_database.kv_get(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, "doc:abc")
         assert cached is not None
         assert json.loads(cached)["uri"] == uri
 

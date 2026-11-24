@@ -60,7 +60,7 @@ class TestRetrieveFileLimits:
         sent = Image.open(io.BytesIO(base64.b64decode(result[1]["base64"])))
         assert max(sent.size) == Config.IMAGE_REFERENCE_MAX_EDGE_PX
 
-    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri_for_key")
     def test_large_pdf_goes_through_files_api(
         self,
         mock_ensure: MagicMock,
@@ -77,9 +77,9 @@ class TestRetrieveFileLimits:
             "file_uri": "https://files.example/pdf1",
             "mime_type": "application/pdf",
         }
-        mock_ensure.assert_called_once_with("msg-1", 0, data, "application/pdf")
+        mock_ensure.assert_called_once_with("msg-1:0", data, "application/pdf")
 
-    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri_for_key")
     def test_small_pdf_stays_inline(
         self,
         mock_ensure: MagicMock,
@@ -93,7 +93,7 @@ class TestRetrieveFileLimits:
         assert result[1]["base64"] == base64.b64encode(data).decode("utf-8")
         mock_ensure.assert_not_called()
 
-    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri_for_key")
     def test_files_api_failure_returns_error(
         self,
         mock_ensure: MagicMock,
@@ -131,3 +131,25 @@ class TestRetrieveFileLimits:
         assert parsed["file"]["name"] == "b.bin"
         assert parsed["file"]["size"] == 2000
         assert "data" not in parsed["file"]
+
+
+class TestBuildFileContent:
+    """The builder retrieve_file and open_document share."""
+
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri_for_key")
+    def test_build_file_content_uses_given_cache_key(self, mock_ensure: MagicMock) -> None:
+        from src.agent.tools.file_retrieval import build_file_content
+
+        mock_ensure.return_value = "https://files.example/doc"
+        data = b"%PDF-" + b"x" * 2000
+        with patch.object(Config, "GEMINI_INLINE_FILE_MAX_BYTES", 1000):
+            result = build_file_content(
+                source="saved document abc",
+                file_id="doc:abc",
+                file_name="lease.pdf",
+                mime_type="application/pdf",
+                data=data,
+            )
+
+        mock_ensure.assert_called_once_with("doc:abc", data, "application/pdf")
+        assert "saved document abc" in result[0]["text"]

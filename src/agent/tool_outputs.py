@@ -39,7 +39,9 @@ _EXCLUDED_TOOLS = EXTRACT_ONLY_TOOL_NAMES | frozenset(
         "read_conversation",
         "search_memory",
         "manage_memory",
+        "manage_documents",
         "retrieve_file",
+        "open_document",
         "request_approval",
         "load_skill",  # repo-authored instructions, not user data
         # Artifacts: messages.artifacts names them in MSG_CONTEXT; their html

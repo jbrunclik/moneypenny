@@ -236,6 +236,34 @@ class Memory:
 
 
 @dataclass
+class Document:
+    """A saved document: a file the agent keeps on purpose, with what it holds
+    (summary) and when it matters (use_for). Bytes: doc/<id> in the blob store."""
+
+    id: str
+    user_id: str
+    title: str
+    summary: str
+    use_for: str
+    filename: str
+    mime_type: str
+    size_bytes: int
+    created_at: datetime
+    updated_at: datetime
+    # Last local day the document holds; it leaves the chat context the day
+    # after and the nightly sweep soft-deletes it
+    valid_until: date | None = None
+    source_conversation_id: str | None = None
+    source_message_id: str | None = None
+    deleted_at: datetime | None = None
+    last_opened_at: datetime | None = None
+
+    def expired(self, today: date) -> bool:
+        """Past its last day."""
+        return self.valid_until is not None and self.valid_until < today
+
+
+@dataclass
 class ConversationFact:
     """A fact settled in one conversation, owned by the reply that last set it."""
 

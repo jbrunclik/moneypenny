@@ -19,6 +19,8 @@ total_runs
 total_completed
 total_failed
 total_unread
+# src/api/schemas/documents.py (the Data page reads it)
+bytes_limit
 # src/api/schemas/admin.py
 agents
 month_chats

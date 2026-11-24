@@ -1,14 +1,14 @@
 # Characters sent on every turn. Regenerate: make prompt-snapshots
 
 static prompt
-  standard       25509
+  standard       26327
   anonymous      13899
-  planning       28657
-  standing       25509
+  planning       29475
+  standing       26327
 
-dynamic context (example user, 5 memories)    2439
+dynamic context (example user, 5 memories)    2676
 
-tool declarations (42 tools, 59739 chars)
+tool declarations (44 tools, 62291 chars)
   ask_choice                     768
   browser                       2736
   create_artifact               2499
@@ -28,7 +28,9 @@ tool declarations (42 tools, 59739 chars)
   kv_store                      1659
   list_places                    270
   load_skill                     479
+  manage_documents              1999
   manage_memory                 1609
+  open_document                  553
   propose_deep_research         1298
   propose_instruction_change    1515
   propose_setup_change          1557

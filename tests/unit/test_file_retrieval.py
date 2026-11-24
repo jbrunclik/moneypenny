@@ -227,7 +227,7 @@ class TestRetrieveFileVideo:
         mock_message.created_at = datetime.now(UTC) - timedelta(days=days_old)
         return mock_message
 
-    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri_for_key")
     @patch("src.agent.tools.conversation_files.get_blob_store")
     @patch("src.agent.tools.conversation_files.db")
     def test_video_returns_media_block(
@@ -256,11 +256,11 @@ class TestRetrieveFileVideo:
             "file_uri": "https://files.example/f1",
             "mime_type": "video/mp4",
         }
-        mock_ensure.assert_called_once_with("msg-1", 0, b"fake_video_data", "video/mp4")
+        mock_ensure.assert_called_once_with("msg-1:0", b"fake_video_data", "video/mp4")
 
         set_conversation_context(None, None)
 
-    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri_for_key")
     @patch("src.agent.tools.conversation_files.get_blob_store")
     @patch("src.agent.tools.conversation_files.db")
     def test_audio_returns_media_block(
@@ -322,7 +322,7 @@ class TestRetrieveFileVideo:
 
         set_conversation_context(None, None)
 
-    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri_for_key")
     @patch("src.agent.tools.conversation_files.get_blob_store")
     @patch("src.agent.tools.conversation_files.db")
     def test_gemini_failure_returns_error(
