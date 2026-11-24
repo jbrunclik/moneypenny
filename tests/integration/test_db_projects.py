@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
 
 from src.config import Config
 from src.db.models.projects import ProjectWriteError
+from src.db.models.timestamps import to_db
+from src.utils.clock import utc_now
 
 if TYPE_CHECKING:
     from src.db.models import Database, User
@@ -256,3 +259,27 @@ class TestProjects:
         people = test_database.list_people(test_user.id)
         assert (other_user.id, "Jana Nováková") in people
         assert all(user_id != test_user.id for user_id, _ in people)
+
+
+class TestProjectPurge:
+    def test_deleted_project_memories_outlive_memory_purge_until_project_purge(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        project = test_database.create_project(test_user.id, "Home")
+        memory = test_database.add_memory(test_user.id, "Garage has 3-phase power")
+        _set(test_database, "user_memories", memory.id, "project_id", project.id)
+        test_database.delete_project(project.id, test_user.id)
+        long_ago = to_db(utc_now() - timedelta(days=60))
+        for table in ("projects", "user_memories"):
+            with test_database._pool.get_connection() as conn:
+                conn.execute(f"UPDATE {table} SET deleted_at = ?", (long_ago,))
+                conn.commit()
+
+        test_database.purge_deleted_memories(7)
+        with test_database._pool.get_connection() as conn:
+            assert conn.execute("SELECT COUNT(*) FROM user_memories").fetchone()[0] == 1
+
+        assert test_database.purge_deleted_projects(30) == 1
+        with test_database._pool.get_connection() as conn:
+            assert conn.execute("SELECT COUNT(*) FROM user_memories").fetchone()[0] == 0
+            assert conn.execute("SELECT COUNT(*) FROM projects").fetchone()[0] == 0

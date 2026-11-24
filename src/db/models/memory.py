@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
+from src.config import Config
 from src.db.models.dataclasses import Memory, User
 from src.db.models.timestamps import from_db, from_db_or_none, to_db
 from src.utils.clock import local_today, utc_now
@@ -40,6 +41,22 @@ class MemoryWrite:
     expected: str | None = None
     category: str | None = None
     valid_until: str | None = None
+    # add: the project the memory is filed under (None = personal)
+    project_id: str | None = None
+
+
+# A memory row the user may change from the Data page or a project page: their
+# personal one, or one of a live project they are a member of
+_VISIBLE_SQL = """((user_id = ? AND project_id IS NULL) OR project_id IN (
+    SELECT pm.project_id FROM project_members pm JOIN projects p ON p.id = pm.project_id
+    WHERE pm.user_id = ? AND p.deleted_at IS NULL))"""
+# A memory row a chat turn may change: personal, or of the chat's own project
+_IN_SCOPE_SQL = "((user_id = ? AND project_id IS NULL) OR project_id = ?)"
+_PERSONAL_SQL = "user_id = ? AND project_id IS NULL"
+
+
+class MemoryLimitError(Exception):
+    """A batch would pass a project's PROJECT_MEMORY_MAX_ENTRIES."""
 
 
 class MemoryWriteConflictError(Exception):
@@ -128,7 +145,11 @@ class MemoryMixin:
         )
 
     def apply_memory_batch(
-        self, user_id: str, conversation_id: str | None, writes: list[MemoryWrite]
+        self,
+        user_id: str,
+        conversation_id: str | None,
+        writes: list[MemoryWrite],
+        project_id: str | None = None,
     ) -> list[str | None]:
         """Apply manage_memory's writes in one transaction: all of them or none.
 
@@ -137,8 +158,15 @@ class MemoryMixin:
         defrag run) is never overwritten. Deletes refuse protected rows. Any
         miss rolls everything back and raises MemoryWriteConflictError.
 
+        ``project_id`` is the chat's project: patches and deletes may touch
+        the user's personal memories and that project's (any member's).
+
         Returns:
             The new memory id for each add, None for the other writes
+
+        Raises:
+            MemoryWriteConflictError: a target changed, vanished or is out of scope
+            MemoryLimitError: the batch would pass the project's memory cap
         """
         now = to_db(utc_now())
         new_ids: list[str | None] = []
@@ -146,9 +174,10 @@ class MemoryMixin:
             self._execute_with_timing(conn, "BEGIN IMMEDIATE")
             try:
                 new_ids.extend(
-                    self._apply_memory_write(conn, user_id, conversation_id, write, now)
+                    self._apply_memory_write(conn, user_id, conversation_id, write, now, project_id)
                     for write in writes
                 )
+                self._check_project_caps(conn, {w.project_id for w in writes if w.project_id})
             except BaseException:
                 conn.rollback()
                 raise
@@ -195,6 +224,20 @@ class MemoryMixin:
             conn.commit()
         return new_ids
 
+    def _check_project_caps(self, conn: sqlite3.Connection, project_ids: set[str]) -> None:
+        """Refuse a batch that leaves a project past its memory cap."""
+        limit = Config.PROJECT_MEMORY_MAX_ENTRIES
+        for project_id in project_ids:
+            count = self._execute_with_timing(
+                conn,
+                "SELECT COUNT(*) FROM user_memories WHERE project_id = ? AND deleted_at IS NULL",
+                (project_id,),
+            ).fetchone()[0]
+            if count > limit:
+                raise MemoryLimitError(
+                    f"the project memory is full ({limit} entries): merge or delete some first"
+                )
+
     def _apply_memory_write(
         self,
         conn: sqlite3.Connection,
@@ -202,6 +245,7 @@ class MemoryMixin:
         conversation_id: str | None,
         write: MemoryWrite,
         now: str,
+        project_id: str | None = None,
     ) -> str | None:
         """One write inside apply_memory_batch's transaction."""
         if write.action == "add":
@@ -210,8 +254,8 @@ class MemoryMixin:
                 conn,
                 """INSERT INTO user_memories
                    (id, user_id, content, category, created_at, updated_at,
-                    source_conversation_id, protected, valid_until)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULLIF(?, ''))""",
+                    source_conversation_id, protected, valid_until, project_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULLIF(?, ''), ?)""",
                 (
                     memory_id,
                     user_id,
@@ -221,6 +265,7 @@ class MemoryMixin:
                     now,
                     conversation_id,
                     write.valid_until,
+                    write.project_id,
                 ),
             )
             return memory_id
@@ -230,7 +275,9 @@ class MemoryMixin:
                 """UPDATE user_memories
                    SET content = ?, category = COALESCE(?, category), updated_at = ?,
                        valid_until = CASE WHEN ? IS NULL THEN valid_until ELSE NULLIF(?, '') END
-                   WHERE id = ? AND user_id = ? AND content = ? AND deleted_at IS NULL""",
+                   WHERE id = ? AND """
+                + _IN_SCOPE_SQL
+                + """ AND content = ? AND deleted_at IS NULL""",
                 (
                     write.content,
                     write.category,
@@ -239,6 +286,7 @@ class MemoryMixin:
                     write.valid_until,
                     write.memory_id,
                     user_id,
+                    project_id,
                     write.expected,
                 ),
             )
@@ -246,9 +294,11 @@ class MemoryMixin:
             cursor = self._execute_with_timing(
                 conn,
                 """UPDATE user_memories SET deleted_at = ?
-                   WHERE id = ? AND user_id = ? AND deleted_at IS NULL AND protected = 0
+                   WHERE id = ? AND """
+                + _IN_SCOPE_SQL
+                + """ AND deleted_at IS NULL AND protected = 0
                      AND (? IS NULL OR content = ?)""",
-                (now, write.memory_id, user_id, write.expected, write.expected),
+                (now, write.memory_id, user_id, project_id, write.expected, write.expected),
             )
         if cursor.rowcount == 0:
             raise MemoryWriteConflictError(str(write.memory_id))
@@ -268,9 +318,9 @@ class MemoryMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE user_memories SET protected = ?
-                   WHERE id = ? AND user_id = ? AND deleted_at IS NULL""",
-                (int(protected), memory_id, user_id),
+                f"""UPDATE user_memories SET protected = ?
+                   WHERE id = ? AND {_VISIBLE_SQL} AND deleted_at IS NULL""",
+                (int(protected), memory_id, user_id, user_id),
             )
             conn.commit()
             updated = cursor.rowcount > 0
@@ -303,8 +353,8 @@ class MemoryMixin:
             extra={"user_id": user_id, "memory_id": memory_id},
         )
 
-        query = """UPDATE user_memories SET deleted_at = ?
-                   WHERE id = ? AND user_id = ? AND deleted_at IS NULL"""
+        query = f"""UPDATE user_memories SET deleted_at = ?
+                   WHERE id = ? AND {_VISIBLE_SQL} AND deleted_at IS NULL"""
         if not allow_protected:
             query += " AND protected = 0"
 
@@ -312,7 +362,7 @@ class MemoryMixin:
             cursor = self._execute_with_timing(
                 conn,
                 query,
-                (to_db(utc_now()), memory_id, user_id),
+                (to_db(utc_now()), memory_id, user_id, user_id),
             )
             conn.commit()
             deleted = cursor.rowcount > 0
@@ -341,10 +391,10 @@ class MemoryMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE user_memories SET deleted_at = NULL,
+                f"""UPDATE user_memories SET deleted_at = NULL,
                        valid_until = CASE WHEN valid_until < ? THEN NULL ELSE valid_until END
-                   WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL""",
-                (local_today().isoformat(), memory_id, user_id),
+                   WHERE id = ? AND {_VISIBLE_SQL} AND deleted_at IS NOT NULL""",
+                (local_today().isoformat(), memory_id, user_id, user_id),
             )
             conn.commit()
             restored = cursor.rowcount > 0
@@ -364,10 +414,10 @@ class MemoryMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE user_memories SET content = previous_content, updated_at = ?
-                   WHERE id = ? AND user_id = ? AND deleted_at IS NULL
+                f"""UPDATE user_memories SET content = previous_content, updated_at = ?
+                   WHERE id = ? AND {_VISIBLE_SQL} AND deleted_at IS NULL
                      AND previous_content IS NOT NULL""",
-                (to_db(utc_now()), memory_id, user_id),
+                (to_db(utc_now()), memory_id, user_id, user_id),
             )
             conn.commit()
         if cursor.rowcount == 0:
@@ -375,7 +425,7 @@ class MemoryMixin:
         logger.info(
             "Memory previous text restored", extra={"memory_id": memory_id, "user_id": user_id}
         )
-        return self.get_memory(memory_id, user_id)
+        return self.get_visible_memory(memory_id, user_id)
 
     def expire_memories(self, today: date) -> int:
         """Soft-delete live memories whose last day (valid_until) is before
@@ -409,7 +459,11 @@ class MemoryMixin:
             cutoff = to_db(utc_now() - timedelta(days=retention_days))
             cursor = self._execute_with_timing(
                 conn,
-                "DELETE FROM user_memories WHERE deleted_at IS NOT NULL AND deleted_at < ?",
+                # A deleted project's memories wait for the project's own purge
+                # (restorable with it for DOCUMENTS_SOFT_DELETE_RETENTION_DAYS)
+                """DELETE FROM user_memories WHERE deleted_at IS NOT NULL AND deleted_at < ?
+                   AND (project_id IS NULL OR project_id NOT IN (
+                       SELECT id FROM projects WHERE deleted_at IS NOT NULL))""",
                 (cutoff,),
             )
             conn.commit()
@@ -477,11 +531,37 @@ class MemoryMixin:
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                """SELECT * FROM user_memories
-                   WHERE id = ? AND user_id = ? AND deleted_at IS NULL""",
+                f"""SELECT * FROM user_memories
+                   WHERE id = ? AND {_PERSONAL_SQL} AND deleted_at IS NULL""",
                 (memory_id, user_id),
             ).fetchone()
 
+            return self._row_to_memory(row) if row else None
+
+    def get_memory_in_scope(
+        self, memory_id: str, user_id: str, project_id: str | None
+    ) -> Memory | None:
+        """A live memory a chat turn may use: personal, or of ``project_id``
+        (the chat's project; the caller has checked membership)."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                f"""SELECT * FROM user_memories
+                   WHERE id = ? AND {_IN_SCOPE_SQL} AND deleted_at IS NULL""",
+                (memory_id, user_id, project_id),
+            ).fetchone()
+            return self._row_to_memory(row) if row else None
+
+    def get_visible_memory(self, memory_id: str, user_id: str) -> Memory | None:
+        """A live memory the user may see in the app: personal, or of a live
+        project they are a member of."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                f"""SELECT * FROM user_memories
+                   WHERE id = ? AND {_VISIBLE_SQL} AND deleted_at IS NULL""",
+                (memory_id, user_id, user_id),
+            ).fetchone()
             return self._row_to_memory(row) if row else None
 
     def list_memories(self, user_id: str) -> list[Memory]:
@@ -496,7 +576,7 @@ class MemoryMixin:
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
-                """SELECT * FROM user_memories WHERE user_id = ? AND deleted_at IS NULL
+                f"""SELECT * FROM user_memories WHERE {_PERSONAL_SQL} AND deleted_at IS NULL
                    ORDER BY updated_at DESC""",
                 (user_id,),
             ).fetchall()
@@ -527,7 +607,7 @@ class MemoryMixin:
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
-                """SELECT * FROM user_memories WHERE user_id = ? AND deleted_at IS NOT NULL
+                f"""SELECT * FROM user_memories WHERE {_PERSONAL_SQL} AND deleted_at IS NOT NULL
                    ORDER BY deleted_at DESC""",
                 (user_id,),
             ).fetchall()
@@ -546,8 +626,8 @@ class MemoryMixin:
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                """SELECT COUNT(*) as count FROM user_memories
-                   WHERE user_id = ? AND deleted_at IS NULL""",
+                f"""SELECT COUNT(*) as count FROM user_memories
+                   WHERE {_PERSONAL_SQL} AND deleted_at IS NULL""",
                 (user_id,),
             ).fetchone()
 
@@ -571,7 +651,7 @@ class MemoryMixin:
                 SELECT u.*, COUNT(m.id) as memory_count
                 FROM users u
                 LEFT JOIN user_memories m
-                  ON u.id = m.user_id AND m.deleted_at IS NULL
+                  ON u.id = m.user_id AND m.deleted_at IS NULL AND m.project_id IS NULL
                 GROUP BY u.id
                 HAVING COUNT(m.id) >= ?
                 ORDER BY memory_count DESC
@@ -626,7 +706,8 @@ class MemoryMixin:
                     conn,
                     """
                     UPDATE user_memories SET deleted_at = ?
-                    WHERE id = ? AND user_id = ? AND deleted_at IS NULL AND protected = 0
+                    WHERE id = ? AND user_id = ? AND project_id IS NULL
+                      AND deleted_at IS NULL AND protected = 0
                     """,
                     (now, memory_id, user_id),
                 )
@@ -639,7 +720,7 @@ class MemoryMixin:
                     """
                     UPDATE user_memories
                     SET content = ?, category = ?, updated_at = ?
-                    WHERE id = ? AND user_id = ? AND deleted_at IS NULL
+                    WHERE id = ? AND user_id = ? AND project_id IS NULL AND deleted_at IS NULL
                     """,
                     (content, category, now, memory_id, user_id),
                 )

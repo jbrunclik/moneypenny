@@ -271,6 +271,7 @@ class MessagePaginationMixin:
                      AND c.is_planning = 0 AND c.is_agent = 0 AND c.is_sports = 0
                      AND c.is_language = 0 AND c.is_whats_new = 0
                      AND c.anonymous_mode = 0 AND c.standing_type IS NULL
+                     AND c.project_id IS NULL
                    ORDER BY m.created_at DESC LIMIT ?""",
                 (user_id, limit),
             ).fetchall()

@@ -66,8 +66,9 @@ def list_documents(user: User) -> dict[str, object]:
 )
 @require_auth
 def download_document(user: User, document_id: str) -> Response:
-    """The saved document's file, as an attachment (live or recently deleted)."""
-    doc = db.get_document(document_id, user.id)
+    """The saved document's file, as an attachment (live or recently
+    deleted): personal, or of a project the user is a member of."""
+    doc = db.get_visible_document(document_id, user.id)
     blob = get_blob_store().get(make_document_blob_key(document_id)) if doc else None
     if doc is None or blob is None:
         raise_not_found_error("Document")
@@ -75,6 +76,21 @@ def download_document(user: User, document_id: str) -> Response:
     response = Response(data, mimetype=mime_type or doc.mime_type)
     response.headers["Content-Disposition"] = _attachment_header(doc.filename)
     return response
+
+
+def _restore_refusal(doc: Document) -> str | None:
+    """Why restoring ``doc`` would pass a cap, or None."""
+    today = local_today()
+    count, used = db.document_usage(doc.user_id, today)
+    if doc.project_id is not None:
+        live = [d for d in db.list_project_documents(doc.project_id) if not d.expired(today)]
+        if len(live) >= Config.PROJECT_DOCUMENTS_MAX_ENTRIES:
+            return f"The project already has {len(live)} documents, the most there can be."
+    elif count >= Config.DOCUMENTS_MAX_ENTRIES:
+        return f"You already have {count} saved documents, the most there can be. Delete one first."
+    if used + doc.size_bytes > Config.DOCUMENTS_MAX_TOTAL_BYTES:
+        return "The saved documents' storage is full. Delete one first."
+    return None
 
 
 def _attachment_header(filename: str) -> str:
@@ -106,17 +122,13 @@ def delete_document(user: User, document_id: str) -> tuple[dict[str, str], int]:
 @api.doc(responses=[404, 409])
 @require_auth
 def restore_document(user: User, document_id: str) -> tuple[dict[str, str], int]:
-    """Restore a deleted document, unless the library is full."""
-    doc = db.get_document(document_id, user.id)
+    """Restore a deleted document, unless its library is full (the
+    project's, for a project document; storage counts toward its author)."""
+    doc = db.get_visible_document(document_id, user.id)
     if doc is None or doc.deleted_at is None:
         raise_not_found_error("Document")
-    count, used = db.document_usage(user.id, local_today())
-    if count >= Config.DOCUMENTS_MAX_ENTRIES:
-        raise_conflict_error(
-            f"You already have {count} saved documents, the most there can be. Delete one first."
-        )
-    if used + doc.size_bytes > Config.DOCUMENTS_MAX_TOTAL_BYTES:
-        raise_conflict_error("Your saved documents' storage is full. Delete one first.")
+    if refusal := _restore_refusal(doc):
+        raise_conflict_error(refusal)
     db.restore_document(document_id, user.id, local_today())
     logger.info("Document restored", extra={"user_id": user.id, "document_id": document_id})
     return {"status": "restored"}, 200

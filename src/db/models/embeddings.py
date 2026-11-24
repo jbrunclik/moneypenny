@@ -10,6 +10,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 import uuid
+from collections.abc import Collection
 from typing import TYPE_CHECKING, Any
 
 from src.config import Config
@@ -113,6 +114,24 @@ class EmbeddingsMixin:
                 conn,
                 "SELECT ref_id, dim, vector FROM embeddings WHERE user_id = ? AND kind = ?",
                 (user_id, kind),
+            )
+            return [(row[0], row[1], row[2]) for row in cursor.fetchall()]
+
+    def get_embeddings_for_refs(
+        self, kind: str, ref_ids: Collection[str]
+    ) -> list[tuple[str, int, bytes]]:
+        """(ref_id, dim, vector) for exactly these refs, whoever wrote them.
+        Callers pass only ids the turn may see (a project's memories are
+        written by several members; the stored user_id is the last writer)."""
+        ids = list(ref_ids)
+        if not ids:
+            return []
+        marks = ", ".join("?" * len(ids))
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                f"SELECT ref_id, dim, vector FROM embeddings WHERE kind = ? AND ref_id IN ({marks})",
+                (kind, *ids),
             )
             return [(row[0], row[1], row[2]) for row in cursor.fetchall()]
 

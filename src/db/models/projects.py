@@ -119,7 +119,8 @@ class ProjectMixin:
             conn.commit()
         logger.info("Project created", extra={"project_id": project_id, "user_id": owner_id})
         project = self.get_project(project_id, owner_id)
-        assert project is not None
+        if project is None:  # just written in this transaction's commit
+            raise ProjectWriteError("the new project could not be read back")
         return project
 
     def get_project(self, project_id: str, user_id: str) -> Project | None:
@@ -353,8 +354,9 @@ class ProjectMixin:
 
     def purge_deleted_projects(self, retention_days: int) -> int:
         """Hard-delete projects deleted more than ``retention_days`` ago with
-        their members. Run after the memory and document purges, which remove
-        the project's rows (they share the project's deleted_at)."""
+        their members and memories. Run after the document purge, which
+        removes the project's documents and their blobs (they share the
+        project's deleted_at, and the same retention)."""
         cutoff = to_db(utc_now() - timedelta(days=retention_days))
         with self._pool.get_connection() as conn:
             ids = [
@@ -366,6 +368,9 @@ class ProjectMixin:
                 ).fetchall()
             ]
             for project_id in ids:
+                self._execute_with_timing(
+                    conn, "DELETE FROM user_memories WHERE project_id = ?", (project_id,)
+                )
                 self._execute_with_timing(
                     conn, "DELETE FROM project_members WHERE project_id = ?", (project_id,)
                 )

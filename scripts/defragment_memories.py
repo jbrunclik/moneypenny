@@ -525,6 +525,10 @@ def sweep_documents() -> tuple[int, int]:
     retention_days = Config.DOCUMENTS_SOFT_DELETE_RETENTION_DAYS
     purged = db.purge_deleted_documents(retention_days)
     logger.info("Documents purged", extra={"purged": purged, "retention_days": retention_days})
+    # After the documents: a purged project's documents (and blobs) are gone
+    # by now; the project's purge removes its memories and members
+    projects = db.purge_deleted_projects(retention_days)
+    logger.info("Projects purged", extra={"purged": projects, "retention_days": retention_days})
     return expired, purged
 
 

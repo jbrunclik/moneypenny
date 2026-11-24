@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Final
 
+from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.db.models.dataclasses import Document
 from src.db.models.helpers import make_document_blob_key
@@ -49,7 +50,15 @@ class DocumentLimits:
     today: date
 
 
-_LIVE_WHERE = "user_id = ? AND deleted_at IS NULL AND (valid_until IS NULL OR valid_until >= ?)"
+_LIVE_WHERE = "deleted_at IS NULL AND (valid_until IS NULL OR valid_until >= ?)"
+_PERSONAL_SQL = "user_id = ? AND project_id IS NULL"
+# A document a chat turn may use: personal, or of the chat's own project
+_IN_SCOPE_SQL = "((user_id = ? AND project_id IS NULL) OR project_id = ?)"
+# A document the user may see in the app: personal, or of a live project
+# they are a member of
+_VISIBLE_SQL = """((user_id = ? AND project_id IS NULL) OR project_id IN (
+    SELECT pm.project_id FROM project_members pm JOIN projects p ON p.id = pm.project_id
+    WHERE pm.user_id = ? AND p.deleted_at IS NULL))"""
 
 
 def _date_or_none(value: str | None) -> date | None:
@@ -85,9 +94,13 @@ class DocumentMixin:
         source_message_id: str | None,
         replaces: str | None = None,
         limits: DocumentLimits | None = None,
+        project_id: str | None = None,
     ) -> Document:
-        """Store a document; ``replaces`` (a live document of this user) is
-        soft-deleted in the same transaction, and ``limits`` are checked in it.
+        """Store a document; ``replaces`` (a live document of this user, or of
+        ``project_id`` - any member's) is soft-deleted in the same transaction,
+        and ``limits`` are checked in it. With ``project_id`` the entry cap is
+        the project's (PROJECT_DOCUMENTS_MAX_ENTRIES); bytes always count
+        toward the author.
 
         Raises:
             DocumentWriteError: ``replaces`` is not a live document of this
@@ -102,16 +115,16 @@ class DocumentMixin:
             with self._pool.get_connection() as conn:
                 self._execute_with_timing(conn, "BEGIN IMMEDIATE")
                 if replaces is not None:
-                    self._retire_replaced(conn, replaces, user_id, now)
+                    self._retire_replaced(conn, replaces, user_id, now, project_id)
                 if limits is not None:
-                    self._check_limits(conn, user_id, len(data), limits)
+                    self._check_limits(conn, user_id, len(data), limits, project_id)
                 self._execute_with_timing(
                     conn,
                     """INSERT INTO user_documents
                        (id, user_id, title, summary, use_for, filename, mime_type,
                         size_bytes, valid_until, source_conversation_id,
-                        source_message_id, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        source_message_id, created_at, updated_at, project_id)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         doc_id,
                         user_id,
@@ -126,6 +139,7 @@ class DocumentMixin:
                         source_message_id,
                         to_db(now),
                         to_db(now),
+                        project_id,
                     ),
                 )
                 conn.commit()
@@ -146,39 +160,69 @@ class DocumentMixin:
             valid_until=valid_until,
             source_conversation_id=source_conversation_id,
             source_message_id=source_message_id,
+            project_id=project_id,
         )
 
     def _retire_replaced(
-        self, conn: sqlite3.Connection, doc_id: str, user_id: str, now: datetime
+        self,
+        conn: sqlite3.Connection,
+        doc_id: str,
+        user_id: str,
+        now: datetime,
+        project_id: str | None,
     ) -> None:
         """Soft-delete the document a new version replaces (uncommitted)."""
         cursor = self._execute_with_timing(
             conn,
-            """UPDATE user_documents SET deleted_at = ?
-               WHERE id = ? AND user_id = ? AND deleted_at IS NULL""",
-            (to_db(now), doc_id, user_id),
+            f"""UPDATE user_documents SET deleted_at = ?
+               WHERE id = ? AND {_IN_SCOPE_SQL} AND deleted_at IS NULL""",
+            (to_db(now), doc_id, user_id, project_id),
         )
         if cursor.rowcount == 0:
             conn.rollback()
             raise DocumentWriteError(f"no saved document {doc_id} to replace")
 
     def _usage(self, conn: sqlite3.Connection, user_id: str, today: date) -> tuple[int, int]:
+        """(personal live documents, bytes the user authored in any scope)."""
         row = self._execute_with_timing(
             conn,
-            f"""SELECT COUNT(*) AS live, COALESCE(SUM(size_bytes), 0) AS bytes
-                FROM user_documents WHERE {_LIVE_WHERE}""",
+            f"""SELECT COALESCE(SUM(project_id IS NULL), 0) AS live,
+                       COALESCE(SUM(size_bytes), 0) AS bytes
+                FROM user_documents WHERE user_id = ? AND {_LIVE_WHERE}""",
             (user_id, today.isoformat()),
         ).fetchone()
         return int(row["live"]), int(row["bytes"])
 
+    def _project_count(self, conn: sqlite3.Connection, project_id: str, today: date) -> int:
+        row = self._execute_with_timing(
+            conn,
+            f"SELECT COUNT(*) FROM user_documents WHERE project_id = ? AND {_LIVE_WHERE}",
+            (project_id, today.isoformat()),
+        ).fetchone()
+        return int(row[0])
+
     def _check_limits(
-        self, conn: sqlite3.Connection, user_id: str, size: int, limits: DocumentLimits
+        self,
+        conn: sqlite3.Connection,
+        user_id: str,
+        size: int,
+        limits: DocumentLimits,
+        project_id: str | None = None,
     ) -> None:
         """Refuse (rolling back) a save that would pass a cap (uncommitted)."""
         count, used = self._usage(conn, user_id, limits.today)
-        if count + 1 > limits.max_entries or used + size > limits.max_bytes:
+        if project_id is not None:
+            count = self._project_count(conn, project_id, limits.today)
+            max_entries = Config.PROJECT_DOCUMENTS_MAX_ENTRIES
+        else:
+            max_entries = limits.max_entries
+        if count + 1 > max_entries or used + size > limits.max_bytes:
             conn.rollback()
-            raise DocumentWriteError("the document library is full")
+            raise DocumentWriteError(
+                "the project's documents are full"
+                if project_id is not None and count + 1 > max_entries
+                else "the document library is full"
+            )
 
     def _row_to_document(self, row: sqlite3.Row) -> Document:
         return Document(
@@ -201,14 +245,49 @@ class DocumentMixin:
         )
 
     def get_document(self, document_id: str, user_id: str) -> Document | None:
-        """A document of this user, live or deleted (None when not theirs)."""
+        """A personal document of this user, live or deleted (None when not theirs)."""
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                "SELECT * FROM user_documents WHERE id = ? AND user_id = ?",
+                f"SELECT * FROM user_documents WHERE id = ? AND {_PERSONAL_SQL}",
                 (document_id, user_id),
             ).fetchone()
         return self._row_to_document(row) if row else None
+
+    def get_document_in_scope(
+        self, document_id: str, user_id: str, project_id: str | None
+    ) -> Document | None:
+        """A document a chat turn may use (live or deleted): personal, or of
+        ``project_id`` (the chat's project; membership checked by the caller)."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                f"SELECT * FROM user_documents WHERE id = ? AND {_IN_SCOPE_SQL}",
+                (document_id, user_id, project_id),
+            ).fetchone()
+        return self._row_to_document(row) if row else None
+
+    def get_visible_document(self, document_id: str, user_id: str) -> Document | None:
+        """A document the user may see in the app (live or deleted): personal,
+        or of a live project they are a member of."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                f"SELECT * FROM user_documents WHERE id = ? AND {_VISIBLE_SQL}",
+                (document_id, user_id, user_id),
+            ).fetchone()
+        return self._row_to_document(row) if row else None
+
+    def list_project_documents(self, project_id: str) -> list[Document]:
+        """A project's live documents (every member's), newest first."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT * FROM user_documents WHERE project_id = ? AND deleted_at IS NULL
+                   ORDER BY created_at DESC""",
+                (project_id,),
+            ).fetchall()
+        return [self._row_to_document(row) for row in rows]
 
     def _list(self, user_id: str, deleted: bool) -> list[Document]:
         where = "deleted_at IS NOT NULL" if deleted else "deleted_at IS NULL"
@@ -216,7 +295,7 @@ class DocumentMixin:
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
-                f"SELECT * FROM user_documents WHERE user_id = ? AND {where} ORDER BY {order}",
+                f"SELECT * FROM user_documents WHERE {_PERSONAL_SQL} AND {where} ORDER BY {order}",
                 (user_id,),
             ).fetchall()
         return [self._row_to_document(row) for row in rows]
@@ -239,6 +318,7 @@ class DocumentMixin:
         summary: str | None = None,
         use_for: str | None = None,
         valid_until: date | Unset | None = UNSET,
+        project_id: str | None = None,
     ) -> Document | None:
         """Change a live document's text fields or end date (None clears it).
 
@@ -258,22 +338,23 @@ class DocumentMixin:
             cursor = self._execute_with_timing(
                 conn,
                 f"""UPDATE user_documents SET {", ".join(sets)}
-                    WHERE id = ? AND user_id = ? AND deleted_at IS NULL""",
-                (*params, document_id, user_id),
+                    WHERE id = ? AND {_IN_SCOPE_SQL} AND deleted_at IS NULL""",
+                (*params, document_id, user_id, project_id),
             )
             conn.commit()
             if cursor.rowcount == 0:
                 return None
-        return self.get_document(document_id, user_id)
+        return self.get_document_in_scope(document_id, user_id, project_id)
 
     def delete_document(self, document_id: str, user_id: str) -> bool:
-        """Soft-delete a live document."""
+        """Soft-delete a live document the user may see (personal, or of a
+        project they are in)."""
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE user_documents SET deleted_at = ?
-                   WHERE id = ? AND user_id = ? AND deleted_at IS NULL""",
-                (to_db(utc_now()), document_id, user_id),
+                f"""UPDATE user_documents SET deleted_at = ?
+                   WHERE id = ? AND {_VISIBLE_SQL} AND deleted_at IS NULL""",
+                (to_db(utc_now()), document_id, user_id, user_id),
             )
             conn.commit()
             return cursor.rowcount > 0
@@ -284,18 +365,18 @@ class DocumentMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE user_documents
+                f"""UPDATE user_documents
                    SET deleted_at = NULL,
                        valid_until = CASE WHEN valid_until < ? THEN NULL ELSE valid_until END
-                   WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL""",
-                (today.isoformat(), document_id, user_id),
+                   WHERE id = ? AND {_VISIBLE_SQL} AND deleted_at IS NOT NULL""",
+                (today.isoformat(), document_id, user_id, user_id),
             )
             conn.commit()
             return cursor.rowcount > 0
 
     def document_usage(self, user_id: str, today: date) -> tuple[int, int]:
-        """(documents, bytes) counting toward the caps: live ones whose last
-        day has not passed."""
+        """(personal documents, bytes of everything the user authored)
+        counting toward the caps: live ones whose last day has not passed."""
         with self._pool.get_connection() as conn:
             return self._usage(conn, user_id, today)
 

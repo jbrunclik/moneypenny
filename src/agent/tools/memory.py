@@ -618,8 +618,7 @@ def _semantic_ids(user_id: str, query: str, live_ids: set[str]) -> list[str]:
     db.record_embedding_cost(query, user_id)
     candidates = [
         (ref_id, vector)
-        for ref_id, _dim, vector in db.get_embeddings(user_id, "memory")
-        if ref_id in live_ids
+        for ref_id, _dim, vector in db.get_embeddings_for_refs("memory", live_ids)
     ]
     return [
         ref_id
