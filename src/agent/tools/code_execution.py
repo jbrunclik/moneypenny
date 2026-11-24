@@ -24,6 +24,7 @@ from src.agent.tools.conversation_files import (
     load_conversation_file,
     parse_file_id,
 )
+from src.agent.tools.documents import DOCUMENT_ID_PREFIX, load_saved_document
 from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.agent.tools.sandbox_rpc import STUB, ToolBridge
@@ -362,6 +363,20 @@ def _attachment_path(name: str, taken: set[str]) -> str:
     return f"{ATTACHMENTS_DIR}/{candidate}"
 
 
+def _load_one(file_id: str) -> ConversationFile | str:
+    """A conversation attachment ("message_id:file_index") or a saved document
+    ("doc:<id>", as open_document names it), or the tool error."""
+    if file_id.startswith(DOCUMENT_ID_PREFIX):
+        return load_saved_document(file_id)
+    parsed = parse_file_id(file_id)
+    if parsed is None:
+        return tool_error(
+            f"'{file_id}' is not a file id. Use the history's 'message_id:file_index' form, "
+            "or a saved document's 'doc:<id>'."
+        )
+    return load_conversation_file(*parsed)
+
+
 def _load_attachments(file_ids: list[str]) -> list[ConversationFile] | str:
     """Every requested attachment, or the tool error for the first that fails.
 
@@ -373,12 +388,7 @@ def _load_attachments(file_ids: list[str]) -> list[ConversationFile] | str:
         return tool_error(f"At most {limit} files per call; {len(file_ids)} were listed.")
     loaded: list[ConversationFile] = []
     for file_id in file_ids:
-        parsed = parse_file_id(str(file_id))
-        if parsed is None:
-            return tool_error(
-                f"'{file_id}' is not a file id. Use the history's 'message_id:file_index' form."
-            )
-        result = load_conversation_file(*parsed)
+        result = _load_one(str(file_id))
         if isinstance(result, str):
             return result
         if len(result.data) > Config.MAX_FILE_SIZE_BYTES:

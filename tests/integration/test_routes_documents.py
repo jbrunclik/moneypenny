@@ -65,6 +65,35 @@ class TestDocumentRoutes:
         assert "attachment" in response.headers["Content-Disposition"]
         assert "lease.pdf" in response.headers["Content-Disposition"]
 
+    def test_download_czech_name_header_is_latin1(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        """Gunicorn writes headers as latin-1: a Czech file name must ride in
+        filename*= (UTF-8, percent-encoded) with an ASCII fallback."""
+        doc_id = test_database.add_document(
+            test_user.id,
+            title="Lease",
+            summary="s",
+            use_for="u",
+            filename="Nájemní smlouva - Černý.pdf",
+            mime_type="application/pdf",
+            data=b"%PDF",
+            valid_until=None,
+            source_conversation_id=None,
+            source_message_id=None,
+        ).id
+
+        response = client.get(f"/api/documents/{doc_id}/file", headers=auth_headers)
+
+        header = response.headers["Content-Disposition"]
+        header.encode("latin-1")
+        assert 'filename="Najemni smlouva - Cerny.pdf"' in header
+        assert "filename*=UTF-8''N%C3%A1jemn%C3%AD%20smlouva%20-%20%C4%8Cern%C3%BD.pdf" in header
+
     def test_delete_then_restore(
         self,
         client: FlaskClient,

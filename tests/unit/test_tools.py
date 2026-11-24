@@ -325,13 +325,47 @@ class TestPermittedIntegrationAvailability:
         ):
             names = [t.name for t in self._bound(None)]
         # After the baseline tools, in this order
-        assert names[-7:] == [
+        assert names[-9:] == [
             "todoist",
             "garmin_connect",
             "garmin_workout",
             "whatsapp",
             "generate_image",
             "manage_memory",
+            "manage_documents",
+            "open_document",
             "trigger_agent",
         ]
         assert "google_calendar" not in names and "rouvy_workout" not in names
+
+
+class TestDocumentToolsForJobs:
+    """The saved-documents list and open_document go together: a run that is
+    shown the list (granted manage_memory, or all tools) can open them."""
+
+    @staticmethod
+    def _names(grants: list[str]) -> set[str]:
+        from src.agent.tools import tools_for_grants
+
+        return {t.name for t in tools_for_grants(grants, "user-1")}
+
+    def test_all_tools_job_gets_both_document_tools(self) -> None:
+        assert {"manage_documents", "open_document"} <= self._names(["*"])
+
+    def test_memory_grant_brings_open_document_only(self) -> None:
+        names = self._names(["manage_memory"])
+        assert "open_document" in names
+        assert "manage_documents" not in names
+
+    def test_no_memory_grant_no_document_tools(self) -> None:
+        assert not {"manage_documents", "open_document"} & self._names(["web_search"])
+
+    def test_memory_grant_allows_open_document_at_call_time(self) -> None:
+        from src.agent.permissions import PermissionResult, check_tool_permission
+
+        assert check_tool_permission(["manage_memory"], "open_document", {}) == (
+            PermissionResult.ALLOWED
+        )
+        assert check_tool_permission(["web_search"], "open_document", {}) == (
+            PermissionResult.BLOCKED
+        )

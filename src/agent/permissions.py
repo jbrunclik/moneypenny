@@ -55,6 +55,19 @@ WRITE_LEVEL_TOOLS = frozenset({"todoist", "google_calendar", "garmin_workout", "
 _READ_PREFIXES = ("get", "list", "search")
 
 
+# Grants that bring a companion tool: a run granted manage_memory is shown the
+# saved-documents list with the memories, so it may open those documents
+GRANT_COMPANIONS: dict[str, frozenset[str]] = {"manage_memory": frozenset({"open_document"})}
+
+
+def granted_tools(grants: list[str]) -> set[str]:
+    """The tools a list of grants allows, companions included."""
+    names = {base_tool(g) for g in grants}
+    for grant in list(names):
+        names |= GRANT_COMPANIONS.get(grant, frozenset())
+    return names
+
+
 def base_tool(grant: str) -> str:
     """The tool a grant names ("todoist:write" -> "todoist")."""
     return grant.removesuffix(WRITE_SUFFIX)
@@ -102,7 +115,7 @@ def check_tool_permission(
 
     # 2. Check if tool is in agent's allowed list
     # If permissions list exists (even if empty), only those tools are allowed
-    if permissions is not None and tool_name not in {base_tool(g) for g in permissions}:
+    if permissions is not None and tool_name not in granted_tools(permissions):
         logger.info("Tool blocked - not in the job's grants", extra={"tool": tool_name})
         return PermissionResult.BLOCKED
 

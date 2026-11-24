@@ -11,7 +11,7 @@ from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 from pydantic.config import JsonDict
 
-from src.agent.permissions import base_tool, run_permissions
+from src.agent.permissions import granted_tools, run_permissions
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.artifacts import create_artifact, read_artifact, update_artifact
 from src.agent.tools.ask_choice import ask_choice
@@ -220,7 +220,7 @@ def _add_permitted_tools(
     tools: list[Any], permissions: list[str], whatsapp_available: Callable[[], bool]
 ) -> None:
     """Append each permitted, available tool not already in `tools`."""
-    for tool_name in {base_tool(p) for p in permissions}:
+    for tool_name in granted_tools(permissions):
         tool = _TOOL_MAP.get(tool_name)
         if tool is None or tool in tools:
             continue
@@ -394,8 +394,9 @@ def _unrestricted_job_tools(user_id: str) -> list[Any]:
     if Config.BROWSER_ENABLED and is_browser_available():
         tools.append(browser)
     tools.append(generate_image)
-    # Unrestricted agents keep memory access; restricted ones must ask for it
-    tools.append(manage_memory)
+    # Unrestricted agents keep memory access; restricted ones must ask for it.
+    # The saved documents go with it: such a run is shown their list
+    tools.extend([manage_memory, manage_documents, open_document])
     # Agent-to-agent handoff passes text into another agent's run, so
     # restricted agents must be granted it like any other capability
     tools.append(trigger_agent)

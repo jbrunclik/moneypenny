@@ -322,6 +322,27 @@ def _find_live(user_id: str, ref: str) -> Document | str:
     return next(d for d in live if d.id == found[0])
 
 
+DOCUMENT_ID_PREFIX = "doc:"
+
+
+def load_saved_document(file_id: str) -> ConversationFile | str:
+    """A saved document's bytes by its code id ("doc:<id>", as open_document
+    names it), for execute_code; a tool error when it is not a live,
+    unexpired document of the current user."""
+    _conversation_id, user_id = get_conversation_context()
+    if not user_id:
+        return tool_error("No user context available.", retriable=False)
+    doc = _find_live(user_id, file_id.removeprefix(DOCUMENT_ID_PREFIX))
+    if isinstance(doc, str):
+        return doc
+    blob = get_blob_store().get(make_document_blob_key(doc.id))
+    if blob is None:
+        return tool_error("The document's file is missing from storage.", retriable=False)
+    return ConversationFile(
+        f"{DOCUMENT_ID_PREFIX}{doc.id}", doc.filename, blob[1] or doc.mime_type, blob[0]
+    )
+
+
 @tool
 def open_document(id: str) -> str | Sequence[Mapping[str, object]]:
     """Open a document from the user's saved documents to read it in full.
@@ -353,8 +374,11 @@ def open_document(id: str) -> str | Sequence[Mapping[str, object]]:
         extra={"user_id": user_id, "document_id": doc.id, "conversation_id": conversation_id},
     )
     return build_file_content(
-        source=f'saved document {short_memory_id(doc.id)} "{doc.title}"',
-        file_id=f"doc:{doc.id}",
+        source=(
+            f'saved document "{doc.title}" (to compute with it in code: '
+            f"execute_code(files=['{DOCUMENT_ID_PREFIX}{doc.id}']))"
+        ),
+        file_id=f"{DOCUMENT_ID_PREFIX}{doc.id}",
         file_name=doc.filename,
         mime_type=blob[1] or doc.mime_type,
         data=blob[0],

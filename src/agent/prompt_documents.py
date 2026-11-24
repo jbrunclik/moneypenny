@@ -10,6 +10,7 @@ from src.db.models import db
 from src.db.models.dataclasses import Document
 from src.utils.clock import local_today, to_local
 from src.utils.memory_ids import short_memory_id
+from src.utils.threat_patterns import find_injection
 
 
 def get_documents_instructions_prompt() -> str:
@@ -17,8 +18,22 @@ def get_documents_instructions_prompt() -> str:
     return DOCUMENTS_SYSTEM_PROMPT.strip()
 
 
+# The file name is not model-written (an upload's or a tool output's name), so
+# it is capped, folded onto the line and scanned like the fields the agent wrote
+_FILENAME_MAX_CHARS = 80
+
+
+def _listed_filename(filename: str) -> str:
+    name = " ".join(filename.split())
+    if find_injection(name):
+        return "(file name hidden)"
+    return name if len(name) <= _FILENAME_MAX_CHARS else name[: _FILENAME_MAX_CHARS - 1] + "…"
+
+
 def _document_line(doc: Document) -> str:
-    dates = f"{doc.filename}, saved {to_local(doc.created_at).strftime('%Y-%m-%d')}"
+    dates = (
+        f"{_listed_filename(doc.filename)}, saved {to_local(doc.created_at).strftime('%Y-%m-%d')}"
+    )
     if doc.valid_until:
         dates += f", until {doc.valid_until.isoformat()}"
     fields = [

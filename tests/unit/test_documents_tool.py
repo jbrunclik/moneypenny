@@ -326,6 +326,49 @@ class TestOpen:
             manage_documents.func(operations=[_save(file_id)])  # type: ignore[misc]
 
 
+class TestSavedDocumentsInCode:
+    def test_load_saved_document_by_doc_id(
+        self, ctx: tuple[Database, User, str, BlobStore]
+    ) -> None:
+        from src.agent.tools.conversation_files import ConversationFile
+        from src.agent.tools.documents import load_saved_document
+
+        db, user, file_id, _ = ctx
+        _ops(_save(file_id))
+        doc = db.list_documents(user.id)[0]
+
+        loaded = load_saved_document(f"doc:{doc.id}")
+
+        assert isinstance(loaded, ConversationFile)
+        assert loaded.data == PDF
+        assert loaded.name == "lease.pdf"
+
+    def test_load_saved_document_refuses_others_and_deleted(
+        self, ctx: tuple[Database, User, str, BlobStore]
+    ) -> None:
+        from src.agent.tools.documents import load_saved_document
+
+        db, user, _file_id, _ = ctx
+        (gone,) = _seed(db, user.id, 1)
+        db.delete_document(gone, user.id)
+        other = db.get_or_create_user("other@example.com", "Other")
+        (foreign,) = _seed(db, other.id, 1)
+
+        for doc_id in (gone, foreign):
+            assert "error" in str(load_saved_document(f"doc:{doc_id}"))
+
+    def test_open_result_names_the_code_id(
+        self, ctx: tuple[Database, User, str, BlobStore]
+    ) -> None:
+        db, user, file_id, _ = ctx
+        _ops(_save(file_id))
+        doc = db.list_documents(user.id)[0]
+
+        result = open_document.invoke({"id": doc.id[:8]})
+
+        assert f"execute_code(files=['doc:{doc.id}'])" in result[0]["text"]
+
+
 class TestToolSchema:
     @pytest.mark.parametrize("tool", [manage_documents, open_document])
     def test_every_param_has_a_concrete_type(self, tool: Any) -> None:

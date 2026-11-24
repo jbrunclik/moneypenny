@@ -5,6 +5,9 @@ them. Deletes are soft: a document stays restorable for
 DOCUMENTS_SOFT_DELETE_RETENTION_DAYS before the nightly purge.
 """
 
+import unicodedata
+from urllib.parse import quote
+
 from apiflask import APIBlueprint
 from flask import Response
 
@@ -70,13 +73,20 @@ def download_document(user: User, document_id: str) -> Response:
         raise_not_found_error("Document")
     data, mime_type = blob
     response = Response(data, mimetype=mime_type or doc.mime_type)
-    response.headers["Content-Disposition"] = f'attachment; filename="{_safe_name(doc.filename)}"'
+    response.headers["Content-Disposition"] = _attachment_header(doc.filename)
     return response
 
 
-def _safe_name(filename: str) -> str:
-    """The file name for a Content-Disposition header (no quotes or line breaks)."""
-    return "".join(c for c in filename if c not in '"\r\n\\') or "document"
+def _attachment_header(filename: str) -> str:
+    """An attachment header for any file name: the server writes headers as
+    latin-1, so a Czech name rides in filename*= (UTF-8), with an ASCII
+    fallback for clients that only read filename=."""
+    cleaned = "".join(c for c in filename if c not in '"\r\n\\/') or "document"
+    ascii_name = unicodedata.normalize("NFKD", cleaned).encode("ascii", "ignore").decode()
+    return (
+        f'attachment; filename="{ascii_name or "document"}"; '
+        f"filename*=UTF-8''{quote(cleaned, safe='')}"
+    )
 
 
 @api.route("/documents/<document_id>", methods=["DELETE"])
