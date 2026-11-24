@@ -7,6 +7,8 @@ import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { kvStore } from '../api/kv-store';
 import { memories } from '../api/memories';
+import { documents } from '../api/documents';
+import { downloadDocument } from './file-actions';
 import { toast } from '../components/Toast';
 import {
   setActiveConversation,
@@ -24,7 +26,7 @@ import { WARNING_ICON, createIconElement } from '../utils/icons';
 import { clearConversationHash, setStorageHash } from '../router/deeplink';
 import { setCurrentConversationForBlobs } from '../utils/thumbnail-blob-urls';
 import type { KVStoreCallbacks } from '../components/KVStorePage';
-import type { KVNamespacesResponse, Memory } from '../types/api';
+import type { DocumentsResponse, KVNamespacesResponse, Memory } from '../types/api';
 import {
   ensureInputAreaVisible,
   focusMessageInput,
@@ -67,6 +69,8 @@ interface StorageLoad {
   memoriesData: Memory[];
   deletedMemories: Memory[];
   memoryLimit: number;
+  /** null when they could not be loaded (the section is left out) */
+  documentsData: DocumentsResponse | null;
   fetchFailed: boolean;
 }
 
@@ -83,8 +87,13 @@ async function loadStorageData(
     memoriesData: [],
     deletedMemories: [],
     memoryLimit: 0,
+    documentsData: null,
     fetchFailed: false,
   };
+  const documentsLoad = documents.list().catch((error: unknown) => {
+    log.error('Failed to fetch documents', { error });
+    return null;
+  });
   if (needsRefresh) {
     try {
       const [kvData, memData, deletedData] = await Promise.all([
@@ -101,6 +110,7 @@ async function loadStorageData(
       log.error('Failed to fetch storage data', { error });
       result.fetchFailed = true;
     }
+    result.documentsData = await documentsLoad;
     return result;
   }
   // Still need to fetch memories even if KV data is cached
@@ -115,6 +125,7 @@ async function loadStorageData(
   } catch (error) {
     log.error('Failed to fetch memories', { error });
   }
+  result.documentsData = await documentsLoad;
   return result;
 }
 
@@ -154,6 +165,23 @@ function buildStorageCallbacks(): KVStoreCallbacks {
       const restored = await memories.restorePrevious(memoryId);
       toast.success('Previous version restored.');
       return restored;
+    },
+    onDeleteDocument: async (documentId: string) => {
+      await documents.delete(documentId);
+      toast.success('Document deleted.');
+    },
+    onRestoreDocument: async (documentId: string) => {
+      try {
+        await documents.restore(documentId);
+      } catch (error) {
+        // 409: the library is full - the server's message says what to do
+        toast.error(error instanceof Error ? error.message : 'Failed to restore the document.');
+        throw error;
+      }
+      toast.success('Document restored.');
+    },
+    onDownloadDocument: (documentId: string, fileName: string) => {
+      void downloadDocument(documentId, fileName);
     },
   };
 }
@@ -212,7 +240,7 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
   const cacheAge = Date.now() - (cached.storageLastFetch || 0);
   const needsRefresh = !cached.storageData || cacheAge > STORAGE_CACHE_MS || forceRefresh;
 
-  const { storageData, memoriesData, deletedMemories, memoryLimit, fetchFailed } = await loadStorageData(
+  const { storageData, memoriesData, deletedMemories, memoryLimit, documentsData, fetchFailed } = await loadStorageData(
     needsRefresh,
     cached.storageData
   );
@@ -245,6 +273,7 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
   const storageEl = renderKVStorePage(storageData, memoriesData, callbacks, {
     limit: memoryLimit,
     deletedMemories,
+    documents: documentsData,
   });
 
   // Add stale data warning banner if fetch failed but we have cached data

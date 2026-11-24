@@ -404,6 +404,16 @@ export type Memory = Schemas['MemoriesListResponse.MemoryResponse'];
 export type MemoriesResponse = Schemas['MemoriesListResponse'];
 
 // =============================================================================
+// Saved document types (document memory)
+// =============================================================================
+
+/** A document the assistant keeps: what it contains (`summary`) and when to open it (`use_for`) */
+export type SavedDocument = Schemas['DocumentsResponse.SavedDocumentResponse'];
+
+/** Live and recently deleted documents, with the count and storage caps */
+export type DocumentsResponse = Schemas['DocumentsResponse'];
+
+// =============================================================================
 // Settings types
 // =============================================================================
 

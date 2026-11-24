@@ -6,6 +6,7 @@
 import { createLogger } from '../utils/logger';
 import { artifactCopyText } from '../components/messages/artifacts';
 import { conversations } from '../api/conversations';
+import { documents } from '../api/documents';
 import { files } from '../api/files';
 import { showToast, toast } from '../components/Toast';
 import { CHECK_ICON, setIcon } from '../utils/icons';
@@ -95,6 +96,16 @@ export async function downloadFile(messageId: string, fileIndex: number, fileNam
   } catch (error) {
     log.error('Failed to download file', { error, messageId, fileIndex, fileName });
     toast.error('Failed to download file.');
+  }
+}
+
+/** Download a saved document (Data page) with its file name. */
+export async function downloadDocument(documentId: string, fileName: string): Promise<void> {
+  try {
+    await saveBlob(await documents.fetchFile(documentId), fileName);
+  } catch (error) {
+    log.error('Failed to download document', { error, documentId });
+    toast.error('Failed to download the document.');
   }
 }
 

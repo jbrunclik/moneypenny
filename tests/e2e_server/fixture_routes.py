@@ -376,3 +376,29 @@ def set_language_programs() -> tuple[dict[str, Any], int]:
 
     proxy_db.kv_set(user.id, "language", "programs", json.dumps(programs))
     return {"status": "set", "count": len(programs)}, 200
+
+
+@fixtures_bp.route("/test/seed-document", methods=["POST"])
+def seed_document() -> tuple[dict[str, Any], int]:
+    """Save a document (document memory) for the auth-bypass user; deleted=true
+    soft-deletes it straight away (Recently deleted)."""
+    from datetime import date
+
+    data = request.get_json() or {}
+    user = g.db.get_or_create_user(email="local@localhost", name="Local User")
+    valid_until = data.get("valid_until")
+    doc = g.db.add_document(
+        user.id,
+        title=str(data.get("title", "Flat lease")),
+        summary=str(data.get("summary", "Lease of the flat, 25,000 CZK a month")),
+        use_for=str(data.get("use_for", "Rent and notice questions")),
+        filename=str(data.get("filename", "lease.pdf")),
+        mime_type="application/pdf",
+        data=b"%PDF-1.4 e2e",
+        valid_until=date.fromisoformat(valid_until) if valid_until else None,
+        source_conversation_id=None,
+        source_message_id=None,
+    )
+    if data.get("deleted"):
+        g.db.delete_document(doc.id, user.id)
+    return {"id": doc.id}, 200

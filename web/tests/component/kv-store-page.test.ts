@@ -31,6 +31,9 @@ function callbacks(): KVStoreCallbacks {
     onRestorePreviousMemory: vi.fn((id: string) =>
       Promise.resolve(memory(id, { content: 'Has a dog named Max', previous_content: 'Has a dog' }))
     ),
+    onDeleteDocument: vi.fn(() => Promise.resolve()),
+    onRestoreDocument: vi.fn(() => Promise.resolve()),
+    onDownloadDocument: vi.fn(),
   };
 }
 

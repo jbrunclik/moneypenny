@@ -27,6 +27,14 @@ vi.mock('@/api/memories', () => ({
   },
 }));
 
+const DOCUMENTS = { documents: [], deleted: [], limit: 50, bytes_used: 0, bytes_limit: 100 };
+
+vi.mock('@/api/documents', () => ({
+  documents: { list: vi.fn(() => Promise.resolve(DOCUMENTS)), delete: vi.fn(), restore: vi.fn() },
+}));
+
+vi.mock('@/core/file-actions', () => ({ downloadDocument: vi.fn() }));
+
 vi.mock('@/components/Toast', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
@@ -131,6 +139,7 @@ describe('navigateToStorage', () => {
     expect(renderKVStorePage).toHaveBeenCalledWith(NAMESPACES, [MEMORY], expect.any(Object), {
       limit: 50,
       deletedMemories: [],
+      documents: DOCUMENTS,
     });
     expect(messages.querySelector('.kv-store-page')).not.toBeNull();
     expect(messages.querySelector('.kv-store-stale-warning')).toBeNull();
@@ -149,6 +158,7 @@ describe('navigateToStorage', () => {
     expect(renderKVStorePage).toHaveBeenCalledWith(NAMESPACES, [MEMORY], expect.any(Object), {
       limit: 50,
       deletedMemories: [],
+      documents: DOCUMENTS,
     });
   });
 
@@ -163,6 +173,7 @@ describe('navigateToStorage', () => {
     expect(renderKVStorePage).toHaveBeenCalledWith(NAMESPACES, [], expect.any(Object), {
       limit: 0,
       deletedMemories: [],
+      documents: DOCUMENTS,
     });
     expect(messages.querySelector('.kv-store-stale-warning')).not.toBeNull();
   });

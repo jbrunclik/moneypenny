@@ -88,6 +88,31 @@ async function setupStoragePage(page: import('@playwright/test').Page, options?:
   }
 }
 
+// Saved documents (document memory): two live ones, one with a last day, and
+// one recently deleted
+async function seedDocuments(page: import('@playwright/test').Page): Promise<void> {
+  for (const data of [
+    {
+      title: 'Equity waterfall',
+      summary: 'Equity value per exit valuation (50-400 M EUR), vested and unvested options, after-tax',
+      use_for: 'Exit scenarios, liquidity planning',
+      filename: 'equity-waterfall.pdf',
+    },
+    { title: 'Flat lease', valid_until: '2027-09-30' },
+    { title: 'Old car insurance', deleted: true },
+  ]) {
+    await page.request.post('/test/seed-document', { data });
+  }
+}
+
+async function openDocuments(page: import('@playwright/test').Page): Promise<void> {
+  await setupStoragePage(page, { memories: [], namespaces: [] });
+  await seedDocuments(page);
+  await page.goto('/#/storage');
+  await page.waitForSelector('.kv-doc-item');
+  await pageSettled(page);
+}
+
 // A temporary memory (its last day is a fixed calendar date, not relative)
 // and one whose earlier text is kept, with that text opened
 const HISTORY_MEMORIES = [
@@ -122,6 +147,11 @@ test.describe('Visual: Storage Page - Desktop', () => {
   test('memory with a last day and its previous version', async ({ page }) => {
     await openMemoryHistory(page);
     await expect(page.locator('.main')).toHaveScreenshot('storage-page-memory-history.png');
+  });
+
+  test('saved documents', async ({ page }) => {
+    await openDocuments(page);
+    await expect(page.locator('.main')).toHaveScreenshot('storage-page-documents.png');
   });
 
   test('storage page with data', async ({ page }) => {
@@ -206,6 +236,11 @@ test.describe('Visual: Storage Page - Mobile', () => {
   test('memory history mobile view', async ({ page }) => {
     await openMemoryHistory(page);
     await expect(page.locator('.main')).toHaveScreenshot('storage-page-mobile-memory-history.png');
+  });
+
+  test('saved documents mobile view', async ({ page }) => {
+    await openDocuments(page);
+    await expect(page.locator('.main')).toHaveScreenshot('storage-page-mobile-documents.png');
   });
 
   test('storage page mobile view', async ({ page }) => {

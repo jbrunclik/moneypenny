@@ -546,7 +546,10 @@
 .memory-delete,
 .memory-protect,
 .memory-history,
-.memory-restore {
+.memory-restore,
+.kv-doc-download,
+.kv-doc-delete,
+.kv-doc-restore {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -563,19 +566,25 @@
 .memory-delete svg,
 .memory-protect svg,
 .memory-history svg,
-.memory-restore svg {
+.memory-restore svg,
+.kv-doc-download svg,
+.kv-doc-delete svg,
+.kv-doc-restore svg {
     width: 14px;
     height: 14px;
 }
 
-.memory-delete:hover {
+.memory-delete:hover,
+.kv-doc-delete:hover {
     color: var(--color-error-500);
 }
 
 .memory-protect:hover,
 .memory-history:hover,
 .memory-history[aria-expanded="true"],
-.memory-restore:hover {
+.memory-restore:hover,
+.kv-doc-download:hover,
+.kv-doc-restore:hover {
     color: var(--text-primary);
 }
 
@@ -586,6 +595,40 @@
 
 .memory-item--protected {
     border-left: 2px solid var(--border);
+}
+
+/* Saved documents (document memory): title, file line, what it holds, when it is used */
+.kv-doc-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    word-break: break-word;
+}
+
+.kv-doc-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.kv-doc-file,
+.kv-doc-use-for {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.kv-doc-summary {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.memory-item--deleted .kv-doc-title {
+    color: var(--text-muted);
+    text-decoration: line-through;
 }
 
 .memory-item--deleted .memory-text {

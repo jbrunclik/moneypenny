@@ -22,6 +22,7 @@ def reset_database() -> tuple[dict[str, str], int]:
         conn.execute("DELETE FROM messages")
         conn.execute("DELETE FROM conversations")
         conn.execute("DELETE FROM user_memories")
+        conn.execute("DELETE FROM user_documents")
         conn.execute("DELETE FROM users")
         conn.commit()
 

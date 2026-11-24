@@ -18,19 +18,11 @@ import {
   createIconButton,
   createIconElement,
   setIcon,
-  type IconHtml,
 } from '../utils/icons';
-import type { KVNamespacesResponse, KVKeysResponse, Memory } from '../types/api';
+import type { DocumentsResponse, KVNamespacesResponse, KVKeysResponse, Memory } from '../types/api';
 import { showConfirm } from './Modal';
-
-/** A section heading: icon, title and its count. */
-function sectionTitle(icon: IconHtml, title: string, count: string): HTMLHeadingElement {
-  return createElement('h3', { class: 'kv-store-section-title' }, [
-    createIconElement('section-icon', icon),
-    ` ${title} `,
-    createElement('span', { class: 'kv-store-section-count' }, [count]),
-  ]);
-}
+import { formatRelativeTime, formatUntil, sectionTitle } from './kv-store-parts';
+import { renderDocumentsSections, type DocumentCallbacks } from './kv-documents';
 
 /**
  * Render loading skeleton for the storage page.
@@ -52,7 +44,7 @@ export function renderKVStoreLoading(): HTMLDivElement {
 }
 
 /** Callbacks for the storage page */
-export interface KVStoreCallbacks {
+export interface KVStoreCallbacks extends DocumentCallbacks {
   onRefresh: () => void;
   onNamespaceExpand: (namespace: string) => Promise<KVKeysResponse>;
   onDeleteKey: (namespace: string, key: string) => Promise<void>;
@@ -72,27 +64,6 @@ const CATEGORY_CONFIG: Record<string, { label: string; class: string }> = {
 };
 
 /**
- * Format relative time (e.g., "2 days ago")
- */
-function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  const diffWeeks = Math.floor(diffDays / 7);
-  const diffMonths = Math.floor(diffDays / 30);
-
-  if (diffMinutes < 1) return 'just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffWeeks < 4) return `${diffWeeks}w ago`;
-  return `${diffMonths}mo ago`;
-}
-
-/**
  * The text a memory had before its last change, with its restore action.
  */
 function renderPrevious(previous: string): HTMLDivElement {
@@ -106,25 +77,13 @@ function renderPrevious(previous: string): HTMLDivElement {
 }
 
 /**
- * A memory's last day ("YYYY-MM-DD", a calendar date) as "Fri 21 Nov".
- * Parsed as local noon so no timezone shifts it to the day before.
- */
-function formatUntil(day: string): string {
-  return new Date(`${day}T12:00:00`).toLocaleDateString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
-/**
  * Render the combined data management page.
  */
 export function renderKVStorePage(
   kvData: KVNamespacesResponse,
   memories: Memory[],
   callbacks: KVStoreCallbacks,
-  options?: { limit?: number; deletedMemories?: Memory[] },
+  options?: { limit?: number; deletedMemories?: Memory[]; documents?: DocumentsResponse | null },
 ): HTMLDivElement {
   const container = document.createElement('div');
   container.className = 'kv-store';
@@ -153,6 +112,11 @@ export function renderKVStorePage(
   const deleted = options?.deletedMemories ?? [];
   if (deleted.length > 0) {
     container.appendChild(renderDeletedMemoriesSection(deleted, callbacks));
+  }
+
+  // Saved documents (absent when they could not be loaded)
+  if (options?.documents) {
+    container.append(...renderDocumentsSections(options.documents, callbacks));
   }
 
   // K/V Storage section
