@@ -66,7 +66,8 @@ class ConversationListingMixin:
                      AND (archived = 0 OR archived IS NULL)
                      AND deleted_at IS NULL
                      AND (is_sports = 0 OR is_sports IS NULL)
-                     AND (is_language = 0 OR is_language IS NULL)""",
+                     AND (is_language = 0 OR is_language IS NULL)
+                     AND (project_id IS NULL OR pinned = 1)""",
                 (user_id,),
             ).fetchone()
             total_count = int(total_row["count"]) if total_row else 0
@@ -92,6 +93,7 @@ class ConversationListingMixin:
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
                          AND (c.is_language = 0 OR c.is_language IS NULL)
                          AND (c.pinned = 0 OR c.pinned IS NULL)
+                         AND c.project_id IS NULL
                          AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
@@ -116,6 +118,7 @@ class ConversationListingMixin:
                          AND (c.is_sports = 0 OR c.is_sports IS NULL)
                          AND (c.is_language = 0 OR c.is_language IS NULL)
                          AND (c.pinned = 0 OR c.pinned IS NULL)
+                         AND c.project_id IS NULL
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC, c.id DESC
                        LIMIT ?""",
@@ -127,6 +130,45 @@ class ConversationListingMixin:
             conversations_with_counts = [row_to_conversation_summary(row) for row in rows]
 
             return conversations_with_counts, next_cursor, has_more, total_count
+
+    def list_project_conversations(
+        self,
+        project_id: str,
+        user_id: str,
+        limit: int = 30,
+        cursor: str | None = None,
+    ) -> tuple[list[tuple[Conversation, int, str | None]], str | None, bool]:
+        """The user's own live, unarchived chats in a project, newest first
+        (the main list's cursor format). Empty for a non-member."""
+        params: list[Any] = [project_id, user_id, project_id, user_id]
+        after = ""
+        if cursor:
+            cursor_timestamp, cursor_id = parse_cursor(cursor)
+            cursor_timestamp = normalize_cursor(cursor_timestamp)
+            after = "AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))"
+            params.extend([cursor_timestamp, cursor_timestamp, cursor_id])
+        params.append(limit + 1)
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                f"""SELECT c.*,
+                          (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id)
+                              AS message_count,
+                          (SELECT m2.content FROM messages m2
+                           WHERE m2.conversation_id = c.id
+                           ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) AS last_message
+                   FROM conversations c
+                   WHERE c.project_id = ? AND c.user_id = ? AND c.deleted_at IS NULL
+                     AND (c.archived = 0 OR c.archived IS NULL)
+                     AND EXISTS (SELECT 1 FROM project_members pm
+                                 WHERE pm.project_id = ? AND pm.user_id = ?)
+                     {after}
+                   ORDER BY c.updated_at DESC, c.id DESC
+                   LIMIT ?""",
+                tuple(params),
+            ).fetchall()
+        page, next_cursor, has_more = page_rows(rows, limit)
+        return [row_to_conversation_summary(row) for row in page], next_cursor, has_more
 
     def list_conversations_with_message_count(
         self, user_id: str, include_planning: bool = False

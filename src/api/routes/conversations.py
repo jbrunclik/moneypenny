@@ -37,6 +37,7 @@ from src.auth.admin import check_model_allowed
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
+from src.db.models.projects import ProjectWriteError
 from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger, log_payload_snippet
 
@@ -97,6 +98,7 @@ def list_conversations(user: User, query: ConversationsPageQuery) -> dict[str, A
             "read_count": c.read_message_count,
             "archived": c.archived or None,
             "pinned": c.pinned or None,
+            "project_id": c.project_id,
             "is_whats_new": c.is_whats_new or None,
             "last_message_preview": preview,
             "scheduled_count": counts.get(c.id) or None,
@@ -125,14 +127,19 @@ def list_conversations(user: User, query: ConversationsPageQuery) -> dict[str, A
 @rate_limit_conversations
 @require_auth
 @validate_request(CreateConversationRequest)
-def create_conversation(user: User, data: CreateConversationRequest) -> tuple[dict[str, str], int]:
+def create_conversation(
+    user: User, data: CreateConversationRequest
+) -> tuple[dict[str, str | None], int]:
     """Create a new conversation."""
     model = data.model or Config.DEFAULT_MODEL
     log_payload_snippet(logger, {"model": model})
     check_model_allowed(user, model)
 
     logger.debug("Creating conversation", extra={"user_id": user.id, "model": model})
-    conv = db.create_conversation(user.id, model=model)
+    try:
+        conv = db.create_conversation(user.id, model=model, project_id=data.project_id)
+    except ProjectWriteError:
+        raise_not_found_error("Project")
     logger.info(
         "Conversation created",
         extra={"user_id": user.id, "conversation_id": conv.id, "model": model},
@@ -143,6 +150,7 @@ def create_conversation(user: User, data: CreateConversationRequest) -> tuple[di
         "model": conv.model,
         "created_at": to_api(conv.created_at),
         "updated_at": to_api(conv.updated_at),
+        "project_id": conv.project_id,
     }, 201
 
 

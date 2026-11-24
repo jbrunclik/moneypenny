@@ -15,11 +15,13 @@ from src.config import Config
 from src.db.models.conversation_rows import row_to_conversation
 from src.db.models.dataclasses import Conversation
 from src.db.models.helpers import delete_messages_blobs
+from src.db.models.projects import ProjectWriteError
 from src.db.models.timestamps import to_db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from src.db.models.dataclasses import Project
     from src.utils.connection_pool import ConnectionPool
 
 logger = get_logger(__name__)
@@ -39,6 +41,11 @@ class ConversationMixin:
         """Execute query with timing (defined in base class)."""
         raise NotImplementedError
 
+    if TYPE_CHECKING:
+
+        def get_project(self, project_id: str, user_id: str) -> Project | None:
+            """Defined in ProjectMixin."""
+
     def _row_to_conversation(self, row: sqlite3.Row) -> Conversation:
         """Convert a database row to a Conversation object."""
         return row_to_conversation(row)
@@ -48,8 +55,16 @@ class ConversationMixin:
         user_id: str,
         title: str = Config.DEFAULT_CONVERSATION_TITLE,
         model: str | None = None,
+        project_id: str | None = None,
     ) -> Conversation:
-        """Create a new conversation for a user."""
+        """Create a new conversation for a user, optionally filed under a
+        project they are a member of.
+
+        Raises:
+            ProjectWriteError: ``project_id`` is not a live project of the user's
+        """
+        if project_id is not None and self.get_project(project_id, user_id) is None:
+            raise ProjectWriteError(f"no project {project_id} for this user")
         conv_id = str(uuid.uuid4())
         model = model or Config.DEFAULT_MODEL
         now = utc_now()
@@ -61,16 +76,10 @@ class ConversationMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO conversations (id, user_id, title, model, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (
-                    conv_id,
-                    user_id,
-                    title,
-                    model,
-                    to_db(now),
-                    to_db(now),
-                ),
+                """INSERT INTO conversations
+                   (id, user_id, title, model, created_at, updated_at, project_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (conv_id, user_id, title, model, to_db(now), to_db(now), project_id),
             )
             conn.commit()
 
@@ -82,6 +91,7 @@ class ConversationMixin:
             model=model,
             created_at=now,
             updated_at=now,
+            project_id=project_id,
         )
 
     def get_conversation(self, conv_id: str, user_id: str) -> Conversation | None:

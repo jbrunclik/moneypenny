@@ -11,7 +11,7 @@ from flask.testing import FlaskClient
 from src.config import Config
 
 if TYPE_CHECKING:
-    from src.db.models import Conversation, Database
+    from src.db.models import Conversation, Database, User
 
 
 class TestListConversations:
@@ -96,6 +96,47 @@ class TestCreateConversation:
         assert "id" in data
         assert data["model"] == "gemini-4-hydrogen"
         assert "title" in data
+
+    def test_creates_in_a_project(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        project = test_database.create_project(test_user.id, "Bikes")
+        response = client.post(
+            "/api/conversations", headers=auth_headers, json={"project_id": project.id}
+        )
+
+        assert response.status_code == 201
+        assert json.loads(response.data)["project_id"] == project.id
+
+    def test_create_in_a_foreign_project_is_404(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_database: Database
+    ) -> None:
+        stranger = test_database.get_or_create_user(email="x@example.com", name="X")
+        project = test_database.create_project(stranger.id, "Theirs")
+        response = client.post(
+            "/api/conversations", headers=auth_headers, json={"project_id": project.id}
+        )
+        assert response.status_code == 404
+
+    def test_list_hides_project_chats(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        project = test_database.create_project(test_user.id, "Bikes")
+        test_database.create_conversation(test_user.id, "Filed", project_id=project.id)
+        plain = test_database.create_conversation(test_user.id, "Plain")
+
+        data = json.loads(client.get("/api/conversations", headers=auth_headers).data)
+
+        assert [c["id"] for c in data["conversations"]] == [plain.id]
+        assert data["conversations"][0]["project_id"] is None
 
     def test_create_refuses_an_admin_only_model_for_the_family(
         self, client: FlaskClient, auth_headers: dict[str, str]

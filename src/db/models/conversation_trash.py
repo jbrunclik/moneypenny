@@ -50,7 +50,11 @@ _TRASH_SET = """trashed_updated_at = CASE WHEN deleted_at IS NULL
     deleted_at = COALESCE(deleted_at, ?), updated_at = ?"""
 _RESTORE_SET = """updated_at = CASE WHEN deleted_at IS NULL THEN updated_at
                      ELSE COALESCE(trashed_updated_at, updated_at) END,
-    deleted_at = NULL, trashed_updated_at = NULL"""
+    deleted_at = NULL, trashed_updated_at = NULL,
+    project_id = CASE WHEN project_id IN (
+        SELECT pm.project_id FROM project_members pm JOIN projects p ON p.id = pm.project_id
+        WHERE pm.user_id = conversations.user_id AND p.deleted_at IS NULL)
+        THEN project_id END"""
 
 
 # Trashed conversations hard-deleted per transaction when emptying the trash

@@ -43,6 +43,7 @@ def _trashed_item(c: Conversation, message_count: int, preview: str | None) -> d
         "message_count": message_count,
         "archived": c.archived,
         "pinned": c.pinned,
+        "project_id": c.project_id,
         "last_message_preview": preview,
         "deleted_at": to_api(c.deleted_at) if c.deleted_at else None,
         "purge_at": to_api(c.deleted_at + retention) if c.deleted_at else None,

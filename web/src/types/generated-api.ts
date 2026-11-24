@@ -5437,7 +5437,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download a saved document */
+        /**
+         * Download a saved document
+         * @description deleted): personal, or of a project the user is a member of.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -6246,7 +6249,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Restore a deleted document, unless the library is full. */
+        /**
+         * Restore a deleted document, unless its library is full (the
+         * @description project's, for a project document; storage counts toward its author).
+         */
         post: {
             parameters: {
                 query?: never;
@@ -10311,6 +10317,12 @@ export interface components {
              */
             scheduled_count: number | null;
             /**
+             * Project Id
+             * @description The project the chat is filed under
+             * @default null
+             */
+            project_id: string | null;
+            /**
              * Deleted At
              * @default null
              */
@@ -10418,6 +10430,12 @@ export interface components {
              */
             scheduled_count: number | null;
             /**
+             * Project Id
+             * @description The project the chat is filed under
+             * @default null
+             */
+            project_id: string | null;
+            /**
              * Deleted At
              * @default null
              */
@@ -10438,6 +10456,12 @@ export interface components {
              * @default null
              */
             model?: string | null;
+            /**
+             * Project Id
+             * @description File the new chat under this project (a member's)
+             * @default null
+             */
+            project_id?: string | null;
         };
         /**
          * PlannerResetResponse
@@ -11526,6 +11550,12 @@ export interface components {
              * @description In the trash (deleted_at set)
              */
             trashed: boolean;
+            /**
+             * Project Id
+             * @description The project the chat is filed under
+             * @default null
+             */
+            project_id: string | null;
             /** Pinned */
             pinned: boolean;
             /**

@@ -24,6 +24,9 @@ class CreateConversationRequest(RequestModel):
     """Schema for POST /api/conversations."""
 
     model: str | None = None  # Defaults to Config.DEFAULT_MODEL in route
+    project_id: str | None = Field(
+        default=None, description="File the new chat under this project (a member's)"
+    )
 
     @field_validator("model")
     @classmethod
@@ -97,6 +100,7 @@ class ConversationResponse(ResponseModel):
     scheduled_count: int | None = Field(
         default=None, description="The chat's reminders, watchers and recurring checks"
     )
+    project_id: str | None = Field(default=None, description="The project the chat is filed under")
     deleted_at: Timestamp | None = None  # Set for conversations in the trash
     purge_at: Timestamp | None = None  # When a trashed conversation is deleted for good
 
@@ -188,6 +192,7 @@ class SyncConversationResponse(ResponseModel):
     )
     archived: bool
     trashed: bool = Field(..., description="In the trash (deleted_at set)")
+    project_id: str | None = Field(default=None, description="The project the chat is filed under")
     pinned: bool
     anonymous_mode: bool = Field(..., description="Memory and integrations off")
     is_whats_new: bool = Field(default=False, description="The read-only What's new chat")

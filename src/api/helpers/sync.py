@@ -32,6 +32,7 @@ def sync_summary(
         "last_message_id": last_message_id,
         "archived": conv.archived,
         "trashed": conv.deleted_at is not None,
+        "project_id": conv.project_id,
         "pinned": conv.pinned,
         "anonymous_mode": conv.anonymous_mode,
         "is_whats_new": conv.is_whats_new,

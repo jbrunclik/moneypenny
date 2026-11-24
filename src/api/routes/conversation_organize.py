@@ -46,6 +46,7 @@ def list_archived_conversations(user: User, query: ConversationsPageQuery) -> di
                 "updated_at": to_api(c.updated_at),
                 "message_count": message_count,
                 "archived": True,
+                "project_id": c.project_id,
                 "last_message_preview": preview,
             }
             for c, message_count, preview in conv_with_counts
