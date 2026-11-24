@@ -14,12 +14,14 @@ memory; "what did we decide about the bathroom tiles" is a search.
 import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from typing import Literal
 
 from langchain_core.tools import tool
 
 from src.agent.conversation_compaction import summarized_message_ids
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
+from src.agent.tools.project_scope import chat_project_id
 from src.config import Config
 from src.db.models import Message, RecentConversation, SearchResult, db
 from src.db.models.timestamps import from_db
@@ -132,26 +134,47 @@ def _day(when: datetime | None) -> str:
     return to_local(when).strftime("%Y-%m-%d") if when else "unknown date"
 
 
-def _format_hits(hits: list[_Hit], current_id: str | None, agent_ids: set[str]) -> str:
+def _scope_tag(conversation_id: str, project_ids: set[str] | None) -> str:
+    """ " (this project)" / " (other)" in a project chat's search, else ""."""
+    if project_ids is None:
+        return ""
+    return " (this project)" if conversation_id in project_ids else " (other)"
+
+
+def _format_hits(
+    hits: list[_Hit],
+    current_id: str | None,
+    agent_ids: set[str],
+    project_ids: set[str] | None = None,
+) -> str:
     """Render fused hits as compact lines for the model."""
     lines = [f"Found {len(hits)} match(es) in past conversations, showing {len(hits)}:"]
     for hit in hits:
         where = _where(hit.conversation_id, hit.message_id, current_id, agent_ids)
-        lines.append(f"\n- [{_day(hit.created_at)}] {hit.title} {where} ({' + '.join(hit.how)})")
+        tag = _scope_tag(hit.conversation_id, project_ids)
+        lines.append(
+            f"\n- [{_day(hit.created_at)}] {hit.title}{tag} {where} ({' + '.join(hit.how)})"
+        )
         if hit.snippet:
             lines.append(f"  {hit.snippet}")
     lines.append(_READ_HINT)
     return "\n".join(lines)
 
 
-def _format_listing(chats: list[RecentConversation], agent_ids: set[str], dated: bool) -> str:
+def _format_listing(
+    chats: list[RecentConversation],
+    agent_ids: set[str],
+    dated: bool,
+    project_ids: set[str] | None = None,
+) -> str:
     """Render the recent-chats listing (newest activity first)."""
     if not chats:
         return "No past conversations in that period." if dated else "No past conversations yet."
     lines = [f"{len(chats)} conversation(s), most recent activity first:"]
     for chat in chats:
         where = _where(chat.conversation_id, None, None, agent_ids)
-        lines.append(f"\n- [{_day(chat.last_message_at)}] {chat.title or 'Untitled'} {where}")
+        tag = _scope_tag(chat.conversation_id, project_ids)
+        lines.append(f"\n- [{_day(chat.last_message_at)}] {chat.title or 'Untitled'}{tag} {where}")
         first = chat.first_user_message.strip().replace("\n", " ")
         if first:
             lines.append(f"  {first}")
@@ -242,6 +265,7 @@ def _listing(
     limit: int,
     after: datetime | None,
     before: datetime | None,
+    project_ids: set[str] | None = None,
 ) -> tuple[str, int]:
     """The recent-chats listing (without the current conversation) and its size."""
     # Over-fetch and sort agents' runs last BEFORE cutting to the limit: on a
@@ -253,8 +277,10 @@ def _listing(
     ]
     agent_ids = db.agent_conversation_ids(user_id, [c.conversation_id for c in chats])
     chats.sort(key=lambda chat: chat.conversation_id in agent_ids)
+    if project_ids is not None:  # this project's chats first (stable: by recency)
+        chats.sort(key=lambda chat: chat.conversation_id not in project_ids)
     chats = chats[:limit]
-    return _format_listing(chats, agent_ids, dated=bool(after or before)), len(chats)
+    return _format_listing(chats, agent_ids, bool(after or before), project_ids), len(chats)
 
 
 def _search(
@@ -264,6 +290,7 @@ def _search(
     limit: int,
     after: datetime | None,
     before: datetime | None,
+    project_ids: set[str] | None = None,
 ) -> tuple[list[_Hit], str, set[str]]:
     """Fused hits for a query (agents' runs last), the keyword mode used and
     which hits are scheduled agents' runs."""
@@ -291,7 +318,17 @@ def _search(
     # Sorted before the cut, so a family chat is not cut off by runs above it
     agent_ids = db.agent_conversation_ids(user_id, [hit.conversation_id for hit in hits])
     hits.sort(key=lambda hit: hit.conversation_id in agent_ids)
+    if project_ids is not None:  # this project's chats first (stable: by rank)
+        hits.sort(key=lambda hit: hit.conversation_id not in project_ids)
     return hits[:limit], mode, agent_ids
+
+
+def _project_chat_ids(conversation_id: str | None, user_id: str) -> set[str] | None:
+    """The user's own chats in the current chat's project, or None outside one."""
+    project_id = chat_project_id(conversation_id, user_id)
+    if project_id is None:
+        return None
+    return set(db.project_conversation_ids(project_id, user_id))
 
 
 @tool
@@ -300,6 +337,7 @@ def search_conversations(
     limit: int = 10,
     after: str | None = None,
     before: str | None = None,
+    scope: Literal["project", "all"] = "project",
 ) -> str:
     """Search the user's past conversations for something previously discussed.
 
@@ -322,6 +360,9 @@ def search_conversations(
         limit: Maximum number of results to return (1-25, default 10).
         after: Only conversations from this date on (YYYY-MM-DD, inclusive).
         before: Only conversations up to this date (YYYY-MM-DD, inclusive).
+        scope: In a project chat, "project" (default) ranks this project's
+            chats first, each tagged (this project) or (other); "all" ranks
+            every chat alike. Outside projects it changes nothing.
 
     Returns:
         Matching conversations with dates, titles, snippets and how each
@@ -340,16 +381,19 @@ def search_conversations(
 
     query = query.strip()
     limit = max(1, min(int(limit), Config.CONVERSATION_SEARCH_MAX_RESULTS))
+    project_ids = _project_chat_ids(conversation_id, user_id) if scope == "project" else None
     if not query:
-        text, count = _listing(user_id, conversation_id, limit, start, end)
+        text, count = _listing(user_id, conversation_id, limit, start, end, project_ids)
         mode, keyword, semantic, fused = "list", count, 0, 0
     else:
-        hits, mode, agent_ids = _search(user_id, conversation_id, query, limit, start, end)
+        hits, mode, agent_ids = _search(
+            user_id, conversation_id, query, limit, start, end, project_ids
+        )
         keyword = sum("words" in hit.how for hit in hits)
         semantic = sum(hit.how == ["meaning"] for hit in hits)
         fused = sum(len(hit.how) == 2 for hit in hits)
         text = (
-            _format_hits(hits, conversation_id, agent_ids)
+            _format_hits(hits, conversation_id, agent_ids, project_ids)
             if hits
             else (
                 f"No past conversations matched '{query}'. Try different or fewer keywords "

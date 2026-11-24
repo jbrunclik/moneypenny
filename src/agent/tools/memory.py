@@ -27,6 +27,7 @@ from langchain_core.tools import tool
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.project_scope import chat_project_id
 from src.agent.tools.turn_usage import record_tool_call
 from src.config import Config
 from src.db.models import db
@@ -176,14 +177,6 @@ def _scoped_memories(user_id: str, project_id: str | None) -> list[Memory]:
     if project_id is not None:
         memories = [*memories, *db.list_project_memories(project_id)]
     return memories
-
-
-def chat_project_id(conversation_id: str | None, user_id: str) -> str | None:
-    """The project the chat is filed under, if the user is still a member."""
-    if not conversation_id:
-        return None
-    project = db.project_for_conversation(conversation_id, user_id)
-    return project.id if project else None
 
 
 def _add_scope(op: MemoryOp, state: _BatchState) -> tuple[str | None, str | None]:

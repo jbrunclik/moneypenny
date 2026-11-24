@@ -603,7 +603,7 @@
     }
   },
   {
-    "description": "Keep important documents the user shares (contracts, financial models,\nstatements, policies) in their document library, which you see in every\nlater chat, or change and delete saved ones.\n\nSave only when the user asks you to keep a document, or after offering and\ngetting a yes. When a save sets an end date (valid_until) or replaces an\nolder version, say so and wait for a yes first. Contracts that renew\nautomatically get no end date. An amendment or annex is its own document,\nnever a replacement. Write the summary for recall (what is in it: key\nfigures, parties, terms) and use_for for when to open it (topics,\ndecisions). The batch is all-or-nothing.\n\nArgs:\n    operations: Each has an action:\n        - \"save\": file_id (the \"message_id:file_index\" id of a file in this\n          conversation), title, summary, use_for; optional valid_until\n          (YYYY-MM-DD, the last day it holds) and replaces (an older\n          version's id - it is moved to Recently deleted)\n        - \"update\": id, plus any of title, summary, use_for, valid_until\n          (\"\" removes the end date)\n        - \"delete\": id (moved to Recently deleted, restorable for a while)\n\nReturns:\n    One line per operation: SAVED/UPDATED/DELETED with the id, or REJECTED\n    with the reason.",
+    "description": "Keep important documents the user shares (contracts, financial models,\nstatements, policies) in their document library, which you see in every\nlater chat, or change and delete saved ones.\n\nSave only when the user asks you to keep a document, or after offering and\ngetting a yes. When a save sets an end date (valid_until) or replaces an\nolder version, say so and wait for a yes first. Contracts that renew\nautomatically get no end date. An amendment or annex is its own document,\nnever a replacement. Write the summary for recall (what is in it: key\nfigures, parties, terms) and use_for for when to open it (topics,\ndecisions). The batch is all-or-nothing.\n\nArgs:\n    operations: Each has an action:\n        - \"save\": file_id (the \"message_id:file_index\" id of a file in this\n          conversation), title, summary, use_for; optional scope (\"project\"\n          in a project chat for a document of the project's topic; default\n          \"personal\"), valid_until\n          (YYYY-MM-DD, the last day it holds) and replaces (an older\n          version's id - it is moved to Recently deleted)\n        - \"update\": id, plus any of title, summary, use_for, valid_until\n          (\"\" removes the end date)\n        - \"delete\": id (moved to Recently deleted, restorable for a while)\n\nReturns:\n    One line per operation: SAVED/UPDATED/DELETED with the id, or REJECTED\n    with the reason.",
     "name": "manage_documents",
     "parameters": {
       "properties": {
@@ -639,6 +639,13 @@
                 "type": "STRING"
               },
               "replaces": {
+                "type": "STRING"
+              },
+              "scope": {
+                "enum": [
+                  "personal",
+                  "project"
+                ],
                 "type": "STRING"
               }
             },
@@ -1089,7 +1096,7 @@
     }
   },
   {
-    "description": "Search the user's past conversations for something previously discussed.\n\nUse this when the user refers to an earlier discussion (\"what did we decide\nabout...\", \"the recipe you gave me\", \"that error from last month\") or when\nyou need context that is not in the current conversation and not in your\nstored memories. It also covers the earlier part of THIS conversation once\nit has been condensed into a summary - search it when you need an exact\ndetail (number, name, wording) the summary left out. Do NOT use it for\ngeneral knowledge questions - it only searches this user's own chat history.\nBefore asking the user to repeat something they told you in an earlier\nconversation, search for it. With no query it lists conversations by most\nrecent activity - with `after`/`before` that answers \"what did we talk\nabout yesterday / last week\".\n\nArgs:\n    query: Words or a short phrase. Matches both keywords and meaning\n        (semantic), so a paraphrase or another word form also works.\n        Empty: list conversations instead of searching.\n    limit: Maximum number of results to return (1-25, default 10).\n    after: Only conversations from this date on (YYYY-MM-DD, inclusive).\n    before: Only conversations up to this date (YYYY-MM-DD, inclusive).\n\nReturns:\n    Matching conversations with dates, titles, snippets and how each\n    matched (words, meaning or both), best first.",
+    "description": "Search the user's past conversations for something previously discussed.\n\nUse this when the user refers to an earlier discussion (\"what did we decide\nabout...\", \"the recipe you gave me\", \"that error from last month\") or when\nyou need context that is not in the current conversation and not in your\nstored memories. It also covers the earlier part of THIS conversation once\nit has been condensed into a summary - search it when you need an exact\ndetail (number, name, wording) the summary left out. Do NOT use it for\ngeneral knowledge questions - it only searches this user's own chat history.\nBefore asking the user to repeat something they told you in an earlier\nconversation, search for it. With no query it lists conversations by most\nrecent activity - with `after`/`before` that answers \"what did we talk\nabout yesterday / last week\".\n\nArgs:\n    query: Words or a short phrase. Matches both keywords and meaning\n        (semantic), so a paraphrase or another word form also works.\n        Empty: list conversations instead of searching.\n    limit: Maximum number of results to return (1-25, default 10).\n    after: Only conversations from this date on (YYYY-MM-DD, inclusive).\n    before: Only conversations up to this date (YYYY-MM-DD, inclusive).\n    scope: In a project chat, \"project\" (default) ranks this project's\n        chats first, each tagged (this project) or (other); \"all\" ranks\n        every chat alike. Outside projects it changes nothing.\n\nReturns:\n    Matching conversations with dates, titles, snippets and how each\n    matched (words, meaning or both), best first.",
     "name": "search_conversations",
     "parameters": {
       "properties": {
@@ -1105,6 +1112,13 @@
         },
         "before": {
           "nullable": true,
+          "type": "STRING"
+        },
+        "scope": {
+          "enum": [
+            "project",
+            "all"
+          ],
           "type": "STRING"
         }
       },

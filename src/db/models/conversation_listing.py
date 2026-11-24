@@ -131,6 +131,17 @@ class ConversationListingMixin:
 
             return conversations_with_counts, next_cursor, has_more, total_count
 
+    def project_conversation_ids(self, project_id: str, user_id: str) -> list[str]:
+        """The ids of the user's own live chats in a project (archived ones too)."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT id FROM conversations
+                   WHERE project_id = ? AND user_id = ? AND deleted_at IS NULL""",
+                (project_id, user_id),
+            ).fetchall()
+        return [row["id"] for row in rows]
+
     def list_project_conversations(
         self,
         project_id: str,

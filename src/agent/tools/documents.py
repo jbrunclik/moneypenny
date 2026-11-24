@@ -29,6 +29,7 @@ from src.agent.tools.conversation_files import (
 from src.agent.tools.errors import tool_error
 from src.agent.tools.file_retrieval import build_file_content
 from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.project_scope import chat_project_id
 from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.db.models import Document, db
@@ -53,6 +54,7 @@ class DocumentOp(BaseModel):
     use_for: str = ""
     valid_until: str | None = None
     replaces: str = ""
+    scope: Literal["personal", "project"] = "personal"
 
 
 def _reject(action: str, reason: str) -> str:
@@ -74,6 +76,7 @@ class _Planned:
     valid_until: date | None = None
     clear_end_date: bool = False
     replaces: str | None = None
+    project_id: str | None = None
 
 
 @dataclass
@@ -85,12 +88,21 @@ class _State:
     count: int = 0
     total_bytes: int = 0
     gone: set[str] = field(default_factory=set)
+    # The chat's project: its documents are in scope, with their own cap
+    project_id: str | None = None
+    project_count: int = 0
 
     def retire(self, doc_id: str) -> None:
-        """A document the batch deletes or replaces: its slot and bytes free up."""
+        """A document the batch deletes or replaces: its slot (and the user's
+        bytes, for their own document) free up."""
         self.gone.add(doc_id)
-        self.count -= 1
-        self.total_bytes -= next(d.size_bytes for d in self.live if d.id == doc_id)
+        doc = next(d for d in self.live if d.id == doc_id)
+        if doc.project_id is None:
+            self.count -= 1
+        else:
+            self.project_count -= 1
+        if doc.user_id == self.user_id:
+            self.total_bytes -= doc.size_bytes
 
     def resolve(self, action: str, ref: str) -> tuple[str, str | None]:
         """The full id of a live document a (short) id names, or a rejection."""
@@ -176,17 +188,38 @@ def _plan_save(op: DocumentOp, state: _State) -> _Planned | str:
             f"the file is {len(loaded.data)} bytes; a saved document may be at most "
             f"{Config.MAX_FILE_SIZE_BYTES}.",
         )
+    if rejection := _entry_cap(op, state):
+        return rejection
+    if state.total_bytes + len(loaded.data) > Config.DOCUMENTS_MAX_TOTAL_BYTES:
+        return _reject("save", "the library's storage is full; ask the user what to delete.")
+    state.total_bytes += len(loaded.data)
+    project_id = state.project_id if op.scope == "project" else None
+    return _Planned(
+        op, file=loaded, valid_until=valid_until, replaces=replaces, project_id=project_id
+    )
+
+
+def _entry_cap(op: DocumentOp, state: _State) -> str | None:
+    """A rejection when the save's library (personal or the project's) is full."""
+    if op.scope == "project":
+        if state.project_id is None:
+            return _reject("save", 'this chat is not in a project: save it with scope "personal".')
+        if state.project_count + 1 > Config.PROJECT_DOCUMENTS_MAX_ENTRIES:
+            return _reject(
+                "save",
+                f"the project's documents are full ({Config.PROJECT_DOCUMENTS_MAX_ENTRIES}). "
+                "Ask the user which one to delete, or replace an older version.",
+            )
+        state.project_count += 1
+        return None
     if state.count + 1 > Config.DOCUMENTS_MAX_ENTRIES:
         return _reject(
             "save",
             f"the library is full ({Config.DOCUMENTS_MAX_ENTRIES} documents). Ask the user "
             "which one to delete, or save this as a replacement of an older version.",
         )
-    if state.total_bytes + len(loaded.data) > Config.DOCUMENTS_MAX_TOTAL_BYTES:
-        return _reject("save", "the library's storage is full; ask the user what to delete.")
     state.count += 1
-    state.total_bytes += len(loaded.data)
-    return _Planned(op, file=loaded, valid_until=valid_until, replaces=replaces)
+    return None
 
 
 def _plan_update(op: DocumentOp, state: _State) -> _Planned | str:
@@ -234,6 +267,7 @@ def _apply(planned: _Planned, user_id: str, conversation_id: str | None) -> str:
                 limits=DocumentLimits(
                     Config.DOCUMENTS_MAX_ENTRIES, Config.DOCUMENTS_MAX_TOTAL_BYTES, local_today()
                 ),
+                project_id=planned.project_id,
             )
         except DocumentWriteError as e:
             return _reject("save", str(e))
@@ -250,7 +284,7 @@ def _apply(planned: _Planned, user_id: str, conversation_id: str | None) -> str:
         )
         return f'SAVED {short_memory_id(doc.id)} "{doc.title}"'
     if op.action == "update":
-        if not _update(planned, user_id):
+        if not _update(planned, user_id, chat_project_id(conversation_id, user_id)):
             return _reject("update", "the document is gone (deleted meanwhile).")
         return f"UPDATED {short_memory_id(planned.doc_id)}"
     db.delete_document(planned.doc_id, user_id)
@@ -258,7 +292,7 @@ def _apply(planned: _Planned, user_id: str, conversation_id: str | None) -> str:
     return f"DELETED {short_memory_id(planned.doc_id)}"
 
 
-def _update(planned: _Planned, user_id: str) -> bool:
+def _update(planned: _Planned, user_id: str, project_id: str | None) -> bool:
     op = planned.op
     end: date | Unset | None = UNSET
     if planned.valid_until or planned.clear_end_date:
@@ -270,15 +304,32 @@ def _update(planned: _Planned, user_id: str) -> bool:
         summary=op.summary.strip() or None,
         use_for=op.use_for.strip() or None,
         valid_until=end,
+        project_id=project_id,
     )
     return updated is not None
 
 
-def _run_batch(user_id: str, conversation_id: str | None, ops: list[DocumentOp]) -> list[str]:
+def _scoped_live(user_id: str, project_id: str | None) -> tuple[list[Document], list[Document]]:
+    """The live, unexpired personal documents and the chat's project's."""
     today = local_today()
-    live = [d for d in db.list_documents(user_id) if not d.expired(today)]
-    count, total_bytes = db.document_usage(user_id, today)
-    state = _State(user_id, live, count=count, total_bytes=total_bytes)
+    personal = [d for d in db.list_documents(user_id) if not d.expired(today)]
+    if project_id is None:
+        return personal, []
+    return personal, [d for d in db.list_project_documents(project_id) if not d.expired(today)]
+
+
+def _run_batch(user_id: str, conversation_id: str | None, ops: list[DocumentOp]) -> list[str]:
+    project_id = chat_project_id(conversation_id, user_id)
+    personal, project_docs = _scoped_live(user_id, project_id)
+    count, total_bytes = db.document_usage(user_id, local_today())
+    state = _State(
+        user_id,
+        [*personal, *project_docs],
+        count=count,
+        total_bytes=total_bytes,
+        project_id=project_id,
+        project_count=len(project_docs),
+    )
     plan = [_PLANNERS[op.action](op, state) for op in ops]
     if any(isinstance(p, str) for p in plan):
         lines = [p for p in plan if isinstance(p, str)]
@@ -303,7 +354,9 @@ def manage_documents(operations: list[DocumentOp]) -> str:
     Args:
         operations: Each has an action:
             - "save": file_id (the "message_id:file_index" id of a file in this
-              conversation), title, summary, use_for; optional valid_until
+              conversation), title, summary, use_for; optional scope ("project"
+              in a project chat for a document of the project's topic; default
+              "personal"), valid_until
               (YYYY-MM-DD, the last day it holds) and replaces (an older
               version's id - it is moved to Recently deleted)
             - "update": id, plus any of title, summary, use_for, valid_until
@@ -329,9 +382,11 @@ def manage_documents(operations: list[DocumentOp]) -> str:
 
 
 def _find_live(user_id: str, ref: str) -> Document | str:
-    """The live, unexpired document a (short) id names, or a tool error."""
-    today = local_today()
-    live = [d for d in db.list_documents(user_id) if not d.expired(today)]
+    """The live, unexpired document a (short) id names - personal, or of the
+    chat's project - or a tool error."""
+    conversation_id, _ = get_conversation_context()
+    personal, project_docs = _scoped_live(user_id, chat_project_id(conversation_id, user_id))
+    live = [*personal, *project_docs]
     found = matching_memory_ids(ref.strip(), [d.id for d in live])
     if len(found) != 1:
         return tool_error(
