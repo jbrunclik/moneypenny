@@ -131,12 +131,16 @@ protect, restore, `restore_previous`, `get_document`, `_retire_replaced` and
 project the caller belongs to (the current project, for agent tools)". Short ids resolve
 over personal + current-project ids, and a collision is reported naming both, as today.
 
-**Embeddings get a `project_id` column too.** The `embeddings` table is keyed by
-`user_id`, and `upsert_embedding` overwrites `user_id` on conflict. Without this, a member
-patching another member's project memory would move its vector into *their* personal
-recall, which is a leak path. Project vectors carry `project_id`, the upsert never
-rewrites ownership, personal recall filters `project_id IS NULL`, and project recall
-filters by project.
+**Embeddings are looked up by the visible ids (planning call).** The `embeddings` table
+is keyed by `user_id`, and `upsert_embedding` overwrites `user_id` on conflict, so a
+member's edit can move a vector's owner. Memory recall already keeps only candidates in
+its `live_ids` set (the memories the turn may see), so recall fetches vectors by those
+ids (`get_embeddings_for_refs`) instead of by user. A moved owner then changes nothing,
+and no column is needed.
+
+**The instructions review (planning call).** The nightly instructions review learns
+personal style only from chats outside projects (`recent_ordinary_user_turns` gains
+`project_id IS NULL`). Project rules come through the in-chat card (1A).
 
 **Author accounts.** `user_id` on memories and documents cascades on user delete
 (0009, 0103), so a deleted account's project memories and documents go with it. My
@@ -176,8 +180,8 @@ Project documents:
   note a fact is.
 - If the project has no instructions, the line is left out; empty lists are left out
   too. The section is omitted entirely outside a project.
-- Static guidance (cached prefix, only when the memory tool is bound) explains the two
-  scopes:
+- Guidance inside the dynamic section (planning call: only project chats pay for it,
+  and the cached prefix stays the same for every chat) explains the two scopes:
   - Facts about the project's topic go to `scope: "project"`.
   - Facts about the user go to `scope: "personal"`.
   - In a **shared** project, health, relationships, money and anything private stays
@@ -216,8 +220,7 @@ stays shared across all chats. Check `_static_prefix_profile` is unchanged.
   Hanák / Zeleko instructions"). Accepting a project-scoped card edits
   `projects.instructions` (any member may accept, as they may edit them by hand), within
   `PROJECT_INSTRUCTIONS_MAX_CHARS`. Outside a project only `"personal"` exists. The
-  instructions self-tuning review (`instructions_review.py`) follows the same rule for
-  project chats. Eval: in a project chat, "no emoji for this client from now on" proposes
+  nightly instructions review skips project chats (see the scope rule above). Eval: in a project chat, "no emoji for this client from now on" proposes
   a project-scoped change.
 - **`manage_project(operations)`** (Jiri, Nov 24 2026: in the initial scope). It writes
   inline and reports per-op results like `manage_memory`. Ops:
@@ -430,7 +433,8 @@ Each slice is deployable alone, with the UI hidden until slice 2:
 1. Schema, scope rule and queries (with the no-leak tests), the projects API, moving
    chats.
 2. Sidebar group, project page, chat header link, instructions in the prompt,
-   `manage_project`, the announcement.
+   `manage_project`. Slices 2-4 deploy together, with the announcement, so the agent
+   never creates projects there's no UI for, and the UI never ships without memory.
 3. Project memory: the `manage_memory` and `search_memory` scope, the prompt list, the
    review, the evals.
 4. Project documents, scoped conversation search.
