@@ -251,6 +251,9 @@ vi.mock('@/core/projects', () => ({
   loadProjects: vi.fn(() => Promise.resolve()),
   navigateToProject: h.recAsync('navigateToProject'),
   createProjectAndOpen: h.recAsync('createProjectAndOpen'),
+  bulkMoveSelectedToProject: vi.fn(() => Promise.resolve()),
+  moveChatFromMenu: vi.fn(),
+  removeChatFromProject: vi.fn(),
 }));
 vi.mock('@/core/remote-merge', () => ({ mergeExternalChanges: h.recAsync('mergeExternalChanges') }));
 vi.mock('@/core/conversation', async (importOriginal) => ({

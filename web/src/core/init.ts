@@ -29,6 +29,7 @@ import { setupTouchGestures } from './gestures';
 import { initKeyboardViewportPinning } from './keyboard-viewport';
 import { initKbDebugToggle } from './keyboard/debug-overlay';
 import { initLayoutChecks } from './layout-checks';
+import { bulkMoveSelectedToProject } from './projects';
 import { initQuickActions } from './quick-actions';
 import { initToolbarButtons } from './toolbar';
 import { leaveTrashView } from './trash';
@@ -94,6 +95,7 @@ export async function init(): Promise<void> {
   initSidebarSelection({
     renderConversationsList,
     bulkDelete: bulkDeleteConversations,
+    bulkMove: bulkMoveSelectedToProject,
     leaveTrashView,
     leaveArchiveView,
   });

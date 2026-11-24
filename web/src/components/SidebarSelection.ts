@@ -14,6 +14,7 @@ import { isSearchResultsVisible } from './SearchResults';
 export interface SelectionActions {
   renderConversationsList: () => void;
   bulkDelete: () => Promise<void>;
+  bulkMove: () => Promise<void>;
   leaveTrashView: () => void;
   leaveArchiveView: () => void;
 }
@@ -51,6 +52,8 @@ export function renderSelectionChrome(): void {
   if (countEl) countEl.textContent = `${count} selected`;
   const allBtn = document.getElementById('selection-all');
   if (allBtn) allBtn.textContent = state.selectionMode === 'all' ? 'Deselect all' : 'Select all';
+  const moveBtn = document.getElementById('selection-move') as HTMLButtonElement | null;
+  if (moveBtn) moveBtn.disabled = count === 0 || state.isBulkDeleting;
   const trashBtn = document.getElementById('selection-trash') as HTMLButtonElement | null;
   if (trashBtn) {
     trashBtn.disabled = count === 0 || state.isBulkDeleting;
@@ -92,6 +95,10 @@ export function handleSelectionListClick(e: MouseEvent): boolean {
     if (state.selectionMode === 'all') state.deselectAll();
     else state.selectAll(new Date().toISOString());
     refresh();
+    return true;
+  }
+  if (target.closest('#selection-move')) {
+    void actions?.bulkMove();
     return true;
   }
   if (target.closest('#selection-trash')) {

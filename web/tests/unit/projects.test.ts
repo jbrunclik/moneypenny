@@ -19,6 +19,7 @@ vi.mock('@/api/projects', () => ({
     remove: vi.fn(),
     removeMember: vi.fn(),
     moveChat: vi.fn(),
+    bulkMove: vi.fn(),
   },
 }));
 vi.mock('@/api/memories', () => ({ memories: {} }));
@@ -51,6 +52,9 @@ vi.mock('@/core/toolbar', () => ({ updateConversationCost: vi.fn(), updateAnonym
 vi.mock('@/core/kv-store', () => ({ hideChatChrome: vi.fn() }));
 vi.mock('@/core/conversation', () => ({ createConversation: vi.fn(), selectConversation: vi.fn() }));
 vi.mock('@/router/deeplink', () => ({ clearConversationHash: vi.fn(), setProjectHash: vi.fn() }));
+vi.mock('@/components/SidebarSelection', () => ({ renderSelectionChrome: vi.fn() }));
+const picker = vi.hoisted(() => ({ open: vi.fn() }));
+vi.mock('@/components/ProjectPicker', () => ({ openProjectPicker: picker.open }));
 vi.mock('@/utils/thumbnail-blob-urls', () => ({ setCurrentConversationForBlobs: vi.fn() }));
 
 import { useStore } from '@/state/store';
@@ -60,11 +64,20 @@ import { showConfirm } from '@/components/Modal';
 import { createConversation } from '@/core/conversation';
 import { setProjectHash } from '@/router/deeplink';
 import {
+  bulkMoveSelectedToProject,
   loadProjects,
+  moveChatFromMenu,
   moveChatToProject,
   navigateToProject,
   newChatInProject,
+  removeChatFromProject,
 } from '@/core/projects';
+import type { ProjectPickerOptions } from '@/components/ProjectPicker';
+
+function pickerOptions(): ProjectPickerOptions {
+  const [options] = picker.open.mock.calls.at(-1) as [ProjectPickerOptions];
+  return options;
+}
 
 function project(id: string, name: string, extra: Partial<Project> = {}): Project {
   return {
@@ -242,5 +255,51 @@ describe('moving chats', () => {
   it('starts a new chat inside the project', () => {
     newChatInProject('p1');
     expect(createConversation).toHaveBeenCalledWith('p1');
+  });
+});
+
+describe('the chat menu and selection mode', () => {
+  it('Move to project offers the other projects and moves with Undo', async () => {
+    useStore.setState({
+      projects: [project('p1', 'Bikes'), project('p2', 'Home')],
+      conversations: [chat('c1', { project_id: 'p1' })],
+    });
+    (projects.moveChat as Mock).mockResolvedValue(undefined);
+
+    moveChatFromMenu('c1');
+    const options = pickerOptions();
+    expect(options.currentProjectId).toBe('p1');
+    options.onPick('p2');
+    await vi.waitFor(() => expect(useStore.getState().conversations[0]?.project_id).toBe('p2'));
+
+    const [message, extra] = (toast.success as Mock).mock.calls.at(-1) as [string, { action: { onClick: () => void } }];
+    expect(message).toBe('Moved to Home.');
+    extra.action.onClick();
+    await vi.waitFor(() => expect(useStore.getState().conversations[0]?.project_id).toBe('p1'));
+  });
+
+  it('Remove from project takes the chat out', async () => {
+    useStore.setState({ projects: [project('p1', 'Bikes')], conversations: [chat('c1', { project_id: 'p1' })] });
+    (projects.moveChat as Mock).mockResolvedValue(undefined);
+
+    removeChatFromProject('c1');
+
+    await vi.waitFor(() => expect(useStore.getState().conversations[0]?.project_id).toBeNull());
+    expect(projects.moveChat).toHaveBeenCalledWith('c1', null);
+  });
+
+  it('bulk move sends the selection and files the moved chats', async () => {
+    useStore.setState({ projects: [project('p1', 'Bikes')], conversations: [chat('a'), chat('b')] });
+    useStore.getState().startSelection();
+    useStore.getState().toggleSelected(chat('a'));
+    (projects.bulkMove as Mock).mockResolvedValue(['a']);
+
+    await bulkMoveSelectedToProject();
+    pickerOptions().onPick('p1');
+
+    await vi.waitFor(() => expect(useStore.getState().conversations[0]?.project_id).toBe('p1'));
+    expect(projects.bulkMove).toHaveBeenCalledWith(expect.objectContaining({ ids: ['a'], project_id: 'p1' }));
+    expect(useStore.getState().isSelecting).toBe(false);
+    expect(useStore.getState().conversations[1]?.project_id).toBeUndefined();
   });
 });

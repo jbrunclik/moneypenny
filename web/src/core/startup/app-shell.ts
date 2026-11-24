@@ -29,6 +29,7 @@ import {
   INCOGNITO_ICON,
   MENU_ICON,
   DELETE_ICON,
+  FOLDER_ICON,
   createIconButton,
   createIconElement,
   iconNodes,
@@ -61,6 +62,7 @@ function sidebar(): HTMLElement {
     el('div', { id: 'conversations-list', class: 'conversations-list' }),
     el('div', { class: 'sidebar-footer' }, [el('div', { id: 'user-info', class: 'user-info' })]),
     el('div', { id: 'selection-footer', class: 'selection-footer hidden' }, [
+      iconTextButton({ id: 'selection-move', type: 'button', class: 'btn btn-secondary', disabled: '' }, FOLDER_ICON, ' Move to project'),
       iconTextButton({ id: 'selection-trash', type: 'button', class: 'btn btn-primary', disabled: '' }, DELETE_ICON, ' Move 0 to trash'),
     ]),
   ]);

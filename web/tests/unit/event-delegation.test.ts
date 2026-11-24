@@ -169,7 +169,7 @@ describe('setupEventListeners', () => {
       click(list.appendChild(el('<button data-more-id="c1"></button>')));
       expect(m.showActionSheet).toHaveBeenLastCalledWith('Chat', expect.any(Array));
       const labels = (m.showActionSheet.mock.lastCall?.[1] as { label: string }[]).map((a) => a.label);
-      expect(labels).toEqual(['Pin', 'Rename', 'Export as Markdown', 'Archive', 'Delete']);
+      expect(labels).toEqual(['Pin', 'Rename', 'Move to project…', 'Export as Markdown', 'Archive', 'Delete']);
 
       click(list.appendChild(el('<button data-more-archived-id="z1"></button>')));
       const archived = (m.showActionSheet.mock.lastCall?.[1] as { label: string }[]).map((a) => a.label);
@@ -362,7 +362,7 @@ describe('setupEventListeners', () => {
       });
       click(list.appendChild(el('<button data-more-id="c1"></button>')));
 
-      expect(sheetActions().map((a) => a.label)).toEqual(['Unpin', 'Rename', 'Export as Markdown', 'Archive', 'Delete']);
+      expect(sheetActions().map((a) => a.label)).toEqual(['Unpin', 'Rename', 'Move to project…', 'Export as Markdown', 'Archive', 'Delete']);
       expect(sheetActions().find((a) => a.label === 'Delete')?.danger).toBe(true);
       select('Unpin');
       select('Rename');

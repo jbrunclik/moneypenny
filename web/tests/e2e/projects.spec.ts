@@ -7,6 +7,21 @@ import type { Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
 import { appReady, serverReplySaved } from './waits';
 
+async function seedChats(page: Page, titles: string[]): Promise<void> {
+  const seeded = await page.request.post('/test/seed', {
+    data: {
+      conversations: titles.map((title) => ({
+        title,
+        messages: [
+          { role: 'user', content: `${title}?` },
+          { role: 'assistant', content: `${title}!` },
+        ],
+      })),
+    },
+  });
+  expect(seeded.ok()).toBeTruthy();
+}
+
 for (const viewport of [
   { name: 'desktop', size: { width: 1280, height: 800 } },
   { name: 'mobile', size: { width: 375, height: 812 } },
@@ -53,6 +68,46 @@ for (const viewport of [
       await expect(projectRow).toBeVisible();
       await projectRow.click();
       await expect(page.locator('.project-page .project-chat')).toHaveCount(1);
+    });
+
+    test('an existing chat moves into a project from its menu', async ({ page }) => {
+      await seedChats(page, ['Wallbox hookup', 'Dinner ideas']);
+      await page.request.post('/api/projects', { data: { name: 'Home' } });
+      await page.goto('/');
+      await appReady(page);
+      await openSidebar(page);
+
+      const row = page.locator('[data-conv-id]', { hasText: 'Wallbox hookup' });
+      await row.locator('[data-more-id]').evaluate((el) => (el as HTMLElement).click());
+      await page.locator('.action-sheet-item', { hasText: 'Move to project' }).click();
+      await page.locator('.action-sheet-item', { hasText: 'Home' }).click();
+
+      await expect(page.locator('#conversations-list [data-conv-id]', { hasText: 'Wallbox hookup' })).toHaveCount(0);
+      await expect(page.locator('#conversations-list [data-conv-id]', { hasText: 'Dinner ideas' })).toHaveCount(1);
+      await page.locator('.project-item', { hasText: 'Home' }).click();
+      await expect(page.locator('.project-page .project-chat', { hasText: 'Wallbox hookup' })).toBeVisible();
+    });
+
+    test('selected chats move into a new project together', async ({ page }) => {
+      await seedChats(page, ['Canyon setup', 'GT Grade stripdown', 'Dinner ideas']);
+      await page.goto('/');
+      await appReady(page);
+      await openSidebar(page);
+
+      await page.click('#user-menu-btn');
+      await page.click('#select-chats-btn');
+      for (const title of ['Canyon setup', 'GT Grade stripdown']) {
+        await page.locator('#conversations-list [data-conv-id]', { hasText: title }).click();
+      }
+      await page.click('#selection-move');
+      await page.locator('.action-sheet-item', { hasText: 'New project' }).click();
+      await page.locator('.modal-input').fill('Bikes');
+      await page.locator('.modal-confirm').click();
+
+      await expect(page.locator('#selection-bar')).toBeHidden();
+      await expect(page.locator('#conversations-list [data-conv-id]')).toHaveCount(1);
+      await page.locator('.project-item', { hasText: 'Bikes' }).click();
+      await expect(page.locator('.project-page .project-chat')).toHaveCount(2);
     });
 
     test('the project instructions save on blur', async ({ page }) => {

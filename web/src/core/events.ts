@@ -11,9 +11,10 @@ import { logout } from '../auth/google';
 import { toggleSidebar } from '../components/Sidebar';
 import { getElementById } from '../utils/dom';
 import { resetSwipeStates } from '../gestures/swipe';
-import { showActionSheet } from '../components/ActionSheet';
+import { showActionSheet, type SheetAction } from '../components/ActionSheet';
+import { isTempConversation } from '../utils/conversation-id';
 import { useStore } from '../state/store';
-import { ARCHIVE_ICON, DELETE_ICON, DOWNLOAD_ICON, EDIT_ICON, PIN_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
+import { ARCHIVE_ICON, DELETE_ICON, DOWNLOAD_ICON, EDIT_ICON, FOLDER_ICON, PIN_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
 
 import { createConversation, selectConversation } from './conversation';
 import { deleteConversation, renameConversation, togglePinConversation } from './conversation-actions';
@@ -23,13 +24,23 @@ import { enterSelectionMode } from '../components/SidebarSelection';
 import { navigateToPlanner } from './planner';
 import { navigateToAgents } from './agents';
 import { navigateToSports } from './sports';
-import { createProjectAndOpen, navigateToProject } from './projects';
+import { createProjectAndOpen, moveChatFromMenu, navigateToProject, removeChatFromProject } from './projects';
 import { navigateToLanguage } from './language';
 import { navigateToStorage } from './kv-store';
 import { openFileInNewTab, downloadFile, copyMessageContent, copyInlineContent, exportConversation } from './file-actions';
 import { handleQuizOptionClick, handleQuizContinue, handleQuizInputChange } from '../components/QuizBlock';
 
 const log = createLogger('events');
+
+/** Move to project / Remove from project, for an ordinary saved chat. */
+function projectActions(convId: string): SheetAction[] {
+  const conv = useStore.getState().conversations.find((c) => c.id === convId);
+  if (!conv || conv.is_whats_new || conv.is_agent || isTempConversation(convId)) return [];
+  const move = { label: 'Move to project…', icon: FOLDER_ICON, onSelect: () => moveChatFromMenu(convId) };
+  return conv.project_id
+    ? [move, { label: 'Remove from project', icon: FOLDER_ICON, onSelect: () => removeChatFromProject(convId) }]
+    : [move];
+}
 
 /**
  * Bottom sheet with all conversation actions - replaces the crammed
@@ -60,6 +71,7 @@ function openConversationActionSheet(convId: string, archived: boolean): void {
           onSelect: () => void togglePinConversation(convId),
         },
         { label: 'Rename', icon: EDIT_ICON, onSelect: () => renameConversation(convId) },
+        ...projectActions(convId),
         { label: 'Export as Markdown', icon: DOWNLOAD_ICON, onSelect: () => void exportConversation(convId) },
         { label: 'Archive', icon: ARCHIVE_ICON, onSelect: () => archiveConversation(convId) },
         {

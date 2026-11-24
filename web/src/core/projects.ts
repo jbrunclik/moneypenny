@@ -29,8 +29,11 @@ import { createConversation } from './conversation';
 import { hideChatChrome } from './kv-store';
 import { updateAnonymousButtonState, updateConversationCost } from './toolbar';
 import { APP_NAME } from '../config';
-import type { Conversation, Project, ProjectDetail } from '../types/api';
+import type { BulkTrashRequest, Conversation, Project, ProjectDetail } from '../types/api';
 import type { ProjectChats, ProjectPageCallbacks } from '../components/ProjectPage';
+import { openProjectPicker } from '../components/ProjectPicker';
+import { renderSelectionChrome } from '../components/SidebarSelection';
+import { buildBulkTrashRequest } from '../state/slices/selection';
 
 const log = createLogger('projects');
 
@@ -292,6 +295,70 @@ function pageCallbacks(project: Project): ProjectPageCallbacks {
     },
     onDownloadDocument: (documentId, fileName) => void downloadDocument(documentId, fileName),
   };
+}
+
+/** Choose a project (or create one) and move the chat into it. */
+export function moveChatFromMenu(conversationId: string): void {
+  const store = useStore.getState();
+  const conv = store.conversations.find((c) => c.id === conversationId);
+  openProjectPicker({
+    title: 'Move to project',
+    projects: store.projects,
+    currentProjectId: conv?.project_id,
+    onPick: (projectId) => void moveWithToast(conversationId, projectId),
+    onNew: () =>
+      void promptNewProject().then((project) => project && moveWithToast(conversationId, project.id)),
+  });
+}
+
+async function moveWithToast(conversationId: string, projectId: string | null): Promise<void> {
+  const previous = useStore.getState().conversations.find((c) => c.id === conversationId)?.project_id ?? null;
+  if (!(await moveChatToProject(conversationId, projectId))) return;
+  const name = useStore.getState().projects.find((p) => p.id === projectId)?.name;
+  const undo = { label: 'Undo', onClick: () => void moveChatToProject(conversationId, previous) };
+  toast.success(name ? `Moved to ${name}.` : 'Taken out of the project.', { action: undo });
+}
+
+/** The chat menu's Remove from project. */
+export function removeChatFromProject(conversationId: string): void {
+  void moveWithToast(conversationId, null);
+}
+
+/** Selection mode's Move to project: every selected chat into one project. */
+export async function bulkMoveSelectedToProject(): Promise<void> {
+  const store = useStore.getState();
+  const body = buildBulkTrashRequest(store);
+  if (!body) return;
+  openProjectPicker({
+    title: 'Move to project',
+    projects: store.projects,
+    onPick: (projectId) => void bulkMove(body, projectId),
+    onNew: () => void promptNewProject().then((project) => project && bulkMove(body, project.id)),
+  });
+}
+
+async function bulkMove(body: BulkTrashRequest, projectId: string): Promise<void> {
+  let moved: string[];
+  try {
+    moved = await projects.bulkMove({ ...body, project_id: projectId });
+  } catch {
+    toast.error('Could not move the chats.');
+    return;
+  }
+  const store = useStore.getState();
+  for (const id of moved) store.updateConversation(id, { project_id: projectId });
+  store.endSelection();
+  renderSelectionChrome();
+  renderConversationsList();
+  const name = store.projects.find((p) => p.id === projectId)?.name ?? 'the project';
+  const undo = {
+    label: 'Undo',
+    onClick: () => void projects.bulkMove({ ids: moved, project_id: null }).then((back) => {
+      for (const id of back) useStore.getState().updateConversation(id, { project_id: null });
+      renderConversationsList();
+    }),
+  };
+  toast.success(`Moved ${moved.length} ${moved.length === 1 ? 'chat' : 'chats'} to ${name}.`, { action: undo });
 }
 
 /** Move a chat into a project (or out, with null); the store and sidebar follow. */

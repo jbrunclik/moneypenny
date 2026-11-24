@@ -17,6 +17,7 @@ vi.mock('@/api/costs', () => ({
   costs: { getMonthlyCost: vi.fn().mockResolvedValue({ formatted: '0 CZK' }) },
 }));
 const bulkDelete = vi.fn(() => Promise.resolve());
+const bulkMove = vi.fn(() => Promise.resolve());
 const leaveViews = { trash: vi.fn(), archive: vi.fn() };
 
 function conv(id: string, extra: Partial<Conversation> = {}): Conversation {
@@ -44,6 +45,7 @@ beforeEach(() => {
       <div id="conversations-list" class="conversations-list"></div>
       <div class="sidebar-footer"><div id="user-info"></div></div>
       <div id="selection-footer" class="selection-footer hidden">
+        <button id="selection-move" type="button" disabled>Move to project</button>
         <button id="selection-trash" type="button" disabled>Move 0 to trash</button>
       </div>
     </aside>`;
@@ -59,6 +61,7 @@ beforeEach(() => {
   initSidebarSelection({
     renderConversationsList,
     bulkDelete,
+    bulkMove,
     leaveTrashView: leaveViews.trash,
     leaveArchiveView: leaveViews.archive,
   });
@@ -96,6 +99,18 @@ describe('sidebar selection mode', () => {
     expect(row('p').classList.contains('selected')).toBe(false);
     expect(document.querySelector('.selection-count')!.textContent).toBe('2 selected');
     expect(document.getElementById('selection-all')!.textContent).toBe('Deselect all');
+  });
+
+  it('Move to project is enabled by a selection and runs bulk move', () => {
+    enterSelectionMode();
+    const move = document.querySelector<HTMLButtonElement>('#selection-move')!;
+    expect(move.disabled).toBe(true);
+
+    click(row('a').querySelector('.conversation-item')!);
+    expect(move.disabled).toBe(false);
+    click(move);
+    expect(bulkMove).toHaveBeenCalledTimes(1);
+    expect(bulkDelete).not.toHaveBeenCalled();
   });
 
   it('the trash button runs bulk delete; cancel leaves selection mode', () => {
