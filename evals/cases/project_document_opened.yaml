@@ -1,0 +1,17 @@
+id: project_document_opened
+description: A project document whose use matches the question is opened before the answer
+project:
+  name: Byt
+  documents:
+    - title: Equity waterfall (Nov 2026)
+      summary: Option value at company exit valuations, vested and unvested
+      use_for: Exit scenarios and family finance planning
+      file: fixtures/equity_waterfall.pdf
+user: "If the company sells for 200 million euros, roughly what would the options be worth?"
+expect:
+  rubric: >
+    Answers from the waterfall: about 270,000 EUR for the vested options and
+    about 405,000 EUR including the unvested ones, before tax. Numbers not in
+    the document fail.
+  required_tools: [open_document]
+  max_tool_rounds: 2

@@ -1,0 +1,17 @@
+id: project_memory_used
+description: A project's memory informs the answer without being asked about
+project:
+  name: Kola
+  memories:
+    - content: "Rides a Canyon Grizl CF SL 7 gravel bike, size M, 1x GRX drivetrain"
+      category: fact
+    - content: "Runs tubeless 45 mm tyres on the Grizl"
+      category: fact
+user: "Jaké pláště bys mi doporučil na zimu?"
+expect:
+  rubric: >
+    Recommends winter tyres for the user's Canyon Grizl gravel bike in Czech,
+    taking the bike and its tubeless 45 mm setup into account (e.g. a tubeless
+    gravel or studded tyre that fits the frame). A generic answer that ignores
+    the bike, or asks which bike they ride, fails.
+  max_tool_rounds: 3

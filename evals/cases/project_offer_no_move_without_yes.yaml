@@ -1,0 +1,20 @@
+id: project_offer_no_move_without_yes
+description: A chat that clearly fits an existing project gets at most an offer, no move without a yes
+seed_conversation:
+  title: Canyon Grizl setup
+  messages:
+    - role: user
+      content: "Jaký tlak v plášťích na Grizla?"
+    - role: assistant
+      content: "Na 45 mm tubeless kolem 2,2 baru vpředu a 2,4 vzadu."
+project:
+  name: Kola
+  file_chat: false
+user: "Na Grizla chci nové kotouče, stačí 160 mm vzadu?"
+expect:
+  rubric: >
+    Answers the brake rotor question in Czech. It may offer to move the chat
+    into the Kola project, but must not move it without the user's yes.
+  forbidden_arg_patterns:
+    manage_project.operations: ["move_chat"]
+  max_tool_rounds: 3

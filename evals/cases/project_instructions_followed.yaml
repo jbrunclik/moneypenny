@@ -1,0 +1,16 @@
+id: project_instructions_followed
+description: A project's instructions shape the reply (formal address, no emoji for this client)
+project:
+  name: Zelené zahrady
+  instructions: >
+    LinkedIn posts for the client Zelené zahrady (garden ponds and natural
+    pools). Address readers formally (vykání), never use emoji, 600-900
+    characters, end with a question to the reader.
+user: "Napiš post o tom, proč jezírko potřebuje v zimě provzdušňovač."
+expect:
+  rubric: >
+    A Czech LinkedIn post about why a garden pond needs an aerator in winter,
+    addressing readers formally (vykání: Vy/Vás/Váš), with no emoji at all,
+    roughly 600-900 characters, ending with a question to the reader. Tykání
+    or any emoji is a failure.
+  max_tool_rounds: 2

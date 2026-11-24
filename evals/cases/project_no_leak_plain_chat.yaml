@@ -1,0 +1,15 @@
+id: project_no_leak_plain_chat
+description: A plain chat does not see a project's memory
+project:
+  name: Kola
+  file_chat: false
+  memories:
+    - content: "Rides a Canyon Grizl CF SL 7 gravel bike, size M"
+      category: fact
+user: "Jaké kolo mám?"
+expect:
+  rubric: >
+    The assistant does not know which bike the user has and says so (or
+    asks); naming a Canyon Grizl is a failure - that fact lives in a project
+    this chat is not part of.
+  max_tool_rounds: 3

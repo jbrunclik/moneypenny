@@ -1,0 +1,21 @@
+id: project_move_to_existing
+description: '"Move this to my Kola project" files the chat under the existing project'
+project:
+  name: Kola
+  file_chat: false
+history:
+  - role: user
+    content: "Kolik stojí servis odpružené vidlice?"
+  - role: assistant
+    content: "Velký servis vidlice vyjde zhruba na 2 500 až 4 000 Kč podle modelu."
+user: "Přesuň tenhle chat do projektu Kola."
+expect:
+  rubric: >
+    Confirms in Czech that the chat is now in the Kola project. Must not
+    create a second project.
+  required_tools: [manage_project]
+  required_arg_patterns:
+    manage_project.operations: ["move_chat"]
+  forbidden_arg_patterns:
+    manage_project.operations: ["create"]
+  max_tool_rounds: 3

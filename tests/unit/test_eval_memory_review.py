@@ -31,7 +31,9 @@ def test_memory_review_case_reports_applied_ops_as_manage_memory_call(
     seen: list[Any] = []
     op = {"action": "add", "content": "Ema - ballet on Tuesdays", "category": "fact"}
 
-    def fake_review(user_id: str, conversation_id: str, messages: list[Any]) -> ReviewResult:
+    def fake_review(
+        user_id: str, conversation_id: str, messages: list[Any], project: Any = None
+    ) -> ReviewResult:
         seen.extend(messages)
         return ReviewResult(applied=[op["content"]], ops=[op], input_tokens=500, output_tokens=20)
 

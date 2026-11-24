@@ -1,0 +1,23 @@
+id: project_rule_card_scope
+description: >
+  In a project chat, a lasting rule about the project's client is proposed for
+  the project's instructions, not the user's (decided with Jiri, 1A)
+save_user_turns: true
+project:
+  name: Zelené zahrady
+  instructions: LinkedIn posts for the client Zelené zahrady, formal address.
+history:
+  - role: user
+    content: "Napiš krátký post o jarním čištění jezírka."
+  - role: assistant
+    content: "Jaro je ideální čas na čištění jezírka 🌱 ..."
+user: "Pro tohohle klienta od teď nikdy žádné emoji, prosím."
+expect:
+  rubric: >
+    Acknowledges in Czech that posts for this client will have no emoji, and
+    proposes the rule for this project's instructions (a card). Proposing it
+    for the user's personal instructions in every chat fails.
+  required_tools: [propose_instruction_change]
+  required_arg_patterns:
+    propose_instruction_change.scope: ["^project$"]
+  max_tool_rounds: 3

@@ -1,0 +1,14 @@
+id: project_topic_fact_to_project
+description: In a project chat, a fact about the project's topic is saved to the project's memory
+project:
+  name: Wallbox
+  instructions: Help plan the wallbox install in the garage.
+user: "Elektrikář říkal, že garáž má třífázovou přípojku s jističem 3x25 A. To si pamatuj pro ten wallbox."
+expect:
+  rubric: >
+    Confirms in Czech that it will remember the garage's three-phase supply
+    with a 3x25 A breaker for the wallbox. Must not claim a failure.
+  required_tools: [manage_memory]
+  required_arg_patterns:
+    manage_memory.operations: ["scope['\"]?:\\s*['\"]project"]
+  max_tool_rounds: 3

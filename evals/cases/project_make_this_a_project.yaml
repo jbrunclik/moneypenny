@@ -1,0 +1,16 @@
+id: project_make_this_a_project
+description: '"Make this a project" creates the project and files the chat under it'
+history:
+  - role: user
+    content: "Plánuju zateplení domu - fasáda 120 m2, polystyren nebo minerální vata?"
+  - role: assistant
+    content: "Na 120 m2 fasády bych zvážil minerální vatu kvůli paropropustnosti a požární odolnosti..."
+user: "Udělej z tohohle projekt Zateplení, ať k tomu máme všechno pohromadě."
+expect:
+  rubric: >
+    Confirms in Czech that the project Zateplení was created and this chat is
+    in it. Must not claim it cannot create projects.
+  required_tools: [manage_project]
+  required_arg_patterns:
+    manage_project.operations: ["create", "Zateplen"]
+  max_tool_rounds: 2

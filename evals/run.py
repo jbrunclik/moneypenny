@@ -143,6 +143,10 @@ class EvalCase:
     # Saved documents seeded before the case: [{title, summary, use_for, file,
     # valid_until?}] (file relative to evals/); the case runs as its own user
     documents: list[dict[str, str]] = field(default_factory=list)
+    # The case's chat is filed under this project (seeded first): {name,
+    # instructions?, memories?: [{content, category}], documents?: [as above],
+    # shared?: true (a second synthetic member)}; the case runs as its own user
+    project: dict[str, Any] = field(default_factory=dict)
     # Artifacts seeded in the case's conversation: [{title, html}]; their ids
     # replace {artifact_0}, {artifact_1}... in the history (revision cases)
     # {title, html, state?}: state is the saved envelope ({app, checklist})
@@ -318,6 +322,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 documents=[
                     {str(k): str(v) for k, v in d.items()} for d in (data.get("documents") or [])
                 ],
+                project=dict(data.get("project") or {}),
                 artifacts=[
                     {"title": str(a["title"]), "html": str(a["html"])}
                     | ({"state": a["state"]} if a.get("state") is not None else {})
@@ -842,12 +847,54 @@ def _attachment_payload(case: EvalCase) -> list[dict[str, str]]:
     return files_payload
 
 
+def seed_project(case: EvalCase, user: Any, db: Any) -> str | None:
+    """Create the case's project (memories, documents, a second member when
+    shared); returns its id, or None when the case has none."""
+    if not case.project:
+        return None
+    from src.db.models.memory import MemoryWrite
+
+    spec = case.project
+    project = db.create_project(
+        user.id, str(spec.get("name", "Project")), str(spec.get("instructions", ""))
+    )
+    if spec.get("shared"):
+        member = db.get_or_create_user(
+            f"{user.email.partition('@')[0]}-member@example.com", "Petra"
+        )
+        db.add_project_member(project.id, user.id, member.id)
+    writes = [
+        MemoryWrite(
+            action="add",
+            content=str(m["content"]),
+            category=str(m.get("category", "fact")),
+            project_id=project.id,
+        )
+        for m in spec.get("memories") or []
+    ]
+    if writes:
+        db.apply_memory_batch(user.id, None, writes, project_id=project.id)
+    _add_documents(spec.get("documents") or [], user, db, project.id)
+    return str(project.id)
+
+
+def _filed_project(case: EvalCase, user: Any, db: Any) -> str | None:
+    """Seed the case's project; the chat is filed under it unless
+    ``file_chat: false`` (a plain chat beside a project, e.g. no-leak cases)."""
+    project_id = seed_project(case, user, db)
+    return project_id if case.project.get("file_chat", True) else None
+
+
 def _seed_documents(case: EvalCase, user: Any, db: Any) -> None:
     """Save the case's documents for its user (document memory)."""
+    _add_documents(case.documents, user, db, None)
+
+
+def _add_documents(docs: list[dict[str, str]], user: Any, db: Any, project_id: str | None) -> None:
     import mimetypes
     from datetime import date
 
-    for d in case.documents:
+    for d in docs:
         fixture = Path(__file__).parent / d["file"]
         db.add_document(
             user.id,
@@ -860,6 +907,7 @@ def _seed_documents(case: EvalCase, user: Any, db: Any) -> None:
             valid_until=date.fromisoformat(d["valid_until"]) if d.get("valid_until") else None,
             source_conversation_id=None,
             source_message_id=None,
+            project_id=project_id,
         )
 
 
@@ -1162,11 +1210,14 @@ def _memory_review_turn(
         db.add_message(conversation_id, str(turn["role"]), str(turn["content"]))
     db.add_message(conversation_id, "user", case.user)
     # The case runs as its own user (_case_user): nothing to clean up after
+    project = db.project_for_conversation(conversation_id, user.id)
     result = memory_review.review_messages(
-        user.id, conversation_id, db.get_messages(conversation_id)
+        user.id, conversation_id, db.get_messages(conversation_id), project
     )
     calls = [{"name": "manage_memory", "args": {"operations": result.ops}, "id": "review"}]
-    saved = memory_review.format_note(result.applied)
+    saved = memory_review.format_note(
+        result.applied, project.name if project and result.project_applied else None
+    )
     response = f"Memory updated: {saved}" if result.ops else "Memory review: nothing saved."
     usage = {
         "answer_model": Config.AI_ASSIST_MODEL,
@@ -1208,7 +1259,12 @@ def _agent_turn(
     # the real tool code runs (no-op when the case declares none). The agent
     # is built inside them: its tools follow the case's connected integrations.
     with fake_integrations(case.integrations, web=case.web) as fakes:
-        agent = ChatAgent(model_name=chat_model(), standing=standing, user_id=user.id)
+        agent = ChatAgent(
+            model_name=chat_model(),
+            standing=standing,
+            user_id=user.id,
+            project=_project_context(user, conversation_id),
+        )
         # tool_results is needed for pricing: image generations and
         # delegate_task subagent tokens are only visible in there.
         if case.deep_research:
@@ -1228,6 +1284,15 @@ def _agent_turn(
         if fakes.get("web") is not None:
             usage["eval_web"] = fakes["web"].summary()
         return response, tool_results, usage, result_messages, recorded_actions(fakes)
+
+
+def _project_context(user: Any, conversation_id: str) -> Any:
+    """The chat's project context, as a real turn loads it (None: no project)."""
+    from src.agent.project_context import load_project_context
+    from src.db.models import db
+
+    conv = db.get_conversation(conversation_id, user.id)
+    return load_project_context(conv, user, anonymous_mode=False) if conv else None
 
 
 _SEARCH_TOOLS = frozenset({"web_search", "research"})
@@ -1328,7 +1393,7 @@ def _case_user(case: EvalCase, user: Any, db: Any) -> Any:
     graded |= {key.partition(".")[0] for key in case.required_arg_patterns}
     graded |= {key.partition(".")[0] for key in case.forbidden_arg_patterns}
     documents_case = bool(case.documents) or bool(graded & document_tools)
-    if not (case.memory_review or case.mode == "agent" or documents_case):
+    if not (case.memory_review or case.mode == "agent" or documents_case or case.project):
         return user
     import uuid
 
@@ -1352,7 +1417,12 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     elif case.mode in _CANNED_PROGRAMS:
         conversation = _program_conversation(case, user, db)
     else:
-        conversation = db.create_conversation(user.id, f"eval-{case.id}", model=chat_model())
+        conversation = db.create_conversation(
+            user.id,
+            f"eval-{case.id}",
+            model=chat_model(),
+            project_id=_filed_project(case, user, db),
+        )
         if case.save_user_turns:
             _save_user_turns(case, db, conversation.id)
     set_conversation_context(conversation.id, user.id)
