@@ -110,6 +110,14 @@ The review itself changes nothing in production and edits nothing but
   against all of them, "Memories expired" per night, and "Memory previous text
   restored" lines. Many restores mean writes lose details - read which writer
   (defrag, review, agent) changed those memories last.
+- Document memory (from Nov 24 2026; [memory-and-context.md](features/memory-and-context.md#saved-documents-document-memory)):
+  "Document saved" against "Document opened" lines per `user_id`, and
+  `user_documents` rows (`deleted_at IS NULL`) saved over 30 days ago with
+  `last_opened_at` NULL - a library nobody opens costs a list line every turn for
+  nothing. "Document save rejected" by `reason` (it has no user id; many cap or
+  injection rejections are worth reading), "Documents expired" / "Documents purged"
+  per night, and `SUM(size_bytes)` per user against the 200 MB
+  `DOCUMENTS_MAX_TOTAL_BYTES`.
 - Flex memory review and defrag (from Nov 17 2026; [cost-tracking.md](features/cost-tracking.md#flex-tier-nov-17-2026)):
   `side_costs` `memory_review` and `memory_defrag` rows by `service_tier` ('flex' or NULL = fell back
   to standard) and "Flex call fell back" by `reason` - mostly fallbacks means Flex

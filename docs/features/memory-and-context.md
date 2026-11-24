@@ -383,6 +383,173 @@ make defrag-memories -- --dry-run # Preview changes without applying
 
 ---
 
+## Saved Documents (document memory)
+
+The agent keeps a per-user library of important documents (a contract, an equity
+waterfall), lists them in every later chat with what each holds and when to use it, and
+opens the original when a chat needs it (Nov 24 2026). Design:
+[spec](../superpowers/specs/2026-11-24-document-memory-design.md).
+
+### Design Decisions
+
+- **Saved only on purpose**: on the user's request, or after the agent offers and gets a
+  yes. Contracts and financials are sensitive; the background memory review never saves
+  documents.
+- **End dates and replacements are confirmed first**: a save that sets `valid_until` (the
+  last day the document holds, a local date) or `replaces` an older version is announced
+  ("it ends 2027-11-30, I'll clear it away after that") and waits for a yes. A save with
+  neither goes through on the one "keep it".
+- **No end date on auto-renewing contracts** (insurance, leases, subscriptions), and an
+  **amendment or annex is its own document**, never a replacement of the original.
+- **Saves only from files in the current conversation**: `file_id` is a
+  `message_id:file_index` id, loaded through `load_conversation_file` and its ownership
+  checks ([conversation_files.py](../../src/agent/tools/conversation_files.py)). A file
+  past attachment retention is refused with "ask the user to send it again"; a document
+  from an older chat is sent again.
+- **A copy outside attachment retention**: the bytes are copied into the blob store under
+  `doc/<id>` (`make_document_blob_key`), which the [file retention
+  sweep](file-handling.md#file-retention) never touches. A purge deletes row and blob.
+- **Expiry is date-based only**: the nightly sweep deletes what is past its end date, and a
+  replacement retires the old version. No AI judges a document stale - deleting a
+  contract by mistake costs far more than keeping one too long.
+- **No expiry notification** (the user's choice): Recently deleted on the Data page is the
+  safety net.
+- **One list, no search yet**: every live, unexpired document is listed each turn (the cap
+  bounds it); no RAG or `search_documents` until libraries get big.
+
+### Bounds
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `DOCUMENTS_MAX_ENTRIES` | 50 | Live documents per user; also the `n/50` in the list header. A save past it is rejected ("delete one, or save as a replacement"); a restore past it gets 409 |
+| `DOCUMENTS_MAX_TOTAL_BYTES` | 200 MB | Stored bytes per user. Deleted documents count until purged (their bytes are still stored); they do not count toward entries |
+| `DOCUMENTS_SOFT_DELETE_RETENTION_DAYS` | 30 | Recovery window for deleted, expired and replaced documents (longer than memories' 7: a wrongly expired contract should stay recoverable) |
+| `DOCUMENT_TITLE_MAX_CHARS` / `DOCUMENT_SUMMARY_MAX_CHARS` / `DOCUMENT_USE_FOR_MAX_CHARS` | 80 / 300 / 200 | The fields listed every turn; overlong ones are rejected, not truncated |
+| `DOCUMENTS_MAX_OPS_PER_CALL` | 5 | Operations per `manage_documents` call; a longer batch is rejected whole |
+
+The tool has no per-file cap of its own: an upload is already bounded by
+`MAX_FILE_SIZE_BYTES`, and files the agent made in the conversation can be saved too.
+
+### Tools
+
+[tools/documents.py](../../src/agent/tools/documents.py):
+
+- **`manage_documents(operations)`** writes during the turn, like `manage_memory`:
+  `save` (`file_id`, `title`, `summary`, `use_for`, optional `valid_until` and `replaces`),
+  `update` (any of the text fields or `valid_until`; `""` removes the end date, a past
+  date is rejected) and `delete` (soft). Ids are the 8-character short ids or full ones
+  ([memory_ids.py](../../src/utils/memory_ids.py)). The batch is validated against its end
+  state, so caps hold after a replace or delete in the same call, and one `REJECTED` line
+  applies nothing. Success lines: `SAVED <id> "<title>"`, `UPDATED <id>`, `DELETED <id>`.
+  A `replaces` is soft-deleted in the same transaction as the insert
+  (`DocumentMixin.add_document`).
+- **`open_document(id)`** returns the original through `build_file_content` in
+  [file_retrieval.py](../../src/agent/tools/file_retrieval.py), the builder `retrieve_file`
+  uses: PDFs and images as-is (the Gemini Files API above `GEMINI_INLINE_FILE_MAX_BYTES`,
+  URI cached as `doc:<id>`), Office files as text, text truncated. It only opens live,
+  unexpired documents and sets `last_opened_at`.
+
+The message's file listing tells the model to pass an attachment's id to
+`manage_documents` as `file_id` ([message_content.py](../../src/agent/message_content.py)).
+
+### Prompt
+
+`DOCUMENTS_SYSTEM_PROMPT` ([prompt_texts/documents.py](../../src/agent/prompt_texts/documents.py))
+sits in the cached static prefix of every non-anonymous profile, next to the memory
+instructions. The list is dynamic, added wherever the memory list is, one line per live,
+unexpired document ([prompt_documents.py](../../src/agent/prompt_documents.py)):
+
+```
+## Saved documents (2/50)
+- 3f9a1c2e | Flat lease | lease.pdf, saved 2026-11-24, until 2027-11-30 | <summary> | Use for: <use_for>
+```
+
+A user without documents gets no section at all, so it costs nothing. An expired document
+leaves the list the day after its end date, before the sweep runs (`Document.expired`).
+Snapshots: `tests/fixtures/prompt_snapshots/`.
+
+### Guards
+
+- **Injection scan**: `find_injection` ([threat_patterns.py](../../src/utils/threat_patterns.py))
+  on title, summary and use_for, which reach every later turn.
+- **Anonymous mode**: both tools unbound (`_ANONYMOUS_EXCLUDED_TOOLS`), no list.
+- **Autonomous runs**: neither tool is always bound or in `ALWAYS_SAFE_TOOLS`, so a run
+  needs a grant, re-checked at call time (`check_autonomous_permission`). An unattended run
+  reading the web must not plant documents, and `open_document` exposes private files.
+  A run's tool summary (`_ACTING_TOOLS` in `standing_create.py`) reads "can change your
+  saved documents".
+- **Not extract-only**: like `manage_memory`, it has a real side effect whose result the
+  model must read; never add it to `EXTRACT_ONLY_TOOL_NAMES`.
+- `manage_documents` is in `SIDE_EFFECT_TOOLS` ([lost_actions.py](../../src/api/helpers/lost_actions.py))
+  and the loop detector's write set (`_WRITES` in `tool_loops.py`). Both tools' outputs
+  stay out of the persisted tool digest (`tool_outputs.py`).
+
+### Nightly sweep
+
+`sweep_documents()` in [defragment_memories.py](../../scripts/defragment_memories.py) runs
+after the memory expiry and purge, for all users, before any LLM work (skipped with
+`--dry-run`):
+
+1. `expire_documents(today)` soft-deletes documents whose `valid_until` is before today -
+   "Documents expired" with the count.
+2. `purge_deleted_documents(DOCUMENTS_SOFT_DELETE_RETENTION_DAYS)` deletes rows and blobs -
+   "Documents purged".
+
+Restoring an expired document drops its past end date, or the next sweep would delete it again.
+
+### Data page and API
+
+The Data page shows a **Documents** section between Memories and K/V storage
+([kv-documents.ts](../../web/src/components/kv-documents.ts)): title, file name and size,
+summary, "Use for", an Until/Expired badge, Download and Delete. Below it there is
+"Recently deleted documents" with Restore, and an EmptyState ("No documents yet") when
+the library is empty. Uploading or editing on the page is not supported: saving goes
+through chat, where the agent writes the summary.
+
+[routes/documents.py](../../src/api/routes/documents.py) (schemas in
+[schemas/documents.py](../../src/api/schemas/documents.py)):
+
+- `GET /api/documents` - live and recently deleted documents, `limit`, `bytes_used`, `bytes_limit`
+- `GET /api/documents/<id>/file` - download as an attachment (live or recently deleted)
+- `DELETE /api/documents/<id>` - soft delete
+- `POST /api/documents/<id>/restore` - 409 when the library is full
+
+### Instrumentation
+
+- "Document saved" (`user_id`, `document_id`, `mime_type`, `size`, `has_end_date`,
+  `replaced_id`), "Document opened" (`user_id`, `document_id`, `conversation_id`),
+  "Document save rejected" (`action`, `reason`; logged for every rejected operation,
+  updates and deletes included, with no user id), "Documents expired" / "Documents purged"
+  (counts). Titles and summaries are never logged.
+- `user_documents.last_opened_at`: whether saved documents are ever used.
+- The check in [regular-review.md](../regular-review.md#2-agents-and-integrations).
+
+### Evals
+
+`evals/cases/documents_*.yaml`: save a fixed-term contract after a yes with its end date,
+an auto-renewing one with none, offer without saving, replace a new version, keep an
+amendment separate, and open a seeded waterfall to answer an exit question. Cases seed
+libraries with the `documents:` field, and every document case runs as its own fresh
+user ([evals.md](../testing/evals.md#case-format)).
+
+### Key Files
+
+- [migrations/0103_user_documents.py](../../migrations/0103_user_documents.py) - the `user_documents` table
+- [models/documents.py](../../src/db/models/documents.py) - `DocumentMixin`: add (with replace), update, soft delete, restore, usage, expire, purge
+- [tools/documents.py](../../src/agent/tools/documents.py) - `manage_documents`, `open_document`
+- [prompt_documents.py](../../src/agent/prompt_documents.py), [prompt_texts/documents.py](../../src/agent/prompt_texts/documents.py) - list and instructions
+- [routes/documents.py](../../src/api/routes/documents.py), [api/documents.ts](../../web/src/api/documents.ts), [kv-documents.ts](../../web/src/components/kv-documents.ts)
+
+### Testing
+
+- [test_documents_tool.py](../../tests/unit/test_documents_tool.py) - batches, caps, rejections, what the model is told
+- [test_prompt_documents.py](../../tests/unit/test_prompt_documents.py) - the list line and its omission
+- [test_db_documents.py](../../tests/integration/test_db_documents.py), [test_routes_documents.py](../../tests/integration/test_routes_documents.py)
+- [test_defragment_memories.py](../../tests/unit/test_defragment_memories.py) - `sweep_documents`
+- [kv-documents.test.ts](../../web/tests/component/kv-documents.test.ts), [documents.spec.ts](../../web/tests/e2e/documents.spec.ts), [kv-store.visual.ts](../../web/tests/visual/kv-store.visual.ts)
+
+---
+
 ## Custom Instructions
 
 Users can customize LLM behavior via a free-text custom instructions field in the settings popup.

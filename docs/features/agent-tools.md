@@ -44,6 +44,8 @@ all-tools jobs (`["*"]`) or when granted explicitly.
 | `whatsapp` | WhatsApp notifications | Job runs only (`_JOB_RUN_ONLY_TOOLS`, never bound in a chat); requires app config + user phone |
 | `manage_memory` | Write to the user's long-term memory | **Must be granted** |
 | `search_memory` | Search stored memories (keyword + semantic) | Requires grant |
+| `manage_documents` | Save a file from this conversation to the user's [saved documents](memory-and-context.md#saved-documents-document-memory), or update/delete one (all-or-nothing batch) | Non-anonymous chats; jobs **must be granted** |
+| `open_document` | Open a saved document in full (same content builder as `retrieve_file`) | Non-anonymous chats; jobs require grant |
 | `search_conversations` | Search the user's past conversations | Requires grant |
 | `read_conversation` | Read one past conversation | Requires grant |
 | `delegate_task` | Context-isolated research subagent (spends tokens) | Job runs only, **must be granted** (`_JOB_RUN_ONLY_TOOLS`: no chat used it in 30 days, Nov 2026, and every bound declaration is re-sent on each model call) |

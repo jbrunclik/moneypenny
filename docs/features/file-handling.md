@@ -34,6 +34,8 @@ The `id` format is `"message_id:file_index"` which maps directly to the tool par
 - Other binary files return metadata only; base64 text is unreadable to the model and costs tokens in proportion to its size.
 - Known gap: files attached to the *current* message are still sent inline at full size (`src/agent/message_content.py`), so many large uploads in one message can still exceed the limit.
 
+The builder is `build_file_content` in [file_retrieval.py](../../src/agent/tools/file_retrieval.py), shared with `open_document` ([saved documents](memory-and-context.md#saved-documents-document-memory)). It takes a `file_id` that keys the Gemini Files API URI cache and names the file in Office text: `<message_id>:<index>` for attachments, `doc:<id>` for saved documents.
+
 **Security:**
 - Verifies message belongs to the current conversation
 - Verifies conversation belongs to the current user
@@ -258,6 +260,7 @@ Attachments are not permanent storage: **videos are kept 7 days, images and all 
 - **Development**: the dev scheduler loop calls `run_file_cleanup_if_due()` (at most one sweep per day, tracked via a `kv_store` stamp under `_system`/`file_cleanup`).
 - The sweep deletes full-size blobs and stale Gemini URI cache entries, and purges conversations trashed more than `TRASH_RETENTION_DAYS` ago (see [Trash](ui-conversations.md#trash)). **Thumbnails are kept** so old conversations still render a placeholder. Runs are idempotent.
 - Expiry is *age-derived* everywhere, so behavior is correct even before the sweep runs: history metadata marks files `"expired": true`, `retrieve_file` returns a clear "cleaned up" error, and the file endpoint returns **410 Gone** (`ErrorCode.GONE`).
+- [Saved documents](memory-and-context.md#saved-documents-document-memory) are copies under `doc/<id>` in the blob store, outside this sweep; they expire only by their own end date.
 
 ### Playback
 

@@ -160,6 +160,13 @@ memory_review: true             # optional: run the background memory review
                                 # over `history` + `user` instead of a turn;
                                 # its applied ops are graded as one
                                 # manage_memory call (memory-and-context.md)
+documents:                      # optional: saved documents seeded for the case
+  - title: Equity waterfall     # (memory-and-context.md#saved-documents-document-memory);
+    summary: Option value by exit valuation   # file is relative to evals/
+    use_for: Exit scenarios     # valid_until: optional YYYY-MM-DD.
+    file: fixtures/equity_waterfall.pdf  # A case that seeds documents or grades
+                                # manage_documents / open_document runs as its own
+                                # fresh user, so libraries never leak between cases
 artifacts:                      # optional: seeded in the case's conversation;
   - title: Tip calculator       # their ids replace {artifact_0}, {artifact_1}...
     html: <div class="mp-card">...</div>  # in `history` (e.g. metadata
