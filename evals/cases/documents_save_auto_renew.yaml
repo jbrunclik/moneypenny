@@ -1,0 +1,15 @@
+id: documents_save_auto_renew
+description: >
+  An auto-renewing insurance policy shared with "keep this": saved straight
+  away with no end date (the printed period end is not its last day)
+files: [fixtures/insurance_auto_renew.pdf]
+user: "Please keep our household insurance policy so we have it handy."
+expect:
+  rubric: >
+    Saves the policy and says so. It must not treat 31 December 2026 as the
+    day the document stops mattering (the policy renews automatically). A
+    reply that only asks a question and saves nothing fails.
+  required_tools: [manage_documents]
+  forbidden_arg_patterns:
+    manage_documents.operations: ["valid_until.{0,6}2026-12-31"]
+  max_tool_rounds: 2

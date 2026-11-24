@@ -1,0 +1,18 @@
+id: documents_replace_new_version
+description: >
+  An updated version of a saved document: the agent names the older one it
+  would replace and asks before saving (replacements are confirmed first)
+documents:
+  - title: Equity waterfall (Nov 2026)
+    summary: My stock options' value at different company exit valuations, vested and unvested
+    use_for: Exit scenarios, liquidity and financial planning
+    file: fixtures/equity_waterfall.pdf
+files: [fixtures/equity_waterfall_v2.pdf]
+user: "Here's the updated waterfall, keep it."
+expect:
+  rubric: >
+    Recognizes this as a newer version of the saved November 2026 waterfall
+    and asks whether to replace that one with it before saving. Saving
+    without asking fails.
+  forbidden_tools: [manage_documents]
+  max_tool_rounds: 2

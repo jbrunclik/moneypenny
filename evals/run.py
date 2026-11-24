@@ -140,6 +140,9 @@ class EvalCase:
     files: list[str] = field(default_factory=list)
     # Memories seeded before the case (soft-deleted after): [{content, category}]
     memories: list[dict[str, str]] = field(default_factory=list)
+    # Saved documents seeded before the case: [{title, summary, use_for, file,
+    # valid_until?}] (file relative to evals/); the case runs as its own user
+    documents: list[dict[str, str]] = field(default_factory=list)
     # Artifacts seeded in the case's conversation: [{title, html}]; their ids
     # replace {artifact_0}, {artifact_1}... in the history (revision cases)
     # {title, html, state?}: state is the saved envelope ({app, checklist})
@@ -311,6 +314,9 @@ def load_cases(directory: Path) -> list[EvalCase]:
                     {"content": str(m["content"]), "category": str(m.get("category", "fact"))}
                     | ({"summary": str(m["summary"])} if m.get("summary") else {})
                     for m in (data.get("memories") or [])
+                ],
+                documents=[
+                    {str(k): str(v) for k, v in d.items()} for d in (data.get("documents") or [])
                 ],
                 artifacts=[
                     {"title": str(a["title"]), "html": str(a["html"])}
@@ -836,6 +842,27 @@ def _attachment_payload(case: EvalCase) -> list[dict[str, str]]:
     return files_payload
 
 
+def _seed_documents(case: EvalCase, user: Any, db: Any) -> None:
+    """Save the case's documents for its user (document memory)."""
+    import mimetypes
+    from datetime import date
+
+    for d in case.documents:
+        fixture = Path(__file__).parent / d["file"]
+        db.add_document(
+            user.id,
+            title=d["title"],
+            summary=d["summary"],
+            use_for=d["use_for"],
+            filename=fixture.name,
+            mime_type=mimetypes.guess_type(fixture.name)[0] or "application/octet-stream",
+            data=fixture.read_bytes(),
+            valid_until=date.fromisoformat(d["valid_until"]) if d.get("valid_until") else None,
+            source_conversation_id=None,
+            source_message_id=None,
+        )
+
+
 def _seed_case(
     case: EvalCase, user: Any, db: Any, conversation_id: str
 ) -> tuple[list[str], list[dict[str, Any]] | None, dict[str, float]]:
@@ -853,6 +880,8 @@ def _seed_case(
     for memory_id, m in zip(seeded_memory_ids, case.memories, strict=True):
         if m.get("summary"):
             db.set_memory_summary(memory_id, m["content"], m["summary"])
+
+    _seed_documents(case, user, db)
 
     # Seed a past conversation for episodic-recall cases
     if case.seed_conversation:
@@ -1291,8 +1320,15 @@ def _case_user(case: EvalCase, user: Any, db: Any) -> Any:
     memory-review case gets a fresh one, since the review reads the whole
     bank and the recently deleted memories (cleanups read as "removed by the
     user - do not re-add"); an agent-mode case too (agent names are unique
-    per user)."""
-    if not (case.memory_review or case.mode == "agent"):
+    per user); and so does a document-memory case (it seeds saved documents
+    or grades the document tools): a shared library would show one case's
+    documents to another, or let it replace them."""
+    document_tools = {"manage_documents", "open_document"}
+    graded = {*case.required_tools, *case.forbidden_tools}
+    graded |= {key.partition(".")[0] for key in case.required_arg_patterns}
+    graded |= {key.partition(".")[0] for key in case.forbidden_arg_patterns}
+    documents_case = bool(case.documents) or bool(graded & document_tools)
+    if not (case.memory_review or case.mode == "agent" or documents_case):
         return user
     import uuid
 

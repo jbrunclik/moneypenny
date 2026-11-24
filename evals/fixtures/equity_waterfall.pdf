@@ -1,0 +1,46 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 867 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+50 790 Td
+(EQUITY WATERFALL - Jana Novakova \(prepared November 2026\)) Tj T*
+(Holdings: 120,000 vested options, 60,000 unvested options, strike 2.00 EUR) Tj T*
+(Fully diluted shares: 40,000,000. Liquidation preference: 1x non-participating, 30 M EUR) Tj T*
+(Exit valuation | Price per share | Value of vested options | Value incl. unvested) Tj T*
+( 50 M EUR      | 0.50 EUR        | 0 EUR \(under water\)     | 0 EUR) Tj T*
+(100 M EUR      | 1.75 EUR        | 0 EUR \(under water\)     | 0 EUR) Tj T*
+(200 M EUR      | 4.25 EUR        | 270,000 EUR             | 405,000 EUR) Tj T*
+(400 M EUR      | 9.25 EUR        | 870,000 EUR             | 1,305,000 EUR) Tj T*
+(Unvested options accelerate fully on a change of control \(double trigger\).) Tj T*
+(Values are before tax; Czech income tax and social/health insurance apply on exercise.) Tj T*
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000338 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1256
+%%EOF

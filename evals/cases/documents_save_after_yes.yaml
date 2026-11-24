@@ -1,0 +1,22 @@
+id: documents_save_after_yes
+description: >
+  After the user confirms the proposed end date, the lease is saved with it,
+  a summary for recall and a use_for for when to open it
+history:
+  - role: user
+    content: "Here's our new flat lease, keep it for later please."
+    files: [fixtures/lease_fixed_term.pdf]
+  - role: assistant
+    content: >
+      I can keep this lease in your saved documents. It's a fixed-term lease
+      ending 30 November 2027, so I'd clear it away after that day. Shall I
+      save it like that?
+user: "Yes, do that."
+expect:
+  rubric: >
+    Confirms the lease was saved. The reply must not claim anything was
+    saved unless the tool result said SAVED.
+  required_tools: [manage_documents]
+  required_arg_patterns:
+    manage_documents.operations: ["2027-11-30", "(?i)rent|25[ ,.]?000", "(?i)lease|flat"]
+  max_tool_rounds: 2

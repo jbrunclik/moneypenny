@@ -183,7 +183,8 @@ def _file_id_listing(files: Iterable[Mapping[str, object]]) -> str | None:
         return None
     return (
         f"[Files attached to this message: {', '.join(named)}. To measure, parse or convert "
-        "one in code, pass its id to execute_code(files=[...]).]"
+        "one in code, pass its id to execute_code(files=[...]); to keep one in the user's "
+        "saved documents, pass it as file_id to manage_documents.]"
     )
 
 

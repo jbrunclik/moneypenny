@@ -1,0 +1,15 @@
+id: documents_save_fixed_term
+description: >
+  A fixed-term lease shared with "keep this": the agent proposes the term end
+  as the end date and asks before saving (end dates are confirmed first)
+files: [fixtures/lease_fixed_term.pdf]
+user: "Here's our new flat lease, keep it for later please."
+expect:
+  rubric: >
+    Offers to save the lease and names 30 November 2027 (the term end) as the
+    day after which it would be cleared away, asking the user to confirm that
+    before saving. It may briefly summarize the lease (25,000 CZK rent,
+    3-month notice, 50,000 CZK deposit). Saving without asking about the end
+    date fails; inventing a different end date fails.
+  forbidden_tools: [manage_documents]
+  max_tool_rounds: 1

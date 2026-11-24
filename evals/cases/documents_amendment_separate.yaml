@@ -1,0 +1,20 @@
+id: documents_amendment_separate
+description: >
+  An amendment to a saved contract is its own document: never saved as a
+  replacement of the original lease
+documents:
+  - title: Flat lease (Vinohradska 12)
+    summary: Fixed-term lease 1 Dec 2026 - 30 Nov 2027, 25,000 CZK rent, 3-month notice, 50,000 CZK deposit
+    use_for: Rent, notice, deposit and moving questions
+    file: fixtures/lease_fixed_term.pdf
+    valid_until: "2027-11-30"
+files: [fixtures/lease_amendment.pdf]
+user: "We signed an amendment to the lease, keep this one too."
+expect:
+  rubric: >
+    Treats the amendment as a separate document next to the lease (it may
+    save it, or ask about an end date such as the lease's 30 November 2027
+    before saving). Replacing or deleting the original lease fails.
+  forbidden_arg_patterns:
+    manage_documents.operations: ["replaces.{0,5}[0-9a-f]{8}", "delete"]
+  max_tool_rounds: 2

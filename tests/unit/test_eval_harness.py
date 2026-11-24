@@ -236,6 +236,25 @@ class TestDeterministicFailures:
         [case] = load_cases(tmp_path)
         assert case.required_actions == {"todoist": ["^created task"]}
 
+    def test_documents_parse_from_yaml(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "docs.yaml",
+            "id: docs\nuser: u\nexpect:\n  rubric: r\n"
+            "documents:\n  - title: Waterfall\n    summary: s\n    use_for: exits\n"
+            "    file: fixtures/equity_waterfall.pdf\n    valid_until: '2099-01-01'\n",
+        )
+        [case] = load_cases(tmp_path)
+        assert case.documents == [
+            {
+                "title": "Waterfall",
+                "summary": "s",
+                "use_for": "exits",
+                "file": "fixtures/equity_waterfall.pdf",
+                "valid_until": "2099-01-01",
+            }
+        ]
+
     def test_forbidden_arg_patterns_parse_from_yaml(self, tmp_path: Path) -> None:
         _write_case(
             tmp_path,
@@ -1438,3 +1457,21 @@ class TestGroundingSummary:
         from evals.run import grounding_summary
 
         assert grounding_summary({}) is None
+
+
+def test_document_cases_each_get_a_fresh_user(test_database, test_user) -> None:
+    """Cases run in parallel as one user: a case that seeds or saves saved
+    documents would see, or replace, another case's library."""
+    from evals import run
+
+    seeded = run.EvalCase(
+        id="d", description="d", user="u", documents=[{"title": "t", "file": "f"}]
+    )
+    attached = run.EvalCase(
+        id="f", description="d", user="u", files=["x.pdf"], forbidden_tools=["manage_documents"]
+    )
+    plain = run.EvalCase(id="p", description="d", user="u")
+
+    assert run._case_user(seeded, test_user, test_database).id != test_user.id
+    assert run._case_user(attached, test_user, test_database).id != test_user.id
+    assert run._case_user(plain, test_user, test_database) is test_user
