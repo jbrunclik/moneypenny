@@ -30,7 +30,7 @@ def _listed_filename(filename: str) -> str:
     return name if len(name) <= _FILENAME_MAX_CHARS else name[: _FILENAME_MAX_CHARS - 1] + "…"
 
 
-def _document_line(doc: Document) -> str:
+def document_line(doc: Document) -> str:
     dates = (
         f"{_listed_filename(doc.filename)}, saved {to_local(doc.created_at).strftime('%Y-%m-%d')}"
     )
@@ -53,4 +53,4 @@ def get_user_documents_list_prompt(user_id: str) -> str:
     if not docs:
         return ""
     header = f"## Saved documents ({len(docs)}/{Config.DOCUMENTS_MAX_ENTRIES})"
-    return "\n".join([header, *(_document_line(doc) for doc in docs)])
+    return "\n".join([header, *(document_line(doc) for doc in docs)])

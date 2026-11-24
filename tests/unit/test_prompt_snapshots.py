@@ -32,6 +32,7 @@ import src.agent.prompt_documents as prompt_documents_module
 import src.agent.prompt_memory as prompt_memory_module
 import src.agent.prompts as prompts_module
 import src.agent.tools as tools_module
+from src.agent.project_context import ProjectContext
 from src.agent.prompts import CacheProfile, get_dynamic_prompt_parts, get_static_prompt_for_profile
 from src.config import Config
 from src.db.models.dataclasses import Document, Memory
@@ -116,13 +117,43 @@ def pinned_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _dynamic_context() -> str:
+def _dynamic_context(project: ProjectContext | None = None) -> str:
     return get_dynamic_prompt_parts(
         user_name="Jana",
         user_id="example-user",
         custom_instructions="Answer in Czech. Keep it brief.",
         conversation_title="Lake Garda trip",
         conversation_facts=[],
+        project=project,
+    )
+
+
+def _example_project(shared: bool) -> ProjectContext:
+    """A copywriting client's project (the observed use, Nov 2026)."""
+    memories = [
+        Memory(
+            id=f"{n:08x}-1111-4000-8000-000000000000",
+            user_id=author,
+            content=content,
+            category="fact",
+            created_at=datetime(2026, 10, n, tzinfo=UTC),
+            updated_at=datetime(2026, 10, n, tzinfo=UTC),
+            project_id="example-project",
+        )
+        for n, author, content in (
+            (1, "example-user", "Client: Hanák - garden ponds and natural pools, Brno"),
+            (2, "example-petr", "Posts go out Tue and Thu; 900-1200 characters each"),
+        )
+    ]
+    return ProjectContext(
+        id="example-project",
+        name="Hanák / Zeleko",
+        instructions="LinkedIn posts for Hanák. Friendly expert tone, no emoji, Czech.",
+        shared=shared,
+        other_member_names=["Petr"] if shared else [],
+        author_names={"example-user": "Jana", "example-petr": "Petr"},
+        memories=memories,
+        documents=[],
     )
 
 
@@ -150,6 +181,8 @@ def _sizes(prompts: dict[str, str], declarations: list[dict[str, object]], dynam
         *(f"  {profile:<12} {len(text):>7}" for profile, text in prompts.items()),
         "",
         f"dynamic context (example user, {len(_EXAMPLE_MEMORIES)} memories) {len(dynamic):>7}",
+        f"  + a solo project (2 memories)   {len(_dynamic_context(_example_project(False))):>7}",
+        f"  + a shared project (2 memories) {len(_dynamic_context(_example_project(True))):>7}",
         "",
         f"tool declarations ({len(tool_sizes)} tools, {sum(tool_sizes.values())} chars)",
         *(f"  {name:<26} {size:>7}" for name, size in tool_sizes.items()),
@@ -164,6 +197,8 @@ def _build_snapshots() -> dict[str, str]:
     files["tools.json"] = json.dumps(declarations, indent=2, ensure_ascii=False) + "\n"
     dynamic = _dynamic_context()
     files["dynamic-standard.txt"] = dynamic + "\n"
+    files["dynamic-project-solo.txt"] = _dynamic_context(_example_project(shared=False)) + "\n"
+    files["dynamic-project-shared.txt"] = _dynamic_context(_example_project(shared=True)) + "\n"
     files["sizes.txt"] = _sizes(prompts, declarations, dynamic)
     return files
 

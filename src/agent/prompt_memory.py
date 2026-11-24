@@ -27,7 +27,7 @@ def get_memory_instructions_prompt() -> str:
 _ALWAYS_INJECTED_MEMORY_CATEGORIES = frozenset({"preference", "goal", "fact"})
 
 
-def _memory_line(mem: Memory) -> str:
+def memory_line(mem: Memory, author: str | None = None) -> str:
     """One memory as the list shows it: short id, category, dates, flags, text.
 
     One line each (Nov 16 2026): indented JSON with full UUIDs was about twice
@@ -42,6 +42,8 @@ def _memory_line(mem: Memory) -> str:
     fields = [f"- {short_memory_id(mem.id)}", mem.category or "fact", dates]
     if mem.protected:
         fields.append("protected")
+    if author:  # a shared project's memory: who wrote it
+        fields.append(f"by {author}")
     # "" marks a memory Flash-Lite would not summarise: shown whole
     condensed = bool(mem.summary) and len(mem.content) > Config.MEMORY_SUMMARY_MAX_CHARS
     text = " ".join((mem.summary if condensed and mem.summary else mem.content).split())
@@ -109,7 +111,7 @@ def get_user_memories_list_prompt(user_id: str) -> str:
         prompt_parts.append(
             "(id | category | created[, upd updated][, until last day] | [protected |] text)"
         )
-        prompt_parts.extend(_memory_line(mem) for mem in shown)
+        prompt_parts.extend(memory_line(mem) for mem in shown)
     else:
         prompt_parts.append("\nNo memories stored yet.")
 

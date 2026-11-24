@@ -19,6 +19,7 @@ from src.agent.freshness import FreshnessDecision, PendingGate, freshness_tool_e
 from src.agent.graph import get_graph_config
 from src.agent.graph_cache import get_compiled_graph
 from src.agent.message_content import build_message_content, history_to_messages
+from src.agent.project_context import ProjectContext
 from src.agent.prompts import (
     CacheProfile,
     get_dynamic_prompt_parts,
@@ -116,6 +117,7 @@ class ChatAgent:
         memoize_graph: bool = True,
         include_memories: bool = True,
         user_id: str | None = None,
+        project: ProjectContext | None = None,
     ) -> None:
         self.model_name = model_name
         # False: the prompt carries the user's context (language, saved
@@ -130,6 +132,9 @@ class ChatAgent:
         # A standing chat (agent / sports / language): ordinary chat turn plus
         # its standing instructions and data (src/agent/standing.py)
         self.standing = standing
+        # The project the chat is filed under: its instructions, memory and
+        # documents ride in the turn's context (src/agent/project_context.py)
+        self.project = project
         # A custom system prompt (delegate subagents) replaces the standard
         # prompt assembly entirely - the profiles all embed the standard
         # static prompt.
@@ -313,6 +318,7 @@ class ChatAgent:
                 conversation_title=conversation_title,
                 conversation_facts=conversation_facts,
                 unconnected=unconnected,
+                project=getattr(self, "project", None),
             )
             dynamic_context_msg = HumanMessage(content=f"[CONTEXT]\n{dynamic}\n[/CONTEXT]")
         else:
@@ -335,6 +341,7 @@ class ChatAgent:
                         include_memories=self.include_memories,
                         conversation_title=conversation_title,
                         conversation_facts=conversation_facts,
+                        project=getattr(self, "project", None),
                     )
                 )
             )

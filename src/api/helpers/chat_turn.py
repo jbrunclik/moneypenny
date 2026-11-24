@@ -34,6 +34,7 @@ from src.agent.guidance import with_guidance
 from src.agent.history import enrich_history
 from src.agent.interjection import clear_interjection
 from src.agent.message_content import annotate_history_file_ids, attachment_count
+from src.agent.project_context import ProjectContext, load_project_context
 from src.agent.proposals import answers_only_runs, start_turn
 from src.agent.standing import StandingContext
 from src.agent.standing_context import load_standing_context
@@ -408,6 +409,8 @@ class TurnContext:
     # A standing chat (agent / sports / language): an ordinary turn plus its
     # standing instructions, data and kv namespace (standing_context.py)
     standing: StandingContext | None = None
+    # The project the chat is filed under (project_context.py)
+    project: ProjectContext | None = None
     # Set for a deep-research turn (the stream producer runs the pipeline)
     deep_research: DeepResearchPlan | None = None
     lost_actions_note: str | None = None
@@ -459,6 +462,7 @@ class TurnContext:
             is_planning=self.is_planning,
             standing=self.standing,
             user_id=self.user_id,
+            project=self.project,
         )
 
     def _agent_text(self) -> str:
@@ -544,6 +548,7 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
         conversation_facts=load_turn_facts(conv, turn.anonymous_mode),
         is_planning=conv.is_planning,
         standing=load_standing_context(conv, user),
+        project=load_project_context(conv, user, turn.anonymous_mode),
         freshness_gate=gate,
     )
     if conv.is_planning:

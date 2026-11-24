@@ -9,6 +9,7 @@ import json
 from enum import StrEnum
 from typing import Any
 
+from src.agent.project_context import ProjectContext
 from src.agent.prompt_agents import get_autonomous_agent_prompt
 from src.agent.prompt_dashboard import get_dashboard_context_prompt
 from src.agent.prompt_documents import (
@@ -20,6 +21,7 @@ from src.agent.prompt_memory import (
     get_user_memories_list_prompt,
     get_user_memories_prompt,
 )
+from src.agent.prompt_projects import format_project_section
 from src.agent.prompt_texts.core import (
     BASE_SYSTEM_PROMPT,
     CONVERSATION_FACTS_EMPTY,
@@ -315,6 +317,7 @@ def get_dynamic_prompt_parts(
     conversation_facts: list[ConversationFact] | None = None,
     include_memories: bool = True,
     unconnected: frozenset[str] = frozenset(),
+    project: ProjectContext | None = None,
 ) -> str:
     """Return only the dynamic (per-request) parts of the prompt.
 
@@ -332,6 +335,7 @@ def get_dynamic_prompt_parts(
         planner_dashboard_context: Refreshed dashboard data
         standing: A standing chat's instructions and data (agent / program chats)
         unconnected: Integrations the user never connected (their tools are not bound)
+        project: The project the chat is filed under (its instructions, memory, documents)
 
     Returns:
         Dynamic prompt string
@@ -352,12 +356,7 @@ def get_dynamic_prompt_parts(
         )
     )
 
-    if user_id and not anonymous_mode and include_memories:
-        # Instructions live in the cached static prefix; only the list is dynamic
-        parts.append(get_user_memories_list_prompt(user_id))
-        documents = get_user_documents_list_prompt(user_id)
-        if documents:
-            parts.append(documents)
+    parts.extend(_library_parts(user_id, anonymous_mode, include_memories, project))
 
     if is_planning:
         active_dashboard = (
@@ -376,6 +375,33 @@ def get_dynamic_prompt_parts(
         parts.append(get_force_tools_prompt(force_tools))
 
     return "\n\n".join(parts)
+
+
+def _library_parts(
+    user_id: str | None,
+    anonymous_mode: bool,
+    include_memories: bool,
+    project: ProjectContext | None,
+) -> list[str]:
+    """The dynamic context's memory list, saved documents and project section."""
+    parts: list[str] = []
+    if user_id and not anonymous_mode and include_memories:
+        # Instructions live in the cached static prefix; only the list is dynamic
+        parts.append(get_user_memories_list_prompt(user_id))
+        documents = get_user_documents_list_prompt(user_id)
+        if documents:
+            parts.append(documents)
+    # After the personal lists: the project's text sits closer to the chat
+    if project is not None and not anonymous_mode:
+        parts.append(format_project_section(project))
+    return parts
+
+
+def _project_prompt(project: ProjectContext | None, anonymous_mode: bool) -> str:
+    """The project section for the single-message system prompt, or ""."""
+    if project is None or anonymous_mode:
+        return ""
+    return "\n\n" + format_project_section(project)
 
 
 def unconnected_integrations_line(unconnected: frozenset[str]) -> str:
@@ -432,6 +458,7 @@ def get_system_prompt(
     conversation_title: str | None = None,
     conversation_facts: list[ConversationFact] | None = None,
     include_memories: bool = True,
+    project: ProjectContext | None = None,
 ) -> str:
     """Build the system prompt, optionally including tool instructions.
 
@@ -506,6 +533,8 @@ def get_system_prompt(
     # Add user memories if user_id is provided (skip in anonymous mode)
     if user_id and not anonymous_mode and include_memories:
         prompt += "\n\n" + _personal_library_prompt(user_id, with_tools)
+
+    prompt += _project_prompt(project, anonymous_mode)
 
     # Add force tools instruction if specified
     if force_tools:
