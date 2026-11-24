@@ -140,7 +140,7 @@ class ConversationListingMixin:
     ) -> tuple[list[tuple[Conversation, int, str | None]], str | None, bool]:
         """The user's own live, unarchived chats in a project, newest first
         (the main list's cursor format). Empty for a non-member."""
-        params: list[Any] = [project_id, user_id, project_id, user_id]
+        params: list[object] = [project_id, user_id, project_id, user_id]
         after = ""
         if cursor:
             cursor_timestamp, cursor_id = parse_cursor(cursor)

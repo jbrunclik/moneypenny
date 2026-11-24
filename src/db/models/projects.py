@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import timedelta
-from typing import TYPE_CHECKING, Any
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 from src.config import Config
 from src.db.models.dataclasses import Project, ProjectSummary
@@ -55,10 +55,21 @@ class ProjectMixin:
         self,
         conn: sqlite3.Connection,
         query: str,
-        params: tuple[Any, ...] = (),
+        params: tuple[object, ...] = (),
     ) -> sqlite3.Cursor:
         """Execute query with timing (defined in base class)."""
         raise NotImplementedError
+
+    if TYPE_CHECKING:
+
+        def _update_where(
+            self,
+            where: str,
+            params: tuple[object, ...],
+            set_clause: str,
+            set_params: tuple[object, ...],
+        ) -> list[str]:
+            """Defined in ConversationTrashMixin."""
 
     def _member_ids(self, conn: sqlite3.Connection, project_id: str) -> list[str]:
         rows = self._execute_with_timing(
@@ -188,7 +199,7 @@ class ProjectMixin:
         ``expected_instructions`` the instructions land only while the row
         still holds that text. Returns False when nothing was allowed."""
         sets: list[str] = ["updated_at = ?"]
-        params: list[Any] = [to_db(utc_now())]
+        params: list[object] = [to_db(utc_now())]
         if name is not None:
             sets.append("name = ?")
             params.append(name)
@@ -397,6 +408,39 @@ class ProjectMixin:
                 "Chat moved to project",
                 extra={"user_id": user_id, "conversation_id": conv_id, "to": project_id},
             )
+        return moved
+
+    def move_conversations(
+        self,
+        user_id: str,
+        project_id: str | None,
+        ids: list[str],
+        *,
+        all_before: datetime | None = None,
+        exclude_ids: list[str] | None = None,
+    ) -> list[str]:
+        """File many of the user's ordinary chats under a project (or take
+        them out with None): ``ids``, plus with ``all_before`` every unpinned,
+        unarchived main-list chat created before it except ``exclude_ids``
+        (the sidebar's Select all). Returns the ids moved."""
+        if project_id is not None and self.get_project(project_id, user_id) is None:
+            return []
+        base = f"user_id = ? AND deleted_at IS NULL AND {ELIGIBLE_CHAT_SQL}"
+        picked = f"id IN ({', '.join('?' * len(ids))})" if ids else "0"
+        params: list[object] = [user_id, *ids]
+        if all_before is not None:
+            excluded = exclude_ids or []
+            marks = ", ".join("?" * len(excluded)) or "NULL"
+            picked = f"""({picked} OR (project_id IS NULL AND COALESCE(pinned, 0) = 0
+                AND COALESCE(archived, 0) = 0 AND created_at < ? AND id NOT IN ({marks})))"""
+            params.extend([all_before, *excluded])
+        moved = self._update_where(
+            f"{base} AND {picked}", tuple(params), "project_id = ?", (project_id,)
+        )
+        logger.info(
+            "Chat moved to project",
+            extra={"user_id": user_id, "to": project_id, "count": len(moved)},
+        )
         return moved
 
     def project_for_conversation(self, conv_id: str, user_id: str) -> Project | None:

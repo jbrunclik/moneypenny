@@ -288,7 +288,7 @@ class TestUpdateDelete:
         result = _ops({"action": "update", "id": doc.id[:8], "valid_until": "", "title": "Lease"})
 
         assert f"UPDATED {doc.id[:8]}" in result
-        got = db.get_document(doc.id, user.id)
+        got = db.get_document_in_scope(doc.id, user.id, None)
         assert got is not None
         assert got.valid_until is None
         assert got.title == "Lease"
@@ -337,7 +337,7 @@ class TestOpen:
         assert isinstance(result, list)
         assert result[1]["type"] == "image"
         assert base64.b64decode(result[1]["base64"]) == PDF
-        got = db.get_document(doc.id, user.id)
+        got = db.get_document_in_scope(doc.id, user.id, None)
         assert got is not None
         assert got.last_opened_at is not None
 

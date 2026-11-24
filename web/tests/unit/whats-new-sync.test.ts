@@ -21,6 +21,7 @@ describe("What's new from sync", () => {
       archived: false,
       trashed: false,
       pinned: false,
+      project_id: null,
       anonymous_mode: false,
       is_whats_new: true,
       scheduled_count: 0,

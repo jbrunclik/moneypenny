@@ -842,6 +842,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The projects the user owns or was added to. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProjectsListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a project (the caller owns it). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CreateProjectRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProjectResponse"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/documents": {
         parameters: {
             query?: never;
@@ -2018,6 +2096,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The family members a project can be shared with. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PeopleResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sports/programs": {
         parameters: {
             query?: never;
@@ -2275,6 +2389,42 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["MemoriesListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/deleted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's deleted projects, restorable until the purge. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeletedProjectsResponse"];
                     };
                 };
             };
@@ -3557,6 +3707,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project with its instructions, memory and documents. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    project_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProjectDetailResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Delete a project (owner only): its chats return to the main lists. */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    project_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Rename (owner only) or change the instructions (any member). */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    project_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateProjectRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProjectResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/messages/{message_id}": {
         parameters: {
             query?: never;
@@ -4193,6 +4483,73 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/conversations/bulk-move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move many chats into a project (or out of one) in one transaction. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["BulkMoveRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkMoveResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/schedules/{item_id}/run": {
@@ -5718,6 +6075,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bring a deleted project back with its memory and documents. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    project_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}/facts": {
         parameters: {
             query?: never;
@@ -6405,6 +6809,66 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{conv_id}/project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** File a chat under a project, or take it out (project_id null). */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["MoveConversationRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7367,6 +7831,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's own chats in the project, newest first. */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    cursor?: string | null;
+                };
+                header?: never;
+                path: {
+                    project_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConversationsListPaginatedResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/me/instructions-review/reject": {
         parameters: {
             query?: never;
@@ -7790,6 +8313,107 @@ export interface paths {
             };
         };
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/members/{member_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Share the project with a family member (owner only). */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    project_id: string;
+                    member_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProjectResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Remove a member (owner), or leave (the member themself). The owner
+         * @description cannot leave their own project - they delete it instead.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    project_id: string;
+                    member_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -9870,6 +10494,132 @@ export interface components {
             limit: number;
         };
         /**
+         * ProjectResponse
+         * @description A project as the caller sees it (counts are of their own chats).
+         */
+        "ProjectsListResponse.ProjectResponse": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Owner Id */
+            owner_id: string;
+            /** Is Owner */
+            is_owner: boolean;
+            /**
+             * Shared
+             * @description Has members besides the owner
+             */
+            shared: boolean;
+            /** Member Names */
+            member_names: string[];
+            /** Member Ids */
+            member_ids: string[];
+            /**
+             * Chat Count
+             * @description The caller's own chats in the project
+             * @default 0
+             */
+            chat_count: number;
+            /**
+             * Unread Count
+             * @description Unread messages in the caller's chats
+             * @default 0
+             */
+            unread_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
+        };
+        /**
+         * ProjectsListResponse
+         * @description The caller's projects (owned or shared with them).
+         */
+        ProjectsListResponse: {
+            /** Projects */
+            projects: components["schemas"]["ProjectsListResponse.ProjectResponse"][];
+            /**
+             * Limit
+             * @description Maximum projects a user may own
+             */
+            limit: number;
+        };
+        /**
+         * ProjectResponse
+         * @description A project as the caller sees it (counts are of their own chats).
+         */
+        ProjectResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Owner Id */
+            owner_id: string;
+            /** Is Owner */
+            is_owner: boolean;
+            /**
+             * Shared
+             * @description Has members besides the owner
+             */
+            shared: boolean;
+            /** Member Names */
+            member_names: string[];
+            /** Member Ids */
+            member_ids: string[];
+            /**
+             * Chat Count
+             * @description The caller's own chats in the project
+             * @default 0
+             */
+            chat_count: number;
+            /**
+             * Unread Count
+             * @description Unread messages in the caller's chats
+             * @default 0
+             */
+            unread_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
+        };
+        /**
+         * CreateProjectRequest
+         * @description Schema for POST /api/projects.
+         */
+        CreateProjectRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Instructions
+             * @default
+             */
+            instructions?: string;
+        };
+        /**
          * SavedDocumentResponse
          * @description One saved document (its metadata; the file is a separate download).
          */
@@ -11111,6 +11861,24 @@ export interface components {
             password: string;
         };
         /**
+         * PersonResponse
+         * @description A family member who can be added to a project.
+         */
+        "PeopleResponse.PersonResponse": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * PeopleResponse
+         * @description The deployment's other users.
+         */
+        PeopleResponse: {
+            /** People */
+            people: components["schemas"]["PeopleResponse.PersonResponse"][];
+        };
+        /**
          * QuickActionResponse
          * @description A saved quick action as the program listings send it.
          */
@@ -11241,6 +12009,64 @@ export interface components {
              * @default false
              */
             needs_reconnect: boolean;
+        };
+        /**
+         * ProjectResponse
+         * @description A project as the caller sees it (counts are of their own chats).
+         */
+        "DeletedProjectsResponse.ProjectResponse": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Owner Id */
+            owner_id: string;
+            /** Is Owner */
+            is_owner: boolean;
+            /**
+             * Shared
+             * @description Has members besides the owner
+             */
+            shared: boolean;
+            /** Member Names */
+            member_names: string[];
+            /** Member Ids */
+            member_ids: string[];
+            /**
+             * Chat Count
+             * @description The caller's own chats in the project
+             * @default 0
+             */
+            chat_count: number;
+            /**
+             * Unread Count
+             * @description Unread messages in the caller's chats
+             * @default 0
+             */
+            unread_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
+        };
+        /**
+         * DeletedProjectsResponse
+         * @description The caller's deleted projects, still restorable.
+         */
+        DeletedProjectsResponse: {
+            /** Projects */
+            projects: components["schemas"]["DeletedProjectsResponse.ProjectResponse"][];
         };
         /**
          * TodoistAuthUrlResponse
@@ -12209,6 +13035,214 @@ export interface components {
              * @default false
              */
             was_reset: boolean;
+        };
+        /**
+         * ProjectDocumentResponse
+         * @description A project document with its author's name.
+         */
+        "ProjectDetailResponse.ProjectDocumentResponse": {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Summary
+             * @description What the document contains
+             */
+            summary: string;
+            /**
+             * Use For
+             * @description When the assistant should open it
+             */
+            use_for: string;
+            /** Filename */
+            filename: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Valid Until
+             * @description Last local day the document holds (YYYY-MM-DD)
+             * @default null
+             */
+            valid_until: string | null;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
+            /**
+             * Last Opened At
+             * @default null
+             */
+            last_opened_at: string | null;
+            /**
+             * Source Conversation Id
+             * @default null
+             */
+            source_conversation_id: string | null;
+            /**
+             * Author Name
+             * @default null
+             */
+            author_name: string | null;
+        };
+        /**
+         * ProjectMemoryResponse
+         * @description A project memory with its author's name.
+         */
+        "ProjectDetailResponse.ProjectMemoryResponse": {
+            /** Id */
+            id: string;
+            /** Content */
+            content: string;
+            /**
+             * Category
+             * @default null
+             */
+            category: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Protected
+             * @default false
+             */
+            protected: boolean;
+            /**
+             * Source Conversation Id
+             * @default null
+             */
+            source_conversation_id: string | null;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
+            /**
+             * Valid Until
+             * @description Last local day the memory holds (YYYY-MM-DD); deleted after it
+             * @default null
+             */
+            valid_until: string | null;
+            /**
+             * Previous Content
+             * @description The text before the memory's last change
+             * @default null
+             */
+            previous_content: string | null;
+            /**
+             * Author Name
+             * @default null
+             */
+            author_name: string | null;
+        };
+        /**
+         * ProjectResponse
+         * @description A project as the caller sees it (counts are of their own chats).
+         */
+        "ProjectDetailResponse.ProjectResponse": {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Owner Id */
+            owner_id: string;
+            /** Is Owner */
+            is_owner: boolean;
+            /**
+             * Shared
+             * @description Has members besides the owner
+             */
+            shared: boolean;
+            /** Member Names */
+            member_names: string[];
+            /** Member Ids */
+            member_ids: string[];
+            /**
+             * Chat Count
+             * @description The caller's own chats in the project
+             * @default 0
+             */
+            chat_count: number;
+            /**
+             * Unread Count
+             * @description Unread messages in the caller's chats
+             * @default 0
+             */
+            unread_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Deleted At
+             * @default null
+             */
+            deleted_at: string | null;
+        };
+        /**
+         * ProjectDetailResponse
+         * @description One project with its instructions, memory and documents.
+         */
+        ProjectDetailResponse: {
+            project: components["schemas"]["ProjectDetailResponse.ProjectResponse"];
+            /** Instructions */
+            instructions: string;
+            /** Memories */
+            memories: components["schemas"]["ProjectDetailResponse.ProjectMemoryResponse"][];
+            /** Documents */
+            documents: components["schemas"]["ProjectDetailResponse.ProjectDocumentResponse"][];
+            /**
+             * Instructions Limit
+             * @description PROJECT_INSTRUCTIONS_MAX_CHARS
+             */
+            instructions_limit: number;
+            /**
+             * Memory Limit
+             * @description PROJECT_MEMORY_MAX_ENTRIES
+             */
+            memory_limit: number;
+            /**
+             * Documents Limit
+             * @description PROJECT_DOCUMENTS_MAX_ENTRIES
+             */
+            documents_limit: number;
+        };
+        /**
+         * UpdateProjectRequest
+         * @description Schema for PATCH /api/projects/<id> (name: owner only).
+         */
+        UpdateProjectRequest: {
+            /**
+             * Name
+             * @default null
+             */
+            name?: string | null;
+            /**
+             * Instructions
+             * @default null
+             */
+            instructions?: string | null;
         };
         /**
          * ArtifactRef
@@ -13279,6 +14313,48 @@ export interface components {
              */
             model?: string | null;
         };
+        /**
+         * BulkMoveResponse
+         * @description The chats that moved.
+         */
+        BulkMoveResponse: {
+            /** Moved Ids */
+            moved_ids: string[];
+        };
+        /**
+         * BulkMoveRequest
+         * @description Move many chats into a project (or out of one, with null): hand-picked
+         *     ids, or every unpinned main-list chat (all) minus exclude_ids plus ids.
+         */
+        BulkMoveRequest: {
+            /**
+             * All
+             * @description Every unpinned main-list chat
+             * @default false
+             */
+            all?: boolean;
+            /**
+             * Ids
+             * @description Chats to trash; with all, extra chats (pinned ones picked by hand)
+             */
+            ids?: string[];
+            /**
+             * Exclude Ids
+             * @description With all: chats to keep
+             */
+            exclude_ids?: string[];
+            /**
+             * Created Before
+             * @description With all: only chats created before this moment
+             * @default null
+             */
+            created_before?: string | null;
+            /**
+             * Project Id
+             * @default null
+             */
+            project_id?: string | null;
+        };
         /** DeviceCheckScenario */
         "DeviceCheckRun.DeviceCheckScenario": {
             /** Id */
@@ -14103,6 +15179,17 @@ export interface components {
              * @description Whether the memory is exempt from auto-deletion
              */
             protected: boolean;
+        };
+        /**
+         * MoveConversationRequest
+         * @description Schema for PUT /api/conversations/<id>/project (null takes it out).
+         */
+        MoveConversationRequest: {
+            /**
+             * Project Id
+             * @default null
+             */
+            project_id?: string | null;
         };
         /**
          * ApproveProposalRequest

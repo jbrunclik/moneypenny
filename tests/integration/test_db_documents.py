@@ -44,7 +44,7 @@ class TestDocumentStorage:
     ) -> None:
         doc = _add(test_database, test_user.id, data=b"abc123")
 
-        got = test_database.get_document(doc.id, test_user.id)
+        got = test_database.get_document_in_scope(doc.id, test_user.id, None)
         assert got is not None
         assert got.title == "Lease"
         assert got.size_bytes == 6
@@ -58,7 +58,7 @@ class TestDocumentStorage:
         self, test_database: Database, test_blob_store: BlobStore, test_user: User
     ) -> None:
         doc = _add(test_database, test_user.id)
-        assert test_database.get_document(doc.id, "someone-else") is None
+        assert test_database.get_document_in_scope(doc.id, "someone-else", None) is None
 
     def test_add_document_replacing_foreign_id_writes_nothing(
         self, test_database: Database, test_blob_store: BlobStore, test_user: User
@@ -72,7 +72,7 @@ class TestDocumentStorage:
 
         assert test_database.list_documents(test_user.id) == []
         assert _blob_count(test_blob_store) == blobs_before
-        assert test_database.get_document(foreign.id, other.id) is not None
+        assert test_database.get_document_in_scope(foreign.id, other.id, None) is not None
 
     def test_replaces_soft_deletes_old(
         self, test_database: Database, test_blob_store: BlobStore, test_user: User
@@ -129,7 +129,7 @@ class TestDocumentStorage:
 
         assert test_database.purge_deleted_documents(30) == 1
         assert test_blob_store.get(make_document_blob_key(doc.id)) is None
-        assert test_database.get_document(doc.id, test_user.id) is None
+        assert test_database.get_document_in_scope(doc.id, test_user.id, None) is None
 
     def test_purge_keeps_recent_deletes(
         self, test_database: Database, test_blob_store: BlobStore, test_user: User
@@ -146,7 +146,7 @@ class TestDocumentStorage:
         test_database.expire_documents(date(2026, 1, 2))
 
         assert test_database.restore_document(doc.id, test_user.id, date(2026, 1, 2))
-        restored = test_database.get_document(doc.id, test_user.id)
+        restored = test_database.get_document_in_scope(doc.id, test_user.id, None)
         assert restored is not None
         assert restored.deleted_at is None
         assert restored.valid_until is None
@@ -189,6 +189,6 @@ class TestDocumentStorage:
         doc = _add(test_database, test_user.id)
         assert doc.last_opened_at is None
         test_database.touch_document_opened(doc.id)
-        got = test_database.get_document(doc.id, test_user.id)
+        got = test_database.get_document_in_scope(doc.id, test_user.id, None)
         assert got is not None
         assert got.last_opened_at is not None

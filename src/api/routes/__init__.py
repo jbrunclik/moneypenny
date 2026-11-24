@@ -68,6 +68,7 @@ from src.api.routes import (
     language,
     memory,
     planner,
+    projects,
     proposals,  # noqa: F401 - imported for its routes
     push,
     rouvy,
@@ -101,6 +102,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(system.api)
     app.register_blueprint(memory.api)
     app.register_blueprint(documents.api)
+    app.register_blueprint(projects.api)
     app.register_blueprint(settings.api)
     app.register_blueprint(conversations.api)
     app.register_blueprint(planner.api)

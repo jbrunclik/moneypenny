@@ -244,16 +244,6 @@ class DocumentMixin:
             project_id=row["project_id"],
         )
 
-    def get_document(self, document_id: str, user_id: str) -> Document | None:
-        """A personal document of this user, live or deleted (None when not theirs)."""
-        with self._pool.get_connection() as conn:
-            row = self._execute_with_timing(
-                conn,
-                f"SELECT * FROM user_documents WHERE id = ? AND {_PERSONAL_SQL}",
-                (document_id, user_id),
-            ).fetchone()
-        return self._row_to_document(row) if row else None
-
     def get_document_in_scope(
         self, document_id: str, user_id: str, project_id: str | None
     ) -> Document | None:

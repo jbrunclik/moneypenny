@@ -42,15 +42,22 @@ def _raw(db_path: Path, sql: str, params: tuple[object, ...] = ()) -> list[tuple
 def test_legacy_rows_keep_their_instants(legacy_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     db = Database(db_path=legacy_db)
     user = db.get_or_create_user(email="a@example.com", name="A")
-    conv = db.create_conversation(user.id)
-    # Raw: today's add_message writes columns later migrations add
+    # Raw: today's create_conversation and add_message write columns later
+    # migrations add
+    conv_id = str(uuid.uuid4())
     message_id = str(uuid.uuid4())
     db.close()
     _raw(
         legacy_db,
+        "INSERT INTO conversations (id, user_id, title, model, created_at, updated_at)"
+        " VALUES (?, ?, 'Chat', 'm', '2026-07-01T12:00:00', '2026-07-01T12:00:00')",
+        (conv_id, user.id),
+    )
+    _raw(
+        legacy_db,
         "INSERT INTO messages (id, conversation_id, role, content, created_at)"
         " VALUES (?, ?, 'user', 'Ahoj', '2026-07-01T12:00:00')",
-        (message_id, conv.id),
+        (message_id, conv_id),
     )
     db = Database(db_path=legacy_db)
     memory = db.add_memory(user.id, "Likes tea")
@@ -72,7 +79,7 @@ def test_legacy_rows_keep_their_instants(legacy_db: Path, monkeypatch: pytest.Mo
     summer = datetime(2026, 7, 1, 10, 0, 0, 123456, tzinfo=UTC)
     winter = datetime(2026, 1, 5, 11, tzinfo=UTC)
     assert db.get_user_by_id(user.id).created_at == summer
-    migrated = db.get_conversation(conv.id, user.id)
+    migrated = db.get_conversation(conv_id, user.id)
     assert (migrated.created_at, migrated.updated_at) == (summer, winter)
     assert db.get_message_by_id(message_id).created_at == summer
     stored_memory = db.get_memory(memory.id, user.id)

@@ -80,6 +80,7 @@ export interface Conversation {
   // Sync merges pass the server's summary value through: a missing one
   // overwrites (clears) the stored value, so undefined is explicit here
   pinned?: boolean | undefined; // Pinned to the top of the sidebar
+  project_id?: string | null | undefined; // The project the chat is filed under (null: the main list)
   streaming_message_id?: string | null; // Reply still being generated (another device) - from the detail response
   lost_reply?: boolean; // The last turn died with nothing saved - from the detail response
   // Trash state (only set on conversations from the trash listing)

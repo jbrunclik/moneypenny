@@ -133,6 +133,7 @@ function createConversationSummary(
     archived: false,
     trashed: false,
     pinned: false,
+    project_id: null,
     anonymous_mode: false,
     is_whats_new: false,
     scheduled_count: 0,

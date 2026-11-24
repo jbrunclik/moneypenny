@@ -164,11 +164,11 @@ export const conversations = {
     return requestWithRetry<Message>(`/api/messages/${messageId}`);
   },
 
-  async create(model?: string): Promise<Conversation> {
+  async create(model?: string, projectId?: string | null): Promise<Conversation> {
     // POST - no retry (not idempotent - creates new resource)
     return request<Conversation>('/api/conversations', {
       method: 'POST',
-      body: JSON.stringify({ model }),
+      body: JSON.stringify(projectId ? { model, project_id: projectId } : { model }),
     });
   },
 

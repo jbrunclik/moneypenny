@@ -37,7 +37,7 @@ api = APIBlueprint("memory", __name__, url_prefix="/api", tag="Memory")
 # ============================================================================
 
 
-def _serialize(memory: Memory) -> dict[str, Any]:
+def serialize_memory(memory: Memory) -> dict[str, Any]:
     """Serialize a Memory for the API."""
     return {
         "id": memory.id,
@@ -65,7 +65,7 @@ def list_memories(user: User) -> dict[str, Any]:
         extra={"user_id": user.id, "count": len(memories)},
     )
     return {
-        "memories": [_serialize(m) for m in memories],
+        "memories": [serialize_memory(m) for m in memories],
         "limit": Config.MEMORY_MAX_ENTRIES,
     }
 
@@ -81,7 +81,7 @@ def list_deleted_memories(user: User) -> dict[str, Any]:
         extra={"user_id": user.id, "count": len(memories)},
     )
     return {
-        "memories": [_serialize(m) for m in memories],
+        "memories": [serialize_memory(m) for m in memories],
         "limit": Config.MEMORY_MAX_ENTRIES,
     }
 
@@ -129,7 +129,7 @@ def restore_previous_memory(user: User, memory_id: str) -> tuple[dict[str, objec
     memory = db.restore_previous_memory(memory_id, user.id)
     if memory is None:
         raise_not_found_error("Memory")
-    return _serialize(memory), 200
+    return serialize_memory(memory), 200
 
 
 @api.route("/memories/<memory_id>/protection", methods=["PATCH"])

@@ -29,6 +29,9 @@
       "name": "Documents"
     },
     {
+      "name": "Projects"
+    },
+    {
       "name": "Settings"
     },
     {
@@ -669,6 +672,75 @@
           "Memory"
         ],
         "summary": "List all memories for the current user."
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectsListResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "The projects the user owns or was added to."
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Create a project (the caller owns it).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          }
+        }
       }
     },
     "/api/documents": {
@@ -1609,6 +1681,27 @@
         }
       }
     },
+    "/api/projects/people": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeopleResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "The family members a project can be shared with."
+      }
+    },
     "/api/sports/programs": {
       "get": {
         "parameters": [],
@@ -1829,6 +1922,27 @@
           "Memory"
         ],
         "summary": "List recently deleted memories that can still be restored."
+      }
+    },
+    "/api/projects/deleted": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedProjectsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "The caller's deleted projects, restorable until the purge."
       }
     },
     "/auth/todoist/auth-url": {
@@ -2932,6 +3046,161 @@
         "summary": "The user opened the standing chat: its messages so far are read."
       }
     },
+    "/api/projects/{project_id}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDetailResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "A project with its instructions, memory and documents."
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Rename (owner only) or change the instructions (any member).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectRequest"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Delete a project (owner only): its chats return to the main lists."
+      }
+    },
     "/api/messages/{message_id}": {
       "get": {
         "parameters": [
@@ -3598,6 +3867,66 @@
         ],
         "summary": "Move a conversation to the trash.",
         "description": "Agent and program conversations (planner, sports, language) have no\ntrash view and are deleted immediately, as before."
+      }
+    },
+    "/api/conversations/bulk-move": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkMoveResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Move many chats into a project (or out of one) in one transaction.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkMoveRequest"
+              }
+            }
+          }
+        }
       }
     },
     "/api/schedules/{item_id}/run": {
@@ -5025,6 +5354,46 @@
         "summary": "Delete a program and its conversation."
       }
     },
+    "/api/projects/{project_id}/restore": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Bring a deleted project back with its memory and documents."
+      }
+    },
     "/api/conversations/{conv_id}/facts": {
       "get": {
         "parameters": [
@@ -5661,6 +6030,65 @@
           "Conversations"
         ],
         "summary": "Restore a conversation from the trash (back to the list or archive it was in)."
+      }
+    },
+    "/api/conversations/{conv_id}/project": {
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "File a chat under a project, or take it out (project_id null).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveConversationRequest"
+              }
+            }
+          }
+        }
       }
     },
     "/api/proposals/{proposal_id}/approve": {
@@ -6590,6 +7018,85 @@
         "summary": "Get how much of a conversation the model sees only as a summary."
       }
     },
+    "/api/projects/{project_id}/conversations": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Conversations per page (clamped to 1..CONVERSATIONS_MAX_PAGE_SIZE)",
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "next_cursor of the previous page",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationsListPaginatedResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "The caller's own chats in the project, newest first."
+      }
+    },
     "/api/users/me/instructions-review/reject": {
       "post": {
         "parameters": [],
@@ -6972,6 +7479,121 @@
             }
           }
         }
+      }
+    },
+    "/api/projects/{project_id}/members/{member_id}": {
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "member_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Share the project with a family member (owner only)."
+      },
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "member_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Remove a member (owner), or leave (the member themself). The owner",
+        "description": "cannot leave their own project - they delete it instead."
       }
     },
     "/api/sports/programs/{program_id}/setup-review": {
@@ -10129,6 +10751,233 @@
         "title": "MemoriesListResponse",
         "type": "object"
       },
+      "ProjectsListResponse.ProjectResponse": {
+        "description": "A project as the caller sees it (counts are of their own chats).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "is_owner": {
+            "title": "Is Owner",
+            "type": "boolean"
+          },
+          "shared": {
+            "description": "Has members besides the owner",
+            "title": "Shared",
+            "type": "boolean"
+          },
+          "member_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Names",
+            "type": "array"
+          },
+          "member_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Ids",
+            "type": "array"
+          },
+          "chat_count": {
+            "default": 0,
+            "description": "The caller's own chats in the project",
+            "title": "Chat Count",
+            "type": "integer"
+          },
+          "unread_count": {
+            "default": 0,
+            "description": "Unread messages in the caller's chats",
+            "title": "Unread Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "owner_id",
+          "is_owner",
+          "shared",
+          "member_names",
+          "member_ids",
+          "chat_count",
+          "unread_count",
+          "created_at",
+          "updated_at",
+          "deleted_at"
+        ],
+        "title": "ProjectResponse",
+        "type": "object"
+      },
+      "ProjectsListResponse": {
+        "description": "The caller's projects (owned or shared with them).",
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectsListResponse.ProjectResponse"
+            },
+            "title": "Projects",
+            "type": "array"
+          },
+          "limit": {
+            "description": "Maximum projects a user may own",
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "projects",
+          "limit"
+        ],
+        "title": "ProjectsListResponse",
+        "type": "object"
+      },
+      "ProjectResponse": {
+        "description": "A project as the caller sees it (counts are of their own chats).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "is_owner": {
+            "title": "Is Owner",
+            "type": "boolean"
+          },
+          "shared": {
+            "description": "Has members besides the owner",
+            "title": "Shared",
+            "type": "boolean"
+          },
+          "member_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Names",
+            "type": "array"
+          },
+          "member_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Ids",
+            "type": "array"
+          },
+          "chat_count": {
+            "default": 0,
+            "description": "The caller's own chats in the project",
+            "title": "Chat Count",
+            "type": "integer"
+          },
+          "unread_count": {
+            "default": 0,
+            "description": "Unread messages in the caller's chats",
+            "title": "Unread Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "owner_id",
+          "is_owner",
+          "shared",
+          "member_names",
+          "member_ids",
+          "chat_count",
+          "unread_count",
+          "created_at",
+          "updated_at",
+          "deleted_at"
+        ],
+        "title": "ProjectResponse",
+        "type": "object"
+      },
+      "CreateProjectRequest": {
+        "description": "Schema for POST /api/projects.",
+        "properties": {
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "instructions": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Instructions",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreateProjectRequest",
+        "type": "object"
+      },
       "DocumentsResponse.SavedDocumentResponse": {
         "description": "One saved document (its metadata; the file is a separate download).",
         "properties": {
@@ -12544,6 +13393,42 @@
         "title": "GarminConnectRequest",
         "type": "object"
       },
+      "PeopleResponse.PersonResponse": {
+        "description": "A family member who can be added to a project.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "PersonResponse",
+        "type": "object"
+      },
+      "PeopleResponse": {
+        "description": "The deployment's other users.",
+        "properties": {
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/PeopleResponse.PersonResponse"
+            },
+            "title": "People",
+            "type": "array"
+          }
+        },
+        "required": [
+          "people"
+        ],
+        "title": "PeopleResponse",
+        "type": "object"
+      },
       "SportsProgramsResponse.QuickActionResponse": {
         "description": "A saved quick action as the program listings send it.",
         "properties": {
@@ -12788,6 +13673,114 @@
           "needs_reconnect"
         ],
         "title": "GoogleCalendarStatusResponse",
+        "type": "object"
+      },
+      "DeletedProjectsResponse.ProjectResponse": {
+        "description": "A project as the caller sees it (counts are of their own chats).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "is_owner": {
+            "title": "Is Owner",
+            "type": "boolean"
+          },
+          "shared": {
+            "description": "Has members besides the owner",
+            "title": "Shared",
+            "type": "boolean"
+          },
+          "member_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Names",
+            "type": "array"
+          },
+          "member_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Ids",
+            "type": "array"
+          },
+          "chat_count": {
+            "default": 0,
+            "description": "The caller's own chats in the project",
+            "title": "Chat Count",
+            "type": "integer"
+          },
+          "unread_count": {
+            "default": 0,
+            "description": "Unread messages in the caller's chats",
+            "title": "Unread Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "owner_id",
+          "is_owner",
+          "shared",
+          "member_names",
+          "member_ids",
+          "chat_count",
+          "unread_count",
+          "created_at",
+          "updated_at",
+          "deleted_at"
+        ],
+        "title": "ProjectResponse",
+        "type": "object"
+      },
+      "DeletedProjectsResponse": {
+        "description": "The caller's deleted projects, still restorable.",
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/DeletedProjectsResponse.ProjectResponse"
+            },
+            "title": "Projects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "projects"
+        ],
+        "title": "DeletedProjectsResponse",
         "type": "object"
       },
       "TodoistAuthUrlResponse": {
@@ -14654,6 +15647,421 @@
           "was_reset"
         ],
         "title": "PlannerConversationResponse",
+        "type": "object"
+      },
+      "ProjectDetailResponse.ProjectDocumentResponse": {
+        "description": "A project document with its author's name.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What the document contains",
+            "title": "Summary",
+            "type": "string"
+          },
+          "use_for": {
+            "description": "When the assistant should open it",
+            "title": "Use For",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Last local day the document holds (YYYY-MM-DD)",
+            "title": "Valid Until"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          },
+          "last_opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Opened At"
+          },
+          "source_conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Conversation Id"
+          },
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author Name"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "use_for",
+          "filename",
+          "mime_type",
+          "size_bytes",
+          "created_at",
+          "valid_until",
+          "deleted_at",
+          "last_opened_at",
+          "source_conversation_id",
+          "author_name"
+        ],
+        "title": "ProjectDocumentResponse",
+        "type": "object"
+      },
+      "ProjectDetailResponse.ProjectMemoryResponse": {
+        "description": "A project memory with its author's name.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Category"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "protected": {
+            "default": false,
+            "title": "Protected",
+            "type": "boolean"
+          },
+          "source_conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Conversation Id"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Last local day the memory holds (YYYY-MM-DD); deleted after it",
+            "title": "Valid Until"
+          },
+          "previous_content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The text before the memory's last change",
+            "title": "Previous Content"
+          },
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author Name"
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "category",
+          "created_at",
+          "updated_at",
+          "protected",
+          "source_conversation_id",
+          "deleted_at",
+          "valid_until",
+          "previous_content",
+          "author_name"
+        ],
+        "title": "ProjectMemoryResponse",
+        "type": "object"
+      },
+      "ProjectDetailResponse.ProjectResponse": {
+        "description": "A project as the caller sees it (counts are of their own chats).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "is_owner": {
+            "title": "Is Owner",
+            "type": "boolean"
+          },
+          "shared": {
+            "description": "Has members besides the owner",
+            "title": "Shared",
+            "type": "boolean"
+          },
+          "member_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Names",
+            "type": "array"
+          },
+          "member_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Ids",
+            "type": "array"
+          },
+          "chat_count": {
+            "default": 0,
+            "description": "The caller's own chats in the project",
+            "title": "Chat Count",
+            "type": "integer"
+          },
+          "unread_count": {
+            "default": 0,
+            "description": "Unread messages in the caller's chats",
+            "title": "Unread Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Deleted At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "owner_id",
+          "is_owner",
+          "shared",
+          "member_names",
+          "member_ids",
+          "chat_count",
+          "unread_count",
+          "created_at",
+          "updated_at",
+          "deleted_at"
+        ],
+        "title": "ProjectResponse",
+        "type": "object"
+      },
+      "ProjectDetailResponse": {
+        "description": "One project with its instructions, memory and documents.",
+        "properties": {
+          "project": {
+            "$ref": "#/components/schemas/ProjectDetailResponse.ProjectResponse"
+          },
+          "instructions": {
+            "title": "Instructions",
+            "type": "string"
+          },
+          "memories": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectDetailResponse.ProjectMemoryResponse"
+            },
+            "title": "Memories",
+            "type": "array"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectDetailResponse.ProjectDocumentResponse"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "instructions_limit": {
+            "description": "PROJECT_INSTRUCTIONS_MAX_CHARS",
+            "title": "Instructions Limit",
+            "type": "integer"
+          },
+          "memory_limit": {
+            "description": "PROJECT_MEMORY_MAX_ENTRIES",
+            "title": "Memory Limit",
+            "type": "integer"
+          },
+          "documents_limit": {
+            "description": "PROJECT_DOCUMENTS_MAX_ENTRIES",
+            "title": "Documents Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project",
+          "instructions",
+          "memories",
+          "documents",
+          "instructions_limit",
+          "memory_limit",
+          "documents_limit"
+        ],
+        "title": "ProjectDetailResponse",
+        "type": "object"
+      },
+      "UpdateProjectRequest": {
+        "description": "Schema for PATCH /api/projects/<id> (name: owner only).",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instructions"
+          }
+        },
+        "title": "UpdateProjectRequest",
         "type": "object"
       },
       "MessageResponse.ArtifactRef": {
@@ -16822,6 +18230,80 @@
         "title": "UpdateConversationRequest",
         "type": "object"
       },
+      "BulkMoveResponse": {
+        "description": "The chats that moved.",
+        "properties": {
+          "moved_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Moved Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "moved_ids"
+        ],
+        "title": "BulkMoveResponse",
+        "type": "object"
+      },
+      "BulkMoveRequest": {
+        "description": "Move many chats into a project (or out of one, with null): hand-picked\nids, or every unpinned main-list chat (all) minus exclude_ids plus ids.",
+        "properties": {
+          "all": {
+            "default": false,
+            "description": "Every unpinned main-list chat",
+            "title": "All",
+            "type": "boolean"
+          },
+          "ids": {
+            "description": "Chats to trash; with all, extra chats (pinned ones picked by hand)",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Ids",
+            "type": "array"
+          },
+          "exclude_ids": {
+            "description": "With all: chats to keep",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Exclude Ids",
+            "type": "array"
+          },
+          "created_before": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "With all: only chats created before this moment",
+            "title": "Created Before"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project Id"
+          }
+        },
+        "title": "BulkMoveRequest",
+        "type": "object"
+      },
       "DeviceCheckRun.DeviceCheckScenario": {
         "properties": {
           "id": {
@@ -18488,6 +19970,25 @@
           "protected"
         ],
         "title": "UpdateMemoryProtectionRequest",
+        "type": "object"
+      },
+      "MoveConversationRequest": {
+        "description": "Schema for PUT /api/conversations/<id>/project (null takes it out).",
+        "properties": {
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project Id"
+          }
+        },
+        "title": "MoveConversationRequest",
         "type": "object"
       },
       "ApproveProposalRequest": {

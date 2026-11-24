@@ -262,7 +262,7 @@ class TestProjectScope:
         assert test_database.get_visible_document(doc.id, other_user.id) is not None
         assert test_database.get_document_in_scope(doc.id, other_user.id, project.id) is not None
         assert test_database.get_document_in_scope(doc.id, other_user.id, None) is None
-        assert test_database.get_document(doc.id, test_user.id) is None
+        assert test_database.get_document_in_scope(doc.id, test_user.id, None) is None
 
     def test_embeddings_for_refs_returns_only_named_ids(
         self, test_database: Database, test_user: User, other_user: User

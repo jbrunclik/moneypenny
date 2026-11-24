@@ -21,6 +21,13 @@ total_failed
 total_unread
 # src/api/schemas/documents.py (the Data page reads it)
 bytes_limit
+# src/api/schemas/projects.py (the sidebar and project page read them)
+is_owner
+author_name
+instructions_limit
+memory_limit
+documents_limit
+moved_ids
 # src/api/schemas/admin.py
 agents
 month_chats
@@ -246,3 +253,8 @@ route_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dum
 ready_ms  # src/api/schemas/client_timing.py BootMarks field, read via model_dump() in routes/client_timing.py
 get_workouts  # evals/fakes.py FakeGarmin, called by name through garmin.safe_api_call
 update_workout  # evals/fakes.py FakeGarmin, called by name through garmin.safe_api_call
+# Projects slice A (docs/superpowers/plans/2026-11-24-projects.md): the agent
+# side (slice B) calls these - drop these lines when it lands
+get_memory_in_scope  # src/db/models/memory.py
+project_for_conversation  # src/db/models/projects.py
+PROJECT_MAX_OPS_PER_CALL  # src/config.py, manage_project's batch cap

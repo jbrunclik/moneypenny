@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 api = APIBlueprint("documents", __name__, url_prefix="/api", tag="Documents")
 
 
-def _serialize(doc: Document) -> dict[str, object]:
+def serialize_document(doc: Document) -> dict[str, object]:
     return {
         "id": doc.id,
         "title": doc.title,
@@ -51,8 +51,8 @@ def list_documents(user: User) -> dict[str, object]:
     """The user's saved documents and the recently deleted ones."""
     _count, bytes_used = db.document_usage(user.id, local_today())
     return {
-        "documents": [_serialize(d) for d in db.list_documents(user.id)],
-        "deleted": [_serialize(d) for d in db.list_deleted_documents(user.id)],
+        "documents": [serialize_document(d) for d in db.list_documents(user.id)],
+        "deleted": [serialize_document(d) for d in db.list_deleted_documents(user.id)],
         "limit": Config.DOCUMENTS_MAX_ENTRIES,
         "bytes_used": bytes_used,
         "bytes_limit": Config.DOCUMENTS_MAX_TOTAL_BYTES,
