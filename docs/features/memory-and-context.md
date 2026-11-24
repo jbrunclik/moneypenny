@@ -561,6 +561,13 @@ user ([evals.md](../testing/evals.md#case-format)).
 
 ---
 
+## Project scope (Nov 2026)
+
+Memories and saved documents can belong to a project instead of the user: the same
+rows with a `project_id`, and `user_id` as the author. Personal lists, counts, the Data
+page, defrag and the instructions review filter `project_id IS NULL`; a project chat's
+tools reach personal rows plus the chat's project. See [projects.md](projects.md).
+
 ## Custom Instructions
 
 Users can customize LLM behavior via a free-text custom instructions field in the settings popup.

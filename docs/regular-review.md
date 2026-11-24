@@ -118,6 +118,16 @@ The review itself changes nothing in production and edits nothing but
   injection rejections are worth reading), "Documents expired" / "Documents purged"
   per night, and `SUM(size_bytes)` per user against the 200 MB
   `DOCUMENTS_MAX_TOTAL_BYTES`.
+- Projects (from Nov 25 2026; [projects.md](features/projects.md)): projects per user
+  and how many are shared (`projects`, `project_members`), chats per project
+  (`conversations.project_id`), and the share of each user's new chats started in a
+  project. "Project memory write" lines per project and `author`, "Project context"
+  `chars` per turn (a growing section is a per-turn cost), "Project tool" by `op` and
+  `result`. **Privacy:** read a sample of shared projects' memories
+  (`user_memories` with `project_id` of a project with 2+ members) for personal facts
+  that leaked (health, relationships, money) - any is a finding. Jana's copywriting
+  chats: compare the length of the first user message in her client chats before and
+  after projects (re-explaining should drop).
 - Flex memory review and defrag (from Nov 17 2026; [cost-tracking.md](features/cost-tracking.md#flex-tier-nov-17-2026)):
   `side_costs` `memory_review` and `memory_defrag` rows by `service_tier` ('flex' or NULL = fell back
   to standard) and "Flex call fell back" by `reason` - mostly fallbacks means Flex

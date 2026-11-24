@@ -40,6 +40,7 @@ Feature-specific documentation covering user-facing functionality:
 - **[rouvy.md](features/rouvy.md)** - Rouvy indoor-cycling workout CRUD (headless login + cookie-authed httpx; upload agent-authored ZWO)
 - **[location.md](features/location.md)** - Places search and routing (Mapy.com), device location sharing, saved places, location-aware prompt context and briefing
 - **[memory-and-context.md](features/memory-and-context.md)** - User memory, custom instructions, user context, anonymous mode, memory defragmentation
+- **[projects.md](features/projects.md)** - Projects: folders of chats with their own instructions, memory and documents, shareable with family members; the personal / project scope rule
 - **[cost-tracking.md](features/cost-tracking.md)** - Token usage tracking, image generation costs, currency rates, monthly aggregation
 - **[ui-features.md](features/ui-features.md)** - UI features overview, linking the pages below
 - **[ui-composer.md](features/ui-composer.md)** - Input toolbar, Enter-to-send, force tools, clipboard paste, program quick actions
