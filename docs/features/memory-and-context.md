@@ -447,7 +447,9 @@ The tool has no per-file cap of its own: an upload is already bounded by
   [file_retrieval.py](../../src/agent/tools/file_retrieval.py), the builder `retrieve_file`
   uses: PDFs and images as-is (the Gemini Files API above `GEMINI_INLINE_FILE_MAX_BYTES`,
   URI cached as `doc:<id>`), Office files as text, text truncated. It only opens live,
-  unexpired documents and sets `last_opened_at`.
+  unexpired documents and sets `last_opened_at`. Its result names the document's code
+  id: `execute_code(files=['doc:<id>'])` loads a saved document like an attachment
+  (`load_saved_document`), so the agent can compute on a waterfall spreadsheet.
 
 The message's file listing tells the model to pass an attachment's id to
 `manage_documents` as `file_id` ([message_content.py](../../src/agent/message_content.py)).
@@ -471,11 +473,17 @@ Snapshots: `tests/fixtures/prompt_snapshots/`.
 ### Guards
 
 - **Injection scan**: `find_injection` ([threat_patterns.py](../../src/utils/threat_patterns.py))
-  on title, summary and use_for, which reach every later turn.
+  on title, summary and use_for, which reach every later turn. The file name (an
+  upload's, not model-written) is folded onto the line, capped at 80 characters and
+  shown as "(file name hidden)" on a scan hit.
 - **Anonymous mode**: both tools unbound (`_ANONYMOUS_EXCLUDED_TOOLS`), no list.
-- **Autonomous runs**: neither tool is always bound or in `ALWAYS_SAFE_TOOLS`, so a run
-  needs a grant, re-checked at call time (`check_autonomous_permission`). An unattended run
-  reading the web must not plant documents, and `open_document` exposes private files.
+- **Autonomous runs**: neither tool is in `ALWAYS_SAFE_TOOLS`; the list and
+  `open_document` go together. A job shown the list (granted `manage_memory`, or all
+  tools) can open the documents: `manage_memory` brings `open_document`
+  (`GRANT_COMPANIONS` in [permissions.py](../../src/agent/permissions.py), at binding and
+  at call time), and an all-tools job gets both tools, like `manage_memory`. Any other run
+  needs an explicit grant, re-checked at call time (`check_autonomous_permission`): an
+  unattended run reading the web must not plant documents.
   A run's tool summary (`_ACTING_TOOLS` in `standing_create.py`) reads "can change your
   saved documents".
 - **Not extract-only**: like `manage_memory`, it has a real side effect whose result the
@@ -510,7 +518,7 @@ through chat, where the agent writes the summary.
 [schemas/documents.py](../../src/api/schemas/documents.py)):
 
 - `GET /api/documents` - live and recently deleted documents, `limit`, `bytes_used`, `bytes_limit`
-- `GET /api/documents/<id>/file` - download as an attachment (live or recently deleted)
+- `GET /api/documents/<id>/file` - download as an attachment (live or recently deleted); a Czech file name rides in `filename*=` (UTF-8) with an ASCII `filename=` fallback, since the server writes headers as latin-1
 - `DELETE /api/documents/<id>` - soft delete
 - `POST /api/documents/<id>/restore` - 409 when the library is full
 
