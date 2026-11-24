@@ -1123,6 +1123,17 @@ class Config:
     DOCUMENT_USE_FOR_MAX_CHARS: int = int(os.getenv("DOCUMENT_USE_FOR_MAX_CHARS", "200"))
     DOCUMENTS_MAX_OPS_PER_CALL: int = int(os.getenv("DOCUMENTS_MAX_OPS_PER_CALL", "5"))
 
+    # Projects (Nov 2026): folders of chats with their own instructions, memory
+    # and documents. A project chat's turn carries all of the project's memory
+    # and documents (no tiering), so the caps bound its per-turn cost; the
+    # instructions cap is half the personal one, since long blocks get ignored.
+    PROJECTS_MAX_PER_USER: int = int(os.getenv("PROJECTS_MAX_PER_USER", "30"))
+    PROJECT_NAME_MAX_CHARS: int = int(os.getenv("PROJECT_NAME_MAX_CHARS", "60"))
+    PROJECT_INSTRUCTIONS_MAX_CHARS: int = int(os.getenv("PROJECT_INSTRUCTIONS_MAX_CHARS", "4000"))
+    PROJECT_MEMORY_MAX_ENTRIES: int = int(os.getenv("PROJECT_MEMORY_MAX_ENTRIES", "60"))
+    PROJECT_DOCUMENTS_MAX_ENTRIES: int = int(os.getenv("PROJECT_DOCUMENTS_MAX_ENTRIES", "20"))
+    PROJECT_MAX_OPS_PER_CALL: int = int(os.getenv("PROJECT_MAX_OPS_PER_CALL", "5"))
+
     # Memories created or updated this recently are read-only to the defrag
     # job: it was deleting fresh "remember this" writes within days.
     MEMORY_DEFRAG_GRACE_DAYS: int = int(os.getenv("MEMORY_DEFRAG_GRACE_DAYS", "14"))
