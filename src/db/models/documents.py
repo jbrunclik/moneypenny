@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Final
 
@@ -35,6 +36,20 @@ UNSET: Final = Unset()
 
 class DocumentWriteError(Exception):
     """A document write the store refused; the message says why."""
+
+
+@dataclass(frozen=True)
+class DocumentLimits:
+    """The library's caps, checked inside the write transaction. Only live
+    documents whose last day has not passed count: a delete frees its space
+    at once (the purge is the recovery window, not storage accounting)."""
+
+    max_entries: int
+    max_bytes: int
+    today: date
+
+
+_LIVE_WHERE = "user_id = ? AND deleted_at IS NULL AND (valid_until IS NULL OR valid_until >= ?)"
 
 
 def _date_or_none(value: str | None) -> date | None:
@@ -69,13 +84,15 @@ class DocumentMixin:
         source_conversation_id: str | None,
         source_message_id: str | None,
         replaces: str | None = None,
+        limits: DocumentLimits | None = None,
     ) -> Document:
         """Store a document; ``replaces`` (a live document of this user) is
-        soft-deleted in the same transaction.
+        soft-deleted in the same transaction, and ``limits`` are checked in it.
 
         Raises:
             DocumentWriteError: ``replaces`` is not a live document of this
-                user. Nothing is written (the blob is removed again).
+                user, or the save would pass a limit. Nothing is written (the
+                blob is removed again).
         """
         doc_id = str(uuid.uuid4())
         now = utc_now()
@@ -83,8 +100,11 @@ class DocumentMixin:
         get_blob_store().save(blob_key, data, mime_type)
         try:
             with self._pool.get_connection() as conn:
+                self._execute_with_timing(conn, "BEGIN IMMEDIATE")
                 if replaces is not None:
                     self._retire_replaced(conn, replaces, user_id, now)
+                if limits is not None:
+                    self._check_limits(conn, user_id, len(data), limits)
                 self._execute_with_timing(
                     conn,
                     """INSERT INTO user_documents
@@ -141,6 +161,24 @@ class DocumentMixin:
         if cursor.rowcount == 0:
             conn.rollback()
             raise DocumentWriteError(f"no saved document {doc_id} to replace")
+
+    def _usage(self, conn: sqlite3.Connection, user_id: str, today: date) -> tuple[int, int]:
+        row = self._execute_with_timing(
+            conn,
+            f"""SELECT COUNT(*) AS live, COALESCE(SUM(size_bytes), 0) AS bytes
+                FROM user_documents WHERE {_LIVE_WHERE}""",
+            (user_id, today.isoformat()),
+        ).fetchone()
+        return int(row["live"]), int(row["bytes"])
+
+    def _check_limits(
+        self, conn: sqlite3.Connection, user_id: str, size: int, limits: DocumentLimits
+    ) -> None:
+        """Refuse (rolling back) a save that would pass a cap (uncommitted)."""
+        count, used = self._usage(conn, user_id, limits.today)
+        if count + 1 > limits.max_entries or used + size > limits.max_bytes:
+            conn.rollback()
+            raise DocumentWriteError("the document library is full")
 
     def _row_to_document(self, row: sqlite3.Row) -> Document:
         return Document(
@@ -254,17 +292,11 @@ class DocumentMixin:
             conn.commit()
             return cursor.rowcount > 0
 
-    def document_usage(self, user_id: str) -> tuple[int, int]:
-        """(live documents, bytes stored incl. deleted ones not yet purged)."""
+    def document_usage(self, user_id: str, today: date) -> tuple[int, int]:
+        """(documents, bytes) counting toward the caps: live ones whose last
+        day has not passed."""
         with self._pool.get_connection() as conn:
-            row = self._execute_with_timing(
-                conn,
-                """SELECT COALESCE(SUM(deleted_at IS NULL), 0) AS live,
-                          COALESCE(SUM(size_bytes), 0) AS bytes
-                   FROM user_documents WHERE user_id = ?""",
-                (user_id,),
-            ).fetchone()
-        return int(row["live"]), int(row["bytes"])
+            return self._usage(conn, user_id, today)
 
     def touch_document_opened(self, document_id: str) -> None:
         """Record that the agent opened the document (is the library used?)."""

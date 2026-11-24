@@ -90,6 +90,21 @@ describe('Data page documents', () => {
     await flush();
     expect(cb.onDeleteDocument).toHaveBeenCalledWith('d1');
     expect(el.querySelector('.kv-doc-item')).toBeNull();
+    // It moves to Recently deleted at once, restorable without a reload
+    const deleted = el.querySelector('.kv-doc-deleted')!;
+    expect(deleted.querySelector('.kv-doc-title')?.textContent).toBe('<b>d1</b>');
+    expect(el.querySelector('.kv-doc-deleted-section .kv-store-section-count')?.textContent).toBe('1');
+    expect(el.querySelector('.kv-doc-deleted-section')?.hasAttribute('hidden')).toBe(false);
+  });
+
+  it('keeps a document whose delete failed', async () => {
+    const cb = callbacks();
+    cb.onDeleteDocument = vi.fn(() => Promise.reject(new Error('offline')));
+    const el = page(data([doc('d1')]), cb);
+    el.querySelector<HTMLButtonElement>('.kv-doc-delete')!.click();
+    await flush();
+    expect(el.querySelector('.kv-doc-item')).not.toBeNull();
+    expect(el.querySelector('.kv-doc-deleted')).toBeNull();
   });
 
   it('restores a recently deleted document', async () => {
@@ -101,6 +116,11 @@ describe('Data page documents', () => {
     await flush();
     expect(cb.onRestoreDocument).toHaveBeenCalledWith('d2');
     expect(el.querySelector('.kv-doc-deleted')).toBeNull();
+    // Back in Documents at once, the empty state gone
+    expect(el.querySelector('.kv-doc-section .kv-doc-item .kv-doc-title')?.textContent).toBe('<b>d2</b>');
+    expect(el.querySelector('.kv-doc-section')?.textContent).not.toContain('No documents yet');
+    expect(el.querySelector('.kv-doc-section .kv-store-section-count')?.textContent).toBe('1/50');
+    expect(el.querySelector('.kv-doc-deleted-section')?.hasAttribute('hidden')).toBe(true);
   });
 
   it('leaves the section out when documents could not be loaded', () => {

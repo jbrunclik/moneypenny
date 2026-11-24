@@ -45,7 +45,7 @@ class TestDocumentRoutes:
         assert body["documents"][0]["title"] == "Live"
         assert body["documents"][0]["use_for"] == "Rent questions"
         assert body["limit"] == Config.DOCUMENTS_MAX_ENTRIES
-        assert body["bytes_used"] == 20
+        assert body["bytes_used"] == 10
         assert body["bytes_limit"] == Config.DOCUMENTS_MAX_TOTAL_BYTES
 
     def test_download_sets_attachment_header(
@@ -125,6 +125,22 @@ class TestDocumentRoutes:
 
         assert response.status_code == 409
         assert test_database.list_documents(test_user.id)[0].id != gone
+
+    def test_restore_over_byte_cap_conflicts(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        gone = _add(test_database, test_user.id, data=b"x" * 60)
+        test_database.delete_document(gone, test_user.id)
+        _add(test_database, test_user.id, data=b"y" * 60)
+
+        with patch.object(Config, "DOCUMENTS_MAX_TOTAL_BYTES", 100):
+            response = client.post(f"/api/documents/{gone}/restore", headers=auth_headers)
+
+        assert response.status_code == 409
 
     @pytest.mark.parametrize(
         ("method", "suffix"),

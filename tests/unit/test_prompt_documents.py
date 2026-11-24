@@ -79,6 +79,19 @@ class TestPromptAssembly:
         assert "Equity waterfall" not in anonymous
 
 
+class TestPromptWithoutTools:
+    @patch("src.agent.prompt_documents.db")
+    @patch("src.agent.prompt_memory.db")
+    def test_no_document_guidance_or_list_without_tools(self, mem_db, doc_db) -> None:
+        mem_db.list_memories.return_value = []
+        doc_db.list_documents.return_value = [_doc()]
+
+        prompt = get_system_prompt(with_tools=False, user_id="user-1")
+
+        assert "open_document" not in prompt
+        assert "Equity waterfall" not in prompt
+
+
 class TestFileNameInList:
     @patch("src.agent.prompt_documents.db")
     def test_file_name_is_folded_capped_and_scanned(self, mock_db) -> None:

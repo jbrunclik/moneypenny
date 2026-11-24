@@ -43,16 +43,37 @@ function endDateBadge(validUntil: string): HTMLSpanElement {
   );
 }
 
-function setCount(section: HTMLElement, list: HTMLElement, limit?: number): void {
-  const countEl = section.querySelector('.kv-store-section-count');
-  if (countEl) countEl.textContent = limit ? `${list.children.length}/${limit}` : String(list.children.length);
+/** The two lists, kept in step: a delete moves a row to Recently deleted, a restore back. */
+interface DocumentLists {
+  liveSection: HTMLDivElement;
+  liveList: HTMLDivElement;
+  deletedSection: HTMLDivElement;
+  deletedList: HTMLDivElement;
+  limit: number;
+  callbacks: DocumentCallbacks;
 }
 
-function renderDocumentItem(
-  doc: SavedDocument,
-  onRemoved: () => void,
-  callbacks: DocumentCallbacks
-): HTMLDivElement {
+function emptyLibrary(): HTMLDivElement {
+  return createEmptyState({
+    icon: FILE_ICON,
+    title: 'No documents yet',
+    hint: 'Ask Moneypenny to keep a document you share in a chat.',
+    compact: true,
+  });
+}
+
+/** Counts, the empty state and the deleted section's visibility, after a move. */
+function syncLists(lists: DocumentLists): void {
+  const liveCount = lists.liveSection.querySelector('.kv-store-section-count');
+  if (liveCount) liveCount.textContent = `${lists.liveList.children.length}/${lists.limit}`;
+  const deletedCount = lists.deletedSection.querySelector('.kv-store-section-count');
+  if (deletedCount) deletedCount.textContent = String(lists.deletedList.children.length);
+  lists.liveSection.querySelector('.empty-state')?.remove();
+  if (lists.liveList.children.length === 0) lists.liveSection.appendChild(emptyLibrary());
+  lists.deletedSection.hidden = lists.deletedList.children.length === 0;
+}
+
+function renderLiveItem(doc: SavedDocument, lists: DocumentLists): HTMLDivElement {
   const item = createElement('div', { class: 'memory-item kv-doc-item' }, [
     createElement('div', { class: 'memory-content-row' }, [
       createElement('div', { class: 'kv-doc-body' }, documentBody(doc)),
@@ -65,7 +86,7 @@ function renderDocumentItem(
     ]),
   ]);
   item.querySelector('.kv-doc-download')?.addEventListener('click', () => {
-    callbacks.onDownloadDocument(doc.id, doc.filename);
+    lists.callbacks.onDownloadDocument(doc.id, doc.filename);
   });
   const remove = async (): Promise<void> => {
     const confirmed = await showConfirm({
@@ -75,12 +96,13 @@ function renderDocumentItem(
     });
     if (!confirmed) return;
     try {
-      await callbacks.onDeleteDocument(doc.id);
-      item.remove();
-      onRemoved();
+      await lists.callbacks.onDeleteDocument(doc.id);
     } catch {
-      // Error surfaced by the caller
+      return; // Error surfaced by the caller; the row stays
     }
+    item.remove();
+    lists.deletedList.prepend(renderDeletedItem({ ...doc, deleted_at: new Date().toISOString() }, lists));
+    syncLists(lists);
   };
   item.querySelector('.kv-doc-delete')?.addEventListener('click', () => {
     void remove();
@@ -88,70 +110,57 @@ function renderDocumentItem(
   return item;
 }
 
-function renderLiveSection(data: DocumentsResponse, callbacks: DocumentCallbacks): HTMLDivElement {
-  const section = createElement('div', { class: 'kv-store-section kv-doc-section' }, [
-    sectionTitle(FILE_ICON, 'Documents', `${data.documents.length}/${data.limit}`),
+function renderDeletedItem(doc: SavedDocument, lists: DocumentLists): HTMLDivElement {
+  const item = createElement('div', { class: 'memory-item memory-item--deleted kv-doc-deleted' }, [
+    createElement('div', { class: 'memory-content-row' }, [
+      createElement('div', { class: 'kv-doc-body' }, [createElement('span', { class: 'kv-doc-title' }, [doc.title])]),
+      createIconButton({ class: 'kv-doc-restore', title: 'Restore this document' }, RESTORE_ICON),
+    ]),
+    createElement('div', { class: 'memory-meta' }, [
+      createElement('span', { class: 'memory-time' }, [
+        `deleted ${doc.deleted_at ? formatRelativeTime(doc.deleted_at) : ''}`,
+      ]),
+    ]),
   ]);
-  const empty = (): HTMLDivElement =>
-    createEmptyState({
-      icon: FILE_ICON,
-      title: 'No documents yet',
-      hint: 'Ask Moneypenny to keep a document you share in a chat.',
-      compact: true,
-    });
-  if (data.documents.length === 0) {
-    section.appendChild(empty());
-    return section;
-  }
-  const list = createElement('div', { class: 'kv-memories-list' });
-  const onRemoved = (): void => {
-    setCount(section, list, data.limit);
-    if (list.children.length === 0) list.replaceWith(empty());
+  const restore = async (): Promise<void> => {
+    try {
+      await lists.callbacks.onRestoreDocument(doc.id);
+    } catch {
+      return; // Error surfaced by the caller (e.g. the library is full)
+    }
+    item.remove();
+    // A past end date is dropped on restore (the server does the same)
+    const today = localToday();
+    const validUntil = doc.valid_until && doc.valid_until < today ? null : doc.valid_until;
+    lists.liveList.prepend(renderLiveItem({ ...doc, deleted_at: null, valid_until: validUntil }, lists));
+    syncLists(lists);
   };
-  for (const doc of data.documents) list.appendChild(renderDocumentItem(doc, onRemoved, callbacks));
-  section.appendChild(list);
-  return section;
+  item.querySelector('.kv-doc-restore')?.addEventListener('click', () => {
+    void restore();
+  });
+  return item;
 }
 
-function renderDeletedSection(deleted: SavedDocument[], callbacks: DocumentCallbacks): HTMLDivElement {
-  const list = createElement('div', { class: 'kv-memories-list' });
-  const section = createElement('div', { class: 'kv-store-section kv-doc-deleted-section' }, [
-    sectionTitle(RESTORE_ICON, 'Recently deleted documents', String(deleted.length)),
-    list,
-  ]);
-  for (const doc of deleted) {
-    const item = createElement('div', { class: 'memory-item memory-item--deleted kv-doc-deleted' }, [
-      createElement('div', { class: 'memory-content-row' }, [
-        createElement('div', { class: 'kv-doc-body' }, [createElement('span', { class: 'kv-doc-title' }, [doc.title])]),
-        createIconButton({ class: 'kv-doc-restore', title: 'Restore this document' }, RESTORE_ICON),
-      ]),
-      createElement('div', { class: 'memory-meta' }, [
-        createElement('span', { class: 'memory-time' }, [
-          `deleted ${doc.deleted_at ? formatRelativeTime(doc.deleted_at) : ''}`,
-        ]),
-      ]),
-    ]);
-    const restore = async (): Promise<void> => {
-      try {
-        await callbacks.onRestoreDocument(doc.id);
-        item.remove();
-        setCount(section, list);
-        if (list.children.length === 0) section.remove();
-      } catch {
-        // Error surfaced by the caller
-      }
-    };
-    item.querySelector('.kv-doc-restore')?.addEventListener('click', () => {
-      void restore();
-    });
-    list.appendChild(item);
-  }
-  return section;
-}
-
-/** The Documents section, plus Recently deleted documents when there are any. */
+/** The Documents section, plus Recently deleted documents (hidden while empty). */
 export function renderDocumentsSections(data: DocumentsResponse, callbacks: DocumentCallbacks): HTMLDivElement[] {
-  const sections = [renderLiveSection(data, callbacks)];
-  if (data.deleted.length > 0) sections.push(renderDeletedSection(data.deleted, callbacks));
-  return sections;
+  const liveList = createElement('div', { class: 'kv-memories-list' });
+  const deletedList = createElement('div', { class: 'kv-memories-list' });
+  const lists: DocumentLists = {
+    liveSection: createElement('div', { class: 'kv-store-section kv-doc-section' }, [
+      sectionTitle(FILE_ICON, 'Documents', ''),
+      liveList,
+    ]),
+    liveList,
+    deletedSection: createElement('div', { class: 'kv-store-section kv-doc-deleted-section' }, [
+      sectionTitle(RESTORE_ICON, 'Recently deleted documents', ''),
+      deletedList,
+    ]),
+    deletedList,
+    limit: data.limit,
+    callbacks,
+  };
+  for (const doc of data.documents) liveList.appendChild(renderLiveItem(doc, lists));
+  for (const doc of data.deleted) deletedList.appendChild(renderDeletedItem(doc, lists));
+  syncLists(lists);
+  return [lists.liveSection, lists.deletedSection];
 }

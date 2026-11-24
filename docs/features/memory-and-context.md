@@ -421,8 +421,9 @@ opens the original when a chat needs it (Nov 24 2026). Design:
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `DOCUMENTS_MAX_ENTRIES` | 50 | Live documents per user; also the `n/50` in the list header. A save past it is rejected ("delete one, or save as a replacement"); a restore past it gets 409 |
-| `DOCUMENTS_MAX_TOTAL_BYTES` | 200 MB | Stored bytes per user. Deleted documents count until purged (their bytes are still stored); they do not count toward entries |
+| `DOCUMENTS_MAX_ENTRIES` | 50 | Live documents per user; also the `n/50` in the list header. A save past it is rejected ("delete one, or save as a replacement"); a restore past it gets 409. A document past its end date no longer counts, even before the nightly sweep |
+| `DOCUMENTS_MAX_TOTAL_BYTES` | 200 MB | Bytes of live, unexpired documents per user: a delete or a replacement frees its space at once (deleted bytes stay stored only for the recovery window). A restore past it gets 409 |
+| `MAX_FILE_SIZE_BYTES` | 20 MB | Per saved document too, also for files the agent made itself |
 | `DOCUMENTS_SOFT_DELETE_RETENTION_DAYS` | 30 | Recovery window for deleted, expired and replaced documents (longer than memories' 7: a wrongly expired contract should stay recoverable) |
 | `DOCUMENT_TITLE_MAX_CHARS` / `DOCUMENT_SUMMARY_MAX_CHARS` / `DOCUMENT_USE_FOR_MAX_CHARS` | 80 / 300 / 200 | The fields listed every turn; overlong ones are rejected, not truncated |
 | `DOCUMENTS_MAX_OPS_PER_CALL` | 5 | Operations per `manage_documents` call; a longer batch is rejected whole |
@@ -441,8 +442,9 @@ The tool has no per-file cap of its own: an upload is already bounded by
   ([memory_ids.py](../../src/utils/memory_ids.py)). The batch is validated against its end
   state, so caps hold after a replace or delete in the same call, and one `REJECTED` line
   applies nothing. Success lines: `SAVED <id> "<title>"`, `UPDATED <id>`, `DELETED <id>`.
-  A `replaces` is soft-deleted in the same transaction as the insert
-  (`DocumentMixin.add_document`).
+  A `replaces` is soft-deleted in the same `BEGIN IMMEDIATE` transaction as the insert,
+  which also re-checks both caps (`DocumentMixin.add_document`, `DocumentLimits`), so two
+  saves at once cannot both pass a check made before either wrote.
 - **`open_document(id)`** returns the original through `build_file_content` in
   [file_retrieval.py](../../src/agent/tools/file_retrieval.py), the builder `retrieve_file`
   uses: PDFs and images as-is (the Gemini Files API above `GEMINI_INLINE_FILE_MAX_BYTES`,
@@ -510,7 +512,8 @@ Restoring an expired document drops its past end date, or the next sweep would d
 The Data page shows a **Documents** section between Memories and K/V storage
 ([kv-documents.ts](../../web/src/components/kv-documents.ts)): title, file name and size,
 summary, "Use for", an Until/Expired badge, Download and Delete. Below it there is
-"Recently deleted documents" with Restore, and an EmptyState ("No documents yet") when
+"Recently deleted documents" with Restore (a delete or restore moves the row between
+the two lists at once; a failed one stays put with an error toast), and an EmptyState ("No documents yet") when
 the library is empty. Uploading or editing on the page is not supported: saving goes
 through chat, where the agent writes the summary.
 
@@ -520,14 +523,14 @@ through chat, where the agent writes the summary.
 - `GET /api/documents` - live and recently deleted documents, `limit`, `bytes_used`, `bytes_limit`
 - `GET /api/documents/<id>/file` - download as an attachment (live or recently deleted); a Czech file name rides in `filename*=` (UTF-8) with an ASCII `filename=` fallback, since the server writes headers as latin-1
 - `DELETE /api/documents/<id>` - soft delete
-- `POST /api/documents/<id>/restore` - 409 when the library is full
+- `POST /api/documents/<id>/restore` - 409 when the library is full (either cap)
 
 ### Instrumentation
 
 - "Document saved" (`user_id`, `document_id`, `mime_type`, `size`, `has_end_date`,
   `replaced_id`), "Document opened" (`user_id`, `document_id`, `conversation_id`),
-  "Document save rejected" (`action`, `reason`; logged for every rejected operation,
-  updates and deletes included, with no user id), "Documents expired" / "Documents purged"
+  "Document operation rejected" (`user_id`, `action`, `reason`; every rejected save,
+  update, delete or batch), "Documents expired" / "Documents purged"
   (counts). Titles and summaries are never logged.
 - `user_documents.last_opened_at`: whether saved documents are ever used.
 - The check in [regular-review.md](../regular-review.md#2-agents-and-integrations).

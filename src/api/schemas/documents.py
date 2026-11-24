@@ -32,5 +32,5 @@ class DocumentsResponse(ResponseModel):
     documents: list[SavedDocumentResponse]
     deleted: list[SavedDocumentResponse]
     limit: int = Field(description="Maximum saved documents per user")
-    bytes_used: int = Field(description="Bytes stored, deleted documents included until purged")
+    bytes_used: int = Field(description="Bytes of live documents (what counts toward the cap)")
     bytes_limit: int = Field(description="Maximum bytes stored per user")

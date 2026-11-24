@@ -167,7 +167,12 @@ function buildStorageCallbacks(): KVStoreCallbacks {
       return restored;
     },
     onDeleteDocument: async (documentId: string) => {
-      await documents.delete(documentId);
+      try {
+        await documents.delete(documentId);
+      } catch (error) {
+        toast.error('Failed to delete the document.');
+        throw error;
+      }
       toast.success('Document deleted.');
     },
     onRestoreDocument: async (documentId: string) => {

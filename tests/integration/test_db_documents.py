@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from src.db.models.documents import DocumentWriteError
+from src.db.models.documents import DocumentLimits, DocumentWriteError
 from src.db.models.helpers import make_document_blob_key
 from src.db.models.timestamps import to_db
 from src.utils.clock import utc_now
@@ -151,14 +151,37 @@ class TestDocumentStorage:
         assert restored.deleted_at is None
         assert restored.valid_until is None
 
-    def test_usage_counts_deleted_bytes_not_entries(
+    def test_usage_counts_live_unexpired_only(
         self, test_database: Database, test_blob_store: BlobStore, test_user: User
     ) -> None:
+        """Deleted documents free their space at once, and one past its end date
+        no longer counts (the model no longer sees it)."""
         _add(test_database, test_user.id, data=b"x" * 10)
         gone = _add(test_database, test_user.id, data=b"y" * 5)
         test_database.delete_document(gone.id, test_user.id)
+        _add(test_database, test_user.id, data=b"z" * 7, valid_until=date(2026, 1, 1))
 
-        assert test_database.document_usage(test_user.id) == (1, 15)
+        assert test_database.document_usage(test_user.id, date(2026, 1, 2)) == (1, 10)
+
+    def test_add_document_refuses_over_limits(
+        self, test_database: Database, test_blob_store: BlobStore, test_user: User
+    ) -> None:
+        """The caps are checked inside the write transaction, so two saves at
+        once cannot both pass a check made before either wrote."""
+        first = _add(test_database, test_user.id, data=b"x" * 10)
+        blobs_before = _blob_count(test_blob_store)
+        limits = DocumentLimits(max_entries=1, max_bytes=100, today=date(2026, 1, 1))
+
+        with pytest.raises(DocumentWriteError):
+            _add(test_database, test_user.id, limits=limits)
+        assert _blob_count(test_blob_store) == blobs_before
+        with pytest.raises(DocumentWriteError):
+            _add(test_database, test_user.id, data=b"y" * 200, limits=limits, replaces=first.id)
+
+        replaced = _add(
+            test_database, test_user.id, data=b"y" * 50, limits=limits, replaces=first.id
+        )
+        assert [d.id for d in test_database.list_documents(test_user.id)] == [replaced.id]
 
     def test_touch_opened(
         self, test_database: Database, test_blob_store: BlobStore, test_user: User

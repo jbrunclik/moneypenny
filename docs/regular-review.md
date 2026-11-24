@@ -114,7 +114,7 @@ The review itself changes nothing in production and edits nothing but
   "Document saved" against "Document opened" lines per `user_id`, and
   `user_documents` rows (`deleted_at IS NULL`) saved over 30 days ago with
   `last_opened_at` NULL - a library nobody opens costs a list line every turn for
-  nothing. "Document save rejected" by `reason` (it has no user id; many cap or
+  nothing. "Document operation rejected" by `user_id`, `action` and `reason` (many cap or
   injection rejections are worth reading), "Documents expired" / "Documents purged"
   per night, and `SUM(size_bytes)` per user against the 200 MB
   `DOCUMENTS_MAX_TOTAL_BYTES`.

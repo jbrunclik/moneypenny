@@ -9931,7 +9931,7 @@ export interface components {
             limit: number;
             /**
              * Bytes Used
-             * @description Bytes stored, deleted documents included until purged
+             * @description Bytes of live documents (what counts toward the cap)
              */
             bytes_used: number;
             /**

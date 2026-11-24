@@ -32,7 +32,7 @@ from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.db.models import Document, db
-from src.db.models.documents import UNSET, DocumentWriteError, Unset
+from src.db.models.documents import UNSET, DocumentLimits, DocumentWriteError, Unset
 from src.db.models.helpers import make_document_blob_key
 from src.utils.clock import local_today
 from src.utils.logging import get_logger
@@ -56,7 +56,11 @@ class DocumentOp(BaseModel):
 
 
 def _reject(action: str, reason: str) -> str:
-    logger.info("Document save rejected", extra={"action": action, "reason": reason[:120]})
+    _conversation_id, user_id = get_conversation_context()
+    logger.info(
+        "Document operation rejected",
+        extra={"user_id": user_id, "action": action, "reason": reason[:120]},
+    )
     return f"REJECTED ({action}): {reason}"
 
 
@@ -81,6 +85,12 @@ class _State:
     count: int = 0
     total_bytes: int = 0
     gone: set[str] = field(default_factory=set)
+
+    def retire(self, doc_id: str) -> None:
+        """A document the batch deletes or replaces: its slot and bytes free up."""
+        self.gone.add(doc_id)
+        self.count -= 1
+        self.total_bytes -= next(d.size_bytes for d in self.live if d.id == doc_id)
 
     def resolve(self, action: str, ref: str) -> tuple[str, str | None]:
         """The full id of a live document a (short) id names, or a rejection."""
@@ -156,11 +166,16 @@ def _plan_save(op: DocumentOp, state: _State) -> _Planned | str:
         replaces, rejection = state.resolve("save", op.replaces)
         if rejection:
             return rejection
-        state.gone.add(replaces)
-        state.count -= 1
+        state.retire(replaces)
     loaded = _load_file(op.file_id)
     if isinstance(loaded, str):
         return loaded
+    if len(loaded.data) > Config.MAX_FILE_SIZE_BYTES:
+        return _reject(
+            "save",
+            f"the file is {len(loaded.data)} bytes; a saved document may be at most "
+            f"{Config.MAX_FILE_SIZE_BYTES}.",
+        )
     if state.count + 1 > Config.DOCUMENTS_MAX_ENTRIES:
         return _reject(
             "save",
@@ -193,8 +208,7 @@ def _plan_delete(op: DocumentOp, state: _State) -> _Planned | str:
     doc_id, rejection = state.resolve("delete", op.id)
     if rejection:
         return rejection
-    state.gone.add(doc_id)
-    state.count -= 1
+    state.retire(doc_id)
     return _Planned(op, doc_id=doc_id)
 
 
@@ -217,6 +231,9 @@ def _apply(planned: _Planned, user_id: str, conversation_id: str | None) -> str:
                 source_conversation_id=conversation_id,
                 source_message_id=planned.file.file_id.rpartition(":")[0],
                 replaces=planned.replaces,
+                limits=DocumentLimits(
+                    Config.DOCUMENTS_MAX_ENTRIES, Config.DOCUMENTS_MAX_TOTAL_BYTES, local_today()
+                ),
             )
         except DocumentWriteError as e:
             return _reject("save", str(e))
@@ -233,19 +250,20 @@ def _apply(planned: _Planned, user_id: str, conversation_id: str | None) -> str:
         )
         return f'SAVED {short_memory_id(doc.id)} "{doc.title}"'
     if op.action == "update":
-        _update(planned, user_id)
+        if not _update(planned, user_id):
+            return _reject("update", "the document is gone (deleted meanwhile).")
         return f"UPDATED {short_memory_id(planned.doc_id)}"
     db.delete_document(planned.doc_id, user_id)
     logger.info("Document deleted", extra={"user_id": user_id, "document_id": planned.doc_id})
     return f"DELETED {short_memory_id(planned.doc_id)}"
 
 
-def _update(planned: _Planned, user_id: str) -> None:
+def _update(planned: _Planned, user_id: str) -> bool:
     op = planned.op
     end: date | Unset | None = UNSET
     if planned.valid_until or planned.clear_end_date:
         end = planned.valid_until
-    db.update_document(
+    updated = db.update_document(
         planned.doc_id,
         user_id,
         title=op.title.strip() or None,
@@ -253,12 +271,13 @@ def _update(planned: _Planned, user_id: str) -> None:
         use_for=op.use_for.strip() or None,
         valid_until=end,
     )
+    return updated is not None
 
 
 def _run_batch(user_id: str, conversation_id: str | None, ops: list[DocumentOp]) -> list[str]:
     today = local_today()
     live = [d for d in db.list_documents(user_id) if not d.expired(today)]
-    count, total_bytes = db.document_usage(user_id)
+    count, total_bytes = db.document_usage(user_id, today)
     state = _State(user_id, live, count=count, total_bytes=total_bytes)
     plan = [_PLANNERS[op.action](op, state) for op in ops]
     if any(isinstance(p, str) for p in plan):

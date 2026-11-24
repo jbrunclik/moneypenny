@@ -49,7 +49,7 @@ def _serialize(doc: Document) -> dict[str, object]:
 @require_auth
 def list_documents(user: User) -> dict[str, object]:
     """The user's saved documents and the recently deleted ones."""
-    _count, bytes_used = db.document_usage(user.id)
+    _count, bytes_used = db.document_usage(user.id, local_today())
     return {
         "documents": [_serialize(d) for d in db.list_documents(user.id)],
         "deleted": [_serialize(d) for d in db.list_deleted_documents(user.id)],
@@ -110,11 +110,13 @@ def restore_document(user: User, document_id: str) -> tuple[dict[str, str], int]
     doc = db.get_document(document_id, user.id)
     if doc is None or doc.deleted_at is None:
         raise_not_found_error("Document")
-    count, _bytes = db.document_usage(user.id)
+    count, used = db.document_usage(user.id, local_today())
     if count >= Config.DOCUMENTS_MAX_ENTRIES:
         raise_conflict_error(
             f"You already have {count} saved documents, the most there can be. Delete one first."
         )
+    if used + doc.size_bytes > Config.DOCUMENTS_MAX_TOTAL_BYTES:
+        raise_conflict_error("Your saved documents' storage is full. Delete one first.")
     db.restore_document(document_id, user.id, local_today())
     logger.info("Document restored", extra={"user_id": user.id, "document_id": document_id})
     return {"status": "restored"}, 200

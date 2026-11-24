@@ -7,6 +7,7 @@ so these tests assert on what the model is told as well as on the stored state.
 from __future__ import annotations
 
 import base64
+import logging
 from collections.abc import Generator
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
@@ -163,6 +164,51 @@ class TestSave:
             result = _ops(_save(file_id))
         assert "REJECTED (save)" in result
         assert len(db.list_documents(user.id)) == 1
+
+    def test_save_after_delete_fits_the_byte_cap(
+        self, ctx: tuple[Database, User, str, BlobStore]
+    ) -> None:
+        """A delete frees its space at once (the purge is only the recovery window)."""
+        db, user, file_id, _ = ctx
+        (old,) = _seed(db, user.id, 1, size=100)
+        db.delete_document(old, user.id)
+        with patch.object(Config, "DOCUMENTS_MAX_TOTAL_BYTES", 110):
+            assert "SAVED" in _ops(_save(file_id))
+
+    def test_cap_ignores_expired_documents(
+        self, ctx: tuple[Database, User, str, BlobStore]
+    ) -> None:
+        db, user, file_id, _ = ctx
+        (old,) = _seed(db, user.id, 1)
+        db.update_document(old, user.id, valid_until=local_today() - timedelta(days=1))
+        with patch.object(Config, "DOCUMENTS_MAX_ENTRIES", 1):
+            assert "SAVED" in _ops(_save(file_id))
+
+    def test_save_over_file_size_rejected(self, ctx: tuple[Database, User, str, BlobStore]) -> None:
+        db, user, file_id, _ = ctx
+        with patch.object(Config, "MAX_FILE_SIZE_BYTES", len(PDF) - 1):
+            result = _ops(_save(file_id))
+        assert "REJECTED (save)" in result
+        assert db.list_documents(user.id) == []
+
+    def test_rejection_log_names_user_and_operation(
+        self, ctx: tuple[Database, User, str, BlobStore], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        _db, user, _file_id, _ = ctx
+        with caplog.at_level(logging.INFO, logger="src.agent.tools.documents"):
+            _ops({"action": "delete", "id": "deadbeef-none"})
+        [record] = [r for r in caplog.records if r.message == "Document operation rejected"]
+        assert record.user_id == user.id  # type: ignore[attr-defined]
+        assert record.action == "delete"  # type: ignore[attr-defined]
+
+    def test_update_of_a_vanished_document_is_rejected(
+        self, ctx: tuple[Database, User, str, BlobStore]
+    ) -> None:
+        db, user, _file_id, _ = ctx
+        (doc_id,) = _seed(db, user.id, 1)
+        with patch("src.agent.tools.documents.db.update_document", return_value=None):
+            result = _ops({"action": "update", "id": doc_id, "title": "New"})
+        assert "REJECTED (update)" in result
 
     def test_save_replaces_unknown_rejected_no_blob(
         self, ctx: tuple[Database, User, str, BlobStore]

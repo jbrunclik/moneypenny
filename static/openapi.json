@@ -10257,7 +10257,7 @@
             "type": "integer"
           },
           "bytes_used": {
-            "description": "Bytes stored, deleted documents included until purged",
+            "description": "Bytes of live documents (what counts toward the cap)",
             "title": "Bytes Used",
             "type": "integer"
           },

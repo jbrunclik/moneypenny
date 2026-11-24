@@ -523,3 +523,18 @@ class TestSweepDocuments:
         mock_db.purge_deleted_documents.assert_called_once_with(
             Config.DOCUMENTS_SOFT_DELETE_RETENTION_DAYS
         )
+
+    @patch("scripts.defragment_memories.sweep_documents")
+    @patch("scripts.defragment_memories.db")
+    def test_main_runs_the_sweep_but_not_on_dry_run(self, mock_db, mock_sweep, monkeypatch):
+        import scripts.defragment_memories as defrag
+
+        monkeypatch.setattr(Config, "GEMINI_API_KEY", "")  # main stops right after the sweeps
+        monkeypatch.setattr("sys.argv", ["defragment_memories.py"])
+        defrag.main()
+        mock_sweep.assert_called_once_with()
+
+        mock_sweep.reset_mock()
+        monkeypatch.setattr("sys.argv", ["defragment_memories.py", "--dry-run"])
+        defrag.main()
+        mock_sweep.assert_not_called()

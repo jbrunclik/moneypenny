@@ -403,13 +403,16 @@ def _tools_prompt(anonymous_mode: bool) -> str:
     return prompt + TOOLS_SYSTEM_PROMPT_CONTEXT
 
 
-def _personal_library_prompt(user_id: str) -> str:
+def _personal_library_prompt(user_id: str, with_tools: bool) -> str:
     """Memories and saved documents, instructions and lists, for the
-    single-message system prompt (no cached prefix)."""
-    parts = [get_user_memories_prompt(user_id), get_documents_instructions_prompt()]
-    documents = get_user_documents_list_prompt(user_id)
-    if documents:
-        parts.append(documents)
+    single-message system prompt (no cached prefix). The documents come only
+    with the tools: a list the model cannot open would only be guessed from."""
+    parts = [get_user_memories_prompt(user_id)]
+    if with_tools:
+        parts.append(get_documents_instructions_prompt())
+        documents = get_user_documents_list_prompt(user_id)
+        if documents:
+            parts.append(documents)
     return "\n\n".join(parts)
 
 
@@ -502,7 +505,7 @@ def get_system_prompt(
 
     # Add user memories if user_id is provided (skip in anonymous mode)
     if user_id and not anonymous_mode and include_memories:
-        prompt += "\n\n" + _personal_library_prompt(user_id)
+        prompt += "\n\n" + _personal_library_prompt(user_id, with_tools)
 
     # Add force tools instruction if specified
     if force_tools:
