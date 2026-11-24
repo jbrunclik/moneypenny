@@ -283,3 +283,36 @@ class TestProjectPurge:
         with test_database._pool.get_connection() as conn:
             assert conn.execute("SELECT COUNT(*) FROM user_memories").fetchone()[0] == 0
             assert conn.execute("SELECT COUNT(*) FROM projects").fetchone()[0] == 0
+
+
+class TestProjectsVersion:
+    def test_member_change_bumps_projects_version_for_both_users(
+        self, test_database: Database, test_user: User, other_user: User
+    ) -> None:
+        project = test_database.create_project(test_user.id, "Home")
+        owner_before = test_database.projects_version(test_user.id)
+        member_before = test_database.projects_version(other_user.id)
+
+        test_database.add_project_member(project.id, test_user.id, other_user.id)
+
+        assert test_database.projects_version(test_user.id) != owner_before
+        assert test_database.projects_version(other_user.id) != member_before
+
+        shared = test_database.projects_version(other_user.id)
+        test_database.remove_project_member(project.id, test_user.id, other_user.id)
+        assert test_database.projects_version(other_user.id) != shared
+
+    def test_rename_and_instructions_bump_version(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        project = test_database.create_project(test_user.id, "Home")
+        before = test_database.projects_version(test_user.id)
+        test_database.update_project(project.id, test_user.id, instructions="Metric")
+        assert test_database.projects_version(test_user.id) != before
+
+    def test_unrelated_user_version_unchanged(
+        self, test_database: Database, test_user: User, other_user: User
+    ) -> None:
+        before = test_database.projects_version(other_user.id)
+        test_database.create_project(test_user.id, "Home")
+        assert test_database.projects_version(other_user.id) == before

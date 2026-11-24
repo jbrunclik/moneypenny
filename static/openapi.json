@@ -14426,6 +14426,12 @@
             "description": "More changes after cursor - sync again",
             "title": "Has More",
             "type": "boolean"
+          },
+          "projects_version": {
+            "default": "",
+            "description": "Changes when the user's projects do - reload them then",
+            "title": "Projects Version",
+            "type": "string"
           }
         },
         "required": [
@@ -14433,7 +14439,8 @@
           "server_time",
           "cursor",
           "removed_ids",
-          "has_more"
+          "has_more",
+          "projects_version"
         ],
         "title": "SyncResponse",
         "type": "object"

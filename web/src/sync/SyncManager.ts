@@ -41,6 +41,8 @@ export class SyncManager {
    * first full sync returns one.
    */
   private changeCursor: number | null = null;
+  // The server's projects version as of the last sync (null: none yet)
+  private projectsVersion: string | null = null;
   private lastHiddenTime: number | null = null;
   private pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private isVisible: boolean = true;
@@ -228,6 +230,7 @@ export class SyncManager {
     }
 
     applyFullSync(this.state, result.conversations, knownBefore);
+    this.noteProjectsVersion(result.projects_version);
     log.info('Full sync completed', {
       conversationCount: result.conversations.length,
       serverTime: result.server_time,
@@ -243,6 +246,14 @@ export class SyncManager {
       this.incrementalSyncQueued = false;
       void this.incrementalSync();
     }
+  }
+
+  /** Reload the projects when the server's version moved since the last sync. */
+  private noteProjectsVersion(version: string | undefined): void {
+    if (version === undefined) return;
+    const previous = this.projectsVersion;
+    this.projectsVersion = version;
+    if (previous !== null && previous !== version) this.state.callbacks.onProjectsChanged?.();
   }
 
   /** A local change to a conversation (see SyncState.noteLocalChange). */
@@ -298,6 +309,7 @@ export class SyncManager {
       this.state.markSyncRequest();
       const result = await conversationsApi.syncChanges(this.changeCursor);
       applyChangeLog(this.state, result);
+      this.noteProjectsVersion(result.projects_version);
       this.changeCursor = result.cursor;
       if (!result.has_more) return;
     }

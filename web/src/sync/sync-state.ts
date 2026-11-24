@@ -27,6 +27,8 @@ export interface SyncManagerCallbacks {
   onAgentConversationExternalUpdate?: (messageCount: number) => void;
   /** Called when another device moved chats into or out of the archive / trash (reload those lists) */
   onArchiveOrTrashChanged?: (lists: { archive: boolean; trash: boolean }) => void;
+  /** Called when the user's projects changed (shared, renamed, left...) - reload them */
+  onProjectsChanged?: () => void;
 }
 
 /** User-facing notices. Passed in: sync never imports UI (F1). */

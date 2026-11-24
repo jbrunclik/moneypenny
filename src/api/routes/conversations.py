@@ -441,7 +441,11 @@ def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
             raise_validation_error(
                 "Invalid cursor. Use the cursor from the last sync.", field="cursor"
             )
-        return {**cursor_sync(user.id, after), "server_time": server_time}
+        return {
+            **cursor_sync(user.id, after),
+            "server_time": server_time,
+            "projects_version": db.projects_version(user.id),
+        }
 
     # Full sync: every conversation with its message count (a client without
     # a cursor yet, or one checking for deletions)
@@ -465,4 +469,5 @@ def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
         "cursor": cursor,
         "removed_ids": [],
         "has_more": False,
+        "projects_version": db.projects_version(user.id),
     }

@@ -20,6 +20,8 @@ vi.mock('@/api/projects', () => ({
     removeMember: vi.fn(),
     moveChat: vi.fn(),
     bulkMove: vi.fn(),
+    people: vi.fn(),
+    addMember: vi.fn(),
   },
 }));
 vi.mock('@/api/memories', () => ({ memories: {} }));
@@ -53,6 +55,8 @@ vi.mock('@/core/kv-store', () => ({ hideChatChrome: vi.fn() }));
 vi.mock('@/core/conversation', () => ({ createConversation: vi.fn(), selectConversation: vi.fn() }));
 vi.mock('@/router/deeplink', () => ({ clearConversationHash: vi.fn(), setProjectHash: vi.fn() }));
 vi.mock('@/components/SidebarSelection', () => ({ renderSelectionChrome: vi.fn() }));
+const sheet = vi.hoisted(() => ({ show: vi.fn() }));
+vi.mock('@/components/ActionSheet', () => ({ showActionSheet: sheet.show }));
 const picker = vi.hoisted(() => ({ open: vi.fn() }));
 vi.mock('@/components/ProjectPicker', () => ({ openProjectPicker: picker.open }));
 vi.mock('@/utils/thumbnail-blob-urls', () => ({ setCurrentConversationForBlobs: vi.fn() }));
@@ -301,5 +305,39 @@ describe('the chat menu and selection mode', () => {
     expect(projects.bulkMove).toHaveBeenCalledWith(expect.objectContaining({ ids: ['a'], project_id: 'p1' }));
     expect(useStore.getState().isSelecting).toBe(false);
     expect(useStore.getState().conversations[1]?.project_id).toBeUndefined();
+  });
+});
+
+describe('sharing', () => {
+  it('Share offers the family: add for others, remove for members', async () => {
+    const p = project('p1', 'Home', { member_ids: ['user-1', 'user-2'], shared: true });
+    useStore.setState({ projects: [p] });
+    (projects.get as Mock).mockResolvedValue(detail(p));
+    (projects.conversations as Mock).mockResolvedValue(page([]));
+    (projects.people as Mock).mockResolvedValue([
+      { id: 'user-2', name: 'Jana' },
+      { id: 'user-3', name: 'Viktor' },
+    ]);
+    (projects.addMember as Mock).mockResolvedValue({ ...p, member_ids: ['user-1', 'user-2', 'user-3'] });
+    await navigateToProject('p1');
+
+    messages.querySelector<HTMLButtonElement>('.project-share')?.click();
+    await vi.waitFor(() => expect(sheet.show).toHaveBeenCalled());
+
+    const [title, actions] = sheet.show.mock.calls.at(-1) as [string, Array<{ label: string; onSelect: () => void }>];
+    expect(title).toBe('Share project');
+    expect(actions.map((a) => a.label)).toEqual(['Remove Jana', 'Share with Viktor']);
+    actions[1]?.onSelect();
+    await vi.waitFor(() => expect(projects.addMember).toHaveBeenCalledWith('p1', 'user-3'));
+  });
+
+  it('a member sees no Share button', async () => {
+    const p = project('p1', 'Home', { is_owner: false, owner_id: 'user-2', shared: true });
+    (projects.get as Mock).mockResolvedValue(detail(p));
+    (projects.conversations as Mock).mockResolvedValue(page([]));
+
+    await navigateToProject('p1');
+
+    expect(messages.querySelector('.project-share')).toBeNull();
   });
 });

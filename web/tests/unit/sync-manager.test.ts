@@ -147,6 +147,7 @@ function createSyncResponse(conversations: ConversationSummary[]): SyncResponse 
     server_time: '2024-01-01T00:00:00Z',
     cursor: 1,
     removed_ids: [],
+    projects_version: '',
     has_more: false,
   };
 }
@@ -158,6 +159,7 @@ function changePage(conversations: ConversationSummary[], extra: Partial<SyncRes
     server_time: '2024-01-01T12:00:00Z',
     cursor: 2,
     removed_ids: [],
+    projects_version: '',
     has_more: false,
     ...extra,
   };
@@ -865,6 +867,7 @@ describe('SyncManager', () => {
         server_time: '2024-01-01T00:02:00Z',
         cursor: 1,
         removed_ids: [],
+        projects_version: '',
         has_more: false,
       };
 
@@ -942,6 +945,7 @@ describe('SyncManager', () => {
         server_time: '2024-01-16T00:02:00Z',
         cursor: 1,
         removed_ids: [],
+        projects_version: '',
         has_more: false,
       };
 
@@ -1213,7 +1217,7 @@ describe('SyncManager', () => {
       conversations: ConversationSummary[],
       extra: Partial<SyncResponse> = {}
     ): SyncResponse {
-      return { conversations, server_time: '2024-01-10T12:10:00Z', cursor: 20, removed_ids: [], has_more: false, ...extra };
+      return { conversations, server_time: '2024-01-10T12:10:00Z', cursor: 20, removed_ids: [], has_more: false, projects_version: '', ...extra };
     }
 
     async function startWithCursor(convs: Conversation[]): Promise<void> {
@@ -1263,6 +1267,25 @@ describe('SyncManager', () => {
       await syncManager.incrementalSync();
       expect(callbacks.onCurrentConversationDeleted).toHaveBeenCalled();
       expect(toast.warning).toHaveBeenCalledWith('This conversation was deleted on another device.');
+    });
+
+    describe('projects', () => {
+      beforeEach(() => {
+        callbacks.onProjectsChanged = vi.fn();
+      });
+
+      it('reloads the projects when their version moves, not on the first sync', async () => {
+        await startWithCursor([]);
+        expect(callbacks.onProjectsChanged).not.toHaveBeenCalled();
+
+        mockSyncChanges().mockResolvedValue(changes([], { projects_version: '' }));
+        await syncManager.incrementalSync();
+        expect(callbacks.onProjectsChanged).not.toHaveBeenCalled();
+
+        mockSyncChanges().mockResolvedValue(changes([], { projects_version: '1:0:2026-11-24' }));
+        await syncManager.incrementalSync();
+        expect(callbacks.onProjectsChanged).toHaveBeenCalledTimes(1);
+      });
     });
 
     describe('archive and trash lists', () => {

@@ -12430,6 +12430,12 @@ export interface components {
              * @description More changes after cursor - sync again
              */
             has_more: boolean;
+            /**
+             * Projects Version
+             * @description Changes when the user's projects do - reload them then
+             * @default
+             */
+            projects_version: string;
         };
         /**
          * JobRunRecordResponse

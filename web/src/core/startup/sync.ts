@@ -12,6 +12,7 @@ import { useStore } from '../../state/store';
 import { initSyncManager, getSyncManager } from '../../sync/SyncManager';
 import type { SyncManagerCallbacks } from '../../sync/sync-state';
 import { createLogger } from '../../utils/logger';
+import { loadProjects } from '../projects';
 import { navigateToPlanner, leavePlannerView } from '../planner';
 import { mergeExternalChanges } from '../remote-merge';
 import { attemptRecovery, cancelRecovery, hasPendingRecovery } from '../stream-recovery';
@@ -90,6 +91,9 @@ const SYNC_CALLBACKS: SyncManagerCallbacks = {
     // Rows and counts come from the server (a trash row needs its purge date)
     if (archive) void loadArchivedConversations();
     if (trash) void loadTrashedConversations();
+  },
+  onProjectsChanged: () => {
+    void loadProjects();
   },
   onPlannerDeleted,
   onPlannerReset,

@@ -456,6 +456,21 @@ class ProjectMixin:
             return None
         return self.get_project(row["project_id"], user_id)
 
+    def projects_version(self, user_id: str) -> str:
+        """Changes whenever the user's project list does (a project added,
+        renamed, shared, left, deleted, its instructions edited): every such
+        write bumps the project's updated_at or the user's membership count.
+        The sync poll compares it to reload the sidebar's projects."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                f"""SELECT COUNT(*) AS n, COALESCE(MAX(p.updated_at), '') AS latest,
+                           COALESCE(SUM(p.deleted_at IS NOT NULL), 0) AS gone
+                    FROM projects p WHERE {_MEMBER_SQL}""",
+                (user_id,),
+            ).fetchone()
+        return f"{row['n']}:{row['gone']}:{row['latest']}"
+
     def list_people(self, exclude_user_id: str) -> list[tuple[str, str]]:
         """(id, name) of the deployment's other users: the family to share with."""
         with self._pool.get_connection() as conn:

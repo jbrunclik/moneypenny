@@ -3,7 +3,7 @@
  * the user's own chats in it, the project instructions, memory and documents.
  */
 import { createElement } from '../utils/dom';
-import { BRAIN_ICON, EDIT_ICON, FOLDER_ICON, HISTORY_ICON, PLUS_ICON, createIconElement, iconNodes } from '../utils/icons';
+import { BRAIN_ICON, EDIT_ICON, FOLDER_ICON, HISTORY_ICON, PLUS_ICON, USERS_ICON, createIconElement, iconNodes } from '../utils/icons';
 import type { Conversation, DocumentsResponse, ProjectDetail } from '../types/api';
 import { createEmptyState } from './EmptyState';
 import { renderDocumentsSections, type DocumentCallbacks } from './kv-documents';
@@ -17,6 +17,7 @@ export interface ProjectPageCallbacks extends MemoryCallbacks, DocumentCallbacks
   onLoadMoreChats: () => void;
   onSaveInstructions: (instructions: string) => Promise<void>;
   onRename: () => void;
+  onShare: () => void;
   onDelete: () => void;
   onLeave: () => void;
 }
@@ -51,9 +52,14 @@ function renderHeader(detail: ProjectDetail, callbacks: ProjectPageCallbacks): H
       'Rename',
     ]);
     rename.addEventListener('click', callbacks.onRename);
+    const share = createElement('button', { type: 'button', class: 'btn-refresh project-share' }, [
+      iconNodes(USERS_ICON),
+      'Share',
+    ]);
+    share.addEventListener('click', callbacks.onShare);
     const remove = createElement('button', { type: 'button', class: 'btn-refresh project-delete' }, ['Delete']);
     remove.addEventListener('click', callbacks.onDelete);
-    actions.push(rename, remove);
+    actions.push(share, rename, remove);
   } else {
     const leave = createElement('button', { type: 'button', class: 'btn-refresh project-leave' }, ['Leave']);
     leave.addEventListener('click', callbacks.onLeave);

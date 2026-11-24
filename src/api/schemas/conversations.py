@@ -213,6 +213,9 @@ class SyncResponse(ResponseModel):
         ..., description="Conversations permanently deleted since the cursor (empty on a full sync)"
     )
     has_more: bool = Field(..., description="More changes after cursor - sync again")
+    projects_version: str = Field(
+        default="", description="Changes when the user's projects do - reload them then"
+    )
 
 
 class ConversationsPaginationResponse(ResponseModel):
