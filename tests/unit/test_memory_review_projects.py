@@ -129,7 +129,9 @@ def test_review_scope_project_outside_project_dropped(
 
 
 def test_note_names_project() -> None:
-    assert format_note(["Garage has 3-phase power"], project_name="Home").startswith("shared in Home")
+    assert format_note(["Garage has 3-phase power"], project_name="Home").startswith(
+        "shared in Home"
+    )
 
 
 def test_review_patch_of_project_memory_counts_as_project_write(
