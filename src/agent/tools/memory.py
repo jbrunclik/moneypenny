@@ -544,6 +544,41 @@ def _run_batch(user_id: str, conversation_id: str | None, operations: list[Memor
     return lines
 
 
+def save_project_facts(
+    user_id: str, conversation_id: str | None, project_id: str, facts: list[str]
+) -> str:
+    """Save a new project's facts (manage_project create) through the same
+    guards as manage_memory adds; one result line."""
+    limit = Config.MEMORY_MAX_OPS_PER_CALL
+    if len(facts) > limit:
+        return _reject("facts", f"{len(facts)} facts, at most {limit}; none were saved.")
+    ops: list[MemoryOp] = [
+        {"action": "add", "content": fact, "category": "fact", "scope": "project"} for fact in facts
+    ]
+    plan, _count = _plan_batch(user_id, ops, project_id)
+    planned = [p for p in plan if isinstance(p, _Planned)]
+    if len(planned) < len(plan):
+        rejected = [p for p in plan if isinstance(p, str)]
+        return "No facts were saved: " + " ".join(rejected)
+    try:
+        db.apply_memory_batch(
+            user_id, conversation_id, [p.write for p in planned], project_id=project_id
+        )
+    except MemoryLimitError as e:
+        return _reject("facts", f"{e}. None were saved.")
+    logger.info(
+        "Project memory write",
+        extra={
+            "project_id": project_id,
+            "author": user_id,
+            "op": "add",
+            "source": "create",
+            "count": len(planned),
+        },
+    )
+    return f"Saved {len(planned)} facts to the project's memory."
+
+
 def note_project_writes(user_id: str, conversation_id: str, *memory_ids: str) -> None:
     """Remember the project memories this chat's turn wrote (added or patched,
     whoever first wrote them), for the reply's note (api/helpers/project_notes.py)."""

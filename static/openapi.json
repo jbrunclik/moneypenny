@@ -7536,7 +7536,8 @@
         "tags": [
           "Projects"
         ],
-        "summary": "Share the project with a family member (owner only)."
+        "summary": "Share the project with a family member (owner only); a newly added",
+        "description": "member gets a push notification."
       },
       "delete": {
         "parameters": [

@@ -3,17 +3,28 @@
  * the user's own chats in it, the project instructions, memory and documents.
  */
 import { createElement } from '../utils/dom';
-import { BRAIN_ICON, EDIT_ICON, FOLDER_ICON, HISTORY_ICON, PLUS_ICON, USERS_ICON, createIconElement, iconNodes } from '../utils/icons';
+import {
+  BRAIN_ICON,
+  DELETE_ICON,
+  EDIT_ICON,
+  FOLDER_ICON,
+  HISTORY_ICON,
+  LOGOUT_ICON,
+  PLUS_ICON,
+  USERS_ICON,
+  createIconElement,
+  iconNodes,
+} from '../utils/icons';
+import { projectConversationRows } from './Sidebar';
 import type { Conversation, DocumentsResponse, ProjectDetail } from '../types/api';
 import { createEmptyState } from './EmptyState';
 import { renderDocumentsSections, type DocumentCallbacks } from './kv-documents';
-import { formatRelativeTime, sectionTitle } from './kv-store-parts';
+import { sectionTitle } from './kv-store-parts';
 import { renderMemoriesSection, type MemoryCallbacks } from './KVStorePage';
 
 /** What the project page can do (errors are surfaced by the caller). */
 export interface ProjectPageCallbacks extends MemoryCallbacks, DocumentCallbacks {
   onNewChat: () => void;
-  onOpenChat: (conversationId: string) => void;
   onLoadMoreChats: () => void;
   onSaveInstructions: (instructions: string) => Promise<void>;
   onRename: () => void;
@@ -57,11 +68,17 @@ function renderHeader(detail: ProjectDetail, callbacks: ProjectPageCallbacks): H
       'Share',
     ]);
     share.addEventListener('click', callbacks.onShare);
-    const remove = createElement('button', { type: 'button', class: 'btn-refresh project-delete' }, ['Delete']);
+    const remove = createElement('button', { type: 'button', class: 'btn-refresh project-delete' }, [
+      iconNodes(DELETE_ICON),
+      'Delete',
+    ]);
     remove.addEventListener('click', callbacks.onDelete);
     actions.push(share, rename, remove);
   } else {
-    const leave = createElement('button', { type: 'button', class: 'btn-refresh project-leave' }, ['Leave']);
+    const leave = createElement('button', { type: 'button', class: 'btn-refresh project-leave' }, [
+      iconNodes(LOGOUT_ICON),
+      'Leave',
+    ]);
     leave.addEventListener('click', callbacks.onLeave);
     actions.push(leave);
   }
@@ -77,16 +94,8 @@ function renderHeader(detail: ProjectDetail, callbacks: ProjectPageCallbacks): H
   ]);
 }
 
-function renderChatRow(conv: Conversation, callbacks: ProjectPageCallbacks): HTMLButtonElement {
-  const row = createElement('button', { type: 'button', class: 'project-chat', 'data-project-chat-id': conv.id }, [
-    createElement('span', { class: 'project-chat-title' }, [conv.title]),
-    createElement('span', { class: 'project-chat-time' }, [formatRelativeTime(conv.updated_at)]),
-  ]);
-  row.addEventListener('click', () => callbacks.onOpenChat(conv.id));
-  return row;
-}
-
-function renderChatsSection(chats: ProjectChats, callbacks: ProjectPageCallbacks): HTMLDivElement {
+/** The "Your chats" section (re-rendered alone when the store's chats change). */
+export function renderProjectChats(chats: ProjectChats, callbacks: ProjectPageCallbacks): HTMLDivElement {
   const newChat = createElement('button', { type: 'button', class: 'btn btn-primary btn-sm project-new-chat' }, [
     iconNodes(PLUS_ICON),
     'New chat in this project',
@@ -107,11 +116,8 @@ function renderChatsSection(chats: ProjectChats, callbacks: ProjectPageCallbacks
     );
     return section;
   }
-  const list = createElement(
-    'div',
-    { class: 'project-chat-list' },
-    chats.conversations.map((conv) => renderChatRow(conv, callbacks))
-  );
+  // The sidebar's own rows: same look, actions, swipe (core/events, gestures)
+  const list = createElement('div', { class: 'project-chat-list' }, projectConversationRows(chats.conversations));
   section.appendChild(list);
   if (chats.hasMore) {
     const more = createElement('button', { type: 'button', class: 'btn btn-secondary btn-sm project-more-chats' }, [
@@ -197,7 +203,7 @@ export function renderProjectPage(
   const [documents] = renderDocumentsSections(documentsData(detail), callbacks);
   return createElement('div', { class: 'kv-store project-page', 'data-project-id': detail.project.id }, [
     renderHeader(detail, callbacks),
-    renderChatsSection(chats, callbacks),
+    renderProjectChats(chats, callbacks),
     renderInstructionsSection(detail, callbacks),
     memories,
     ...(documents ? [documents] : []),

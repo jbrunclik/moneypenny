@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
+from src.agent.tools.memory import save_project_facts
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.db.models import Project, db
@@ -39,6 +40,7 @@ class ProjectOp(BaseModel):
     instructions: str = ""
     chat: str = ""
     move_current_chat: bool = True
+    facts: list[str] = []
 
 
 class _RejectedError(Exception):
@@ -104,6 +106,9 @@ def _create(op: ProjectOp, user_id: str, conversation_id: str | None) -> str:
             line += f" {_NEXT_TURN}"
         else:
             line += " This chat cannot be filed under a project (not an ordinary chat)."
+    facts = [f.strip() for f in op.facts if f.strip()]
+    if facts:
+        line += " " + save_project_facts(user_id, conversation_id, project.id, facts)
     _log("create", project.id, "ok")
     return line
 
@@ -190,7 +195,9 @@ def manage_project(operations: list[ProjectOp]) -> str:
         operations: Each has an "op":
             - "list": the user's projects (id, name, shared/solo, chats)
             - "create": "name"; optional "instructions" (draft them from the chat
-              when the user asks), "move_current_chat" (default true)
+              when the user asks), "move_current_chat" (default true), "facts"
+              (the key facts about the project's topic this chat settled, one
+              per item - never personal ones; they start the project's memory)
             - "move_chat": "project" (id or exact name); optional "chat" (a
               conversation id; default this chat)
             - "remove_chat": optional "chat" (default this chat)

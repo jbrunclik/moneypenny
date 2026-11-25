@@ -26,7 +26,7 @@ async function seedProject(page: Page): Promise<string> {
 async function openProject(page: Page): Promise<void> {
   const id = await seedProject(page);
   await page.goto(`/#/projects/${id}`);
-  await page.waitForSelector('.project-page .project-chat');
+  await page.waitForSelector('.project-page .project-chat-list [data-conv-id]');
   await pageSettled(page);
 }
 

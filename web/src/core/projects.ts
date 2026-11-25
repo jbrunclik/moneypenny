@@ -39,10 +39,11 @@ import { buildBulkTrashRequest } from '../state/slices/selection';
 
 const log = createLogger('projects');
 
-/** The open project page's chats and next-page cursor. */
-// UI-local (F2): pagination state of the page on screen
+/** The open project page: its next-page cursor and the store watch that re-renders its chats. */
+// UI-local (F2): pagination and subscription of the page on screen
 let pageCursor: string | null = null;
-let pageChats: Conversation[] = [];
+let pageHasMore = false;
+let stopWatchingChats: (() => void) | null = null;
 
 /** Fetch the user's projects into the store and re-render the sidebar. */
 export async function loadProjects(): Promise<void> {
@@ -91,11 +92,45 @@ function enterProjectView(projectId: string, title: string): void {
   closeSidebar();
 }
 
+/** Add a page of the project's chats to the store (the main list's pages leave them out). */
+function storeChats(conversations: Conversation[]): void {
+  const store = useStore.getState();
+  for (const conv of conversations) {
+    if (!store.conversations.some((c) => c.id === conv.id)) store.addConversation(conv);
+  }
+}
+
+/** The project's chats as the store holds them, newest first (renames, pins, deletes included). */
+function projectChats(projectId: string): ProjectChats {
+  const conversations = useStore
+    .getState()
+    .conversations.filter((c) => c.project_id === projectId && !c.archived)
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  return { conversations, hasMore: pageHasMore };
+}
+
 async function loadPage(projectId: string): Promise<{ detail: ProjectDetail; chats: ProjectChats }> {
   const [detail, page] = await Promise.all([projects.get(projectId), projects.conversations(projectId)]);
-  pageChats = page.conversations;
+  storeChats(page.conversations);
   pageCursor = page.pagination.next_cursor ?? null;
-  return { detail, chats: { conversations: pageChats, hasMore: page.pagination.has_more } };
+  pageHasMore = page.pagination.has_more;
+  return { detail, chats: projectChats(projectId) };
+}
+
+/** Re-render the page's chat list whenever the store's chats change (actions, sync). */
+function watchProjectChats(project: Project): void {
+  stopWatchingChats?.();
+  stopWatchingChats = useStore.subscribe(
+    (state) => state.conversations,
+    () => {
+      const state = useStore.getState();
+      if (!state.isProjectView || state.activeProjectId !== project.id) return;
+      void import('../components/ProjectPage').then(({ renderProjectChats }) => {
+        const current = document.querySelector('.project-page .project-chats');
+        current?.replaceWith(renderProjectChats(projectChats(project.id), pageCallbacks(project)));
+      });
+    }
+  );
 }
 
 /** Open a project's page in the main area. */
@@ -126,6 +161,7 @@ export async function navigateToProject(projectId: string): Promise<void> {
   renderConversationsList();
   container.replaceChildren(renderProjectPage(loaded.detail, loaded.chats, pageCallbacks(loaded.detail.project)));
   container.scrollTop = 0;
+  watchProjectChats(loaded.detail.project);
 }
 
 /**
@@ -133,6 +169,8 @@ export async function navigateToProject(projectId: string): Promise<void> {
  * @param clearMessages - Whether to show the welcome state (default: true)
  */
 export function leaveProjectView(clearMessages: boolean = true): void {
+  stopWatchingChats?.();
+  stopWatchingChats = null;
   const store = useStore.getState();
   store.setActiveView('chat');
   store.setActiveProjectId(null);
@@ -288,34 +326,17 @@ async function loadMoreChats(project: Project): Promise<void> {
   if (!pageCursor) return;
   try {
     const page = await projects.conversations(project.id, pageCursor);
-    pageChats = [...pageChats, ...page.conversations];
     pageCursor = page.pagination.next_cursor ?? null;
-    const container = getMessagesContainer();
-    const detail = await projects.get(project.id);
-    const { renderProjectPage } = await import('../components/ProjectPage');
-    container?.replaceChildren(
-      renderProjectPage(detail, { conversations: pageChats, hasMore: page.pagination.has_more }, pageCallbacks(project))
-    );
+    pageHasMore = page.pagination.has_more;
+    storeChats(page.conversations); // the watch re-renders the list
   } catch (error) {
     log.error('Failed to load more project chats', { error });
   }
 }
 
-async function openChat(conversationId: string): Promise<void> {
-  const { selectConversation } = await import('./conversation');
-  const store = useStore.getState();
-  // The chat may not be in the store: project chats are not in the main list pages
-  if (!store.conversations.some((c) => c.id === conversationId)) {
-    const conv = pageChats.find((c) => c.id === conversationId);
-    if (conv) store.addConversation(conv);
-  }
-  await selectConversation(conversationId);
-}
-
 function pageCallbacks(project: Project): ProjectPageCallbacks {
   return {
     onNewChat: () => newChatInProject(project.id),
-    onOpenChat: (conversationId) => void openChat(conversationId),
     onLoadMoreChats: () => void loadMoreChats(project),
     onSaveInstructions: async (instructions) => {
       try {

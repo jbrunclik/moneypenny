@@ -250,6 +250,14 @@ export function setupTouchGestures(): void {
   conversationsList.addEventListener('touchmove', conversationSwipe.handleTouchMove, { passive: true });
   conversationsList.addEventListener('touchend', conversationSwipe.handleTouchEnd, { passive: true });
   conversationsList.addEventListener('touchcancel', conversationSwipe.handleTouchCancel, { passive: true });
+  // A project page's chat rows are the sidebar's rows: they swipe the same way
+  const messages = getElementById('messages');
+  if (messages) {
+    messages.addEventListener('touchstart', conversationSwipe.handleTouchStart, { passive: true });
+    messages.addEventListener('touchmove', conversationSwipe.handleTouchMove, { passive: true });
+    messages.addEventListener('touchend', conversationSwipe.handleTouchEnd, { passive: true });
+    messages.addEventListener('touchcancel', conversationSwipe.handleTouchCancel, { passive: true });
+  }
 
   // Sidebar edge swipe - swipe from left edge to open, swipe left to close
   const { handleSidebarTouchStart, handleSidebarTouchMove, handleSidebarTouchEnd, handleSidebarTouchCancel } =

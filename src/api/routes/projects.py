@@ -35,6 +35,7 @@ from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import Project, ProjectSummary, User, db
 from src.db.models.projects import ProjectWriteError
+from src.services.push import send_push_to_user
 from src.utils.clock import local_today, to_api
 from src.utils.logging import get_logger
 
@@ -243,10 +244,21 @@ def list_project_conversations(
 @api.doc(responses=[403, 404])
 @require_auth
 def add_member(user: User, project_id: str, member_id: str) -> dict[str, object]:
-    """Share the project with a family member (owner only)."""
+    """Share the project with a family member (owner only); a newly added
+    member gets a push notification."""
     project = _owned_project(user, project_id)
+    already = member_id in project.member_ids
     if not db.add_project_member(project.id, user.id, member_id):
         raise_not_found_error("User")
+    if not already:
+        owner = (user.name or "").split()[0] or "Someone"
+        send_push_to_user(
+            member_id,
+            title=f"{owner} shared {project.name} with you",
+            body="Its instructions, memory and documents are in your sidebar now.",
+            url=f"/#/projects/{project.id}",
+            tag=f"project-{project.id}",
+        )
     return _serialize(_member_project(user, project.id), user)
 
 

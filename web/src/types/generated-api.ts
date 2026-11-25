@@ -8326,7 +8326,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Share the project with a family member (owner only). */
+        /**
+         * Share the project with a family member (owner only); a newly added
+         * @description member gets a push notification.
+         */
         put: {
             parameters: {
                 query?: never;

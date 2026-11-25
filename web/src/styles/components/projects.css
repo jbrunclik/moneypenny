@@ -86,46 +86,6 @@
     margin-bottom: var(--space-3);
 }
 
-.project-chat-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.project-chat {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    width: 100%;
-    padding: var(--space-3);
-    text-align: left;
-    font: inherit;
-    color: var(--text-primary);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: border-color var(--transition-fast);
-}
-
-.project-chat:hover {
-    background-color: var(--bg-hover);
-}
-
-.project-chat-title {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.project-chat-time {
-    flex-shrink: 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-}
-
 .project-more-chats {
     margin-top: var(--space-3);
 }

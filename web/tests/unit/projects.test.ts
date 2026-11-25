@@ -35,7 +35,14 @@ vi.mock('@/components/Sidebar', () => ({
   setActiveConversation: vi.fn(),
   closeSidebar: vi.fn(),
   renderConversationsList: vi.fn(),
-}));
+  // The sidebar's rows (their own component tests cover them)
+  projectConversationRows: (convs: Array<{ id: string }>) =>
+    convs.map((c) => {
+      const row = document.createElement('div');
+      row.dataset.convId = c.id;
+      return row;
+    }),
+}))
 vi.mock('@/components/messages', () => ({
   updateChatTitle: vi.fn(),
   hasActiveStreamingContext: vi.fn(() => false),
@@ -157,7 +164,7 @@ describe('navigateToProject', () => {
   it('renders the page with the chats and instructions and enters the view', async () => {
     const p = project('p1', 'Home');
     (projects.get as Mock).mockResolvedValue(detail(p));
-    (projects.conversations as Mock).mockResolvedValue(page([chat('c1')]));
+    (projects.conversations as Mock).mockResolvedValue(page([chat('c1', { project_id: 'p1' })]));
 
     await navigateToProject('p1');
 
@@ -166,7 +173,7 @@ describe('navigateToProject', () => {
     expect(state.activeProjectId).toBe('p1');
     expect(setProjectHash).toHaveBeenCalledWith('p1');
     expect(messages.querySelector('.project-name')?.textContent).toBe('Home');
-    expect(messages.querySelector('[data-project-chat-id="c1"]')).not.toBeNull();
+    expect(messages.querySelector('.project-chat-list [data-conv-id="c1"]')).not.toBeNull();
     expect(messages.querySelector<HTMLTextAreaElement>('.project-instructions-input')?.value).toBe('Metric units');
   });
 
@@ -339,5 +346,20 @@ describe('sharing', () => {
     await navigateToProject('p1');
 
     expect(messages.querySelector('.project-share')).toBeNull();
+  });
+});
+
+describe('the chat list follows the store', () => {
+  it('re-renders when a chat is renamed or deleted, and stops after leaving', async () => {
+    const p = project('p1', 'Home');
+    (projects.get as Mock).mockResolvedValue(detail(p));
+    (projects.conversations as Mock).mockResolvedValue(page([chat('c1', { project_id: 'p1' }), chat('c2', { project_id: 'p1' })]));
+    await navigateToProject('p1');
+    expect(messages.querySelectorAll('.project-chat-list [data-conv-id]')).toHaveLength(2);
+
+    useStore.getState().removeConversation('c2');
+    await vi.waitFor(() =>
+      expect(messages.querySelectorAll('.project-chat-list [data-conv-id]')).toHaveLength(1)
+    );
   });
 });

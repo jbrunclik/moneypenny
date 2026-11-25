@@ -273,3 +273,31 @@ class TestMovingChats:
             },
         )
         assert _json(response)["moved_ids"] == [move.id]
+
+
+class TestShareNotification:
+    def test_added_member_gets_a_push_once(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        jana: User,
+        project: Project,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        import src.api.routes.projects as routes
+
+        sent: list[dict[str, Any]] = []
+        monkeypatch.setattr(
+            routes,
+            "send_push_to_user",
+            lambda user_id, **kw: sent.append({"user_id": user_id, **kw}),
+        )
+        url = f"/api/projects/{project.id}/members/{jana.id}"
+
+        assert client.put(url, headers=auth_headers).status_code == 200
+        assert client.put(url, headers=auth_headers).status_code == 200  # already a member
+
+        assert len(sent) == 1
+        assert sent[0]["user_id"] == jana.id
+        assert sent[0]["url"] == f"/#/projects/{project.id}"
+        assert "Home" in sent[0]["title"]

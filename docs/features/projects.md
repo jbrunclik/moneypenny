@@ -79,8 +79,11 @@ keys are not enforced here, and such a column cannot be dropped on rollback).
   they still hold the text the change was computed from. A project card has no memory
   part.
 - `manage_project` (ordinary non-anonymous chats only, never a grant): `list`,
-  `create` (moves the current chat by default), `move_chat`, `remove_chat`, `rename`
-  (owner), `set_instructions`. A move takes effect from the next turn.
+  `create` (moves the current chat by default; optional `facts` - the topic facts the
+  chat settled - start the project's memory through `manage_memory`'s guards,
+  `save_project_facts`), `move_chat`, `remove_chat`, `rename` (owner),
+  `set_instructions` (needs text: no silent wipe). A move takes effect from the next
+  turn.
 - **Background memory review**: in a project chat the prompt lists the project's
   memories and the two scopes; in a shared project, the privacy rule. The nightly
   instructions review learns personal style only from chats outside projects.
@@ -97,8 +100,12 @@ keys are not enforced here, and such a column cannot be dropped on rollback).
 
 - **Sidebar**: a Projects group (only once the user has a project) with a shared marker
   and an unread dot; **New project** is in the user menu.
+- **Sharing** pushes a notification to the added member ("<owner> shared <project>
+  with you", opening the project page), once per added member.
 - **Project page** (`#/projects/<id>`, `ProjectPage.ts`): name and members, Share
-  (owner) / Rename / Delete or Leave, New chat in this project, the user's chats,
+  (owner) / Rename / Delete or Leave, New chat in this project, the user's chats as
+  the sidebar's own rows (`projectConversationRows`: recency groups, hover and swipe
+  actions; the page re-renders them from the store),
   instructions (save on blur), project memory (author names when shared), documents.
 - **Moving chats**: the chat's menu (Move to project… / Remove from project, with Undo)
   and bulk select (Move to project).

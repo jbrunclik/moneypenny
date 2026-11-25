@@ -67,7 +67,7 @@ for (const viewport of [
       const projectRow = page.locator('.project-item', { hasText: 'Bikes' });
       await expect(projectRow).toBeVisible();
       await projectRow.click();
-      await expect(page.locator('.project-page .project-chat')).toHaveCount(1);
+      await expect(page.locator('.project-page .project-chat-list [data-conv-id]')).toHaveCount(1);
     });
 
     test('an existing chat moves into a project from its menu', async ({ page }) => {
@@ -85,7 +85,7 @@ for (const viewport of [
       await expect(page.locator('#conversations-list [data-conv-id]', { hasText: 'Wallbox hookup' })).toHaveCount(0);
       await expect(page.locator('#conversations-list [data-conv-id]', { hasText: 'Dinner ideas' })).toHaveCount(1);
       await page.locator('.project-item', { hasText: 'Home' }).click();
-      await expect(page.locator('.project-page .project-chat', { hasText: 'Wallbox hookup' })).toBeVisible();
+      await expect(page.locator('.project-page .project-chat-list [data-conv-id]', { hasText: 'Wallbox hookup' })).toBeVisible();
     });
 
     test('selected chats move into a new project together', async ({ page }) => {
@@ -107,7 +107,7 @@ for (const viewport of [
       await expect(page.locator('#selection-bar')).toBeHidden();
       await expect(page.locator('#conversations-list [data-conv-id]')).toHaveCount(1);
       await page.locator('.project-item', { hasText: 'Bikes' }).click();
-      await expect(page.locator('.project-page .project-chat')).toHaveCount(2);
+      await expect(page.locator('.project-page .project-chat-list [data-conv-id]')).toHaveCount(2);
     });
 
     test('the project instructions save on blur', async ({ page }) => {

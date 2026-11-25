@@ -391,6 +391,13 @@ export function setupEventListeners(): void {
     runClickAction(CONVERSATION_LIST_ACTIONS, e);
   });
 
+  // A project page lists its chats with the sidebar's rows: same actions
+  getElementById('messages')?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('.project-chat-list')) {
+      runClickAction(CONVERSATION_LIST_ACTIONS, e);
+    }
+  });
+
   // Document preview (open in new tab), download buttons, and message copy buttons
   getElementById('messages')?.addEventListener('click', (e) => {
     runClickAction(MESSAGE_ACTIONS, e);

@@ -243,14 +243,29 @@ function conversationGroups(conversations: Conversation[]): HTMLElement[] {
     rows.push(groupLabel('Pinned'), ...pinnedConversations.map((conv) => conversationItem(conv, conv.id === activeId)));
   }
 
+  rows.push(...recencyRows(regularConversations, activeId));
+  return rows;
+}
+
+/** Rows under recency labels (Today, Yesterday...), in the given order. */
+function recencyRows(conversations: Conversation[], activeId: string | undefined): HTMLElement[] {
+  const rows: HTMLElement[] = [];
   let lastGroup: string | null = null;
-  for (const conv of regularConversations) {
+  for (const conv of conversations) {
     const group = groupForDate(conv.updated_at);
     if (group !== lastGroup) rows.push(groupLabel(group));
     lastGroup = group;
     rows.push(conversationItem(conv, conv.id === activeId));
   }
   return rows;
+}
+
+/**
+ * A project's chats as the sidebar shows chats - the same rows, recency
+ * groups and actions (the project page; newest first).
+ */
+export function projectConversationRows(conversations: Conversation[]): HTMLElement[] {
+  return recencyRows(conversations, undefined);
 }
 
 /** Three bouncing dots under a list while more rows can load. */
