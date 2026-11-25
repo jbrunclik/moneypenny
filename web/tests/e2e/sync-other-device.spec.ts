@@ -385,7 +385,9 @@ test("a send while another device's reply is running steers that reply (one turn
   await expect(phone.locator('.message.assistant')).toContainText('a!');
   await phone.fill('#message-input', 'Long answer please');
   await phone.click('#send-btn');
-  await expect(phone.locator('.message.assistant.streaming')).toBeVisible();
+  // Its turn runs on the server once text streams in (the bubble alone shows
+  // at the send: under load this device's send could still start a turn first)
+  await expect(phone.locator('.message.assistant.streaming')).toContainText('mock', { timeout: 15000 });
 
   // This device hasn't polled yet: it sends a regular message
   await page.fill('#message-input', 'Keep it short');
@@ -415,6 +417,33 @@ test("a send while another device's reply is running steers that reply (one turn
   await poll(phone);
   await expect(phone.locator('.message.user', { hasText: 'Keep it short' })).toHaveCount(1);
   expect((await texts(phone)).slice(2)).toEqual(['U:Long', 'U:Keep', 'A']);
+  await request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
+  await phone.close();
+});
+
+test("another device's question that steered this device's reply shows up here", async ({ page, context, request }) => {
+  await item(page, 'Alpha').click();
+  await expect(page.locator('.message.assistant')).toContainText('a!');
+  await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+  await request.post('/test/set-consume-steering', { data: { consume: true } });
+  const phone = await context.newPage();
+  await phone.goto(`/#/conversations/${ids.alpha}`);
+  await expect(phone.locator('.message.assistant')).toContainText('a!');
+
+  // This device's turn runs on the server...
+  await page.fill('#message-input', 'Keep it short');
+  await page.click('#send-btn');
+  await expect(page.locator('.message.assistant.streaming')).toContainText('mock', { timeout: 15000 });
+  // ...and the phone, not having polled, sends into it: the server folds it in as steering
+  await phone.fill('#message-input', 'Long answer please');
+  await phone.click('#send-btn');
+  await expect(phone.locator('.message.user', { hasText: 'Long answer please' })).toBeVisible();
+
+  const live = page.locator('.message.assistant').last();
+  await expect(live).not.toHaveClass(/streaming/, { timeout: 20000 });
+  // The reply's server count includes the phone's question: this device fetches it
+  await expect(page.locator('.message.user', { hasText: 'Long answer please' })).toHaveCount(1, { timeout: 10000 });
+  await expect(page.locator('.message.assistant')).toHaveCount(2);
   await request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
   await phone.close();
 });

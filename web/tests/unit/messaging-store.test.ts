@@ -116,6 +116,7 @@ vi.mock('@/sync/SyncManager', () => ({
   getSyncManager: vi.fn(() => ({
     incrementLocalMessageCount: vi.fn(),
     setLocalMessageCount: vi.fn(),
+    getLocalMessageCount: vi.fn(() => undefined),
     noteOwnMessageSaved: vi.fn(),
     setConversationStreaming: vi.fn(),
   })),

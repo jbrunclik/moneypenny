@@ -177,13 +177,33 @@ export function initStreamingRequest(
 /**
  * Clean up streaming request resources.
  */
+/**
+ * Whether the server holds messages this device's turn didn't bring: more
+ * than the baseline before it plus its question and reply (its own steering
+ * counted itself). Another device's question that the server folded into
+ * this turn as steering is one - taking the server's count as the baseline
+ * would hide it from sync for good. A regenerate or continue moves the count
+ * by 0 / +1, never past +2.
+ */
+export function serverHasMissedMessages(convId: string, messageSuccessful: boolean, serverMessageCount: number | undefined): boolean {
+  if (!messageSuccessful || serverMessageCount === undefined) return false;
+  const before = getSyncManager()?.getLocalMessageCount(convId);
+  return before !== undefined && serverMessageCount > before + 2;
+}
+
+/**
+ * Release a finished turn's request and per-conversation state. Returns
+ * whether the server holds messages this turn didn't bring (the caller
+ * merges them in).
+ */
 export function cleanupStreamingRequest(
   requestId: string,
   convId: string,
   messageSuccessful: boolean,
   serverMessageCount?: number
-): void {
+): boolean {
   untrackRequest(requestId);
+  const missed = serverHasMissedMessages(convId, messageSuccessful, serverMessageCount);
   // The sync baseline BEFORE the streaming flag clears below: clearing it
   // applies any summary deferred during the turn against this count
   if (serverMessageCount !== undefined) {
@@ -195,7 +215,7 @@ export function cleanupStreamingRequest(
   // A newer turn already started in this conversation (a follow-up sent while
   // this one fetched its cost, an autostarted deep research): the shared
   // per-conversation state is the new turn's now - leave it alone
-  if (hasTrackedRequestFor(convId)) return;
+  if (hasTrackedRequestFor(convId)) return missed;
 
   // However the turn ended, its reserved send-to-top space goes back
   settleTurnFor(convId);
@@ -211,6 +231,7 @@ export function cleanupStreamingRequest(
   if (useStore.getState().streamingConversationId === convId) {
     useStore.getState().setStreamingConversation(null);
   }
+  return missed;
 }
 
 /**

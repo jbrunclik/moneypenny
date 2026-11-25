@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const sync = {
   setConversationStreaming: vi.fn(),
   setLocalMessageCount: vi.fn(),
+  getLocalMessageCount: vi.fn(() => undefined),
   incrementLocalMessageCount: vi.fn(),
 };
 vi.mock('@/sync/SyncManager', () => ({ getSyncManager: () => sync }));

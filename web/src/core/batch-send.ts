@@ -36,6 +36,7 @@ import { clearInflightBatch, persistInflightBatch } from './inflight-batches';
 import { answerUnreadSteering } from './steering';
 import { hasOpenProposals } from './proposal-sync';
 import { mergeExternalChanges } from './remote-merge';
+import { serverHasMissedMessages } from './stream-session';
 
 const log = createLogger('messaging');
 
@@ -274,10 +275,13 @@ export async function sendBatchMessage(
     useStore.getState().removeActiveRequest(convId);
     clearInflightBatch(convId, tempUserMessageId);
 
+    // Before completeBatchTurn takes the server's count as the baseline: another
+    // device's question the server folded into this turn as steering (as streaming)
+    const missed = serverHasMissedMessages(convId, true, response.message_count ?? undefined);
     await completeBatchTurn(convId, tempUserMessageId, response);
     if (response.unanswered_steering_id) answerUnreadSteering(convId, response.unanswered_steering_id);
     // Cards a typed yes answered on the server re-render (proposal-sync.ts)
-    if (hasOpenProposals(convId)) void mergeExternalChanges(convId);
+    if (missed || hasOpenProposals(convId)) void mergeExternalChanges(convId);
   } catch (error) {
     handleBatchSendError(error, convId, tempUserMessageId);
   } finally {

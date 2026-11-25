@@ -258,6 +258,7 @@ export async function sendStreamingMessage(
 
   // Mark for recovery on mobile background/lock; proactively resume on return
   const cleanupLifecycleListeners = setupStreamLifecycleListeners(state, convId);
+  let missed: boolean;
 
   try {
     const location = await clientLocation;
@@ -288,11 +289,18 @@ export async function sendStreamingMessage(
     // other concurrent streams keep their entries.
     // (only this turn's entry: a newer turn may have registered its own)
     if (state.expectedAssistantMessageId) clearInflightStream(convId, state.expectedAssistantMessageId);
-    cleanupStreamingRequest(requestId, convId, state.messageSuccessful, state.serverMessageCount);
+    missed = cleanupStreamingRequest(requestId, convId, state.messageSuccessful, state.serverMessageCount);
   }
-  // (after the cleanup: a merge skips a conversation with a turn of its own)
-  // Renders the other device's question in place and follows its reply live;
-  // re-renders cards a typed yes answered on the server
-  if (state.interjectedInto || hasOpenProposals(convId)) await mergeExternalChanges(convId);
+  await afterTurn(convId, state, missed);
+}
+
+/**
+ * After the cleanup (a merge skips a conversation with a turn of its own):
+ * render the other device's question in place and follow its reply live -
+ * also when it was folded into OUR turn as steering (missed) - re-render
+ * cards a typed yes answered on the server, and answer unread steering.
+ */
+async function afterTurn(convId: string, state: StreamSend['state'], missed: boolean): Promise<void> {
+  if (state.interjectedInto || missed || hasOpenProposals(convId)) await mergeExternalChanges(convId);
   if (state.unansweredSteeringId) answerUnreadSteering(convId, state.unansweredSteeringId);
 }

@@ -9,7 +9,12 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const sync = { setConversationStreaming: vi.fn(), incrementLocalMessageCount: vi.fn() };
+const sync = {
+  setConversationStreaming: vi.fn(),
+  incrementLocalMessageCount: vi.fn(),
+  setLocalMessageCount: vi.fn(),
+  getLocalMessageCount: vi.fn((): number | undefined => 4),
+};
 vi.mock('@/sync/SyncManager', () => ({ getSyncManager: () => sync }));
 vi.mock('@/components/messages', () => ({
   cleanupStreamingContext: vi.fn(),
@@ -54,5 +59,23 @@ describe('cleanupStreamingRequest', () => {
     // The finished turn's own messages are still counted
     expect(sync.incrementLocalMessageCount).toHaveBeenCalledWith('c1', 2);
     cleanupStreamingRequest('new', 'c1', true);
+  });
+
+  it("says when the server has messages this turn didn't bring (another device's steering)", () => {
+    // 4 known before the turn: its question and reply make 6
+    trackRequest('t', { conversationId: 'c1', type: 'stream' });
+    expect(cleanupStreamingRequest('t', 'c1', true, 6)).toBe(false);
+    trackRequest('t', { conversationId: 'c1', type: 'stream' });
+    expect(cleanupStreamingRequest('t', 'c1', true, 7)).toBe(true);
+    expect(sync.setLocalMessageCount).toHaveBeenLastCalledWith('c1', 7);
+    // a regenerate or continue changes the count by 0 / +1: nothing missed
+    trackRequest('t', { conversationId: 'c1', type: 'stream' });
+    expect(cleanupStreamingRequest('t', 'c1', true, 5)).toBe(false);
+    // no baseline yet, or the turn failed: no claim
+    sync.getLocalMessageCount.mockReturnValueOnce(undefined);
+    trackRequest('t', { conversationId: 'c1', type: 'stream' });
+    expect(cleanupStreamingRequest('t', 'c1', true, 9)).toBe(false);
+    trackRequest('t', { conversationId: 'c1', type: 'stream' });
+    expect(cleanupStreamingRequest('t', 'c1', false, 9)).toBe(false);
   });
 });

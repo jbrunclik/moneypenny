@@ -332,6 +332,11 @@ export class SyncManager {
     });
   }
 
+  /** This device's message-count baseline for a conversation (undefined: none yet). */
+  getLocalMessageCount(convId: string): number | undefined {
+    return this.state.localMessageCounts.get(convId);
+  }
+
   /**
    * Initialize local message count for a conversation discovered via pagination.
    * Only sets the count if we don't already have a baseline for this conversation.
