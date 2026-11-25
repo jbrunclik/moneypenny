@@ -47,6 +47,26 @@ test.describe('Visual: Project page - Desktop', () => {
     await expect(row).toHaveScreenshot('sidebar-row-hover.png');
   });
 
+  test('a hovered row action stands out from the hovered row', async ({ page }) => {
+    const conv = await page.request.post('/api/conversations', { data: {} });
+    const { id } = (await conv.json()) as { id: string };
+    await page.request.patch(`/api/conversations/${id}`, { data: { title: 'Wallbox' } });
+    await openProject(page);
+    // the end state, not a frame of the hover transition
+    await page.addStyleTag({ content: '* { transition: none !important; }' });
+    const row = page.locator(`#conversations-list [data-conv-id="${id}"] .conversation-item`);
+    await row.hover();
+    const rowBg = await row.evaluate((el) => getComputedStyle(el).backgroundColor);
+    for (const name of ['pin', 'rename', 'move', 'archive', 'delete']) {
+      const button = row.locator(`.conversation-${name}`);
+      await button.hover();
+      await expect(button, name).not.toHaveCSS('background-color', rowBg);
+      await expect(button, name).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    }
+    await row.locator('.conversation-move').hover();
+    await expect(row).toHaveScreenshot('sidebar-row-action-hover.png');
+  });
+
   test('sidebar with projects', async ({ page }) => {
     await openProject(page);
     await expect(page.locator('#sidebar')).toHaveScreenshot('project-sidebar.png');

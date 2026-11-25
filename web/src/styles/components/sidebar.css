@@ -288,6 +288,12 @@
     padding: var(--space-0-5);
 }
 
+/* The hovered row is already --bg-hover, so a hovered action takes a tint of
+   its own hover colour (accent, grey, red) - visible on the row in both themes */
+.conversation-actions > button:hover {
+    background-color: color-mix(in srgb, currentColor 22%, transparent);
+}
+
 .conversation-item:hover .conversation-text {
     margin-right: 108px;
 }
