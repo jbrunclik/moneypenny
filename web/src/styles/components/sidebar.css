@@ -982,6 +982,12 @@
     justify-content: center;
 }
 
+.selection-footer .btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
 .sidebar.selecting .sidebar-header,
 .sidebar.selecting #search-container,
 .sidebar.selecting .sidebar-footer,
