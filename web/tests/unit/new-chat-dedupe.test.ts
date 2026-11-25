@@ -30,6 +30,13 @@ describe('findReusableEmptyConversation', () => {
     expect(findReusableEmptyConversation([noCount])?.id).toBe('b');
   });
 
+  it("skips an empty chat in a project: New Chat must not land in the project", () => {
+    expect(findReusableEmptyConversation([conv({ id: 'p', project_id: 'wallbox' })])).toBeNull();
+    expect(
+      findReusableEmptyConversation([conv({ id: 'p', project_id: 'wallbox' }), conv({ id: 'main', project_id: null })])?.id,
+    ).toBe('main');
+  });
+
   it('skips titled, non-empty, archived and agent conversations', () => {
     expect(
       findReusableEmptyConversation([

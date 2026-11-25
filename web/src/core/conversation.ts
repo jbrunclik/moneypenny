@@ -81,7 +81,8 @@ export function findReusableEmptyConversation(
 ): Conversation | null {
   return (
     conversationList.find((c) => {
-      if (c.title !== DEFAULT_CONVERSATION_TITLE || c.archived || c.is_agent) return false;
+      // A project's empty chat is not reused: New Chat would land in the project
+      if (c.title !== DEFAULT_CONVERSATION_TITLE || c.archived || c.is_agent || c.project_id) return false;
       const isEmpty =
         c.messageCount === 0 || (c.messageCount === undefined && c.messages?.length === 0);
       return isEmpty;
