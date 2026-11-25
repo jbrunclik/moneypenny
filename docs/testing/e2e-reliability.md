@@ -403,7 +403,7 @@ by guessing):
 
 ## Key Files
 
-- [web/playwright.config.ts](../../web/playwright.config.ts) - per-project retries (webkit 3, chromium 2 on CI), pinned `workers: 4`
+- [web/playwright.config.ts](../../web/playwright.config.ts) - per-project retries (webkit 3, chromium 2 on CI), pinned `workers: 6` (4 until Nov 25 2026: 7.2 -> 5.4 min locally, measured in the config's comment; CI sets its own)
 - [tests/e2e_server/](../../tests/e2e_server/) - the mock server: `/dev/shm` databases (`settings.py`), `synchronous=OFF` (`db.py`), `SLOW`/`INFLIGHT` phase log (`request_log.py`)
 - [.github/workflows/test.yml](../../.github/workflows/test.yml) - one browser project per runner, webkit shards
 

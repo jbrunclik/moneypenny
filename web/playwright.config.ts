@@ -22,11 +22,14 @@ export default defineConfig({
   expect: {
     timeout: 10000,
   },
-  // Pinned: the single-process mock server (threaded Flask + SQLite)
-  // sustains ~8 concurrent contexts (4 workers x 2 browser projects).
-  // '50%' on beefy machines meant ~14 contexts and ~1/600 tests timing
-  // out waiting for mock responses during setup.
-  workers: 4,
+  // Pinned: the single-process mock server (threaded Flask + SQLite) has a
+  // ceiling - '50%' on beefy machines meant ~14 concurrent tests and ~1/600
+  // timing out waiting for mock responses during setup. Measured Nov 25 2026
+  // (E2E only, 1140 tests, laptop on power): 4 workers 7.2 min, 6 workers
+  // 5.4-5.5 min (3 runs: 1 failure, the known WebKit page.goto stall), 8 workers
+  // 4.9 min with 2 failures. The run is worker-bound (test-seconds / workers
+  // = wall time) and the server idles, so 6. CI passes its own --workers.
+  workers: 6,
   // CI also writes a JSON report for the flaky-test gate (tests/flaky-gate.ts, T6)
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
