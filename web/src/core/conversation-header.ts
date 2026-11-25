@@ -7,7 +7,7 @@ import { useStore } from '../state/store';
 import type { Conversation } from '../types/api';
 import { renderChatHeader } from '../components/ChatHeader';
 import { ARCHIVE_ICON, DELETE_ICON, DOWNLOAD_ICON, FOLDER_ICON, PIN_ICON, UNPIN_ICON, setIcon } from '../utils/icons';
-import { isTempConversation } from '../utils/conversation-id';
+import { canJoinProject, isTempConversation } from '../utils/conversation-id';
 import { deleteConversation, renameConversationTo, togglePinConversation } from './conversation-actions';
 import { archiveConversation } from './archive';
 import { exportConversation } from './file-actions';
@@ -71,7 +71,8 @@ function buildChatHeaderActions(convId: string): HTMLElement[] {
   setIcon(deleteBtn, DELETE_ICON);
   deleteBtn.addEventListener('click', () => void deleteConversation(convId));
 
-  return [pinBtn, moveBtn, exportBtn, archiveBtn, deleteBtn];
+  const movable = canJoinProject(conv ?? { id: convId }, useStore.getState().getAnonymousMode(convId));
+  return movable ? [pinBtn, moveBtn, exportBtn, archiveBtn, deleteBtn] : [pinBtn, exportBtn, archiveBtn, deleteBtn];
 }
 
 /**

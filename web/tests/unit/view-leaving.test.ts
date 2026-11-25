@@ -157,6 +157,14 @@ describe('opening a conversation from a feature view', () => {
     expectChatView();
   });
 
+  it('a pending anonymous toggle does not carry into a chat in a project', () => {
+    useStore.getState().setPendingAnonymousMode(true);
+    createConversation('p1');
+    const conv = useStore.getState().currentConversation;
+    expect(conv?.project_id).toBe('p1');
+    expect(useStore.getState().getAnonymousMode(conv?.id ?? '')).toBe(false);
+  });
+
   it('a plain new chat carries no project', () => {
     createConversation();
     expect(useStore.getState().currentConversation?.project_id).toBeNull();

@@ -6,6 +6,7 @@
  * for regular conversations (the mobile header takes over); program
  * variants keep it visible via their extraClass.
  */
+import { startInlineRename } from './inline-rename';
 import { CHAT_HEADER_BACK_ICON, FOLDER_ICON, setIcon, type IconHtml } from '../utils/icons';
 
 export interface ChatHeaderOptions {
@@ -124,32 +125,6 @@ export function createChatHeader(opts: ChatHeaderOptions): HTMLElement {
     header.appendChild(action);
   }
   return header;
-}
-
-function startInlineRename(title: HTMLElement, commit: (t: string) => void): void {
-  if (title.querySelector('input')) return;
-  const current = title.textContent ?? '';
-  const input = document.createElement('input');
-  input.className = 'chat-header-title-input';
-  input.value = current;
-  title.textContent = '';
-  title.appendChild(input);
-  input.focus();
-  input.select();
-  let finished = false;
-  const finish = (save: boolean): void => {
-    if (finished) return;
-    finished = true;
-    const value = input.value.trim();
-    const accepted = save && value.length > 0;
-    title.textContent = accepted ? value : current;
-    if (accepted && value !== current) commit(value);
-  };
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') finish(true);
-    if (e.key === 'Escape') finish(false);
-  });
-  input.addEventListener('blur', () => finish(true));
 }
 
 /** The mobile header's link to the open chat's project (hidden without one). */

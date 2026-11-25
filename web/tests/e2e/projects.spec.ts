@@ -70,6 +70,31 @@ for (const viewport of [
       await expect(page.locator('.project-page .project-chat-list [data-conv-id]')).toHaveCount(1);
     });
 
+    test('the name renames in place, and New Chat on the page starts a chat in it', async ({ page }) => {
+      const created = await page.request.post('/api/projects', { data: { name: 'Bikes' } });
+      const { id } = (await created.json()) as { id: string };
+      await page.goto(`/#/projects/${id}`);
+      await appReady(page);
+
+      const name = page.locator('.project-page .project-name');
+      await name.click();
+      await name.locator('input').fill('Kola');
+      await name.locator('input').press('Enter');
+      await expect(name).toHaveText('Kola');
+      await expect
+        .poll(async () => ((await (await page.request.get(`/api/projects/${id}`)).json()) as { project: { name: string } }).project.name)
+        .toBe('Kola');
+
+      await openSidebar(page);
+      await page.click('#new-chat-btn');
+      await page.fill('#message-input', 'Which chain lube?');
+      await page.click('#send-btn');
+      await expect(page).toHaveURL(/#\/conversations\//);
+      await serverReplySaved(page);
+      const projectLink = viewport.name === 'desktop' ? '#chat-header .chat-header-project' : '#current-chat-project';
+      await expect(page.locator(projectLink)).toHaveText('Kola');
+    });
+
     test('an existing chat moves into a project from its menu', async ({ page }) => {
       await seedChats(page, ['Wallbox hookup', 'Dinner ideas']);
       await page.request.post('/api/projects', { data: { name: 'Home' } });

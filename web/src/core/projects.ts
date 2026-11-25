@@ -218,14 +218,16 @@ export async function createProjectAndOpen(): Promise<void> {
   if (project) await navigateToProject(project.id);
 }
 
-async function renameProject(project: Project): Promise<void> {
-  const name = (await showPrompt({ title: 'Rename project', message: 'New name', defaultValue: project.name }))?.trim();
-  if (!name || name === project.name) return;
+/** The page's in-place rename (the edit already shows the new name). */
+async function renameProject(project: Project, name: string): Promise<void> {
   try {
     useStore.getState().upsertProject(await projects.update(project.id, { name }));
+    updateChatTitle(name);
+    renderConversationsList();
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : 'Failed to rename the project.');
+    // put the old name back
     await navigateToProject(project.id);
-  } catch {
-    toast.error('Failed to rename the project.');
   }
 }
 
@@ -348,7 +350,7 @@ function pageCallbacks(project: Project): ProjectPageCallbacks {
         throw error;
       }
     },
-    onRename: () => void renameProject(project),
+    onRename: (name) => void renameProject(project, name),
     onShare: () => void shareProject(project),
     onDelete: () => void deleteProject(project),
     onLeave: () => void leaveProject(project),

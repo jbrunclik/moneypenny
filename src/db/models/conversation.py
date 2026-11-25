@@ -127,7 +127,8 @@ class ConversationMixin:
         """Persist the anonymous-mode flag for a conversation.
 
         Deliberately does not touch updated_at: toggling privacy is not activity
-        and should not reorder the conversation list.
+        and should not reorder the conversation list. Turning it on takes the
+        chat out of its project: an anonymous chat is never in one.
 
         Args:
             conv_id: The conversation ID
@@ -140,8 +141,11 @@ class ConversationMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                "UPDATE conversations SET anonymous_mode = ? WHERE id = ? AND user_id = ?",
-                (int(anonymous_mode), conv_id, user_id),
+                # an anonymous chat is never in a project (no project memory)
+                """UPDATE conversations SET anonymous_mode = ?,
+                       project_id = CASE WHEN ? THEN NULL ELSE project_id END
+                   WHERE id = ? AND user_id = ?""",
+                (int(anonymous_mode), int(anonymous_mode), conv_id, user_id),
             )
             conn.commit()
             return cursor.rowcount > 0

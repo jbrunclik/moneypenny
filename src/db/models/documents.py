@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Final
 from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.db.models.dataclasses import Document
-from src.db.models.helpers import make_document_blob_key
+from src.db.models.helpers import is_live_project_member, make_document_blob_key
 from src.db.models.timestamps import from_db, from_db_or_none, to_db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
@@ -104,7 +104,8 @@ class DocumentMixin:
 
         Raises:
             DocumentWriteError: ``replaces`` is not a live document of this
-                user, or the save would pass a limit. Nothing is written (the
+                user, the user has left ``project_id``, or the save would pass
+                a limit. Nothing is written (the
                 blob is removed again).
         """
         doc_id = str(uuid.uuid4())
@@ -114,6 +115,9 @@ class DocumentMixin:
         try:
             with self._pool.get_connection() as conn:
                 self._execute_with_timing(conn, "BEGIN IMMEDIATE")
+                if project_id is not None and not is_live_project_member(conn, project_id, user_id):
+                    conn.rollback()
+                    raise DocumentWriteError("you are no longer a member of that project")
                 if replaces is not None:
                     self._retire_replaced(conn, replaces, user_id, now, project_id)
                 if limits is not None:

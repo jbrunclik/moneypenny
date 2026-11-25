@@ -205,11 +205,15 @@ def delete_project(user: User, project_id: str) -> tuple[dict[str, str], int]:
 
 @api.route("/projects/<project_id>/restore", methods=["POST"])
 @api.output(StatusResponse)
-@api.doc(responses=[404])
+@api.doc(responses=[404, 409])
 @require_auth
 def restore_project(user: User, project_id: str) -> tuple[dict[str, str], int]:
     """Bring a deleted project back with its memory and documents."""
-    if not db.restore_project(project_id, user.id):
+    try:
+        restored = db.restore_project(project_id, user.id)
+    except ProjectWriteError as e:
+        raise_conflict_error(str(e))
+    if not restored:
         raise_not_found_error("Project")
     return {"status": "restored"}, 200
 

@@ -359,6 +359,15 @@ describe('setupEventListeners', () => {
       expect(m.toggleSidebar).toHaveBeenCalled();
     });
 
+    it('New Chat on a project page starts a chat in that project', () => {
+      useStore.setState({ isProjectView: true, activeProjectId: 'p1' });
+      click(document.getElementById('new-chat-btn') as Element);
+      expect(m.createConversation).toHaveBeenLastCalledWith('p1');
+      useStore.setState({ isProjectView: false, activeProjectId: null });
+      click(document.getElementById('new-chat-btn') as Element);
+      expect(m.createConversation).toHaveBeenLastCalledWith(null);
+    });
+
     it('routes typing in a quiz text input to the quiz', () => {
       const input = messages.appendChild(el('<input class="quiz-text-input">')) as HTMLInputElement;
       input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -395,6 +404,26 @@ describe('setupEventListeners', () => {
       expect(m.renameConversation).toHaveBeenCalledWith('c1');
       expect(m.archiveConversation).toHaveBeenCalledWith('c1');
       expect(m.deleteConversation).toHaveBeenCalledWith('c1');
+    });
+
+    it('gives Remove from project its own icon', () => {
+      useStore.setState({
+        conversations: [{ id: 'c1', title: 'Chat', model: 'm', created_at: '', updated_at: '', project_id: 'p1' }],
+      });
+      click(list.appendChild(el('<button data-more-id="c1"></button>')));
+      const actions = m.showActionSheet.mock.lastCall?.[1] as { label: string; icon?: string }[];
+      const icon = (label: string): string | undefined => actions.find((a) => a.label === label)?.icon;
+      expect(icon('Remove from project')).toBeTruthy();
+      expect(icon('Remove from project')).not.toBe(icon('Move to project…'));
+    });
+
+    it('offers no Move to project for an anonymous chat', () => {
+      useStore.setState({
+        conversations: [{ id: 'c9', title: 'Chat', model: 'm', created_at: '', updated_at: '' }],
+      });
+      useStore.getState().setAnonymousMode('c9', true);
+      click(list.appendChild(el('<button data-more-id="c9"></button>')));
+      expect(sheetActions().map((a) => a.label)).not.toContain('Move to project…');
     });
 
     it('titles an archived conversation from the archive list and unarchives it', () => {

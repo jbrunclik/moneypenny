@@ -72,6 +72,13 @@ describe('renderChatHeaderForConversation', () => {
     expect(action('Pin conversation').querySelector('svg')).not.toBeNull();
   });
 
+  it('offers no Move to project for an anonymous chat', () => {
+    useStore.getState().setAnonymousMode(conv().id, true);
+    renderChatHeaderForConversation(conv());
+    expect(lastOptions().actions?.map((b) => b.getAttribute('aria-label'))).not.toContain('Move to project');
+    useStore.getState().setAnonymousMode(conv().id, false);
+  });
+
   it('offers Unpin for a pinned conversation', () => {
     useStore.getState().addConversation(conv({ pinned: true }));
     renderChatHeaderForConversation(conv());

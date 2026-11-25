@@ -33,7 +33,12 @@ from src.agent.tools.turn_usage import record_tool_call
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import Memory
-from src.db.models.memory import MemoryLimitError, MemoryWrite, MemoryWriteConflictError
+from src.db.models.memory import (
+    MemoryLimitError,
+    MemoryScopeError,
+    MemoryWrite,
+    MemoryWriteConflictError,
+)
 from src.utils.clock import local_today
 from src.utils.embeddings import embed_text, top_k_similar
 from src.utils.logging import get_logger
@@ -515,7 +520,7 @@ def _run_batch(user_id: str, conversation_id: str | None, operations: list[Memor
         new_ids = db.apply_memory_batch(
             user_id, conversation_id, [p.write for p in planned], project_id=project_id
         )
-    except MemoryLimitError as e:
+    except (MemoryLimitError, MemoryScopeError) as e:
         return [_reject("batch", f"{e}. Nothing was applied.")]
     except MemoryWriteConflictError as e:
         logger.info("Memory write rejected", extra={"action": "batch", "reason": "conflict"})
@@ -564,7 +569,7 @@ def save_project_facts(
         db.apply_memory_batch(
             user_id, conversation_id, [p.write for p in planned], project_id=project_id
         )
-    except MemoryLimitError as e:
+    except (MemoryLimitError, MemoryScopeError) as e:
         return _reject("facts", f"{e}. None were saved.")
     logger.info(
         "Project memory write",

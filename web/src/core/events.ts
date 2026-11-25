@@ -12,9 +12,9 @@ import { toggleSidebar } from '../components/Sidebar';
 import { getElementById } from '../utils/dom';
 import { resetSwipeStates } from '../gestures/swipe';
 import { showActionSheet, type SheetAction } from '../components/ActionSheet';
-import { isTempConversation } from '../utils/conversation-id';
+import { canJoinProject } from '../utils/conversation-id';
 import { useStore } from '../state/store';
-import { ARCHIVE_ICON, DELETE_ICON, DOWNLOAD_ICON, EDIT_ICON, FOLDER_ICON, PIN_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
+import { ARCHIVE_ICON, DELETE_ICON, DOWNLOAD_ICON, EDIT_ICON, FOLDER_ICON, FOLDER_MINUS_ICON, PIN_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
 
 import { createConversation, selectConversation } from './conversation';
 import { deleteConversation, renameConversation, togglePinConversation } from './conversation-actions';
@@ -34,11 +34,12 @@ const log = createLogger('events');
 
 /** Move to project / Remove from project, for an ordinary saved chat. */
 function projectActions(convId: string): SheetAction[] {
-  const conv = useStore.getState().conversations.find((c) => c.id === convId);
-  if (!conv || conv.is_whats_new || conv.is_agent || isTempConversation(convId)) return [];
+  const store = useStore.getState();
+  const conv = store.conversations.find((c) => c.id === convId);
+  if (!conv || !canJoinProject(conv, store.getAnonymousMode(convId))) return [];
   const move = { label: 'Move to project…', icon: FOLDER_ICON, onSelect: () => moveChatFromMenu(convId) };
   return conv.project_id
-    ? [move, { label: 'Remove from project', icon: FOLDER_ICON, onSelect: () => removeChatFromProject(convId) }]
+    ? [move, { label: 'Remove from project', icon: FOLDER_MINUS_ICON, onSelect: () => removeChatFromProject(convId) }]
     : [move];
 }
 
@@ -371,7 +372,11 @@ const MESSAGE_ACTIONS: readonly ClickAction[] = [
 
 export function setupEventListeners(): void {
   // New chat button
-  getElementById('new-chat-btn')?.addEventListener('click', () => createConversation());
+  // On a project page, New Chat starts a chat in that project
+  getElementById('new-chat-btn')?.addEventListener('click', () => {
+    const { isProjectView, activeProjectId } = useStore.getState();
+    createConversation(isProjectView ? activeProjectId : null);
+  });
 
   // Mobile menu button
   getElementById('menu-btn')?.addEventListener('click', toggleSidebar);

@@ -4,6 +4,7 @@ import { createUserAvatarElement } from '../utils/avatar';
 import { isSidebarPreviewsEnabled, getSwipeQuickAction } from '../utils/preferences';
 import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, CLOCK_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, FOLDER_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPARKLES_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON, createIconButton, createIconElement, iconNodes, type IconHtml } from '../utils/icons';
 import { useStore } from '../state/store';
+import { canJoinProject } from '../utils/conversation-id';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, JobsOverviewResponse, Project, User } from '../types/api';
 import { conversations as conversationsApi } from '../api/conversations';
@@ -437,7 +438,7 @@ function rowActions(conv: Conversation): HTMLElement {
   return el('div', { class: 'conversation-actions' }, [
     createIconButton({ class: 'conversation-pin', 'data-pin-id': id, 'aria-label': pinLabel, title: pinLabel }, conv.pinned ? UNPIN_ICON : PIN_ICON),
     createIconButton({ class: 'conversation-rename', 'data-rename-id': id, 'aria-label': 'Rename' }, EDIT_ICON),
-    !conv.is_whats_new &&
+    canJoinProject(conv, useStore.getState().getAnonymousMode(id)) &&
       createIconButton({ class: 'conversation-move', 'data-move-id': id, 'aria-label': 'Move to project', title: 'Move to project' }, FOLDER_ICON),
     createIconButton({ class: 'conversation-archive', 'data-archive-id': id, 'aria-label': 'Archive' }, ARCHIVE_ICON),
     createIconButton({ class: 'conversation-delete', 'data-delete-id': id, 'aria-label': 'Delete' }, DELETE_ICON),

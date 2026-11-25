@@ -104,6 +104,19 @@ class TestManageProject:
         assert "REMOVED" in _ops({"op": "remove_chat"})
         assert _project_of(test_database, chat.id) is None
 
+    def test_remove_chat_in_no_project_says_so(self, chat: Conversation) -> None:
+        result = _ops({"op": "remove_chat"})
+        assert "REMOVED" not in result
+        assert "not in a project" in result
+
+    def test_moving_this_chat_says_where_its_saves_go_now(
+        self, test_database: Database, test_user: User, chat: Conversation
+    ) -> None:
+        test_database.create_project(test_user.id, "Bikes")
+        result = _ops({"op": "move_chat", "project": "Bikes"})
+        # project memory and documents saved later in this turn go to the new project
+        assert "saved from now on go to it" in result
+
     def test_rename_by_member_rejected(
         self, test_database: Database, test_user: User, chat: Conversation
     ) -> None:

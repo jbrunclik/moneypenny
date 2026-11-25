@@ -16,6 +16,7 @@ import {
   iconNodes,
 } from '../utils/icons';
 import { projectConversationRows } from './Sidebar';
+import { startInlineRename } from './inline-rename';
 import type { Conversation, DocumentsResponse, ProjectDetail } from '../types/api';
 import { createEmptyState } from './EmptyState';
 import { renderDocumentsSections, type DocumentCallbacks } from './kv-documents';
@@ -27,7 +28,8 @@ export interface ProjectPageCallbacks extends MemoryCallbacks, DocumentCallbacks
   onNewChat: () => void;
   onLoadMoreChats: () => void;
   onSaveInstructions: (instructions: string) => Promise<void>;
-  onRename: () => void;
+  /** The owner renamed the project in place */
+  onRename: (name: string) => void;
   onShare: () => void;
   onDelete: () => void;
   onLeave: () => void;
@@ -54,15 +56,39 @@ function membersLine(detail: ProjectDetail): string {
   return `Shared: ${project.member_names.join(', ')}`;
 }
 
+/** The name: the owner renames it in place (a click, or the Rename button), like a chat title. */
+function renderName(detail: ProjectDetail, callbacks: ProjectPageCallbacks): HTMLHeadingElement {
+  const name = createElement('h2', { class: 'project-name' }, [detail.project.name]);
+  if (detail.project.is_owner) {
+    name.classList.add('renameable');
+    name.title = 'Rename project';
+    name.addEventListener('click', () => startInlineRename(name, callbacks.onRename, 'project-name-input'));
+  }
+  return name;
+}
+
+/** Who has access; for the owner a button that opens the share sheet. */
+function renderMembers(detail: ProjectDetail, callbacks: ProjectPageCallbacks): HTMLElement {
+  if (!detail.project.is_owner) {
+    return createElement('span', { class: 'project-members' }, [membersLine(detail)]);
+  }
+  const members = createElement('button', { type: 'button', class: 'project-members project-members-btn', title: 'Share' }, [
+    membersLine(detail),
+  ]);
+  members.addEventListener('click', callbacks.onShare);
+  return members;
+}
+
 function renderHeader(detail: ProjectDetail, callbacks: ProjectPageCallbacks): HTMLDivElement {
   const { project } = detail;
   const actions: HTMLElement[] = [];
+  const name = renderName(detail, callbacks);
   if (project.is_owner) {
     const rename = createElement('button', { type: 'button', class: 'btn-refresh project-rename' }, [
       iconNodes(EDIT_ICON),
       'Rename',
     ]);
-    rename.addEventListener('click', callbacks.onRename);
+    rename.addEventListener('click', () => startInlineRename(name, callbacks.onRename, 'project-name-input'));
     const share = createElement('button', { type: 'button', class: 'btn-refresh project-share' }, [
       iconNodes(USERS_ICON),
       'Share',
@@ -86,8 +112,8 @@ function renderHeader(detail: ProjectDetail, callbacks: ProjectPageCallbacks): H
     createElement('div', { class: 'kv-store-title' }, [
       createIconElement('kv-store-icon', FOLDER_ICON),
       createElement('div', { class: 'project-title-block' }, [
-        createElement('h2', { class: 'project-name' }, [project.name]),
-        createElement('span', { class: 'project-members' }, [membersLine(detail)]),
+        name,
+        renderMembers(detail, callbacks),
       ]),
     ]),
     createElement('div', { class: 'kv-store-header-actions' }, actions),

@@ -155,6 +155,26 @@ class TestProjects:
         assert deleted[personal.id] is None
         assert [p.id for p in test_database.list_deleted_projects(test_user.id)] == [project.id]
 
+    def test_restore_past_cap_raises(
+        self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Config, "PROJECTS_MAX_PER_USER", 1)
+        old = test_database.create_project(test_user.id, "Old")
+        test_database.delete_project(old.id, test_user.id)
+        test_database.create_project(test_user.id, "New")
+        with pytest.raises(ProjectWriteError, match="limit is 1"):
+            test_database.restore_project(old.id, test_user.id)
+        assert test_database.get_project(old.id, test_user.id) is None
+
+    def test_turning_a_chat_anonymous_takes_it_out_of_its_project(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        project = test_database.create_project(test_user.id, "Home")
+        conv = test_database.create_conversation(test_user.id, "Wallbox")
+        test_database.set_conversation_project(conv.id, test_user.id, project.id)
+        test_database.set_conversation_anonymous_mode(conv.id, test_user.id, True)
+        assert _project_id_of(test_database, "conversations", conv.id) is None
+
     def test_restore_brings_back_memories_not_chats(
         self, test_database: Database, test_user: User
     ) -> None:

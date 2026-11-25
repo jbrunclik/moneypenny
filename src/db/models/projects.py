@@ -99,20 +99,10 @@ class ProjectMixin:
         """
         project_id = str(uuid.uuid4())
         now = to_db(utc_now())
-        limit = Config.PROJECTS_MAX_PER_USER
         with self._pool.get_connection() as conn:
             self._execute_with_timing(conn, "BEGIN IMMEDIATE")
             try:
-                owned = self._execute_with_timing(
-                    conn,
-                    "SELECT COUNT(*) FROM projects WHERE owner_id = ? AND deleted_at IS NULL",
-                    (owner_id,),
-                ).fetchone()[0]
-                if owned >= limit:
-                    raise ProjectWriteError(
-                        f"You already have {owned} projects, the limit is {limit}. "
-                        "Delete one first."
-                    )
+                self._check_owned_cap(conn, owner_id)
                 self._execute_with_timing(
                     conn,
                     """INSERT INTO projects (id, owner_id, name, instructions, created_at, updated_at)
@@ -133,6 +123,20 @@ class ProjectMixin:
         if project is None:  # just written in this transaction's commit
             raise ProjectWriteError("the new project could not be read back")
         return project
+
+    def _check_owned_cap(self, conn: sqlite3.Connection, owner_id: str) -> None:
+        """Refuse one more live project past PROJECTS_MAX_PER_USER (a create or
+        a restore), inside the caller's write transaction."""
+        limit = Config.PROJECTS_MAX_PER_USER
+        owned = self._execute_with_timing(
+            conn,
+            "SELECT COUNT(*) FROM projects WHERE owner_id = ? AND deleted_at IS NULL",
+            (owner_id,),
+        ).fetchone()[0]
+        if owned >= limit:
+            raise ProjectWriteError(
+                f"You already have {owned} projects, the limit is {limit}. Delete one first."
+            )
 
     def get_project(self, project_id: str, user_id: str) -> Project | None:
         """A live project the user is a member of."""
@@ -324,7 +328,11 @@ class ProjectMixin:
 
     def restore_project(self, project_id: str, owner_id: str) -> bool:
         """Bring a deleted project back with the memories and documents that
-        were deleted with it (not its chats: they may have moved since)."""
+        were deleted with it (not its chats: they may have moved since).
+
+        Raises:
+            ProjectWriteError: the owner already has PROJECTS_MAX_PER_USER live projects
+        """
         with self._pool.get_connection() as conn:
             self._execute_with_timing(conn, "BEGIN IMMEDIATE")
             try:
@@ -335,6 +343,7 @@ class ProjectMixin:
                     (project_id, owner_id),
                 ).fetchone()
                 if row:
+                    self._check_owned_cap(conn, owner_id)
                     for table in _SCOPED_TABLES:
                         self._execute_with_timing(
                             conn,

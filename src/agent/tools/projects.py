@@ -28,7 +28,10 @@ from src.utils.threat_patterns import find_injection
 
 logger = get_logger(__name__)
 
-_NEXT_TURN = "This chat is in the project from your next reply on."
+_NEXT_TURN = (
+    "This chat is in the project now: project memory and documents saved from now on go to "
+    "it; its instructions and memory reach you from your next reply."
+)
 
 
 class ProjectOp(BaseModel):
@@ -126,8 +129,12 @@ def _move(op: ProjectOp, user_id: str, conversation_id: str | None) -> str:
 
 def _remove(op: ProjectOp, user_id: str, conversation_id: str | None) -> str:
     chat_id = _chat_id(op, conversation_id)
-    if not db.set_conversation_project(chat_id, user_id, None):
+    conv = db.get_conversation(chat_id, user_id)
+    if conv is None:
         raise _RejectedError("no such chat of the user's")
+    if not conv.project_id:
+        return f"UNCHANGED: chat {chat_id} is not in a project."
+    db.set_conversation_project(chat_id, user_id, None)
     _log("remove_chat", None, "ok")
     return _moved_line(chat_id, conversation_id, "REMOVED", "from its project")
 
@@ -206,7 +213,7 @@ def manage_project(operations: list[ProjectOp]) -> str:
               only when the user asks for it)
 
     Returns:
-        One line per operation: CREATED/MOVED/REMOVED/RENAMED/UPDATED or the
+        One line per operation: CREATED/MOVED/REMOVED/UNCHANGED/RENAMED/UPDATED or the
         list, or REJECTED with the reason.
     """
     check_autonomous_permission("manage_project", {"operation_count": len(operations)})

@@ -5386,6 +5386,16 @@
               }
             },
             "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         },
         "tags": [

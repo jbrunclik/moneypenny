@@ -26,6 +26,10 @@ documents, while each member's chats stay their own (Nov 2026,
     chat's** project;
   - *visible* (`get_visible_*`) - the app's routes: personal plus every live project the
     user belongs to.
+- **Membership is checked inside the write.** A project memory or document write
+  re-reads membership in its own transaction (`is_live_project_member`), so a member
+  removed after a turn looked up its scope cannot land the write; their patches then
+  reach only personal memories.
 - **Embeddings are fetched by the visible ids** (`get_embeddings_for_refs`), not by
   user: a member's edit rewrites the stored `user_id`, which must not move a vector.
 - **The project's text rides in the dynamic context**, after the personal memory and
@@ -46,13 +50,17 @@ keys are not enforced here, and such a column cannot be dropped on rollback).
 
 - **Which chats can join**: ordinary chats only - not planning, agent, Sports,
   Language, What's new, standing or anonymous (`ELIGIBLE_CHAT_SQL` in
-  `src/db/models/projects.py`, mirroring `is_ordinary()`).
+  `src/db/models/projects.py`, mirroring `is_ordinary()`; the client's
+  `canJoinProject` hides Move to project for the rest). Turning a chat anonymous
+  takes it out of its project; in a project chat the anonymous toggle says so
+  instead of turning on, and a pending toggle never lands in a new project chat.
 - **Main list**: project chats leave it (`project_id IS NULL OR pinned = 1`); a pinned
   one stays under Pinned. The sync listing keeps every chat, and the client files them.
 - **Leaving / removal**: the member's chats in the project return to their main list;
   what they wrote stays with the project.
 - **Delete**: soft; the project, its memories and documents share one `deleted_at`, so
-  a restore brings exactly those back (not the chats). Project memories wait for the
+  a restore brings exactly those back (not the chats). A restore counts toward
+  `PROJECTS_MAX_PER_USER` like a create (409 past it). Project memories wait for the
   project's purge (`DOCUMENTS_SOFT_DELETE_RETENTION_DAYS`, 30) rather than the memory
   purge's 7 days; `purge_deleted_projects` runs after the document purge in the nightly
   job.
@@ -82,8 +90,10 @@ keys are not enforced here, and such a column cannot be dropped on rollback).
   `create` (moves the current chat by default; optional `facts` - the topic facts the
   chat settled - start the project's memory through `manage_memory`'s guards,
   `save_project_facts`), `move_chat`, `remove_chat`, `rename` (owner),
-  `set_instructions` (needs text: no silent wipe). A move takes effect from the next
-  turn.
+  `set_instructions` (needs text: no silent wipe). Moving the current chat takes
+  effect at once for saves (later project adds in that turn go to the new project);
+  its instructions and memory reach the prompt from the next turn. `remove_chat` on a
+  chat in no project answers UNCHANGED.
 - **Background memory review**: in a project chat the prompt lists the project's
   memories and the two scopes; in a shared project, the privacy rule. The nightly
   instructions review learns personal style only from chats outside projects.
@@ -108,14 +118,18 @@ keys are not enforced here, and such a column cannot be dropped on rollback).
   a row flips in place and the sheet stays open (Remove confirms first). Adding pushes
   a notification to the member ("<owner> shared <project> with you", opening the
   project page), once per added member.
-- **Project page** (`#/projects/<id>`, `ProjectPage.ts`): name and members, Share
-  (owner) / Rename / Delete or Leave, New chat in this project, the user's chats as
+- **Project page** (`#/projects/<id>`, `ProjectPage.ts`): name (the owner renames it
+  in place, like a chat title: click it or Rename; `inline-rename.ts`) and members
+  (for the owner a button that opens the share sheet), Share (owner) / Rename /
+  Delete or Leave, New chat in this project (the sidebar's New Chat does the same
+  while the page is open), the user's chats as
   the sidebar's own rows (`projectConversationRows`: recency groups, hover and swipe
   actions; the page re-renders them from the store),
   instructions (save on blur), project memory (author names when shared), documents,
   and the project's recently deleted memories and documents (restorable).
 - **Recently deleted projects** are on the Data page (owner's), with Restore.
-- **Moving chats**: the chat's menu (Move to project… / Remove from project, with Undo),
+- **Moving chats**: the chat's menu (Move to project… / Remove from project, folder
+  and folder-minus icons, with Undo),
   the row's hover action, the chat header's Move to project button, and bulk select.
 - **Chat header**: a link to the chat's project (desktop; on mobile, the small link
   before the title, `#current-chat-project`). A memory note in a project chat opens
@@ -161,5 +175,5 @@ Backend: `tests/integration/test_db_projects.py`, `test_db_project_scope.py`,
 `test_instructions_tool_projects.py`, `test_documents_tool_projects.py`,
 `test_conversation_search_projects.py`, `test_prompt_projects.py`. Frontend:
 `web/tests/unit/projects.test.ts`, `project-picker.test.ts`,
-`web/tests/component/ShareSheet.test.ts`, the Sidebar component tests, `web/tests/e2e/projects.spec.ts`, `web/tests/visual/projects.visual.ts`. Evals:
+`web/tests/component/ShareSheet.test.ts`, `toolbar-anonymous.test.ts`, the Sidebar component tests, `web/tests/e2e/projects.spec.ts`, `web/tests/visual/projects.visual.ts`. Evals:
 `evals/cases/project_*.yaml`.

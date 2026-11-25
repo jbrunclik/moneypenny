@@ -145,6 +145,21 @@ class TestProjectsCrud:
         assert client.post(f"{base}/restore", headers=auth_headers).status_code == 200
         assert client.get(base, headers=auth_headers).status_code == 200
 
+    def test_restore_past_the_cap_is_a_conflict(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        project: Project,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        base = f"/api/projects/{project.id}"
+        client.delete(base, headers=auth_headers)
+        monkeypatch.setattr(Config, "PROJECTS_MAX_PER_USER", 1)
+        client.post("/api/projects", headers=auth_headers, json={"name": "Byt"})
+        response = client.post(f"{base}/restore", headers=auth_headers)
+        assert response.status_code == 409
+        assert "limit is 1" in _json(response)["error"]["message"]
+
 
 class TestMembers:
     def test_share_leave_and_people(

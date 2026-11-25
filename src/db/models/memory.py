@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from src.config import Config
 from src.db.models.dataclasses import Memory, User
+from src.db.models.helpers import is_live_project_member
 from src.db.models.timestamps import from_db, from_db_or_none, to_db
 from src.utils.clock import local_today, utc_now
 from src.utils.logging import get_logger
@@ -57,6 +58,10 @@ _PERSONAL_SQL = "user_id = ? AND project_id IS NULL"
 
 class MemoryLimitError(Exception):
     """A batch would pass a project's PROJECT_MEMORY_MAX_ENTRIES."""
+
+
+class MemoryScopeError(Exception):
+    """A batch adds to a project the user is no longer a member of."""
 
 
 class MemoryWriteConflictError(Exception):
@@ -167,12 +172,14 @@ class MemoryMixin:
         Raises:
             MemoryWriteConflictError: a target changed, vanished or is out of scope
             MemoryLimitError: the batch would pass the project's memory cap
+            MemoryScopeError: an add targets a project the user has left
         """
         now = to_db(utc_now())
         new_ids: list[str | None] = []
         with self._pool.get_connection() as conn:
             self._execute_with_timing(conn, "BEGIN IMMEDIATE")
             try:
+                project_id = self._checked_scope(conn, user_id, writes, project_id)
                 new_ids.extend(
                     self._apply_memory_write(conn, user_id, conversation_id, write, now, project_id)
                     for write in writes
@@ -223,6 +230,23 @@ class MemoryMixin:
                 raise
             conn.commit()
         return new_ids
+
+    def _checked_scope(
+        self,
+        conn: sqlite3.Connection,
+        user_id: str,
+        writes: list[MemoryWrite],
+        project_id: str | None,
+    ) -> str | None:
+        """Membership, read inside the write transaction: an add to a project
+        the user has left is refused; patches and deletes then reach only
+        personal memories."""
+        for target in {w.project_id for w in writes if w.project_id}:
+            if not is_live_project_member(conn, target, user_id):
+                raise MemoryScopeError("you are no longer a member of that project")
+        if project_id is not None and not is_live_project_member(conn, project_id, user_id):
+            return None
+        return project_id
 
     def _check_project_caps(self, conn: sqlite3.Connection, project_ids: set[str]) -> None:
         """Refuse a batch that leaves a project past its memory cap."""

@@ -272,3 +272,60 @@ class TestProjectScope:
         refs = {r for r, _dim, _vec in test_database.get_embeddings_for_refs("memory", {"a", "b"})}
         assert refs == {"a", "b"}
         assert test_database.get_embeddings_for_refs("memory", set()) == []
+
+
+class TestMembershipCheckedInTheWrite:
+    """A member removed between a turn's scope lookup and its write cannot
+    land that write: membership is checked inside the write transaction."""
+
+    def test_memory_add_to_a_project_the_user_left_is_refused(
+        self, test_database: Database, test_user: User, other_user: User, project: Project
+    ) -> None:
+        from src.db.models.memory import MemoryScopeError
+
+        test_database.add_project_member(project.id, test_user.id, other_user.id)
+        test_database.remove_project_member(project.id, test_user.id, other_user.id)
+        with pytest.raises(MemoryScopeError):
+            _add_project_memory(test_database, other_user.id, project.id)
+        assert test_database.list_project_memories(project.id) == []
+
+    def test_left_project_scope_still_patches_personal_memory(
+        self, test_database: Database, test_user: User, other_user: User, project: Project
+    ) -> None:
+        test_database.add_project_member(project.id, test_user.id, other_user.id)
+        mine = test_database.add_memory(other_user.id, "Likes tea")
+        test_database.remove_project_member(project.id, test_user.id, other_user.id)
+        write = MemoryWrite(
+            action="patch", memory_id=mine.id, content="Likes green tea", expected="Likes tea"
+        )
+        test_database.apply_memory_batch(other_user.id, None, [write], project_id=project.id)
+        memory = test_database.get_memory_in_scope(mine.id, other_user.id, None)
+        assert memory is not None and memory.content == "Likes green tea"
+
+    def test_left_project_memories_cannot_be_patched(
+        self, test_database: Database, test_user: User, other_user: User, project: Project
+    ) -> None:
+        theirs = _add_project_memory(test_database, test_user.id, project.id)
+        test_database.add_project_member(project.id, test_user.id, other_user.id)
+        test_database.remove_project_member(project.id, test_user.id, other_user.id)
+        write = MemoryWrite(
+            action="patch", memory_id=theirs.id, content="Gone", expected=theirs.content
+        )
+        with pytest.raises(MemoryWriteConflictError):
+            test_database.apply_memory_batch(other_user.id, None, [write], project_id=project.id)
+
+    def test_document_save_to_a_project_the_user_left_is_refused(
+        self,
+        test_database: Database,
+        test_blob_store: BlobStore,
+        test_user: User,
+        other_user: User,
+        project: Project,
+    ) -> None:
+        from src.db.models.documents import DocumentWriteError
+
+        test_database.add_project_member(project.id, test_user.id, other_user.id)
+        test_database.remove_project_member(project.id, test_user.id, other_user.id)
+        with pytest.raises(DocumentWriteError):
+            _add_document(test_database, other_user.id, project.id)
+        assert test_database.list_project_documents(project.id) == []

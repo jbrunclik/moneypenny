@@ -1045,6 +1045,16 @@ describe('Sidebar list layout', () => {
     useStore.setState({ projects: [] });
   });
 
+  it('offers no Move to project on an anonymous chat', () => {
+    useStore.setState({ conversations: [conv('n')] });
+    useStore.getState().setAnonymousMode('n', true);
+    renderConversationsList();
+
+    expect(document.querySelector('[data-conv-id="n"] .conversation-item')).not.toBeNull();
+    expect(document.querySelector('[data-conv-id="n"] [data-move-id]')).toBeNull();
+    useStore.getState().setAnonymousMode('n', false);
+  });
+
   it("marks the open chat's project in the Projects group, not while another view is open", () => {
     useStore.setState({
       conversations: [conv('a')],

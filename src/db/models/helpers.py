@@ -272,3 +272,15 @@ def check_database_writable(
     finally:
         conn.close()
     return True, None
+
+
+def is_live_project_member(conn: sqlite3.Connection, project_id: str, user_id: str) -> bool:
+    """The user belongs to the live project - checked inside a write's own
+    transaction, so a member removed after a turn looked up its scope cannot
+    land that write."""
+    row = conn.execute(
+        """SELECT 1 FROM project_members pm JOIN projects p ON p.id = pm.project_id
+           WHERE pm.project_id = ? AND pm.user_id = ? AND p.deleted_at IS NULL""",
+        (project_id, user_id),
+    ).fetchone()
+    return row is not None

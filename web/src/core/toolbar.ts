@@ -144,6 +144,11 @@ export function initToolbarButtons(): void {
       }
       const currentState = state.getAnonymousMode(convId);
       const newState = !currentState;
+      // An anonymous chat is never in a project (it would get no project memory)
+      if (newState && state.currentConversation?.project_id) {
+        toast.info("An anonymous chat can't be in a project. Remove this chat from the project first.");
+        return;
+      }
       state.setAnonymousMode(convId, newState);
       updateAnonymousButtonState(anonymousBtn, newState);
       // Temp conversations don't exist server-side yet - the flag travels

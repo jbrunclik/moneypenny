@@ -71,7 +71,7 @@ vi.mock('@/utils/thumbnail-blob-urls', () => ({ setCurrentConversationForBlobs: 
 import { useStore } from '@/state/store';
 import { projects } from '@/api/projects';
 import { toast } from '@/components/Toast';
-import { showConfirm } from '@/components/Modal';
+import { showConfirm, showPrompt } from '@/components/Modal';
 import { createConversation } from '@/core/conversation';
 import { setProjectHash } from '@/router/deeplink';
 import {
@@ -231,6 +231,60 @@ describe('navigateToProject', () => {
 
     expect(projects.remove).toHaveBeenCalledWith('p1');
     expect(useStore.getState().conversations[0]?.project_id).toBeNull();
+  });
+
+  it('renames in place: click the name, type, Enter', async () => {
+    const p = project('p1', 'Home');
+    (projects.get as Mock).mockResolvedValue(detail(p));
+    (projects.conversations as Mock).mockResolvedValue(page([]));
+    (projects.update as Mock).mockResolvedValue(project('p1', 'Byt'));
+    await navigateToProject('p1');
+
+    messages.querySelector<HTMLElement>('.project-name')?.click();
+    const input = messages.querySelector<HTMLInputElement>('.project-name input');
+    expect(input?.value).toBe('Home');
+    (input as HTMLInputElement).value = 'Byt';
+    input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+    await vi.waitFor(() => expect(projects.update).toHaveBeenCalledWith('p1', { name: 'Byt' }));
+    expect(showPrompt).not.toHaveBeenCalled();
+  });
+
+  it('the Rename button starts the same in-place edit', async () => {
+    const p = project('p1', 'Home');
+    (projects.get as Mock).mockResolvedValue(detail(p));
+    (projects.conversations as Mock).mockResolvedValue(page([]));
+    await navigateToProject('p1');
+
+    messages.querySelector<HTMLButtonElement>('.project-rename')?.click();
+
+    expect(messages.querySelector('.project-name input')).not.toBeNull();
+    expect(showPrompt).not.toHaveBeenCalled();
+  });
+
+  it('a member cannot rename by clicking the name', async () => {
+    const p = project('p1', 'Home', { is_owner: false, owner_id: 'user-2', shared: true });
+    (projects.get as Mock).mockResolvedValue(detail(p));
+    (projects.conversations as Mock).mockResolvedValue(page([]));
+    await navigateToProject('p1');
+
+    messages.querySelector<HTMLElement>('.project-name')?.click();
+
+    expect(messages.querySelector('.project-name input')).toBeNull();
+  });
+
+  it("the owner's members line opens the share sheet", async () => {
+    const p = project('p1', 'Home');
+    (projects.get as Mock).mockResolvedValue(detail(p));
+    (projects.conversations as Mock).mockResolvedValue(page([]));
+    (projects.people as Mock).mockResolvedValue([]);
+    await navigateToProject('p1');
+
+    const members = messages.querySelector<HTMLElement>('.project-members');
+    expect(members?.tagName).toBe('BUTTON');
+    members?.click();
+
+    await vi.waitFor(() => expect(projects.people).toHaveBeenCalled());
   });
 
   it('offers Leave instead of Rename and Delete to a member', async () => {

@@ -356,8 +356,9 @@ function addTempConversation(projectId: string | null): { conv: Conversation; pe
   // Clear pending model since it's now used
   store.setPendingModel(null);
 
-  // Apply pending anonymous mode to the new conversation, then clear it
-  const pendingAnonymous = store.pendingAnonymousMode;
+  // Apply pending anonymous mode to the new conversation, then clear it (not
+  // to a chat in a project: an anonymous chat is never in one)
+  const pendingAnonymous = store.pendingAnonymousMode && projectId === null;
   if (pendingAnonymous) {
     store.setAnonymousMode(tempId, true);
   }
