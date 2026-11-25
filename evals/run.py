@@ -1215,8 +1215,8 @@ def _memory_review_turn(
         user.id, conversation_id, db.get_messages(conversation_id), project
     )
     calls = [{"name": "manage_memory", "args": {"operations": result.ops}, "id": "review"}]
-    saved = memory_review.format_note(
-        result.applied, project.name if project and result.project_applied else None
+    saved = memory_review.review_note(
+        result, project.name if project else None, bool(project and project.shared)
     )
     response = f"Memory updated: {saved}" if result.ops else "Memory review: nothing saved."
     usage = {

@@ -84,8 +84,7 @@ class TestSharedProjectNote:
 
 def test_format_note_names_the_project() -> None:
     note = format_note(["Garage has 3-phase power"], project_name="Home")
-    assert note.startswith("Garage has 3-phase power")
-    assert "Home" in note
+    assert note == "shared in Home (its members see it): Garage has 3-phase power"
     assert format_note(["x"]) == "x"
 
 

@@ -89,7 +89,7 @@ keys are not enforced here, and such a column cannot be dropped on rollback).
 
 - **Visible writes**: every write to a *shared* project's memory - inline
   (`src/api/helpers/project_notes.py`) or from the review - labels the reply: "Memory
-  updated: <items> (in the <name> project - its members see it)".
+  updated: shared in <name> (its members see it): <items>" (after any personal items).
 - **Evals**: `project_shared_*` cases (health, a crush, money, and the review path) must
   pass 3/3 runs before sharing ships.
 

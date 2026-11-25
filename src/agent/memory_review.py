@@ -84,7 +84,8 @@ def format_note(applied: list[str], project_name: str | None = None) -> str:
     rest = len(applied) - len(items)
     note = f"{note}, and {rest} more" if rest > 0 else note
     if project_name:
-        note += f" (in the {project_name} project - its members see it)"
+        # Leads, so it cannot be read as covering personal items before it
+        note = f"shared in {project_name} (its members see it): {note}"
     return note
 
 
