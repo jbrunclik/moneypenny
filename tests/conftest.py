@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import shutil
 import tempfile
 import threading
 import time
@@ -267,11 +268,30 @@ def test_blob_path(temp_db_dir: Path, request: pytest.FixtureRequest) -> Path:
     return temp_db_dir / f"{_test_file_stem(request)}_blobs.db"
 
 
-@pytest.fixture
-def test_database(test_db_path: Path) -> Generator[Database]:
-    """Create isolated test database for each test."""
+@pytest.fixture(scope="session")
+def migrated_template(temp_db_dir: Path) -> Path:
+    """One fully migrated database per test process, copied for every test.
+
+    Running all migrations on a fresh file took ~1 s per test (Nov 2026) -
+    most of the backend suite's time; a copy takes a few ms. The WAL is
+    checkpointed into the file first, so the copy holds the whole schema.
+    """
     from src.db.models import Database
 
+    path = temp_db_dir / "_migrated_template.db"
+    template = Database(db_path=path)
+    with template._pool.get_connection() as conn:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    template.close()
+    return path
+
+
+@pytest.fixture
+def test_database(test_db_path: Path, migrated_template: Path) -> Generator[Database]:
+    """Create isolated test database for each test (a copy of the migrated template)."""
+    from src.db.models import Database
+
+    shutil.copyfile(migrated_template, test_db_path)
     db = Database(db_path=test_db_path)
     yield db
     _fail_if_write_lock_held(test_db_path)
