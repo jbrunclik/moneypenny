@@ -46,4 +46,35 @@ describe('openProjectPicker', () => {
     actions[1]?.onSelect();
     expect(onNew).toHaveBeenCalled();
   });
+
+  it('offers Remove from project for a chat in a project', () => {
+    const onRemove = vi.fn();
+    openProjectPicker({
+      title: 'Move to project',
+      projects: [project('p1', 'Bikes')],
+      currentProjectId: 'p1',
+      onPick: vi.fn(),
+      onNew: vi.fn(),
+      onRemove,
+    });
+
+    const [, actions] = sheet.show.mock.calls[0] as [string, Array<{ label: string; onSelect: () => void }>];
+    expect(actions.map((a) => a.label)).toEqual(['Remove from project', 'New project…']);
+    actions[0]?.onSelect();
+    expect(onRemove).toHaveBeenCalled();
+  });
+
+  it('offers no Remove for a chat in no project', () => {
+    openProjectPicker({
+      title: 'Move to project',
+      projects: [project('p1', 'Bikes')],
+      currentProjectId: null,
+      onPick: vi.fn(),
+      onNew: vi.fn(),
+      onRemove: vi.fn(),
+    });
+
+    const [, actions] = sheet.show.mock.calls[0] as [string, Array<{ label: string }>];
+    expect(actions.map((a) => a.label)).toEqual(['Bikes', 'New project…']);
+  });
 });

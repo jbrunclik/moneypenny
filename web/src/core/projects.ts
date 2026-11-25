@@ -387,6 +387,7 @@ export function moveChatFromMenu(conversationId: string): void {
     onPick: (projectId) => void moveWithToast(conversationId, projectId),
     onNew: () =>
       void promptNewProject().then((project) => project && moveWithToast(conversationId, project.id)),
+    onRemove: () => void moveWithToast(conversationId, null),
   });
 }
 

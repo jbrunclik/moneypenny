@@ -345,6 +345,17 @@ describe('the chat menu and selection mode', () => {
     await vi.waitFor(() => expect(useStore.getState().conversations[0]?.project_id).toBe('p1'));
   });
 
+  it("Move to project's Remove takes a project chat back to the main list", async () => {
+    useStore.setState({ projects: [project('p1', 'Bikes')], conversations: [chat('c1', { project_id: 'p1' })] });
+    (projects.moveChat as Mock).mockResolvedValue(undefined);
+
+    moveChatFromMenu('c1');
+    pickerOptions().onRemove?.();
+
+    await vi.waitFor(() => expect(useStore.getState().conversations[0]?.project_id).toBeNull());
+    expect(toast.success).toHaveBeenCalledWith('Taken out of the project.', expect.anything());
+  });
+
   it('Remove from project takes the chat out', async () => {
     useStore.setState({ projects: [project('p1', 'Bikes')], conversations: [chat('c1', { project_id: 'p1' })] });
     (projects.moveChat as Mock).mockResolvedValue(undefined);

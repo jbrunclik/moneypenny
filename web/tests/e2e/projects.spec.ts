@@ -113,6 +113,27 @@ for (const viewport of [
       await expect(page.locator('.project-page .project-chat-list [data-conv-id]', { hasText: 'Wallbox hookup' })).toBeVisible();
     });
 
+    test('Move to project takes a project chat back to the main list', async ({ page }) => {
+      await seedChats(page, ['Wallbox hookup']);
+      const created = await page.request.post('/api/projects', { data: { name: 'Home' } });
+      const { id: projectId } = (await created.json()) as { id: string };
+      const list = await page.request.get('/api/conversations');
+      const [conv] = ((await list.json()) as { conversations: { id: string }[] }).conversations;
+      await page.request.put(`/api/conversations/${conv?.id}/project`, { data: { project_id: projectId } });
+      await page.goto(`/#/projects/${projectId}`);
+      await appReady(page);
+
+      const row = page.locator('.project-page .project-chat-list [data-conv-id]', { hasText: 'Wallbox hookup' });
+      await expect(row).toBeVisible();
+      // the row's Move to project action (a hover button on desktop)
+      await row.locator('[data-move-id]').evaluate((el) => (el as HTMLElement).click());
+      await page.locator('.action-sheet-item', { hasText: 'Remove from project' }).click();
+
+      await expect(row).toHaveCount(0);
+      await openSidebar(page);
+      await expect(page.locator('#conversations-list [data-conv-id]', { hasText: 'Wallbox hookup' })).toHaveCount(1);
+    });
+
     test('selected chats move into a new project together', async ({ page }) => {
       await seedChats(page, ['Canyon setup', 'GT Grade stripdown', 'Dinner ideas']);
       await page.goto('/');

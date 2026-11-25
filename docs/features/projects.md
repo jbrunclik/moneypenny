@@ -131,6 +131,8 @@ keys are not enforced here, and such a column cannot be dropped on rollback).
 - **Moving chats**: the chat's menu (Move to project… / Remove from project, folder
   and folder-minus icons, with Undo),
   the row's hover action, the chat header's Move to project button, and bulk select.
+  For a chat in a project the picker also offers Remove from project (back to the
+  main list).
 - **Chat header**: a link to the chat's project (desktop; on mobile, the small link
   before the title, `#current-chat-project`). A memory note in a project chat opens
   the project's page rather than the Data page.
