@@ -102,6 +102,20 @@ window.__testVersionBanner()
   whole interface scales. No smaller step: iOS zooms into a focused input under 16px.
 - **App-icon badge from a push**: see [push-notifications.md](push-notifications.md#app-icon-badge).
 
+## Keyboard shortcuts (Nov 25 2026)
+
+`web/src/core/shortcuts.ts`, one document `keydown` listener (⌘ or Ctrl):
+
+- **⌘⇧O** - New chat: it clicks `#new-chat-btn`, so it does what the button does
+  (on a project page, a chat in that project).
+- **⌘K** - focus and select the chat search.
+- **Shift+Esc** - focus the composer.
+
+The New Chat button and the search input name them in their `title` (⌘ on Apple
+platforms, Ctrl elsewhere); the visible chrome is unchanged. No sidebar toggle: the
+desktop sidebar does not collapse. Usage is not measured - there is no client event
+channel, and one keydown counter would not justify an endpoint.
+
 ## Color Scheme
 
 The app supports three color scheme options: Light, Dark, and System (default).

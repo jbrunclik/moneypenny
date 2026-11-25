@@ -39,6 +39,7 @@ import { initAppStatus } from './startup/app-status';
 import { markAppReady } from './startup/app-ready';
 import { initAuthEvents, startSession } from './startup/auth';
 import { initComposer } from './startup/composer';
+import { initShortcuts } from './shortcuts';
 import { initMessageEvents } from './startup/message-events';
 import { initMessageScrolling } from './startup/message-scrolling';
 import { initMessageUi } from './startup/message-ui';
@@ -90,6 +91,7 @@ export async function init(): Promise<void> {
   initLayoutChecks();
   initAppStatus();
   initSearch();
+  initShortcuts(); // after the shell and search: it titles their controls
   initTTSVoices();
   setupEventListeners();
   initSidebarSelection({

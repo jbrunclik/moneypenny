@@ -107,7 +107,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 - [ ] **Branching on message edit** (Sep 30 2026 Desktop-parity review) - editing a sent message truncates the tail and resends (`web/src/components/messages/edit.ts`). Keep the old branch: store sibling versions of the edited turn and add a `< 2/3 >` switcher. Touches message storage (parent pointer or branch id), history loading, sync and search.
 - [ ] **Conversation sharing** - public links for sharing conversations.
-- [ ] **Keyboard shortcuts** for common actions.
 - [ ] **Voice conversation mode** - speech-to-text in, text-to-speech out.
 - [ ] **Video uploads follow-ups** (Jul 2026, docs/superpowers/specs/2026-07-19-video-upload-design.md):
   - Multipart streaming upload endpoint (approach B in the spec) - revisit if base64 JSON memory spikes or >100 MB clips become a real problem
