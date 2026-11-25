@@ -25,7 +25,7 @@ vi.mock('@/core/agents', () => ({
   handleStandingRun: vi.fn(() => Promise.resolve()),
 }));
 vi.mock('@/core/sports', () => ({ leaveSportsView: m.leaveSportsView }));
-vi.mock('@/core/projects', () => ({ leaveProjectView: m.leaveProjectView }));
+vi.mock('@/core/projects', () => ({ leaveProjectView: m.leaveProjectView, moveChatFromMenu: vi.fn() }));
 vi.mock('@/core/conversation-switch', () => ({
   switchToConversation: vi.fn(),
   setAgentHeaderActions: vi.fn(),
@@ -36,7 +36,10 @@ vi.mock('@/core/toolbar', () => ({
   updateAnonymousButtonState: vi.fn(),
 }));
 vi.mock('@/core/header-autohide', () => ({ revealHeader: vi.fn() }));
-vi.mock('@/core/conversation-header', () => ({ renderChatHeaderForConversation: vi.fn() }));
+vi.mock('@/core/conversation-header', () => ({
+  renderChatHeaderForConversation: vi.fn(),
+  setHeaderProjectActions: vi.fn(),
+}));
 vi.mock('@/core/outbox', () => ({
   reconcileOutboxWithServer: (_id: string, messages: unknown[]) => messages,
 }));

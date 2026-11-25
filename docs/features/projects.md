@@ -99,17 +99,27 @@ keys are not enforced here, and such a column cannot be dropped on rollback).
 ## UI
 
 - **Sidebar**: a Projects group (only once the user has a project) with a shared marker
-  and an unread dot; **New project** is in the user menu.
-- **Sharing** pushes a notification to the added member ("<owner> shared <project>
-  with you", opening the project page), once per added member.
+  and an unread dot, the open project's row active (also while one of its chats is
+  open); **New project** is in the user menu. Rows have a Move to project hover action
+  (not the What's new chat); a project chat under Pinned or in the Archive names its
+  project, as do search results (`project_name` on `SearchResultResponse`).
+- **Sharing** (`ShareSheet.ts`, the action sheet's shell): who has access - the owner,
+  then every family member (`/api/projects/people`, with photos) with Add or Remove;
+  a row flips in place and the sheet stays open (Remove confirms first). Adding pushes
+  a notification to the member ("<owner> shared <project> with you", opening the
+  project page), once per added member.
 - **Project page** (`#/projects/<id>`, `ProjectPage.ts`): name and members, Share
   (owner) / Rename / Delete or Leave, New chat in this project, the user's chats as
   the sidebar's own rows (`projectConversationRows`: recency groups, hover and swipe
   actions; the page re-renders them from the store),
-  instructions (save on blur), project memory (author names when shared), documents.
-- **Moving chats**: the chat's menu (Move to project… / Remove from project, with Undo)
-  and bulk select (Move to project).
-- **Chat header**: a link to the chat's project (desktop; the mobile header is hidden).
+  instructions (save on blur), project memory (author names when shared), documents,
+  and the project's recently deleted memories and documents (restorable).
+- **Recently deleted projects** are on the Data page (owner's), with Restore.
+- **Moving chats**: the chat's menu (Move to project… / Remove from project, with Undo),
+  the row's hover action, the chat header's Move to project button, and bulk select.
+- **Chat header**: a link to the chat's project (desktop; on mobile, the small link
+  before the title, `#current-chat-project`). A memory note in a project chat opens
+  the project's page rather than the Data page.
 - **Sync**: the sync response carries `projects_version` (count, deleted count, latest
   `updated_at` of the user's projects); when it moves, the client reloads the projects.
 
@@ -150,6 +160,6 @@ Backend: `tests/integration/test_db_projects.py`, `test_db_project_scope.py`,
 `test_memory_tool_projects.py`, `test_memory_review_projects.py`,
 `test_instructions_tool_projects.py`, `test_documents_tool_projects.py`,
 `test_conversation_search_projects.py`, `test_prompt_projects.py`. Frontend:
-`web/tests/unit/projects.test.ts`, `project-picker.test.ts`, the Sidebar component
-tests, `web/tests/e2e/projects.spec.ts`, `web/tests/visual/projects.visual.ts`. Evals:
+`web/tests/unit/projects.test.ts`, `project-picker.test.ts`,
+`web/tests/component/ShareSheet.test.ts`, the Sidebar component tests, `web/tests/e2e/projects.spec.ts`, `web/tests/visual/projects.visual.ts`. Evals:
 `evals/cases/project_*.yaml`.

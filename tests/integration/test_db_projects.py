@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from src.config import Config
+from src.db.models.dataclasses import Person
 from src.db.models.projects import ProjectWriteError
 from src.db.models.timestamps import to_db
 from src.utils.clock import utc_now
@@ -257,8 +258,16 @@ class TestProjects:
         self, test_database: Database, test_user: User, other_user: User
     ) -> None:
         people = test_database.list_people(test_user.id)
-        assert (other_user.id, "Jana Nováková") in people
-        assert all(user_id != test_user.id for user_id, _ in people)
+        assert Person(other_user.id, "Jana Nováková", other_user.picture) in people
+        assert all(person.id != test_user.id for person in people)
+
+    def test_list_people_carries_the_photo(self, test_database: Database, test_user: User) -> None:
+        photo = "https://example.com/brigita.jpg"
+        brigita = test_database.get_or_create_user(
+            email="b@example.com", name="Brigita", picture=photo
+        )
+        people = test_database.list_people(test_user.id)
+        assert Person(brigita.id, "Brigita", photo) in people
 
 
 class TestProjectPurge:

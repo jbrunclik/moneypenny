@@ -156,7 +156,7 @@ class TestMembers:
         project: Project,
     ) -> None:
         people = _json(client.get("/api/projects/people", headers=auth_headers))["people"]
-        assert {"id": jana.id, "name": "Jana"} in people
+        assert {"id": jana.id, "name": "Jana", "picture": None} in people
 
         shared = client.put(f"/api/projects/{project.id}/members/{jana.id}", headers=auth_headers)
         assert shared.status_code == 200
@@ -301,3 +301,53 @@ class TestShareNotification:
         assert sent[0]["user_id"] == jana.id
         assert sent[0]["url"] == f"/#/projects/{project.id}"
         assert "Home" in sent[0]["title"]
+
+
+class TestReviewFixesApi:
+    def test_conversation_detail_carries_project_id(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        project: Project,
+    ) -> None:
+        conv = test_database.create_conversation(test_user.id, "Wallbox", project_id=project.id)
+        data = _json(client.get(f"/api/conversations/{conv.id}", headers=auth_headers))
+        assert data["project_id"] == project.id
+
+    def test_project_detail_lists_recently_deleted(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        project: Project,
+    ) -> None:
+        [memory_id] = test_database.apply_memory_batch(
+            test_user.id,
+            None,
+            [MemoryWrite(action="add", content="Old fact", category="fact", project_id=project.id)],
+            project_id=project.id,
+        )
+        assert memory_id is not None
+        test_database.delete_memory(memory_id, test_user.id, allow_protected=True)
+
+        data = _json(client.get(f"/api/projects/{project.id}", headers=auth_headers))
+
+        assert data["memories"] == []
+        assert [m["content"] for m in data["deleted_memories"]] == ["Old fact"]
+        assert data["deleted_documents"] == []
+
+    def test_search_results_name_the_project(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        project: Project,
+    ) -> None:
+        conv = test_database.create_conversation(test_user.id, "Wallbox", project_id=project.id)
+        test_database.add_message(conv.id, "user", "three-phase garage supply")
+        data = _json(client.get("/api/search?q=garage", headers=auth_headers))
+        assert {r["project_name"] for r in data["results"]} == {"Home"}

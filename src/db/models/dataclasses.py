@@ -289,6 +289,15 @@ class Project:
         return len(self.member_ids) > 1
 
 
+@dataclass(frozen=True)
+class Person:
+    """A user as others see them: who a project can be shared with."""
+
+    id: str
+    name: str
+    picture: str | None = None
+
+
 @dataclass
 class ProjectSummary:
     """A project as one user's sidebar shows it: counts are of their own chats."""
@@ -338,6 +347,7 @@ class SearchResult:
     rank: float  # BM25 relevance score (lower is better)
     created_at: datetime | None  # Message timestamp (None for title matches)
     match_mode: str = "all"  # "all": every word matched; "any": the any-word fallback
+    project_name: str | None = None  # The project the chat is filed under
 
 
 @dataclass

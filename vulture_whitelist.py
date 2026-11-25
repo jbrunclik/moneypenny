@@ -28,6 +28,8 @@ instructions_limit
 memory_limit
 documents_limit
 moved_ids
+deleted_memories
+deleted_documents
 # src/api/schemas/admin.py
 agents
 month_chats

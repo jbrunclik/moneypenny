@@ -65,7 +65,7 @@ def _serialize(
 
 
 def _names(user_ids: list[str]) -> list[str]:
-    people = dict(db.list_people(exclude_user_id=""))
+    people = {person.id: person.name for person in db.list_people(exclude_user_id="")}
     return [people.get(user_id, "") for user_id in user_ids]
 
 
@@ -128,7 +128,8 @@ def list_deleted_projects(user: User) -> dict[str, object]:
 @require_auth
 def list_people(user: User) -> dict[str, object]:
     """The family members a project can be shared with."""
-    return {"people": [{"id": i, "name": n} for i, n in db.list_people(user.id)]}
+    people = db.list_people(user.id)
+    return {"people": [{"id": p.id, "name": p.name, "picture": p.picture} for p in people]}
 
 
 @api.route("/projects/<project_id>", methods=["GET"])
@@ -138,7 +139,7 @@ def list_people(user: User) -> dict[str, object]:
 def get_project(user: User, project_id: str) -> dict[str, object]:
     """A project with its instructions, memory and documents."""
     project = _member_project(user, project_id)
-    authors = dict(db.list_people(exclude_user_id=""))
+    authors = {person.id: person.name for person in db.list_people(exclude_user_id="")}
     today = local_today()
     memories = [m for m in db.list_project_memories(project.id) if not m.expired(today)]
     documents = db.list_project_documents(project.id)
@@ -151,6 +152,14 @@ def get_project(user: User, project_id: str) -> dict[str, object]:
         ],
         "documents": [
             {**serialize_document(d), "author_name": authors.get(d.user_id)} for d in documents
+        ],
+        "deleted_memories": [
+            {**serialize_memory(m), "author_name": authors.get(m.user_id)}
+            for m in db.list_deleted_project_memories(project.id)
+        ],
+        "deleted_documents": [
+            {**serialize_document(d), "author_name": authors.get(d.user_id)}
+            for d in db.list_project_documents(project.id, deleted=True)
         ],
         "instructions_limit": Config.PROJECT_INSTRUCTIONS_MAX_CHARS,
         "memory_limit": Config.PROJECT_MEMORY_MAX_ENTRIES,

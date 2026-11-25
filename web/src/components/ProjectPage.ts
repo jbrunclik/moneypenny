@@ -20,7 +20,7 @@ import type { Conversation, DocumentsResponse, ProjectDetail } from '../types/ap
 import { createEmptyState } from './EmptyState';
 import { renderDocumentsSections, type DocumentCallbacks } from './kv-documents';
 import { sectionTitle } from './kv-store-parts';
-import { renderMemoriesSection, type MemoryCallbacks } from './KVStorePage';
+import { renderDeletedMemoriesSection, renderMemoriesSection, type MemoryCallbacks } from './KVStorePage';
 
 /** What the project page can do (errors are surfaced by the caller). */
 export interface ProjectPageCallbacks extends MemoryCallbacks, DocumentCallbacks {
@@ -175,7 +175,7 @@ function renderInstructionsSection(detail: ProjectDetail, callbacks: ProjectPage
 function documentsData(detail: ProjectDetail): DocumentsResponse {
   return {
     documents: detail.documents,
-    deleted: [],
+    deleted: detail.deleted_documents,
     limit: detail.documents_limit,
     bytes_used: 0,
     bytes_limit: 0,
@@ -200,12 +200,15 @@ export function renderProjectPage(
   memories.querySelector('.kv-store-section-title')?.replaceWith(
     sectionTitle(BRAIN_ICON, 'Project memory', `${detail.memories.length}/${detail.memory_limit}`)
   );
-  const [documents] = renderDocumentsSections(documentsData(detail), callbacks);
+  const deletedMemories = detail.deleted_memories.length
+    ? [renderDeletedMemoriesSection(detail.deleted_memories, callbacks)]
+    : [];
   return createElement('div', { class: 'kv-store project-page', 'data-project-id': detail.project.id }, [
     renderHeader(detail, callbacks),
     renderProjectChats(chats, callbacks),
     renderInstructionsSection(detail, callbacks),
     memories,
-    ...(documents ? [documents] : []),
+    ...deletedMemories,
+    ...renderDocumentsSections(documentsData(detail), callbacks),
   ]);
 }

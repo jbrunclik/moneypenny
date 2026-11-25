@@ -109,6 +109,7 @@ export function toConversation(
     is_whats_new: response.is_whats_new,
     has_pending_approval: response.has_pending_approval,
     archived: response.archived,
+    project_id: response.project_id,
     streaming_message_id: response.streaming_message_id,
     lost_reply: response.lost_reply,
   };

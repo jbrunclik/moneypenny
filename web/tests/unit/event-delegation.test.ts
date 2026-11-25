@@ -46,6 +46,8 @@ const m = vi.hoisted(() => ({
   openAdminPage: vi.fn<() => Promise<void>>(),
   openSettingsPopup: vi.fn(),
   openPdfViewer: vi.fn(),
+  moveChatFromMenu: vi.fn(),
+  navigateToProject: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('@/api/costs', () => ({ costs: { getCostHistory: m.getCostHistory } }));
@@ -83,6 +85,12 @@ vi.mock('@/core/agents', () => ({ navigateToAgents: m.navigateToAgents }));
 vi.mock('@/core/sports', () => ({ navigateToSports: m.navigateToSports }));
 vi.mock('@/core/language', () => ({ navigateToLanguage: m.navigateToLanguage }));
 vi.mock('@/core/kv-store', () => ({ navigateToStorage: m.navigateToStorage }));
+vi.mock('@/core/projects', () => ({
+  createProjectAndOpen: vi.fn(),
+  moveChatFromMenu: m.moveChatFromMenu,
+  navigateToProject: m.navigateToProject,
+  removeChatFromProject: vi.fn(),
+}));
 vi.mock('@/core/file-actions', () => ({
   openFileInNewTab: m.openFileInNewTab,
   downloadFile: m.downloadFile,
@@ -147,12 +155,25 @@ describe('setupEventListeners', () => {
       ['data-restore-id', m.restoreConversation],
       ['data-delete-forever-id', m.deleteConversationForever],
       ['data-delete-id', m.deleteConversation],
+      ['data-move-id', m.moveChatFromMenu],
     ])('%s closes swipes, acts on the id and stops the click', (attr, action) => {
       const btn = list.appendChild(el(`<button ${attr}="c1"></button>`));
       click(btn);
       expect(m.resetSwipeStates).toHaveBeenCalled();
       expect(action).toHaveBeenCalledWith('c1');
       expect(rowClicks).toBe(0);
+    });
+
+    it("opens memories from a memory note: the project's page in a project chat, else the Data page", () => {
+      const chat = { id: 'c1', title: 'Chat', model: 'm', created_at: '', updated_at: '' };
+      useStore.setState({ currentConversation: { ...chat, project_id: 'p1' } });
+      click(messages.appendChild(el('<button class="message-memory-note"></button>')));
+      expect(m.navigateToProject).toHaveBeenCalledWith('p1');
+      expect(m.navigateToStorage).not.toHaveBeenCalled();
+
+      useStore.setState({ currentConversation: chat });
+      click(messages.querySelector('.message-memory-note') as HTMLElement);
+      expect(m.navigateToStorage).toHaveBeenCalled();
     });
 
     it('pins without closing swipes', () => {

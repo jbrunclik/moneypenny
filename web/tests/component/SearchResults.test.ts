@@ -23,6 +23,7 @@ describe('renderSearchResults', () => {
       match_type: 'message',
       created_at: null,
       match_mode: 'all',
+      project_name: null,
     };
     useStore.setState({
       isSearchActive: true,
@@ -51,6 +52,7 @@ describe('renderSearchResults', () => {
       match_type: 'message',
       created_at: null,
       match_mode: 'all',
+      project_name: null,
     };
     useStore.setState({
       isSearchActive: true,
@@ -68,5 +70,33 @@ describe('renderSearchResults', () => {
 
     const labels = [...document.querySelectorAll('.search-result-type')].map((el) => el.textContent);
     expect(labels).toEqual(['Message', 'Partial match']);
+  });
+
+  it("names the project a result's chat is in", () => {
+    const base: SearchResult = {
+      conversation_id: 'c1',
+      conversation_title: 'Wallbox',
+      message_id: 'm1',
+      message_snippet: '[[HIGHLIGHT]]garage[[/HIGHLIGHT]]',
+      match_type: 'message',
+      created_at: null,
+      match_mode: 'all',
+      project_name: 'Home',
+    };
+    useStore.setState({
+      isSearchActive: true,
+      isSearching: false,
+      searchQuery: 'garage',
+      searchResults: [base, { ...base, conversation_id: 'c2', message_id: 'm2', project_name: null }],
+      searchTotal: 2,
+      viewedSearchResultId: null,
+    });
+
+    renderSearchResults();
+
+    const labels = [...document.querySelectorAll('.search-result-item')].map(
+      (el) => el.querySelector('.conversation-project')?.textContent?.trim() ?? null,
+    );
+    expect(labels).toEqual(['Home', null]);
   });
 });

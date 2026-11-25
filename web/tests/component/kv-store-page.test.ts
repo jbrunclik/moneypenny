@@ -25,6 +25,7 @@ function callbacks(): KVStoreCallbacks {
     ) as KVStoreCallbacks['onNamespaceExpand'],
     onDeleteKey: vi.fn(() => Promise.resolve()),
     onClearNamespace: vi.fn(() => Promise.resolve()),
+    onRestoreProject: vi.fn(() => Promise.resolve()),
     onDeleteMemory: vi.fn(() => Promise.resolve()),
     onSetMemoryProtected: vi.fn(() => Promise.resolve()),
     onRestoreMemory: vi.fn(() => Promise.resolve()),
@@ -112,5 +113,35 @@ describe('KVStorePage', () => {
     expect(json?.querySelector('.json-keyword')?.textContent).toBe('true');
     expect(raw?.textContent).toBe('not <json>');
     expect(raw?.children).toHaveLength(0);
+  });
+});
+
+describe('recently deleted projects', () => {
+  it('lists them with Restore and drops a restored one', async () => {
+    const cb = callbacks();
+    const page = renderKVStorePage({ namespaces: [] }, [], cb, {
+      deletedProjects: [
+        {
+          id: 'p1',
+          name: 'Old client',
+          owner_id: 'u',
+          is_owner: true,
+          shared: false,
+          member_names: [],
+          member_ids: ['u'],
+          chat_count: 0,
+          unread_count: 0,
+          created_at: '2026-11-01T00:00:00Z',
+          updated_at: '2026-11-01T00:00:00Z',
+          deleted_at: '2026-11-20T00:00:00Z',
+        },
+      ],
+    });
+    expect(page.querySelector('.kv-deleted-projects')?.textContent).toContain('Old client');
+
+    page.querySelector<HTMLButtonElement>('.kv-deleted-projects .kv-project-restore')?.click();
+
+    await vi.waitFor(() => expect(cb.onRestoreProject).toHaveBeenCalledWith('p1'));
+    await vi.waitFor(() => expect(page.querySelector('.kv-deleted-projects')).toBeNull());
   });
 });

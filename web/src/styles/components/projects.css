@@ -144,3 +144,131 @@
 .project-page .kv-store-section-count:empty {
     display: none;
 }
+
+/* ---------- A chat's project, where it is not obvious (Pinned, Archive, search) ---------- */
+
+.conversation-project {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-top: 2px;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.conversation-project-icon svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* The mobile header's link to the open chat's project */
+.mobile-header-project {
+    max-width: 35%;
+}
+
+.mobile-header-project.hidden {
+    display: none;
+}
+
+/* ---------- Share sheet: who has access, Add / Remove per person ---------- */
+
+.share-sheet {
+    gap: 0;
+}
+
+.share-sheet-title {
+    margin: 0;
+    padding: var(--space-3) var(--space-3) var(--space-1);
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.share-sheet-hint {
+    margin: 0;
+    padding: 0 var(--space-3) var(--space-3);
+    font-size: var(--font-size-sm);
+    line-height: 1.4;
+    color: var(--text-muted);
+}
+
+.share-sheet-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.share-sheet-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 56px;
+    padding: var(--space-2) var(--space-3);
+}
+
+.share-sheet-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background-color: var(--bg-tertiary);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.share-sheet-avatar-initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-user);
+    color: white;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.share-sheet-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.share-sheet-name {
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.share-sheet-status {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.share-sheet-action {
+    flex-shrink: 0;
+    min-width: 76px;
+    justify-content: center;
+}
+
+.share-sheet-action--add {
+    background-color: var(--accent-muted);
+    color: var(--accent-text);
+    font-weight: 600;
+}
+
+.share-sheet-action--add:hover {
+    background-color: var(--accent);
+    color: white;
+}
+
+.share-sheet-action:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}

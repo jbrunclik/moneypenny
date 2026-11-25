@@ -24,6 +24,7 @@ function result(overrides: Partial<SearchResult> = {}): SearchResult {
     match_type: 'message',
     created_at: null,
     match_mode: 'all',
+    project_name: null,
     ...overrides,
   };
 }

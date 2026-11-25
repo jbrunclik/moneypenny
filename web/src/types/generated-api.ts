@@ -9956,6 +9956,12 @@ export interface components {
              */
             conversation_title: string;
             /**
+             * Project Name
+             * @description The project the chat is filed under (shown on the result)
+             * @default null
+             */
+            project_name: string | null;
+            /**
              * Message Id
              * @description Message ID if match is in a message (null for title matches)
              * @default null
@@ -11872,6 +11878,11 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /**
+             * Picture
+             * @default null
+             */
+            picture: string | null;
         };
         /**
          * PeopleResponse
@@ -13222,6 +13233,16 @@ export interface components {
             /** Documents */
             documents: components["schemas"]["ProjectDetailResponse.ProjectDocumentResponse"][];
             /**
+             * Deleted Memories
+             * @description Soft-deleted, restorable until the purge
+             */
+            deleted_memories: components["schemas"]["ProjectDetailResponse.ProjectMemoryResponse"][];
+            /**
+             * Deleted Documents
+             * @description Soft-deleted, restorable until the purge
+             */
+            deleted_documents: components["schemas"]["ProjectDetailResponse.ProjectDocumentResponse"][];
+            /**
              * Instructions Limit
              * @description PROJECT_INSTRUCTIONS_MAX_CHARS
              */
@@ -14280,6 +14301,12 @@ export interface components {
              * @default false
              */
             archived: boolean;
+            /**
+             * Project Id
+             * @description The project the chat is filed under
+             * @default null
+             */
+            project_id: string | null;
             /**
              * Anonymous Mode
              * @default false

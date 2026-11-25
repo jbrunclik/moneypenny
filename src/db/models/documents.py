@@ -268,13 +268,15 @@ class DocumentMixin:
             ).fetchone()
         return self._row_to_document(row) if row else None
 
-    def list_project_documents(self, project_id: str) -> list[Document]:
-        """A project's live documents (every member's), newest first."""
+    def list_project_documents(self, project_id: str, deleted: bool = False) -> list[Document]:
+        """A project's live (or soft-deleted, still restorable) documents,
+        every member's, newest first."""
+        where = "deleted_at IS NOT NULL" if deleted else "deleted_at IS NULL"
+        order = "deleted_at DESC" if deleted else "created_at DESC"
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
-                """SELECT * FROM user_documents WHERE project_id = ? AND deleted_at IS NULL
-                   ORDER BY created_at DESC""",
+                f"SELECT * FROM user_documents WHERE project_id = ? AND {where} ORDER BY {order}",
                 (project_id,),
             ).fetchall()
         return [self._row_to_document(row) for row in rows]

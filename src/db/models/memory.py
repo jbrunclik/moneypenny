@@ -595,6 +595,17 @@ class MemoryMixin:
             ).fetchall()
             return [self._row_to_memory(row) for row in rows]
 
+    def list_deleted_project_memories(self, project_id: str) -> list[Memory]:
+        """A project's soft-deleted memories still restorable, most recent first."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT * FROM user_memories WHERE project_id = ? AND deleted_at IS NOT NULL
+                   ORDER BY deleted_at DESC""",
+                (project_id,),
+            ).fetchall()
+            return [self._row_to_memory(row) for row in rows]
+
     def list_deleted_memories(self, user_id: str) -> list[Memory]:
         """List soft-deleted memories still inside the retention window.
 

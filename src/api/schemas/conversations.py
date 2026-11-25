@@ -267,6 +267,7 @@ class ConversationDetailPaginatedResponse(ResponseModel):
     job_id: str | None = None
     has_pending_approval: bool = False  # True if agent has pending approval request
     archived: bool = False
+    project_id: str | None = Field(default=None, description="The project the chat is filed under")
     anonymous_mode: bool = False  # Memory and integrations disabled for this conversation
     is_whats_new: bool = False  # The read-only What's new chat (no composer)
     messages: list[MessageResponse]
@@ -310,6 +311,9 @@ class SearchResultResponse(ResponseModel):
 
     conversation_id: str = Field(..., description="ID of the conversation containing the match")
     conversation_title: str = Field(..., description="Title of the conversation")
+    project_name: str | None = Field(
+        default=None, description="The project the chat is filed under (shown on the result)"
+    )
     message_id: str | None = Field(
         default=None, description="Message ID if match is in a message (null for title matches)"
     )

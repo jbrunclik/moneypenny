@@ -60,6 +60,12 @@ class ProjectDetailResponse(ResponseModel):
     instructions: str
     memories: list[ProjectMemoryResponse]
     documents: list[ProjectDocumentResponse]
+    deleted_memories: list[ProjectMemoryResponse] = Field(
+        default_factory=list, description="Soft-deleted, restorable until the purge"
+    )
+    deleted_documents: list[ProjectDocumentResponse] = Field(
+        default_factory=list, description="Soft-deleted, restorable until the purge"
+    )
     instructions_limit: int = Field(description="PROJECT_INSTRUCTIONS_MAX_CHARS")
     memory_limit: int = Field(description="PROJECT_MEMORY_MAX_ENTRIES")
     documents_limit: int = Field(description="PROJECT_DOCUMENTS_MAX_ENTRIES")
@@ -84,6 +90,7 @@ class PersonResponse(ResponseModel):
 
     id: str
     name: str
+    picture: str | None = None
 
 
 class PeopleResponse(ResponseModel):

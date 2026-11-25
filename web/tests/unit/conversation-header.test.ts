@@ -58,11 +58,12 @@ describe('renderChatHeaderForConversation', () => {
     expect(m.renderChatHeader).toHaveBeenCalledWith({ title: 'New chat' });
   });
 
-  it('gives a saved conversation pin, export, archive and delete actions', () => {
+  it('gives a saved conversation pin, move, export, archive and delete actions', () => {
     renderChatHeaderForConversation(conv());
     expect(lastOptions().title).toBe('Chat');
     expect(lastOptions().actions?.map((b) => b.getAttribute('aria-label'))).toEqual([
       'Pin conversation',
+      'Move to project',
       'Export as Markdown',
       'Archive conversation',
       'Delete conversation',

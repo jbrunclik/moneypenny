@@ -9681,6 +9681,19 @@
             "title": "Conversation Title",
             "type": "string"
           },
+          "project_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The project the chat is filed under (shown on the result)",
+            "title": "Project Name"
+          },
           "message_id": {
             "anyOf": [
               {
@@ -9744,6 +9757,7 @@
         "required": [
           "conversation_id",
           "conversation_title",
+          "project_name",
           "message_id",
           "message_snippet",
           "match_type",
@@ -13404,11 +13418,24 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "picture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Picture"
           }
         },
         "required": [
           "id",
-          "name"
+          "name",
+          "picture"
         ],
         "title": "PersonResponse",
         "type": "object"
@@ -16010,6 +16037,22 @@
             "title": "Documents",
             "type": "array"
           },
+          "deleted_memories": {
+            "description": "Soft-deleted, restorable until the purge",
+            "items": {
+              "$ref": "#/components/schemas/ProjectDetailResponse.ProjectMemoryResponse"
+            },
+            "title": "Deleted Memories",
+            "type": "array"
+          },
+          "deleted_documents": {
+            "description": "Soft-deleted, restorable until the purge",
+            "items": {
+              "$ref": "#/components/schemas/ProjectDetailResponse.ProjectDocumentResponse"
+            },
+            "title": "Deleted Documents",
+            "type": "array"
+          },
           "instructions_limit": {
             "description": "PROJECT_INSTRUCTIONS_MAX_CHARS",
             "title": "Instructions Limit",
@@ -16031,6 +16074,8 @@
           "instructions",
           "memories",
           "documents",
+          "deleted_memories",
+          "deleted_documents",
           "instructions_limit",
           "memory_limit",
           "documents_limit"
@@ -18145,6 +18190,19 @@
             "title": "Archived",
             "type": "boolean"
           },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The project the chat is filed under",
+            "title": "Project Id"
+          },
           "anonymous_mode": {
             "default": false,
             "title": "Anonymous Mode",
@@ -18195,6 +18253,7 @@
           "job_id",
           "has_pending_approval",
           "archived",
+          "project_id",
           "anonymous_mode",
           "is_whats_new",
           "messages",

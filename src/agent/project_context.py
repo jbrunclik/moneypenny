@@ -50,7 +50,7 @@ def load_project_context(
     project = db.project_for_conversation(conv.id, user.id)
     if project is None:
         return None
-    names = {user_id: _first_name(name) for user_id, name in db.list_people(exclude_user_id="")}
+    names = {person.id: _first_name(person.name) for person in db.list_people(exclude_user_id="")}
     today = local_today()
     return ProjectContext(
         id=project.id,

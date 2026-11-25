@@ -64,6 +64,7 @@ def search_conversations(user: User, search: SearchQuery) -> dict[str, Any]:
                 "match_type": r.match_type,
                 "created_at": to_api(r.created_at) if r.created_at else None,
                 "match_mode": r.match_mode,
+                "project_name": r.project_name,
             }
             for r in results
         ],

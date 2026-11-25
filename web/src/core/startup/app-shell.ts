@@ -155,6 +155,8 @@ function main(): HTMLElement {
   return el('main', { class: 'main' }, [
     el('header', { class: 'mobile-header' }, [
       createIconButton({ id: 'menu-btn', class: 'btn-icon' }, MENU_ICON),
+      // The open chat's project (core/conversation-header.ts); hidden otherwise
+      el('a', { id: 'current-chat-project', class: 'chat-header-project mobile-header-project hidden' }),
       el('span', { id: 'current-chat-title' }, [APP_NAME]),
       el('button', { id: 'conversation-schedules-mobile', type: 'button', class: 'chat-header-schedules hidden' }),
       el('button', { id: 'conversation-facts-mobile', type: 'button', class: 'chat-header-facts hidden' }),

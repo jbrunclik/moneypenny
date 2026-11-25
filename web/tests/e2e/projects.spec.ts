@@ -56,10 +56,10 @@ for (const viewport of [
       await page.click('#send-btn');
       await expect(page).toHaveURL(/#\/conversations\//);
       await serverReplySaved(page);
-      if (viewport.name === 'desktop') {
-        // The chat header (desktop only) links back to the project
-        await expect(page.locator('.chat-header-project')).toHaveText('Bikes');
-      }
+      // The chat header links back to the project (on mobile, before the title)
+      const projectLink = viewport.name === 'desktop' ? '#chat-header .chat-header-project' : '#current-chat-project';
+      await expect(page.locator(projectLink)).toBeVisible();
+      await expect(page.locator(projectLink)).toHaveText('Bikes');
 
       // Not in the main list; on the project page instead
       await openSidebar(page);

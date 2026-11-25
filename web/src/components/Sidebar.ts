@@ -210,14 +210,21 @@ function projectItem(project: Project, isActive: boolean, conversations: Convers
   );
 }
 
+/** The project the sidebar marks: the open project page's, or the open chat's. */
+function activeProjectOf(): string | null {
+  const { isProjectView, activeProjectId, currentConversation, isPlannerView, isAgentsView, isSportsView, isLanguageView, isStorageView } =
+    useStore.getState();
+  if (isProjectView) return activeProjectId;
+  const inOtherView = isPlannerView || isAgentsView || isSportsView || isLanguageView || isStorageView;
+  return inOtherView ? null : currentConversation?.project_id ?? null;
+}
+
 /** The Projects group (none until the user has a project; New project is in the user menu). */
 function projectGroup(conversations: Conversation[]): HTMLElement[] {
-  const { projects, isProjectView, activeProjectId } = useStore.getState();
+  const { projects } = useStore.getState();
   if (projects.length === 0) return [];
-  return [
-    groupLabel('Projects'),
-    ...projects.map((p) => projectItem(p, isProjectView && p.id === activeProjectId, conversations)),
-  ];
+  const active = activeProjectOf();
+  return [groupLabel('Projects'), ...projects.map((p) => projectItem(p, p.id === active, conversations))];
 }
 
 /** The conversation rows: a Pinned group, then recency groups with labels. */
@@ -398,7 +405,6 @@ function conversationItem(conv: Conversation, isActive: boolean): HTMLElement {
   const state = useStore.getState();
   const selected = state.isSelecting && isConversationSelected(state, conv);
   const unread = conv.unreadCount ?? 0;
-  const pinLabel = conv.pinned ? 'Unpin' : 'Pin';
 
   return el('div', { class: `conversation-item-wrapper ${isActive ? 'active' : ''}${selected ? ' selected' : ''}`, 'data-conv-id': id }, [
     el('div', { class: 'conversation-item', role: 'button', tabindex: isActive ? '0' : '-1', ...(isActive ? { 'aria-current': 'true' } : {}) }, [
@@ -408,6 +414,7 @@ function conversationItem(conv: Conversation, isActive: boolean): HTMLElement {
           conv.is_whats_new ? createIconElement('conversation-title-icon', SPARKLES_ICON) : null,
           conv.title || DEFAULT_CONVERSATION_TITLE,
         ]),
+        conv.pinned ? projectLabel(conv) : null,
         // One-line snippet of the newest message (iMessage-style
         // scanability); per-device settings toggle
         !!conv.last_message_preview &&
@@ -417,15 +424,33 @@ function conversationItem(conv: Conversation, isActive: boolean): HTMLElement {
       unread > 0 && el('span', { class: 'unread-badge' }, [unread > 99 ? '99+' : String(unread)]),
       conversationJobs(conv),
       conversationTime(conv),
-      el('div', { class: 'conversation-actions' }, [
-        createIconButton({ class: 'conversation-pin', 'data-pin-id': id, 'aria-label': pinLabel, title: pinLabel }, conv.pinned ? UNPIN_ICON : PIN_ICON),
-        createIconButton({ class: 'conversation-rename', 'data-rename-id': id, 'aria-label': 'Rename' }, EDIT_ICON),
-        createIconButton({ class: 'conversation-archive', 'data-archive-id': id, 'aria-label': 'Archive' }, ARCHIVE_ICON),
-        createIconButton({ class: 'conversation-delete', 'data-delete-id': id, 'aria-label': 'Delete' }, DELETE_ICON),
-      ]),
+      rowActions(conv),
     ]),
     swipeActions(id),
   ]);
+}
+
+/** A row's hover actions: pin, rename, move to a project, archive, delete. */
+function rowActions(conv: Conversation): HTMLElement {
+  const id = conv.id;
+  const pinLabel = conv.pinned ? 'Unpin' : 'Pin';
+  return el('div', { class: 'conversation-actions' }, [
+    createIconButton({ class: 'conversation-pin', 'data-pin-id': id, 'aria-label': pinLabel, title: pinLabel }, conv.pinned ? UNPIN_ICON : PIN_ICON),
+    createIconButton({ class: 'conversation-rename', 'data-rename-id': id, 'aria-label': 'Rename' }, EDIT_ICON),
+    !conv.is_whats_new &&
+      createIconButton({ class: 'conversation-move', 'data-move-id': id, 'aria-label': 'Move to project', title: 'Move to project' }, FOLDER_ICON),
+    createIconButton({ class: 'conversation-archive', 'data-archive-id': id, 'aria-label': 'Archive' }, ARCHIVE_ICON),
+    createIconButton({ class: 'conversation-delete', 'data-delete-id': id, 'aria-label': 'Delete' }, DELETE_ICON),
+  ]);
+}
+
+/** "in <project>" under a chat's title where its project is not obvious (Pinned, Archive). */
+function projectLabel(conv: Conversation): HTMLElement | null {
+  if (!conv.project_id) return null;
+  const project = useStore.getState().projects.find((p) => p.id === conv.project_id);
+  return project
+    ? el('div', { class: 'conversation-project' }, [createIconElement('conversation-project-icon', FOLDER_ICON), project.name])
+    : null;
 }
 
 /**
@@ -449,7 +474,10 @@ function archivedConversationItem(conv: Conversation): HTMLElement {
   const id = conv.id;
   return el('div', { class: 'conversation-item-wrapper', 'data-conv-id': id }, [
     el('div', { class: 'conversation-item', role: 'button', tabindex: '-1' }, [
-      el('div', { class: 'conversation-title' }, [conv.title || DEFAULT_CONVERSATION_TITLE]),
+      el('div', { class: 'conversation-text' }, [
+        el('div', { class: 'conversation-title' }, [conv.title || DEFAULT_CONVERSATION_TITLE]),
+        projectLabel(conv),
+      ]),
       conversationTime(conv),
       el('div', { class: 'conversation-actions' }, [
         createIconButton({ class: 'conversation-rename', 'data-rename-id': id, 'aria-label': 'Rename' }, EDIT_ICON),

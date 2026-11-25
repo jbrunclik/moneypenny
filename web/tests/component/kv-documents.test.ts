@@ -38,6 +38,7 @@ function callbacks(): KVStoreCallbacks {
     onNamespaceExpand: vi.fn() as KVStoreCallbacks['onNamespaceExpand'],
     onDeleteKey: vi.fn(() => Promise.resolve()),
     onClearNamespace: vi.fn(() => Promise.resolve()),
+    onRestoreProject: vi.fn(() => Promise.resolve()),
     onDeleteMemory: vi.fn(() => Promise.resolve()),
     onSetMemoryProtected: vi.fn(() => Promise.resolve()),
     onRestoreMemory: vi.fn(() => Promise.resolve()),

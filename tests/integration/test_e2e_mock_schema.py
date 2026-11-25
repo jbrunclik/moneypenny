@@ -41,6 +41,7 @@ _SEARCH_RESULT = {
     "match_type": "message",
     "created_at": "2026-10-26T10:00:00.000000+00:00",
     "match_mode": "all",
+    "project_name": None,
 }
 
 # (method, url, mock config overrides) - every intercepted route, in the

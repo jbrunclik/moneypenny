@@ -9,6 +9,21 @@ describe('ChatHeader', () => {
     document.body.innerHTML = '<header id="chat-header" class="chat-header hidden"></header>';
   });
 
+  it('shows the open chat\'s project in the mobile header and hides it without one', () => {
+    document.body.insertAdjacentHTML('beforeend', '<a id="current-chat-project" class="hidden"></a>');
+    const link = document.getElementById('current-chat-project') as HTMLAnchorElement;
+
+    renderChatHeader({ title: 'Chat', project: { name: 'Bikes', href: '#/projects/p1' } });
+    expect(link.classList.contains('hidden')).toBe(false);
+    expect(link.textContent?.trim()).toBe('Bikes');
+    expect(link.getAttribute('href')).toBe('#/projects/p1');
+
+    renderChatHeader({ title: 'Plain' });
+    expect(link.classList.contains('hidden')).toBe(true);
+    renderChatHeader(null);
+    expect(link.classList.contains('hidden')).toBe(true);
+  });
+
   it('renders title, cost chip and actions', () => {
     const action = document.createElement('button');
     action.className = 'test-action';

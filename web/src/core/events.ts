@@ -271,6 +271,7 @@ const CONVERSATION_LIST_ACTIONS: readonly ClickAction[] = [
     },
   },
   { selector: '[data-archive-id]', stop: true, run: onRowId('archiveId', archiveConversation) },
+  { selector: '[data-move-id]', stop: true, run: onRowId('moveId', moveChatFromMenu) },
   { selector: '[data-unarchive-id]', stop: true, run: onRowId('unarchiveId', unarchiveConversation) },
   // Trash view: restore, delete forever, empty, back
   { selector: '[data-restore-id]', stop: true, run: onRowId('restoreId', restoreConversation) },
@@ -353,7 +354,12 @@ const MESSAGE_ACTIONS: readonly ClickAction[] = [
   { selector: '.message-actions-overflow', run: toggleMessageActionsOverflow },
   {
     selector: '.message-memory-note',
-    run: () => void navigateToStorage().catch((error: unknown) => log.error('Failed to open storage', { error })),
+    run: () => {
+      // A project chat's notes are about the project's memory: open its page
+      const projectId = useStore.getState().currentConversation?.project_id;
+      const open = projectId ? navigateToProject(projectId) : navigateToStorage();
+      void open.catch((error: unknown) => log.error('Failed to open memories', { error }));
+    },
   },
   // Inline copy button (code blocks, tables)
   { selector: '.inline-copy-btn', run: (el) => void copyInlineContent(el as HTMLButtonElement) },

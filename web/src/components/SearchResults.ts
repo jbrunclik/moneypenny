@@ -11,6 +11,7 @@
 
 import { useStore } from '../state/store';
 import { createElement, getElementById } from '../utils/dom';
+import { FOLDER_ICON, createIconElement } from '../utils/icons';
 import { createLogger } from '../utils/logger';
 import { formatRelativeTime } from '../utils/relative-time';
 import type { SearchResult } from '../types/api';
@@ -115,6 +116,12 @@ function searchResultItem(result: SearchResult, index: number, viewedResultIndex
     },
     [
       createElement('div', { class: 'search-result-title' }, [result.conversation_title]),
+      result.project_name
+        ? createElement('div', { class: 'conversation-project' }, [
+            createIconElement('conversation-project-icon', FOLDER_ICON),
+            result.project_name,
+          ])
+        : null,
       snippet,
       createElement('div', { class: 'search-result-meta' }, [
         createElement('span', { class: 'search-result-type' }, [resultLabel(result, isMessageMatch)]),

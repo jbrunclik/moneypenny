@@ -30,8 +30,7 @@ import { hideChatChrome } from './kv-store';
 import { updateAnonymousButtonState, updateConversationCost } from './toolbar';
 import { APP_NAME } from '../config';
 import type { BulkTrashRequest, Conversation, Person, Project, ProjectDetail } from '../types/api';
-import { showActionSheet } from '../components/ActionSheet';
-import { USERS_ICON } from '../utils/icons';
+import { openShareSheet } from '../components/ShareSheet';
 import type { ProjectChats, ProjectPageCallbacks } from '../components/ProjectPage';
 import { openProjectPicker } from '../components/ProjectPicker';
 import { renderSelectionChrome } from '../components/SidebarSelection';
@@ -230,7 +229,7 @@ async function renameProject(project: Project): Promise<void> {
   }
 }
 
-/** The owner's Share: add a family member, or remove one (after a confirm). */
+/** The owner's Share: who has access, adding a family member or removing one (after a confirm). */
 async function shareProject(project: Project): Promise<void> {
   let people: Person[];
   try {
@@ -239,46 +238,49 @@ async function shareProject(project: Project): Promise<void> {
     toast.error('Could not load the family members.');
     return;
   }
-  const memberIds = new Set(useStore.getState().projects.find((p) => p.id === project.id)?.member_ids ?? project.member_ids);
-  const actions = people.map((person) =>
-    memberIds.has(person.id)
-      ? { label: `Remove ${person.name}`, icon: USERS_ICON, danger: true, onSelect: () => void removeMember(project, person) }
-      : { label: `Share with ${person.name}`, icon: USERS_ICON, onSelect: () => void addMember(project, person) }
-  );
-  if (actions.length === 0) {
+  if (people.length === 0) {
     toast.info('There is no one else to share with.');
     return;
   }
-  showActionSheet('Share project', actions);
+  const { user, projects: list } = useStore.getState();
+  openShareSheet({
+    projectName: project.name,
+    owner: { name: user?.name ?? 'You', picture: user?.picture },
+    people,
+    memberIds: new Set(list.find((p) => p.id === project.id)?.member_ids ?? project.member_ids),
+    onAdd: (person) => addMember(project, person),
+    onRemove: (person) => removeMember(project, person),
+  });
 }
 
-async function addMember(project: Project, person: Person): Promise<void> {
+async function addMember(project: Project, person: Person): Promise<boolean> {
   try {
     useStore.getState().upsertProject(await projects.addMember(project.id, person.id));
   } catch {
     toast.error(`Could not share the project with ${person.name}.`);
-    return;
+    return false;
   }
-  toast.success(`${person.name} can now use ${project.name} - its instructions, memory and documents. Your chats stay yours.`);
   await navigateToProject(project.id);
+  return true;
 }
 
-async function removeMember(project: Project, person: Person): Promise<void> {
+async function removeMember(project: Project, person: Person): Promise<boolean> {
   const confirmed = await showConfirm({
     title: `Remove ${person.name}?`,
     message: `${person.name}'s chats in the project go back to their chat list. What they added to its memory stays.`,
     confirmLabel: 'Remove',
     danger: true,
   });
-  if (!confirmed) return;
+  if (!confirmed) return false;
   try {
     await projects.removeMember(project.id, person.id);
   } catch {
     toast.error(`Could not remove ${person.name}.`);
-    return;
+    return false;
   }
   await loadProjects();
   await navigateToProject(project.id);
+  return true;
 }
 
 async function deleteProject(project: Project): Promise<void> {

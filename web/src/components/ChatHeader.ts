@@ -152,7 +152,23 @@ function startInlineRename(title: HTMLElement, commit: (t: string) => void): voi
   input.addEventListener('blur', () => finish(true));
 }
 
+/** The mobile header's link to the open chat's project (hidden without one). */
+function renderMobileProjectLink(project: ChatHeaderOptions['project']): void {
+  const link = document.getElementById('current-chat-project') as HTMLAnchorElement | null;
+  if (!link) return;
+  link.classList.toggle('hidden', !project);
+  link.replaceChildren();
+  if (!project) return;
+  link.href = project.href;
+  link.title = `Open the project ${project.name}`;
+  const icon = document.createElement('span');
+  icon.className = 'chat-header-project-icon';
+  setIcon(icon, FOLDER_ICON);
+  link.append(icon, project.name);
+}
+
 export function renderChatHeader(opts: ChatHeaderOptions | null): void {
+  renderMobileProjectLink(opts?.project);
   const el = getHeaderEl();
   if (!el) return;
   el.innerHTML = '';

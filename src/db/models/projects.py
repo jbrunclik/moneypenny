@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from src.config import Config
-from src.db.models.dataclasses import Project, ProjectSummary
+from src.db.models.dataclasses import Person, Project, ProjectSummary
 from src.db.models.timestamps import from_db, from_db_or_none, to_db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
@@ -471,12 +471,15 @@ class ProjectMixin:
             ).fetchone()
         return f"{row['n']}:{row['gone']}:{row['latest']}"
 
-    def list_people(self, exclude_user_id: str) -> list[tuple[str, str]]:
-        """(id, name) of the deployment's other users: the family to share with."""
+    def list_people(self, exclude_user_id: str) -> list[Person]:
+        """The deployment's other users: the family to share with."""
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
-                "SELECT id, name, email FROM users WHERE id != ? ORDER BY name, email",
+                "SELECT id, name, email, picture FROM users WHERE id != ? ORDER BY name, email",
                 (exclude_user_id,),
             ).fetchall()
-        return [(row["id"], row["name"] or row["email"].split("@")[0]) for row in rows]
+        return [
+            Person(row["id"], row["name"] or row["email"].split("@")[0], row["picture"])
+            for row in rows
+        ]

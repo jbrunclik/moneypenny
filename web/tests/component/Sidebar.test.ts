@@ -935,6 +935,21 @@ describe('Sidebar list layout', () => {
     ...extra,
   });
 
+  const bikes: Project = {
+    id: 'p1',
+    name: 'Bikes',
+    owner_id: 'user-1',
+    is_owner: true,
+    shared: false,
+    member_names: [],
+    member_ids: ['user-1'],
+    chat_count: 1,
+    unread_count: 0,
+    created_at: '2026-11-01T00:00:00Z',
+    updated_at: '2026-11-01T00:00:00Z',
+    deleted_at: null,
+  };
+
   beforeEach(() => {
     document.body.innerHTML = '<div id="conversations-list"></div>';
     resetStore();
@@ -1015,6 +1030,34 @@ describe('Sidebar list layout', () => {
     expect(rows[0]?.querySelector('.project-item-unread')).toBeNull();
     expect(rows[1]?.querySelector('.project-item-unread')).not.toBeNull();
     useStore.setState({ projects: [], isProjectView: false, activeProjectId: null });
+  });
+
+  it("offers Move to project on rows but not on What's new, and Pinned names a chat's project", () => {
+    useStore.setState({
+      conversations: [conv('a', { project_id: 'p1', pinned: true }), conv('w', { is_whats_new: true })],
+      projects: [bikes],
+    });
+    renderConversationsList();
+
+    expect(document.querySelector('[data-conv-id="a"] [data-move-id="a"]')).not.toBeNull();
+    expect(document.querySelector('[data-conv-id="w"] [data-move-id]')).toBeNull();
+    expect(document.querySelector('[data-conv-id="a"] .conversation-project')?.textContent?.trim()).toBe('Bikes');
+    useStore.setState({ projects: [] });
+  });
+
+  it("marks the open chat's project in the Projects group, not while another view is open", () => {
+    useStore.setState({
+      conversations: [conv('a')],
+      currentConversation: conv('b', { project_id: 'p1' }),
+      projects: [bikes],
+    });
+    renderConversationsList();
+    expect(document.querySelector('.project-item[data-project-id="p1"]')?.classList.contains('active')).toBe(true);
+
+    useStore.setState({ isStorageView: true });
+    renderConversationsList();
+    expect(document.querySelector('.project-item[data-project-id="p1"]')?.classList.contains('active')).toBe(false);
+    useStore.setState({ projects: [], currentConversation: null, isStorageView: false });
   });
 
   it('shows no Projects group without projects', () => {

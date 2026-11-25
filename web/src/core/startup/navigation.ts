@@ -7,7 +7,8 @@
 import { handleAgentEditById, handleStandingRun, leaveAgentsView, navigateToAgents } from '../agents';
 import { setViewLeavers } from '../conversation';
 import { setAgentHeaderActions } from '../conversation-switch';
-import { leaveProjectView } from '../projects';
+import { leaveProjectView, moveChatFromMenu } from '../projects';
+import { setHeaderProjectActions } from '../conversation-header';
 import { leaveSportsView } from '../sports';
 
 /**
@@ -20,6 +21,7 @@ export function initNavigation(): void {
     sports: leaveSportsView,
     project: () => leaveProjectView(false),
   });
+  setHeaderProjectActions({ moveChat: moveChatFromMenu });
   setAgentHeaderActions({
     openAgents: () => navigateToAgents(),
     editAgent: handleAgentEditById,

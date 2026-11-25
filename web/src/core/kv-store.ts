@@ -8,6 +8,7 @@ import { createLogger } from '../utils/logger';
 import { kvStore } from '../api/kv-store';
 import { memories } from '../api/memories';
 import { documents } from '../api/documents';
+import { projects as projectsApi } from '../api/projects';
 import { downloadDocument } from './file-actions';
 import { toast } from '../components/Toast';
 import {
@@ -26,7 +27,7 @@ import { WARNING_ICON, createIconElement } from '../utils/icons';
 import { clearConversationHash, setStorageHash } from '../router/deeplink';
 import { setCurrentConversationForBlobs } from '../utils/thumbnail-blob-urls';
 import type { KVStoreCallbacks } from '../components/KVStorePage';
-import type { DocumentsResponse, KVNamespacesResponse, Memory } from '../types/api';
+import type { DocumentsResponse, KVNamespacesResponse, Memory, Project } from '../types/api';
 import {
   ensureInputAreaVisible,
   focusMessageInput,
@@ -71,6 +72,7 @@ interface StorageLoad {
   memoryLimit: number;
   /** null when they could not be loaded (the section is left out) */
   documentsData: DocumentsResponse | null;
+  deletedProjects: Project[];
   fetchFailed: boolean;
 }
 
@@ -88,8 +90,13 @@ async function loadStorageData(
     deletedMemories: [],
     memoryLimit: 0,
     documentsData: null,
+    deletedProjects: [],
     fetchFailed: false,
   };
+  const deletedProjectsLoad = projectsApi.deleted().catch((error: unknown) => {
+    log.error('Failed to fetch deleted projects', { error });
+    return [];
+  });
   const documentsLoad = documents.list().catch((error: unknown) => {
     log.error('Failed to fetch documents', { error });
     return null;
@@ -111,6 +118,7 @@ async function loadStorageData(
       result.fetchFailed = true;
     }
     result.documentsData = await documentsLoad;
+    result.deletedProjects = await deletedProjectsLoad;
     return result;
   }
   // Still need to fetch memories even if KV data is cached
@@ -126,6 +134,7 @@ async function loadStorageData(
     log.error('Failed to fetch memories', { error });
   }
   result.documentsData = await documentsLoad;
+  result.deletedProjects = await deletedProjectsLoad;
   return result;
 }
 
@@ -184,6 +193,18 @@ function buildStorageCallbacks(): KVStoreCallbacks {
         throw error;
       }
       toast.success('Document restored.');
+    },
+    onRestoreProject: async (projectId: string) => {
+      try {
+        await projectsApi.restore(projectId);
+      } catch (error) {
+        toast.error('Failed to restore the project.');
+        throw error;
+      }
+      toast.success('Project restored with its memory and documents.');
+      // Not a static import: core/projects imports this module
+      const { loadProjects } = await import('./projects');
+      await loadProjects();
     },
     onDownloadDocument: (documentId: string, fileName: string) => {
       void downloadDocument(documentId, fileName);
@@ -245,7 +266,7 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
   const cacheAge = Date.now() - (cached.storageLastFetch || 0);
   const needsRefresh = !cached.storageData || cacheAge > STORAGE_CACHE_MS || forceRefresh;
 
-  const { storageData, memoriesData, deletedMemories, memoryLimit, documentsData, fetchFailed } = await loadStorageData(
+  const { storageData, memoriesData, deletedMemories, memoryLimit, documentsData, deletedProjects, fetchFailed } = await loadStorageData(
     needsRefresh,
     cached.storageData
   );
@@ -279,6 +300,7 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
     limit: memoryLimit,
     deletedMemories,
     documents: documentsData,
+    deletedProjects,
   });
 
   // Add stale data warning banner if fetch failed but we have cached data

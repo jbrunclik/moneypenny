@@ -132,6 +132,8 @@ class SearchMixin:
                     SELECT
                         si.conversation_id,
                         c.title as conversation_title,
+                        (SELECT p.name FROM projects p
+                         WHERE p.id = c.project_id AND p.deleted_at IS NULL) AS project_name,
                         si.message_id,
                         CASE
                             WHEN si.type = 'message' THEN snippet(
@@ -280,6 +282,7 @@ def _unique_results(rows: list[sqlite3.Row]) -> list[SearchResult]:
                 match_type=row["match_type"],
                 rank=float(row["rank"]),
                 created_at=from_db_or_none(row["message_created_at"]),
+                project_name=row["project_name"],
             )
         )
 

@@ -102,6 +102,7 @@ vi.mock('@/components/AgentConversationHeader', () => ({
 vi.mock('@/components/ChatHeader', () => ({ renderChatHeader: m.renderChatHeader }));
 vi.mock('@/core/conversation-header', () => ({
   renderChatHeaderForConversation: m.renderChatHeaderForConversation,
+  setHeaderProjectActions: vi.fn(),
 }));
 vi.mock('@/core/toolbar', () => ({
   updateConversationCost: m.updateConversationCost,

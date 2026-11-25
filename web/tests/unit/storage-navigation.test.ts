@@ -35,6 +35,8 @@ vi.mock('@/api/documents', () => ({
 
 vi.mock('@/core/file-actions', () => ({ downloadDocument: vi.fn() }));
 
+vi.mock('@/api/projects', () => ({ projects: { deleted: vi.fn(() => Promise.resolve([])), restore: vi.fn() } }));
+
 vi.mock('@/components/Toast', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
@@ -140,6 +142,7 @@ describe('navigateToStorage', () => {
       limit: 50,
       deletedMemories: [],
       documents: DOCUMENTS,
+      deletedProjects: [],
     });
     expect(messages.querySelector('.kv-store-page')).not.toBeNull();
     expect(messages.querySelector('.kv-store-stale-warning')).toBeNull();
@@ -159,6 +162,7 @@ describe('navigateToStorage', () => {
       limit: 50,
       deletedMemories: [],
       documents: DOCUMENTS,
+      deletedProjects: [],
     });
   });
 
@@ -174,6 +178,7 @@ describe('navigateToStorage', () => {
       limit: 0,
       deletedMemories: [],
       documents: DOCUMENTS,
+      deletedProjects: [],
     });
     expect(messages.querySelector('.kv-store-stale-warning')).not.toBeNull();
   });

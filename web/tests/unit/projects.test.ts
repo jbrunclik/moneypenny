@@ -114,6 +114,8 @@ function detail(p: Project, extra: Partial<ProjectDetail> = {}): ProjectDetail {
     instructions: 'Metric units',
     memories: [],
     documents: [],
+    deleted_memories: [],
+    deleted_documents: [],
     instructions_limit: 4000,
     memory_limit: 60,
     documents_limit: 20,
@@ -316,26 +318,27 @@ describe('the chat menu and selection mode', () => {
 });
 
 describe('sharing', () => {
-  it('Share offers the family: add for others, remove for members', async () => {
+  it('Share lists who has access and adds a family member in place', async () => {
     const p = project('p1', 'Home', { member_ids: ['user-1', 'user-2'], shared: true });
     useStore.setState({ projects: [p] });
     (projects.get as Mock).mockResolvedValue(detail(p));
     (projects.conversations as Mock).mockResolvedValue(page([]));
     (projects.people as Mock).mockResolvedValue([
-      { id: 'user-2', name: 'Jana' },
-      { id: 'user-3', name: 'Viktor' },
+      { id: 'user-2', name: 'Jana', picture: null },
+      { id: 'user-3', name: 'Viktor', picture: null },
     ]);
     (projects.addMember as Mock).mockResolvedValue({ ...p, member_ids: ['user-1', 'user-2', 'user-3'] });
     await navigateToProject('p1');
 
     messages.querySelector<HTMLButtonElement>('.project-share')?.click();
-    await vi.waitFor(() => expect(sheet.show).toHaveBeenCalled());
+    await vi.waitFor(() => expect(document.getElementById('share-sheet')).not.toBeNull());
 
-    const [title, actions] = sheet.show.mock.calls.at(-1) as [string, Array<{ label: string; onSelect: () => void }>];
-    expect(title).toBe('Share project');
-    expect(actions.map((a) => a.label)).toEqual(['Remove Jana', 'Share with Viktor']);
-    actions[1]?.onSelect();
+    const actions = () => [...document.querySelectorAll('.share-sheet-action')].map((b) => b.textContent);
+    expect(actions()).toEqual(['Remove', 'Add']);
+    document.querySelectorAll<HTMLButtonElement>('.share-sheet-action')[1]?.click();
     await vi.waitFor(() => expect(projects.addMember).toHaveBeenCalledWith('p1', 'user-3'));
+    await vi.waitFor(() => expect(actions()).toEqual(['Remove', 'Remove']));
+    document.getElementById('share-sheet')?.remove();
   });
 
   it('a member sees no Share button', async () => {
@@ -361,5 +364,31 @@ describe('the chat list follows the store', () => {
     await vi.waitFor(() =>
       expect(messages.querySelectorAll('.project-chat-list [data-conv-id]')).toHaveLength(1)
     );
+  });
+});
+
+describe('recently deleted on the project page', () => {
+  it("lists the project's deleted memories", async () => {
+    const p = project('p1', 'Home');
+    const deleted: ProjectDetail['deleted_memories'][number] = {
+      id: 'm1',
+      content: 'Old fact',
+      category: 'fact',
+      created_at: '2026-11-01T00:00:00Z',
+      updated_at: '2026-11-01T00:00:00Z',
+      protected: false,
+      source_conversation_id: null,
+      deleted_at: '2026-11-20T00:00:00Z',
+      valid_until: null,
+      previous_content: null,
+      author_name: 'Jiří',
+    };
+    (projects.get as Mock).mockResolvedValue(detail(p, { deleted_memories: [deleted] }));
+    (projects.conversations as Mock).mockResolvedValue(page([]));
+
+    await navigateToProject('p1');
+
+    expect(messages.textContent).toContain('Recently deleted');
+    expect(messages.textContent).toContain('Old fact');
   });
 });

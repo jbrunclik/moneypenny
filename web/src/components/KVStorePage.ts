@@ -5,7 +5,7 @@
 
 import { clearElement, createElement } from '../utils/dom';
 import { createEmptyState } from './EmptyState';
-import {
+import { FOLDER_ICON,
   DELETE_ICON,
   DATABASE_ICON,
   BRAIN_ICON,
@@ -19,7 +19,7 @@ import {
   createIconElement,
   setIcon,
 } from '../utils/icons';
-import type { DocumentsResponse, KVNamespacesResponse, KVKeysResponse, Memory } from '../types/api';
+import type { Project, DocumentsResponse, KVNamespacesResponse, KVKeysResponse, Memory } from '../types/api';
 import { showConfirm } from './Modal';
 import { formatRelativeTime, formatUntil, sectionTitle } from './kv-store-parts';
 import { renderDocumentsSections, type DocumentCallbacks } from './kv-documents';
@@ -57,6 +57,7 @@ export interface KVStoreCallbacks extends DocumentCallbacks, MemoryCallbacks {
   onNamespaceExpand: (namespace: string) => Promise<KVKeysResponse>;
   onDeleteKey: (namespace: string, key: string) => Promise<void>;
   onClearNamespace: (namespace: string) => Promise<void>;
+  onRestoreProject: (projectId: string) => Promise<void>;
 }
 
 /** How a memory list is shown: its cap, empty-state hint, and authors (shared projects) */
@@ -95,7 +96,12 @@ export function renderKVStorePage(
   kvData: KVNamespacesResponse,
   memories: Memory[],
   callbacks: KVStoreCallbacks,
-  options?: { limit?: number; deletedMemories?: Memory[]; documents?: DocumentsResponse | null },
+  options?: {
+    limit?: number;
+    deletedMemories?: Memory[];
+    documents?: DocumentsResponse | null;
+    deletedProjects?: Project[];
+  },
 ): HTMLDivElement {
   const container = document.createElement('div');
   container.className = 'kv-store';
@@ -127,6 +133,11 @@ export function renderKVStorePage(
   }
 
   // Saved documents (absent when they could not be loaded)
+  // Deleted projects, restorable (with their memory and documents) until the purge
+  if (options?.deletedProjects?.length) {
+    container.appendChild(renderDeletedProjectsSection(options.deletedProjects, callbacks));
+  }
+
   if (options?.documents) {
     container.append(...renderDocumentsSections(options.documents, callbacks));
   }
@@ -315,9 +326,44 @@ function renderMemoryItem(
  * Deletes are soft, and can be made by the assistant as well as the user, so the
  * recovery window needs to be visible somewhere.
  */
-function renderDeletedMemoriesSection(
+/** Recently deleted projects with a restore action (owner's; their chats stay where they went). */
+function renderDeletedProjectsSection(deleted: Project[], callbacks: KVStoreCallbacks): HTMLDivElement {
+  const list = createElement('div', { class: 'kv-memories-list' });
+  const section = createElement('div', { class: 'kv-store-section kv-deleted-projects' }, [
+    sectionTitle(FOLDER_ICON, 'Recently deleted projects', String(deleted.length)),
+    list,
+  ]);
+  for (const project of deleted) {
+    const item = createElement('div', { class: 'memory-item memory-item--deleted' }, [
+      createElement('div', { class: 'memory-content-row' }, [
+        createElement('span', { class: 'memory-text' }, [project.name]),
+        createIconButton({ class: 'kv-project-restore', title: 'Restore this project' }, RESTORE_ICON),
+      ]),
+      createElement('div', { class: 'memory-meta' }, [
+        createElement('span', { class: 'memory-time' }, [
+          `deleted ${project.deleted_at ? formatRelativeTime(project.deleted_at) : ''}`,
+        ]),
+      ]),
+    ]);
+    item.querySelector('.kv-project-restore')?.addEventListener('click', () => {
+      void callbacks
+        .onRestoreProject(project.id)
+        .then(() => {
+          item.remove();
+          if (list.children.length === 0) section.remove();
+        })
+        .catch(() => {
+          // Error surfaced by the caller
+        });
+    });
+    list.appendChild(item);
+  }
+  return section;
+}
+
+export function renderDeletedMemoriesSection(
   deletedMemories: Memory[],
-  callbacks: KVStoreCallbacks,
+  callbacks: MemoryCallbacks,
 ): HTMLDivElement {
   const section = document.createElement('div');
   section.className = 'kv-store-section';

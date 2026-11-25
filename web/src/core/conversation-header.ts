@@ -6,11 +6,22 @@
 import { useStore } from '../state/store';
 import type { Conversation } from '../types/api';
 import { renderChatHeader } from '../components/ChatHeader';
-import { ARCHIVE_ICON, DELETE_ICON, DOWNLOAD_ICON, PIN_ICON, UNPIN_ICON, setIcon } from '../utils/icons';
+import { ARCHIVE_ICON, DELETE_ICON, DOWNLOAD_ICON, FOLDER_ICON, PIN_ICON, UNPIN_ICON, setIcon } from '../utils/icons';
 import { isTempConversation } from '../utils/conversation-id';
 import { deleteConversation, renameConversationTo, togglePinConversation } from './conversation-actions';
 import { archiveConversation } from './archive';
 import { exportConversation } from './file-actions';
+
+/** The project actions the header offers, injected by startup (F1: core/projects sits above this module). */
+interface HeaderProjectActions {
+  moveChat: (conversationId: string) => void;
+}
+// UI-local (F2): injected by startup (F1)
+let headerProjectActions: HeaderProjectActions | null = null;
+
+export function setHeaderProjectActions(actions: HeaderProjectActions): void {
+  headerProjectActions = actions;
+}
 
 /**
  * Build the icon action buttons for the regular conversation header.
@@ -46,6 +57,13 @@ function buildChatHeaderActions(convId: string): HTMLElement[] {
   setIcon(archiveBtn, ARCHIVE_ICON);
   archiveBtn.addEventListener('click', () => void archiveConversation(convId));
 
+  const moveBtn = document.createElement('button');
+  moveBtn.className = 'btn-icon chat-header-action';
+  moveBtn.setAttribute('aria-label', 'Move to project');
+  moveBtn.title = 'Move to project';
+  setIcon(moveBtn, FOLDER_ICON);
+  moveBtn.addEventListener('click', () => headerProjectActions?.moveChat(convId));
+
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'btn-icon chat-header-action chat-header-action-danger';
   deleteBtn.setAttribute('aria-label', 'Delete conversation');
@@ -53,7 +71,7 @@ function buildChatHeaderActions(convId: string): HTMLElement[] {
   setIcon(deleteBtn, DELETE_ICON);
   deleteBtn.addEventListener('click', () => void deleteConversation(convId));
 
-  return [pinBtn, exportBtn, archiveBtn, deleteBtn];
+  return [pinBtn, moveBtn, exportBtn, archiveBtn, deleteBtn];
 }
 
 /**

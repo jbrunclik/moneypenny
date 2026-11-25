@@ -231,6 +231,7 @@ def get_conversation(
         "job_id": conv.job_id,
         "has_pending_approval": has_pending_approval,
         "archived": conv.archived,
+        "project_id": conv.project_id,
         "anonymous_mode": conv.anonymous_mode,
         "is_whats_new": conv.is_whats_new,
         "messages": optimized_messages,
