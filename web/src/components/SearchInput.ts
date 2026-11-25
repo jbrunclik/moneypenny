@@ -114,7 +114,40 @@ function handleKeydown(event: KeyboardEvent): void {
     event.preventDefault();
     clearSearch();
     target.blur();
+    return;
   }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    moveSelection(event.key === 'ArrowDown' ? 1 : -1);
+    return;
+  }
+  if (event.key === 'Enter' && !event.isComposing) {
+    const items = resultItems();
+    const item = items.find((i) => i.classList.contains(SELECTED_CLASS)) ?? items[0];
+    if (!item) return;
+    event.preventDefault();
+    item.click(); // the results' own click handler opens it
+  }
+}
+
+// The result the arrow keys picked (the focus stays in the input)
+const SELECTED_CLASS = 'keyboard-selected';
+
+function resultItems(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>('#conversations-list .search-result-item')];
+}
+
+function moveSelection(step: 1 | -1): void {
+  const items = resultItems();
+  if (items.length === 0) return;
+  const current = items.findIndex((i) => i.classList.contains(SELECTED_CLASS));
+  const next = current === -1 ? 0 : Math.min(Math.max(current + step, 0), items.length - 1);
+  items.forEach((item, index) => {
+    const selected = index === next;
+    item.classList.toggle(SELECTED_CLASS, selected);
+    item.setAttribute('aria-selected', String(selected));
+  });
+  items[next]?.scrollIntoView({ block: 'nearest' });
 }
 
 /**

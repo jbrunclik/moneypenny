@@ -687,8 +687,14 @@
     /* Match conversation item style - clean list without borders */
 }
 
-.search-result-item:hover {
+.search-result-item:hover,
+/* picked with the arrow keys from the search input (Enter opens it) */
+.search-result-item.keyboard-selected {
     background-color: var(--bg-hover);
+}
+
+.search-result-item.keyboard-selected {
+    box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .search-result-item.active {

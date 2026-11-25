@@ -108,7 +108,8 @@ window.__testVersionBanner()
 
 - **⌘⇧O** - New chat: it clicks `#new-chat-btn`, so it does what the button does
   (on a project page, a chat in that project).
-- **⌘K** - focus and select the chat search.
+- **⌘K** - focus and select the chat search; there **↓ / ↑** pick a result (`keyboard-selected`,
+  `SearchInput.ts`; the focus stays in the input) and **Enter** opens it, or the first one.
 - **Shift+Esc** - focus the composer.
 
 The New Chat button and the search input name them in their `title` (⌘ on Apple

@@ -25,4 +25,33 @@ test.describe('keyboard shortcuts', () => {
     await expect(page.locator('#messages .message')).toHaveCount(0);
     await expect(page).not.toHaveURL(/#\/conversations\//);
   });
+
+  test('⌘K, type, arrows and Enter open a search result', async ({ page }) => {
+    const seeded = await page.request.post('/test/seed', {
+      data: {
+        conversations: ['Wallbox quote', 'Wallbox install'].map((title) => ({
+          title,
+          messages: [
+            { role: 'user', content: `${title} details` },
+            { role: 'assistant', content: 'Noted.' },
+          ],
+        })),
+      },
+    });
+    expect(seeded.ok()).toBeTruthy();
+    await page.goto('/');
+    await appReady(page);
+
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.keyboard.type('wallbox');
+    const items = page.locator('.search-result-item');
+    await expect(items.first()).toBeVisible();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await expect(items.nth(1)).toHaveClass(/keyboard-selected/);
+    const convId = await items.nth(1).getAttribute('data-conv-id');
+    await page.keyboard.press('Enter');
+
+    await expect(page).toHaveURL(new RegExp(`#/conversations/${convId}`));
+  });
 });
