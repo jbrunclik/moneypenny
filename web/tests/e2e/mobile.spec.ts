@@ -21,6 +21,30 @@ async function openSidebar(page: Page, options: { force?: boolean } = {}): Promi
 test.describe('Mobile - iPhone', () => {
   test.use({ viewport: { width: 375, height: 812 } });
 
+  test('a toast leaves the menu button free', async ({ page }) => {
+    const seeded = await page.request.post('/test/seed', {
+      data: { conversations: [{ title: 'Wallbox', messages: [{ role: 'user', content: 'Hi' }, { role: 'assistant', content: 'Hello' }] }] },
+    });
+    expect(seeded.ok()).toBeTruthy();
+    await page.goto('/');
+    await appReady(page);
+    await openSidebar(page);
+    await page.locator('[data-more-id]').first().evaluate((el) => (el as HTMLElement).click());
+    await page.locator('.action-sheet-item', { hasText: 'Archive' }).click();
+    const toast = page.locator('.toast', { hasText: 'archived' });
+    await expect(toast).toBeVisible();
+    if (await page.locator('#sidebar.open').count()) {
+      await page.locator('.sidebar-overlay').click({ position: { x: 360, y: 400 } });
+      await expect(page.locator('#sidebar')).not.toHaveClass(/open/);
+    }
+
+    // the toast (with its Undo) sits below the header, not over it
+    const [toastBox, menuBox] = [await toast.boundingBox(), await page.locator('#menu-btn').boundingBox()];
+    expect(toastBox && menuBox && toastBox.y >= menuBox.y + menuBox.height).toBe(true);
+    await page.click('#menu-btn', { timeout: 2000 });
+    await expect(page.locator('#sidebar')).toHaveClass(/open/);
+  });
+
   test('deleting the current conversation clears the mobile cost chip', async ({ page }) => {
     await page.goto('/');
     await appReady(page);

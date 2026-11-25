@@ -143,6 +143,15 @@
     height: 100%;
 }
 
+/* With the mobile header (768px breakpoint) a toast drops below it: at the
+   top it covered the menu button for the toast's whole life (an Undo toast
+   lasts seconds) */
+@media (max-width: 768px) {
+    .toast-container {
+        top: calc(var(--header-height) + env(safe-area-inset-top, 0px) + var(--space-2));
+    }
+}
+
 /* Mobile toast - stack action button below message */
 @media (max-width: 480px) {
     .toast-container {
