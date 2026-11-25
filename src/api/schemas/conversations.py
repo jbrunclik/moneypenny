@@ -321,8 +321,12 @@ class SearchResultResponse(ResponseModel):
         default=None,
         description="Snippet of matching text with [[HIGHLIGHT]] markers (null for title matches)",
     )
-    match_type: Literal["conversation", "message"] = Field(
-        ..., description="Whether the match is in conversation title or message content"
+    match_type: Literal["conversation", "message", "artifact"] = Field(
+        ...,
+        description=(
+            "Whether the match is in the conversation title, a message, or the title of an "
+            "artifact built in it (message_id: the reply that built it)"
+        ),
     )
     created_at: Timestamp | None = Field(
         default=None, description="Message timestamp (null for title matches)"

@@ -100,7 +100,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **Artifact side panel** (Oct 11 2026 artifacts) - open an artifact in a side panel next to the chat (the design system's container queries already cover narrow widths).
 - [ ] **Live artifact state sync** (Oct 11 2026 artifacts) - two devices showing the same artifact at once do not see each other's state changes until a reload.
 - [ ] **Artifact frame scroll stability on iOS** (Oct 11 2026 artifacts; device check from Nov 10 2026) - the device checks' "Artifact resizes while you scroll" step scrolls past a card that changes height and fails when a height correction was dropped. Run it a few times on the iPhone; all landed - drop this item; drops - same fix path as the dropped-writes item above.
-- [ ] **Conversation search over artifact titles** (Oct 11 2026 artifacts) - artifact titles are not indexed; for now the reply text names what was built.
 
 - [ ] **UI polish from the Oct 9 2026 screenshot review** (remove each line as it ships):
   - Visual coverage: login with the real Google button (Google's script never loads in tests; the fallback state is covered)

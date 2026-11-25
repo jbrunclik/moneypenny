@@ -52,6 +52,16 @@ embedding. Before it there was no update trigger, so a reply saved as a placehol
 later kept its old, often empty, indexed text (16 of 320 assistant replies in a local copy; the
 migration backfilled them), and an edited message would have stayed findable by its old text.
 
+**Artifact titles** ([migration 0105](../../migrations/0105_search_artifact_titles.py), Nov 25
+2026): every artifact has an index row (`type = 'artifact'`, its title, keyed by
+`search_index_keys.artifact_id`) whose `message_id` is the reply that built version 1
+(`fts_link_artifact`, set when the turn links its versions), so a hit opens that reply. The row
+follows the artifact (`fts_insert_artifact`, `fts_update_artifact`, `fts_delete_artifact` - an
+artifact's delete already follows its reply's and its chat's). `message_id` stays out of the key:
+the message triggers rewrite or drop rows by `search_index_keys.message_id`. The chat-title trigger
+re-keys rows with no `message_id`, so it now skips `artifact_id` rows. A hit's snippet is the
+highlighted title ("Artifact" in the list, "(built the artifact)" for `search_conversations`).
+
 Moving a conversation to the [trash](ui-conversations.md#trash) does not touch the index: the search query joins `conversations` and filters `c.deleted_at IS NULL`, so restoring needs no reindex. Rows leave the index only when the conversation is permanently deleted (purge, delete forever, empty trash).
 
 ## How It Works

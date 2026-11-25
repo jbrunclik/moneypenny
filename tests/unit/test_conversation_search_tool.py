@@ -93,6 +93,22 @@ class TestSearchConversations:
         # The verbatim tail is already in the prompt - not repeated
         assert "still verbatim" not in result
 
+    def test_finds_a_chat_by_an_artifact_it_built(
+        self, search_context: tuple[Database, User]
+    ) -> None:
+        database, user = search_context
+        conv = database.create_conversation(user.id, "Garage")
+        reply = database.add_message(conv.id, "assistant", "Here it is.")
+        artifact, version = database.create_artifact(
+            conv.id, user.id, "Wallbox wiring diagram", "<svg></svg>"
+        )
+        database.link_artifact_versions(reply.id, [(artifact.id, version.version)])
+
+        result = str(search_conversations.invoke({"query": "wiring"}))
+
+        assert "Garage" in result
+        assert "(built the artifact) Wallbox wiring diagram" in result
+
     def test_no_matches_suggests_rephrasing(self, search_context: tuple[Database, User]) -> None:
         """A miss should be actionable, not just empty."""
         result = str(search_conversations.invoke({"query": "nothing-here-at-all"}))

@@ -92,6 +92,8 @@ def _keyword_hits(results: list[SearchResult]) -> list[_Hit]:
         snippet = _clean_snippet(result.message_content)
         if not snippet and result.match_type == "conversation":
             snippet = "(matched the conversation title)"
+        elif result.match_type == "artifact":
+            snippet = f"(built the artifact) {snippet}"
         hits[result.conversation_id] = _Hit(
             result.conversation_id,
             result.message_id,

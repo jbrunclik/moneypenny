@@ -343,7 +343,7 @@ class SearchResult:
     conversation_title: str
     message_id: str | None  # None if match is on conversation title
     message_content: str | None  # Snippet with highlight markers
-    match_type: str  # "conversation" or "message"
+    match_type: str  # "conversation", "message" or "artifact" (a title it built)
     rank: float  # BM25 relevance score (lower is better)
     created_at: datetime | None  # Message timestamp (None for title matches)
     match_mode: str = "all"  # "all": every word matched; "any": the any-word fallback

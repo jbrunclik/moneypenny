@@ -100,7 +100,9 @@ function searchEmpty(text: string): HTMLElement {
  */
 function searchResultItem(result: SearchResult, index: number, viewedResultIndex: number | null): HTMLElement {
   const isMessageMatch = result.match_type === 'message';
-  const snippet = isMessageMatch && result.message_snippet ? formatSnippet(result.message_snippet) : null;
+  // A message hit shows its text, an artifact hit the title of what it built
+  const hasSnippet = isMessageMatch || result.match_type === 'artifact';
+  const snippet = hasSnippet && result.message_snippet ? formatSnippet(result.message_snippet) : null;
 
   // Check if this result is currently being viewed (by index, not by message_id)
   const isActive = viewedResultIndex === index;
@@ -124,7 +126,7 @@ function searchResultItem(result: SearchResult, index: number, viewedResultIndex
         : null,
       snippet,
       createElement('div', { class: 'search-result-meta' }, [
-        createElement('span', { class: 'search-result-type' }, [resultLabel(result, isMessageMatch)]),
+        createElement('span', { class: 'search-result-type' }, [resultLabel(result)]),
         !!result.created_at &&
           createElement('span', { class: 'search-result-date' }, [formatRelativeTime(result.created_at)]),
       ]),
@@ -133,9 +135,10 @@ function searchResultItem(result: SearchResult, index: number, viewedResultIndex
 }
 
 /** A loose (any-word fallback) hit says so: its words may not all be in it. */
-function resultLabel(result: SearchResult, isMessageMatch: boolean): string {
+function resultLabel(result: SearchResult): string {
   if (result.match_mode === 'any') return 'Partial match';
-  return isMessageMatch ? 'Message' : 'Title';
+  const labels = { message: 'Message', artifact: 'Artifact', conversation: 'Title' } as const;
+  return labels[result.match_type];
 }
 
 const HIGHLIGHT_MARKER = /(\[\[HIGHLIGHT\]\]|\[\[\/HIGHLIGHT\]\])/;

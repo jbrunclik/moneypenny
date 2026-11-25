@@ -9984,10 +9984,10 @@ export interface components {
             message_snippet: string | null;
             /**
              * Match Type
-             * @description Whether the match is in conversation title or message content
+             * @description Whether the match is in the conversation title, a message, or the title of an artifact built in it (message_id: the reply that built it)
              * @enum {string}
              */
-            match_type: "conversation" | "message";
+            match_type: "conversation" | "message" | "artifact";
             /**
              * Created At
              * @description Message timestamp (null for title matches)

@@ -72,6 +72,33 @@ describe('renderSearchResults', () => {
     expect(labels).toEqual(['Message', 'Partial match']);
   });
 
+  it('shows an artifact hit with its highlighted title, labelled Artifact', () => {
+    useStore.setState({
+      isSearchActive: true,
+      isSearching: false,
+      searchQuery: 'wiring',
+      searchResults: [
+        {
+          conversation_id: 'c1',
+          conversation_title: 'Garage',
+          message_id: 'm1',
+          message_snippet: 'Wallbox [[HIGHLIGHT]]wiring[[/HIGHLIGHT]] diagram',
+          match_type: 'artifact',
+          created_at: null,
+          match_mode: 'all',
+          project_name: null,
+        },
+      ],
+      searchTotal: 1,
+      viewedSearchResultId: null,
+    });
+
+    renderSearchResults();
+
+    expect(document.querySelector('mark')?.textContent).toBe('wiring');
+    expect(document.querySelector('.search-result-type')?.textContent).toBe('Artifact');
+  });
+
   it("names the project a result's chat is in", () => {
     const base: SearchResult = {
       conversation_id: 'c1',

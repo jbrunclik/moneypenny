@@ -139,6 +139,10 @@ class SearchMixin:
                             WHEN si.type = 'message' THEN snippet(
                                 search_index, 5, '[[HIGHLIGHT]]', '[[/HIGHLIGHT]]', '...', 32
                             )
+                            -- an artifact's title (column 4) is its snippet
+                            WHEN si.type = 'artifact' THEN snippet(
+                                search_index, 4, '[[HIGHLIGHT]]', '[[/HIGHLIGHT]]', '...', 32
+                            )
                             ELSE NULL
                         END as message_snippet,
                         si.type as match_type,
