@@ -36,6 +36,17 @@ test.describe('Visual: Project page - Desktop', () => {
     await expect(page.locator('.main')).toHaveScreenshot('project-page.png');
   });
 
+  test('a hovered chat row shows its actions, Move to project among them', async ({ page }) => {
+    const conv = await page.request.post('/api/conversations', { data: {} });
+    const { id } = (await conv.json()) as { id: string };
+    await page.request.patch(`/api/conversations/${id}`, { data: { title: 'Problémy s kůží a vlasy' } });
+    await openProject(page);
+    const row = page.locator(`#conversations-list [data-conv-id="${id}"] .conversation-item`);
+    await row.hover();
+    await expect(row.locator('.conversation-actions')).toHaveCSS('opacity', '1');
+    await expect(row).toHaveScreenshot('sidebar-row-hover.png');
+  });
+
   test('sidebar with projects', async ({ page }) => {
     await openProject(page);
     await expect(page.locator('#sidebar')).toHaveScreenshot('project-sidebar.png');

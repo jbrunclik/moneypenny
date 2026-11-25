@@ -226,7 +226,7 @@
 
 .conversation-actions {
     display: flex;
-    gap: var(--space-1);
+    gap: var(--space-0-5);
     opacity: 0;
     transition: opacity var(--transition-fast);
     position: absolute;
@@ -241,6 +241,7 @@
 }
 
 .conversation-rename,
+.conversation-move,
 .conversation-delete,
 .conversation-archive {
     background: none;
@@ -257,6 +258,7 @@
 }
 
 .conversation-rename svg,
+.conversation-move svg,
 .conversation-delete svg,
 .conversation-archive svg {
     width: 16px;
@@ -268,6 +270,7 @@
     background-color: var(--accent-muted);
 }
 
+.conversation-move:hover,
 .conversation-archive:hover {
     color: var(--text-secondary);
     background-color: var(--bg-hover);
@@ -278,9 +281,15 @@
     background-color: var(--error-a10);
 }
 
-/* On hover, make room for 4 action buttons */
+/* Five hover actions (pin, rename, move, archive, delete) in 108px: compact
+   20px targets, so the strip stays right of the row's middle (a click there
+   opens the chat) */
+.conversation-actions > button {
+    padding: var(--space-0-5);
+}
+
 .conversation-item:hover .conversation-text {
-    margin-right: 104px;
+    margin-right: 108px;
 }
 
 /* ----------------------------------------

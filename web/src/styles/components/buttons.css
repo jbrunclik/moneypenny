@@ -558,6 +558,7 @@
     .message-delete-btn,
     .message-actions-overflow,
     .conversation-rename,
+    .conversation-move,
     .conversation-archive,
     .conversation-delete
 ):active {
