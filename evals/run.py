@@ -1296,6 +1296,8 @@ def _project_context(user: Any, conversation_id: str) -> Any:
 
 
 _SEARCH_TOOLS = frozenset({"web_search", "research"})
+# One judge call's limit; a retry follows a timeout (well inside the case's 300 s)
+_JUDGE_TIMEOUT_SECONDS = 90
 
 
 def _search_failed(content: str) -> bool:
@@ -1356,7 +1358,13 @@ def _judge(
     from src.config import Config
 
     judge = ChatGoogleGenerativeAI(
-        model=Config.EVAL_JUDGE_MODEL, google_api_key=Config.GEMINI_API_KEY, temperature=0.0
+        model=Config.EVAL_JUDGE_MODEL,
+        google_api_key=Config.GEMINI_API_KEY,
+        temperature=0.0,
+        # A stalled judge call held the whole case until its 300 s case
+        # timeout (Nov 25 2026: four "timeouts" were the judge, not the agent)
+        timeout=_JUDGE_TIMEOUT_SECONDS,
+        max_retries=1,
     )
     # A deep-research report cites the run's merged pages
     cited = usage.get("research_sources") or extract_read_sources(result_messages)
