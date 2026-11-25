@@ -140,3 +140,32 @@ class TestNoteCoversPatches:
         assert _note(test_database, reply) == format_note(
             ["Presentation on Monday"], project_name="Family"
         )
+
+
+@pytest.mark.usefixtures("app")
+class TestNoteFollowsTheWrittenRows:
+    def test_solo_project_clears_the_record(self, test_database: Database, test_user: User) -> None:
+        from src.agent.tools.memory import take_project_writes
+
+        project = test_database.create_project(test_user.id, "Home")
+        conv = test_database.create_conversation(test_user.id, "Wallbox", project_id=project.id)
+        reply = _turn(test_database, test_user, conv.id, project.id, "Garage has 3-phase power")
+
+        note_shared_project_writes(conv.id, test_user.id, reply)
+
+        assert take_project_writes(test_user.id, conv.id) == []
+
+    def test_chat_moved_mid_turn_still_notes_the_shared_project_it_wrote(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        jana = test_database.get_or_create_user(email="jana@example.com", name="Jana")
+        shared = test_database.create_project(test_user.id, "Family")
+        test_database.add_project_member(shared.id, test_user.id, jana.id)
+        solo = test_database.create_project(test_user.id, "Bikes")
+        conv = test_database.create_conversation(test_user.id, "Chat", project_id=shared.id)
+        reply = _turn(test_database, test_user, conv.id, shared.id, "Trip in July")
+        test_database.set_conversation_project(conv.id, test_user.id, solo.id)
+
+        note_shared_project_writes(conv.id, test_user.id, reply)
+
+        assert _note(test_database, reply) == format_note(["Trip in July"], project_name="Family")
