@@ -35,7 +35,11 @@ tests/
 
 **Isolated SQLite per test**:
 - Each test gets its own database file for complete isolation
-- Database fixture creates a fresh database for each test
+- Database fixture creates a fresh database for each test: a copy of one
+  template migrated once per test process (`migrated_template`). Migrating
+  every file took ~1 s per test - the backend suite went 256 s -> 50 s when it
+  stopped (Nov 25 2026). Migration tests use `test_db_path` and migrate
+  themselves
 - No shared state between tests
 - Code that reaches the process-wide `db` (cancellation flags, agents, deep
   research...) needs `use_database(test_database)` for its own data. Without
