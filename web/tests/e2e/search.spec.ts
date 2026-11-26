@@ -690,6 +690,51 @@ test.describe('Search - Navigation with Pagination', () => {
     expect(duplicateIds).toEqual([]);
   });
 
+  test('after a search jump, an older page then a newer page show no message twice', async ({ page }) => {
+    // CI flake Nov 26 2026 (rapid clicks): an older page's own newer cursor
+    // replaced the window's, so the next newer page re-fetched the window
+    const messages = [];
+    for (let i = 0; i < 150; i++) {
+      messages.push({ role: 'user', content: `Message ${i}: ${i === 75 ? 'BOTH_WAYS_TARGET' : 'x'}` });
+      messages.push({ role: 'assistant', content: `Response ${i}` });
+    }
+    await page.request.post('/test/seed', {
+      data: { conversations: [{ title: 'Both ways', messages }] },
+    });
+    await page.reload();
+    await page.locator('#search-input').fill('BOTH_WAYS_TARGET');
+    await page.locator('.search-result-item').first().click();
+    await expect(page.locator('.message.user:has-text("BOTH_WAYS_TARGET")')).toBeVisible({ timeout: 10000 });
+    await scrollSettled(page);
+    await page.locator('#messages').hover();
+
+    const scrollUntil = async (direction: 'older' | 'newer', dy: number): Promise<void> => {
+      const loaded = page.waitForResponse(`**/messages?*direction=${direction}*`);
+      let done = false;
+      void loaded.then(() => (done = true));
+      await expect
+        .poll(
+          async () => {
+            await page.mouse.wheel(0, dy);
+            return done;
+          },
+          { timeout: 10000 }
+        )
+        .toBe(true);
+      await scrollSettled(page);
+    };
+    await scrollUntil('older', -4000);
+    await scrollUntil('newer', 4000);
+
+    const duplicateIds = await page.evaluate(() => {
+      const ids = [...document.querySelectorAll<HTMLElement>('#messages .message[data-message-id]')].map(
+        (el) => el.dataset.messageId
+      );
+      return ids.filter((id, i) => ids.indexOf(id) !== i);
+    });
+    expect(duplicateIds).toEqual([]);
+  });
+
   test('handles conversation switch during search navigation', async ({ page }) => {
     // Create two conversations
     const conv1Messages = [];

@@ -57,16 +57,35 @@ function toMessagesPaginationState(pagination: MessagesPagination): MessagesPagi
 }
 
 /** Replace a conversation's message list and its pagination in one update. */
+/**
+ * Store a message list with its pagination. A page loaded at one edge
+ * (`side`) moves only that edge's cursor: an older page's own newer cursor
+ * points at its newest message, inside the window, and adopting it made the
+ * next newer page re-fetch (and render twice) the window after a search jump.
+ * The other edge's loading flag stays too: its load may still be in flight.
+ */
 function withMessagesPage(
   state: MessagesData,
   convId: string,
   messages: Message[],
-  pagination: MessagesPagination
+  pagination: MessagesPagination,
+  side?: 'older' | 'newer'
 ): MessagesData {
   const newMessages = new Map(state.messages);
   newMessages.set(convId, messages);
   const newPagination = new Map(state.messagesPagination);
-  newPagination.set(convId, toMessagesPaginationState(pagination));
+  const page = toMessagesPaginationState(pagination);
+  const prev = state.messagesPagination.get(convId);
+  if (prev && side === 'older') {
+    page.newerCursor = prev.newerCursor;
+    page.hasNewer = prev.hasNewer;
+    page.isLoadingNewer = prev.isLoadingNewer;
+  } else if (prev && side === 'newer') {
+    page.olderCursor = prev.olderCursor;
+    page.hasOlder = prev.hasOlder;
+    page.isLoadingOlder = prev.isLoadingOlder;
+  }
+  newPagination.set(convId, page);
   return { messages: newMessages, messagesPagination: newPagination };
 }
 
@@ -134,12 +153,12 @@ export const createMessagesSlice: AppSlice<MessagesSlice> = (set, get) => ({
   prependMessages: (convId, newMsgs, pagination) =>
     set((state) => {
       const existing = state.messages.get(convId) || [];
-      return withMessagesPage(state, convId, [...newMsgs, ...existing], pagination);
+      return withMessagesPage(state, convId, [...newMsgs, ...existing], pagination, 'older');
     }),
   appendMessages: (convId, newMsgs, pagination) =>
     set((state) => {
       const existing = state.messages.get(convId) || [];
-      return withMessagesPage(state, convId, [...existing, ...newMsgs], pagination);
+      return withMessagesPage(state, convId, [...existing, ...newMsgs], pagination, 'newer');
     }),
   appendMessage: (convId, message, beforeId) =>
     set((state) => withAppendedMessage(state, convId, message, beforeId)),

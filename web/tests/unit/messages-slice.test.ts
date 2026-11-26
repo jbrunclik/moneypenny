@@ -76,6 +76,51 @@ describe('messages slice', () => {
       expect(ids('c1')).toEqual(['m1', 'm2', 'm3']);
     });
 
+    // CI flake Nov 26 2026 (search.spec.ts rapid clicks): after a search jump
+    // (a window mid-chat), an older page's own newer cursor replaced the
+    // window's, so the next newer page re-fetched the window and its messages
+    // rendered twice. A page moves only its own side's cursor.
+    it('prependMessages keeps the window newer cursor', () => {
+      const store = useStore.getState();
+      store.setMessages(
+        'c1',
+        [msg('m3')],
+        page(5, { older_cursor: 'o3', newer_cursor: 'n3', has_older: true, has_newer: true })
+      );
+      store.setLoadingNewerMessages('c1', true);
+      // The server's older page: newer side points at its own newest (m2)
+      store.prependMessages(
+        'c1',
+        [msg('m1'), msg('m2')],
+        page(5, { older_cursor: null, newer_cursor: 'n2', has_older: false, has_newer: true })
+      );
+      const pag = useStore.getState().getMessagesPagination('c1');
+      expect(pag?.olderCursor).toBeNull();
+      expect(pag?.hasOlder).toBe(false);
+      expect(pag?.newerCursor).toBe('n3');
+      expect(pag?.hasNewer).toBe(true);
+      expect(pag?.isLoadingNewer).toBe(true);
+    });
+
+    it('appendMessages keeps the window older cursor', () => {
+      const store = useStore.getState();
+      store.setMessages(
+        'c1',
+        [msg('m3')],
+        page(5, { older_cursor: 'o3', newer_cursor: 'n3', has_older: true, has_newer: true })
+      );
+      store.appendMessages(
+        'c1',
+        [msg('m4'), msg('m5')],
+        page(5, { older_cursor: 'o4', newer_cursor: null, has_older: true, has_newer: false })
+      );
+      const pag = useStore.getState().getMessagesPagination('c1');
+      expect(pag?.olderCursor).toBe('o3');
+      expect(pag?.hasOlder).toBe(true);
+      expect(pag?.newerCursor).toBeNull();
+      expect(pag?.hasNewer).toBe(false);
+    });
+
     it('keeps conversations separate', () => {
       const store = useStore.getState();
       store.setMessages('c1', [msg('a')], page(1));
