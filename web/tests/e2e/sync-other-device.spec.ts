@@ -36,6 +36,32 @@ test.beforeEach(async ({ page, request }) => {
 const item = (page: import('@playwright/test').Page, title: string) =>
   page.locator('.conversation-item-wrapper', { hasText: title });
 
+/** The held reply's thinking heading: the server's event, so the turn is live
+ * there (the indicator itself shows on the client at the send). */
+const HELD_HEADING = 'Holding the reply';
+
+/** Hold the next reply open (thinking, until released): a steering send then
+ * lands inside it on any runner, not after a fast reply already finished. */
+async function holdNextReply(request: import('@playwright/test').APIRequestContext): Promise<void> {
+  await request.post('/test/set-emit-thinking', {
+    data: { emit: true, text: `**${HELD_HEADING}**\n\nA moment.`, until_released: true },
+  });
+}
+
+/** Send from `p` into the held reply and wait until the server answered it
+ * (the steering is saved before the answer), then let the reply finish. */
+async function steerHeldReply(
+  p: import('@playwright/test').Page,
+  request: import('@playwright/test').APIRequestContext,
+  text: string
+): Promise<void> {
+  const answered = p.waitForResponse((r) => r.url().includes('/chat/stream') && r.request().method() === 'POST');
+  await p.fill('#message-input', text);
+  await p.click('#send-btn');
+  await answered;
+  await request.post('/test/release-thinking');
+}
+
 async function poll(page: import('@playwright/test').Page): Promise<void> {
   await page.evaluate(() => window.__testIncrementalSync());
 }
@@ -383,15 +409,15 @@ test("a send while another device's reply is running steers that reply (one turn
   const phone = await context.newPage();
   await phone.goto(`/#/conversations/${ids.alpha}`);
   await expect(phone.locator('.message.assistant')).toContainText('a!');
+  await holdNextReply(request);
   await phone.fill('#message-input', 'Long answer please');
   await phone.click('#send-btn');
-  // Its turn runs on the server once text streams in (the bubble alone shows
-  // at the send: under load this device's send could still start a turn first)
-  await expect(phone.locator('.message.assistant.streaming')).toContainText('mock', { timeout: 15000 });
+  // Its turn runs on the server once it streams (the bubble alone shows at
+  // the send: under load this device's send could still start a turn first)
+  await expect(phone.locator('.message.assistant.streaming .thinking-heading')).toHaveText(HELD_HEADING, { timeout: 15000 });
 
-  // This device hasn't polled yet: it sends a regular message
-  await page.fill('#message-input', 'Keep it short');
-  await page.click('#send-btn');
+  // This device hasn't polled yet: it sends a regular message into the held reply
+  await steerHeldReply(page, request, 'Keep it short');
 
   const texts = (p: import('@playwright/test').Page) =>
     p.locator('.message.user, .message.assistant').evaluateAll((els) =>
@@ -430,13 +456,14 @@ test("another device's question that steered this device's reply shows up here",
   await phone.goto(`/#/conversations/${ids.alpha}`);
   await expect(phone.locator('.message.assistant')).toContainText('a!');
 
-  // This device's turn runs on the server...
+  // This device's turn runs on the server, held open (a fast runner finished
+  // it before the phone's send: CI, Nov 26 2026)...
+  await holdNextReply(request);
   await page.fill('#message-input', 'Keep it short');
   await page.click('#send-btn');
-  await expect(page.locator('.message.assistant.streaming')).toContainText('mock', { timeout: 15000 });
+  await expect(page.locator('.message.assistant.streaming .thinking-heading')).toHaveText(HELD_HEADING, { timeout: 15000 });
   // ...and the phone, not having polled, sends into it: the server folds it in as steering
-  await phone.fill('#message-input', 'Long answer please');
-  await phone.click('#send-btn');
+  await steerHeldReply(phone, request, 'Long answer please');
   await expect(phone.locator('.message.user', { hasText: 'Long answer please' })).toBeVisible();
 
   const live = page.locator('.message.assistant').last();
