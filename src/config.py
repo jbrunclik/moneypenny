@@ -31,7 +31,8 @@ class Config:
             "name": "Gemini 4 Hydrogen",
             "short_name": "Fast",
             # The API default is high (Nov 2026: tripled thinking output against
-            # 3.8 Flash); the freshness gate raises a chat's hardest turns to it
+            # 3.8 Flash); hard turns run here too since Nov 26 2026
+            # (FRESHNESS_GATE_DEEP_THINKING_LEVEL)
             "thinking_level": "medium",
             "fallback": "gemini-4-carbon",
         },
@@ -590,13 +591,14 @@ class Config:
     FRESHNESS_GATE_MAX_QUERIES: int = int(os.getenv("FRESHNESS_GATE_MAX_QUERIES", "3"))
     # Thinking levels for the turns the gate judges low and high (medium turns,
     # and any gate failure, run at the model's own - "thinking_level" on its
-    # MODELS entry); empty runs those turns at the model's own too
+    # MODELS entry); empty runs those turns at the model's own too. Hard turns
+    # run at the model's own from Nov 26 2026 (medium on Hydrogen, the API
+    # default on Carbon): `high` was 12% of chat turns, a third of the spend
+    # and a median 56 s; complex research goes to Carbon by choice
     FRESHNESS_GATE_LIGHT_THINKING_LEVEL: str = os.getenv(
         "FRESHNESS_GATE_LIGHT_THINKING_LEVEL", "low"
     )
-    FRESHNESS_GATE_DEEP_THINKING_LEVEL: str = os.getenv(
-        "FRESHNESS_GATE_DEEP_THINKING_LEVEL", "high"
-    )
+    FRESHNESS_GATE_DEEP_THINKING_LEVEL: str = os.getenv("FRESHNESS_GATE_DEEP_THINKING_LEVEL", "")
     # Page text the verifier sees per answer. 120k from Nov 19 2026 (was 60k):
     # checks that hit 60k were flagged 71% of the time against 39% under it -
     # a capped verifier misses text the answer read. Flash-Lite input, so the

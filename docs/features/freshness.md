@@ -120,8 +120,17 @@ turns) as at `medium` (2 of 192) and `high` (1 of 89) - a regex count, an
 upper bound.
 `low` turns run on `ChatAgent.light_graph` at
 `FRESHNESS_GATE_LIGHT_THINKING_LEVEL`, `high` ones on `ChatAgent.deep_graph`
-at `FRESHNESS_GATE_DEEP_THINKING_LEVEL`, and `medium` ones on the model's own
+at `FRESHNESS_GATE_DEEP_THINKING_LEVEL` when it is set, and `medium` ones on the model's own
 (`"thinking_level": "medium"` on Hydrogen's `MODELS` entry; `_turn_graph()`).
+Since Nov 26 2026 the deep level is empty, so `high` turns also run at the
+model's own: `medium` on Hydrogen, the API default on Carbon (no
+`thinking_level` on its entry), which is where complex research goes by
+choice. Two weeks on Hydrogen (Nov 12-25, 821 turns) had `high` on 12% of
+chat turns at $0.194 a turn and a median 56 s - a third of the chat spend -
+against `medium`'s $0.080 and 19 s; the Nov 23 A/B of the 8 gate-`high` eval
+cases at `medium` scored 14/16 against 15/16 for 33% less. The gate still
+returns `high` and logs it, so `thinking` in `turn_timing` keeps the verdict,
+not the level the turn ran at.
 A gate that errors, times out or answers unparsed leaves `thinking` unset,
 which runs the model's own level, as do the places the gate does not run (agent
 runs, the planner). Standing chats never go light but can go deep. The gate's log line
@@ -277,7 +286,7 @@ older than 12 months stay out of scope (the Oct 3 noise lesson).
 | `FRESHNESS_GATE_TIMEOUT_SECONDS` | `3` | Wall-clock cap; past it the turn goes on without the gate |
 | `FRESHNESS_GATE_MAX_QUERIES` | `3` | Queries the prefetched research runs |
 | `FRESHNESS_GATE_LIGHT_THINKING_LEVEL` | `low` | Thinking level for turns the gate judges low; empty = those at the model's own |
-| `FRESHNESS_GATE_DEEP_THINKING_LEVEL` | `high` | Thinking level for turns the gate judges high; empty = those at the model's own |
+| `FRESHNESS_GATE_DEEP_THINKING_LEVEL` | empty | Thinking level for turns the gate judges high; empty = those at the model's own (medium on Hydrogen, Nov 26 2026) |
 | `WEB_SEARCH_RECENT_DAYS` | `365` | No dated result newer than this: the `_recency` note |
 
 ## Testing

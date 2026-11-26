@@ -220,8 +220,10 @@ The review itself changes nothing in production and edits nothing but
   journal lines' `thinking` (low / medium / high; absent = the model's own, a
   failed gate or no gate) - the split per day, and cost and `duration_ms` per
   level by joining `message_id` to `message_costs`. A level that takes most
-  turns, or `high` turns no slower or dearer than `medium` ones, is a prompt
-  to retune the gate prompt.
+  turns is a prompt to retune the gate prompt. Since Nov 26 2026 `high` is a
+  verdict only (those turns run at the model's own, `medium` on Hydrogen):
+  `high` turns still far dearer or slower than `medium` ones mean the deep
+  level was set again, or Carbon chats dominate them.
 
 ## 4. Answer quality
 

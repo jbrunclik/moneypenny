@@ -66,7 +66,34 @@ class TestStandingChatToolWiring:
         assert agent.light_graph is None
 
     def test_standing_chats_can_still_think_deep(self, monkeypatch) -> None:
-        """A hard turn in a standing chat (a training block plan) still gets
-        high thinking; only the light level is kept from them."""
+        """With a deep level set, a hard turn in a standing chat (a training
+        block plan) gets it; only the light level is kept from them."""
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "FRESHNESS_GATE_DEEP_THINKING_LEVEL", "high")
         agent, _ = self._agent(monkeypatch)
         assert agent.deep_graph is not None
+
+
+class TestHardTurnThinking:
+    """Nov 26 2026: `high` turns were 12% of chat turns and a third of the
+    spend (median 56 s); hard turns now run at the model's own level -
+    medium on Hydrogen, the API default on Carbon."""
+
+    def test_hard_turns_run_at_the_models_own_level_by_default(self, monkeypatch) -> None:
+        """The shipped default, read from a fresh copy of src/config.py with
+        no .env and no environment value."""
+        import importlib.util
+
+        import dotenv
+
+        import src.config
+
+        monkeypatch.delenv("FRESHNESS_GATE_DEEP_THINKING_LEVEL", raising=False)
+        monkeypatch.setattr(dotenv, "load_dotenv", lambda *a, **kw: False)
+        spec = importlib.util.spec_from_file_location("_fresh_config", src.config.__file__)
+        assert spec is not None and spec.loader is not None
+        fresh = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fresh)
+
+        assert fresh.Config.FRESHNESS_GATE_DEEP_THINKING_LEVEL == ""
