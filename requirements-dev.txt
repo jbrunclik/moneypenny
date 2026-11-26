@@ -16,11 +16,7 @@ click==8.5.0
     #   -c requirements.txt
     #   deptry
     #   import-linter
-colorama==0.4.6 ; sys_platform == 'win32'
-    # via
-    #   deptry
-    #   pytest
-coverage==7.17.0
+coverage[toml]==7.17.0
     # via pytest-cov
 deptry==0.25.1
     # via -r requirements-dev.in
@@ -28,7 +24,7 @@ execnet==2.1.2
     # via pytest-xdist
 grimp==3.20
     # via import-linter
-import-linter==2.16
+import-linter==2.17
     # via -r requirements-dev.in
 iniconfig==2.3.1
     # via pytest
@@ -49,7 +45,7 @@ jsonschema-specifications==2025.9.1
     #   openapi-schema-validator
 lazy-object-proxy==1.13.0
     # via openapi-spec-validator
-librt==0.16.0 ; platform_python_implementation != 'PyPy'
+librt==0.16.0
     # via mypy
 markdown-it-py==4.2.0
     # via rich
@@ -87,13 +83,13 @@ pluggy==1.7.0
     # via
     #   pytest
     #   pytest-cov
-pydantic==2.14.3
+pydantic==2.14.4
     # via
     #   -c requirements.txt
     #   openapi-schema-validator
     #   openapi-spec-validator
     #   pydantic-settings
-pydantic-core==2.50.4
+pydantic-core==2.50.5
     # via
     #   -c requirements.txt
     #   pydantic
@@ -121,7 +117,7 @@ python-dotenv==1.2.4
     # via
     #   -c requirements.txt
     #   pydantic-settings
-pyyaml==6.0.3
+pyyaml==6.0.4
     # via
     #   -c requirements.txt
     #   jsonschema-path
@@ -147,11 +143,11 @@ six==1.17.0
     # via
     #   -c requirements.txt
     #   rfc3339-validator
-tomli==2.5.0 ; python_full_version < '3.15'
+tomli==2.5.0
     # via deptry
-types-croniter==6.2.4.20261006
+types-croniter==6.2.4.20261122
     # via -r requirements-dev.in
-types-pyyaml==6.0.12.20261113
+types-pyyaml==6.0.12.20261122
     # via -r requirements-dev.in
 typing-extensions==4.16.0
     # via
