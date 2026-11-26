@@ -67,7 +67,26 @@ with the same tools - and stays on it for the
 rest of the turn (`AgentState.model_fallback`). The reply's `response_metadata` carries
 `model_fallback`, so `usage_info["model_fallback"]` prices the turn at the model that
 answered; the stream emits a `model_fallback` event and the batch response a
-`model_fallback` field, and the client shows a note ([model-fallback.ts](../../web/src/core/model-fallback.ts)).
+`model_fallback` field.
+
+**A model that is not answering falls back too** (Nov 26 2026). Carbon answered every
+call for 20+ minutes with `504 DEADLINE_EXCEEDED` or nothing within
+`GEMINI_REQUEST_TIMEOUT_SECONDS` (180 s); three retries per call ran each turn into its
+10-minute stream limit and the user got no reply. With a fallback available, the turn's
+own model gets **one** try at any `is_model_unresponsive()` error (503, 504, a read
+timeout: `with_retry(give_up=...)`), then the call moves to the other tier; the fallback
+itself keeps the usual retries, and a turn with no fallback retries a 504 as before.
+"Model unavailable, falling back" logs the `reason` (`unavailable`, `deadline`,
+`timeout`). A connection reset is still retried on the same model.
+
+**The reply says so, for good.** `save_message_to_db` stores
+`usage_info["model_fallback"]` on the reply (`messages.model_fallback`, migration 0106);
+message lists, the live and the resumed `done` event carry it. The client shows an amber
+callout above the reply's actions ([model-fallback-note.ts](../../web/src/components/messages/model-fallback-note.ts)):
+"Advanced wasn't responding, so Fast answered instead." with **Retry** (a regenerate on
+the chat's own model) on the latest finished reply - live as soon as the
+`model_fallback` event arrives, after a reload, and on other devices. It replaced a toast
+that was gone in seconds. Scheduled items (`item_runner.deliver`) don't store it yet.
 
 Retries are **per model call**, not per turn: replaying a whole turn would re-execute
 non-idempotent tools (Todoist/Calendar writes, WhatsApp sends). The job runner

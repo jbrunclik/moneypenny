@@ -31,7 +31,6 @@ import { hasTrackedRequestFor, trackRequest, untrackRequest } from './active-req
 import { confirmDelivery, markSendFailed } from './send-delivery';
 import { scrollToBatchReply, settleAnchoredReply, settleTurnFor } from './response-scroll';
 import { isTurnAnchored, reserveTurnSpace } from '../components/messages/turn-anchor';
-import { notifyModelFallback } from './model-fallback';
 import { clearInflightBatch, persistInflightBatch } from './inflight-batches';
 import { answerUnreadSteering } from './steering';
 import { hasOpenProposals } from './proposal-sync';
@@ -88,6 +87,7 @@ export function toAssistantMessage(response: ChatResponse): Message {
     research: response.research,
     artifacts: response.artifacts,
     proposals: response.proposals,
+    model_fallback: response.model_fallback,
   };
 }
 
@@ -142,9 +142,6 @@ async function completeBatchTurn(
 ): Promise<void> {
   // Response received = the user message is persisted server-side
   confirmDelivery(convId, tempUserMessageId);
-  if (response.model_fallback && useStore.getState().currentConversation?.id === convId) {
-    notifyModelFallback(response.model_fallback);
-  }
 
   // Update user message ID from temp to real ID (for file fetching in lightbox)
   if (response.user_message_id) {

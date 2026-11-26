@@ -16,7 +16,12 @@ from src.agent.chat_model import FallbackModel, create_chat_model
 from src.agent.content import extract_text_content
 from src.agent.graph_state import AgentState
 from src.agent.prefix_cache import note_prefix_sent, prefix_key
-from src.agent.retry import PartialStreamError, is_model_unavailable, with_retry
+from src.agent.retry import (
+    PartialStreamError,
+    fallback_reason,
+    is_model_unresponsive,
+    with_retry,
+)
 from src.agent.tool_result_aging import age_consumed_tool_messages
 from src.agent.turn_budget import (
     call_cost_usd,
@@ -68,23 +73,30 @@ def _invoke_with_fallback(
     fallback: FallbackModel | None,
     primary: str,
 ) -> tuple[BaseMessage, str | None]:
-    """The model's reply, or the other tier's when the model is down (503).
+    """The model's reply, or the other tier's when the model is down or not
+    answering (503, 504, timeout: is_model_unresponsive).
 
-    Once a turn fell back it stays on the fallback: every round would
-    otherwise first wait for the dead model again.
+    With a fallback, the model gets one try at those; the fallback keeps the
+    usual retries. Once a turn fell back it stays on the fallback: every
+    round would otherwise first wait for the dead model again.
     """
     invoke = with_retry(_invoke_model, on_retry=_emit_retry_status)
     if state.get("model_fallback") and fallback:
         name, backup = fallback()
         return invoke(backup, messages, config), name
-    try:
+    if fallback is None:
         return invoke(model, messages, config), None
+    try:
+        return with_retry(
+            _invoke_model, on_retry=_emit_retry_status, give_up=is_model_unresponsive
+        )(model, messages, config), None
     except Exception as error:
-        if fallback is None or not is_model_unavailable(error):
+        if not is_model_unresponsive(error):
             raise
         name, backup = fallback()
         logger.warning(
-            "Model unavailable, falling back", extra={"model": primary, "fallback": name}
+            "Model unavailable, falling back",
+            extra={"model": primary, "fallback": name, "reason": fallback_reason(error)},
         )
         _emit_model_fallback(primary, name)
         return invoke(backup, messages, config), name

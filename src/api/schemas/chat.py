@@ -292,6 +292,10 @@ class MessageResponse(ResponseModel):
     memory_note: str | None = Field(
         default=None, description="What the background memory review saved after this reply"
     )
+    model_fallback: str | None = Field(
+        default=None,
+        description="The model that wrote the reply when the conversation's own model was down",
+    )
     proposals: list[ProposalResponse] | None = Field(
         default=None, description="The proposal cards this reply shows"
     )

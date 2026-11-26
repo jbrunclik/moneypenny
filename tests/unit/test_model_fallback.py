@@ -12,7 +12,7 @@ from src.agent import chat_model
 from src.agent import chat_node as chat_node_module
 from src.agent.chat_model import other_model_tier
 from src.agent.chat_node import chat_node
-from src.agent.retry import is_model_unavailable, with_retry
+from src.agent.retry import is_model_unavailable, is_model_unresponsive, with_retry
 from src.agent.turn_usage import batch_usage_info
 from src.config import Config
 
@@ -51,6 +51,98 @@ class TestDetection:
 
         with pytest.raises(RuntimeError):
             with_retry(calls, max_retries=3)()
+
+        assert calls.call_count == 1
+
+
+# Exactly as logged in prod on Nov 26 2026 (Carbon hung for 20+ minutes)
+_PROD_504 = (
+    "504 DEADLINE_EXCEEDED. {'error': {'code': 504, 'message': 'Deadline expired "
+    "before operation could complete.', 'status': 'DEADLINE_EXCEEDED'}}"
+)
+
+
+def _sdk_504() -> Exception:
+    """What the SDK raises for it (a plain RuntimeError is not retried at all)."""
+    from langchain_google_genai.chat_models import GoogleAPIError
+
+    return GoogleAPIError(code=504, response_json={"error": {"status": "DEADLINE_EXCEEDED"}})
+
+
+class TestUnresponsive:
+    """Nov 26 2026: Carbon answered every call with a 504 or nothing for 180 s;
+    three retries per call ran each turn into its 10-minute limit, no reply."""
+
+    def test_the_logged_prod_504_is_unresponsive(self) -> None:
+        assert is_model_unresponsive(RuntimeError(_PROD_504))
+
+    def test_the_sdks_504_is_unresponsive(self) -> None:
+        from langchain_google_genai.chat_models import GoogleAPIError
+
+        err = GoogleAPIError(code=504, response_json={"error": {"status": "DEADLINE_EXCEEDED"}})
+        assert is_model_unresponsive(err)
+
+    def test_a_read_timeout_is_unresponsive(self) -> None:
+        import httpx
+        import httpx2
+
+        assert is_model_unresponsive(httpx2.ReadTimeout("The read operation timed out"))
+        assert is_model_unresponsive(httpx.ReadTimeout("The read operation timed out"))
+        assert is_model_unresponsive(TimeoutError("The read operation timed out"))
+
+    def test_a_wrapped_timeout_is_found_in_the_cause_chain(self) -> None:
+        import httpx2
+
+        try:
+            try:
+                raise httpx2.ReadTimeout("The read operation timed out")
+            except httpx2.ReadTimeout as inner:
+                raise RuntimeError("Error calling model") from inner
+        except RuntimeError as outer:
+            assert is_model_unresponsive(outer)
+
+    def test_a_503_is_unresponsive_too(self) -> None:
+        assert is_model_unresponsive(RuntimeError(_PROD_503))
+
+    @pytest.mark.parametrize(
+        "message", ["429 RESOURCE_EXHAUSTED. quota", "500 INTERNAL error", "400 INVALID_ARGUMENT"]
+    )
+    def test_other_errors_are_not(self, message: str) -> None:
+        assert not is_model_unresponsive(RuntimeError(message))
+
+    def test_a_connection_reset_is_not(self) -> None:
+        """A dropped connection is retried on the same model, as before."""
+        import httpx2
+
+        assert not is_model_unresponsive(httpx2.ConnectError("[Errno 104] reset"))
+
+    def test_a_failure_after_streamed_text_is_not(self) -> None:
+        from src.agent.retry import PartialStreamError
+
+        try:
+            try:
+                raise RuntimeError(_PROD_504)
+            except RuntimeError as inner:
+                raise PartialStreamError("after text") from inner
+        except PartialStreamError as outer:
+            assert not is_model_unresponsive(outer)
+
+    def test_with_retry_still_retries_a_504_without_a_fallback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("src.agent.retry.time.sleep", lambda _s: None)
+        calls = MagicMock(side_effect=[_sdk_504(), "ok"])
+
+        assert with_retry(calls, max_retries=3)() == "ok"
+
+    def test_with_retry_gives_up_at_once_when_told_to(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("src.agent.retry.time.sleep", lambda _s: None)
+        calls = MagicMock(side_effect=RuntimeError(_PROD_504))
+
+        with pytest.raises(RuntimeError):
+            with_retry(calls, max_retries=3, give_up=is_model_unresponsive)()
 
         assert calls.call_count == 1
 
@@ -102,6 +194,46 @@ class TestChatNodeFallback:
 
         primary.invoke.assert_not_called()
         assert out["messages"][0].response_metadata["model_fallback"] == "gemini-pro"
+
+    @pytest.mark.parametrize("error", [RuntimeError(_PROD_504), TimeoutError("timed out")])
+    def test_a_504_or_a_timeout_falls_back_after_one_try(
+        self, monkeypatch: pytest.MonkeyPatch, error: Exception
+    ) -> None:
+        monkeypatch.setattr(chat_node_module, "get_stream_writer", lambda: MagicMock())
+        monkeypatch.setattr("src.agent.retry.time.sleep", lambda _s: None)
+        primary = MagicMock(model_name="gemini-4-carbon")
+        primary.invoke.side_effect = error
+        backup = MagicMock(model_name="gemini-4-hydrogen")
+        backup.invoke.return_value = AIMessage(content="answer")
+
+        out = chat_node(_state(), primary, fallback=lambda: ("gemini-4-hydrogen", backup))
+
+        assert out["model_fallback"] == "gemini-4-hydrogen"
+        assert primary.invoke.call_count == 1
+
+    def test_the_fallback_itself_is_still_retried(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(chat_node_module, "get_stream_writer", lambda: MagicMock())
+        monkeypatch.setattr("src.agent.retry.time.sleep", lambda _s: None)
+        primary = MagicMock(model_name="gemini-4-carbon")
+        primary.invoke.side_effect = RuntimeError(_PROD_504)
+        backup = MagicMock(model_name="gemini-4-hydrogen")
+        backup.invoke.side_effect = [_sdk_504(), AIMessage(content="answer")]
+
+        out = chat_node(_state(), primary, fallback=lambda: ("gemini-4-hydrogen", backup))
+
+        assert out["messages"][0].content == "answer"
+        assert backup.invoke.call_count == 2
+
+    def test_without_a_fallback_a_504_is_retried(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(chat_node_module, "get_stream_writer", lambda: MagicMock())
+        monkeypatch.setattr("src.agent.retry.time.sleep", lambda _s: None)
+        primary = MagicMock(model_name="gemini-4-carbon")
+        primary.invoke.side_effect = [_sdk_504(), AIMessage(content="answer")]
+
+        out = chat_node(_state(), primary, fallback=None)
+
+        assert out["messages"][0].content == "answer"
+        assert primary.invoke.call_count == 2
 
     def test_without_a_fallback_the_error_surfaces(self) -> None:
         primary = MagicMock(model_name="gemini-fast")

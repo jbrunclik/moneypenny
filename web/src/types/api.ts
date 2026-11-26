@@ -350,7 +350,7 @@ export type ChatResponse = Omit<Schemas['ChatBatchResponse'], 'research'> & {
  */
 export type StreamDoneEvent = Omit<
   MaybeAbsent<ChatResponse>,
-  'role' | 'content' | 'model_fallback' | MessagePartKeys
+  'role' | 'content' | MessagePartKeys
 > &
   MessageParts & {
   content?: string;

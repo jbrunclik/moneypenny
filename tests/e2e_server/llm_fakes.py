@@ -187,10 +187,20 @@ def _token_events(
     return streamed, None
 
 
+def _fallback_events(fallback_model: str | None) -> Generator[dict[str, Any]]:
+    """The model_fallback event chat_node emits when the turn's model is down."""
+    if fallback_model:
+        yield {"type": "model_fallback", "to": fallback_model}
+
+
 def _final_event(
-    content: str, stop_reason: str | None, artifact_messages: list[Any]
+    content: str,
+    stop_reason: str | None,
+    artifact_messages: list[Any],
+    fallback_model: str | None = None,
 ) -> dict[str, Any]:
-    """The final event, with the canned deep-research offer when one is set."""
+    """The final event, with the canned deep-research offer when one is set
+    and the model that answered when the turn fell back."""
     input_tokens = MOCK_CONFIG["input_tokens"]
     output_tokens = MOCK_CONFIG["output_tokens"]
     final: dict[str, Any] = {
@@ -206,6 +216,8 @@ def _final_event(
     }
     if stop_reason:
         final["stop_reason"] = stop_reason
+    if fallback_model:
+        final["usage_info"]["model_fallback"] = fallback_model
     if artifact_messages:
         final["result_messages"] = artifact_messages
     offer_args = MOCK_CONFIG.get("deep_research_offer")
@@ -254,6 +266,11 @@ def create_mock_stream_chat_events() -> Any:
             yield {"type": "retry", "attempt": 1, "max_retries": 3}
             time.sleep(MOCK_CONFIG["emit_retry_hold_ms"] / 1000)  # the configured retry hold
 
+        # Optionally fall back to another model (one-shot), as chat_node does
+        fallback_model = MOCK_CONFIG.get("fallback_model")
+        MOCK_CONFIG["fallback_model"] = None
+        yield from _fallback_events(fallback_model)
+
         # Optionally yield a thinking event (based on mock config or message content)
         if "think" in text.lower() or MOCK_CONFIG.get("emit_thinking"):
             yield from _thinking_events(delay_s)
@@ -274,7 +291,10 @@ def create_mock_stream_chat_events() -> Any:
             pop_interjection(user_id, conversation_id)
 
         final = _final_event(
-            streamed if stop_reason else response_text, stop_reason, artifact_messages
+            streamed if stop_reason else response_text,
+            stop_reason,
+            artifact_messages,
+            fallback_model,
         )
         # Same post-answer step as ChatAgent.stream_chat_events (patched check below)
         from src.agent import grounding_check

@@ -250,6 +250,14 @@ def set_emit_retry() -> tuple[dict[str, Any], int]:
     return {"status": "set", "emit_retry_hold_ms": hold_ms}, 200
 
 
+@test_bp.route("/test/set-model-fallback", methods=["POST"])
+def set_model_fallback() -> tuple[dict[str, Any], int]:
+    from flask import request
+
+    MOCK_CONFIG["fallback_model"] = (request.get_json() or {}).get("model")
+    return {"status": "set", "fallback_model": MOCK_CONFIG["fallback_model"]}, 200
+
+
 @test_bp.route("/test/fail-next-stream", methods=["POST"])
 def fail_next_stream() -> tuple[dict[str, Any], int]:
     MOCK_CONFIG["fail_next_stream"] = True

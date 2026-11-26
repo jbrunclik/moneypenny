@@ -176,6 +176,9 @@ class Message:
     delivery: MessageDelivery | None = None
     # What the background memory review saved after this reply
     memory_note: str | None = None
+    # The model that wrote the reply when the turn's own model was down
+    # (src/agent/chat_node.py fallback); None when it answered itself
+    model_fallback: str | None = None
 
 
 @dataclass

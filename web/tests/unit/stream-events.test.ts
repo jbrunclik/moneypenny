@@ -19,7 +19,7 @@ const ui = vi.hoisted(() => ({
 const sync = vi.hoisted(() => ({ noteOwnMessageSaved: vi.fn() }));
 const extras = vi.hoisted(() => ({
   showGroundingChecking: vi.fn(),
-  notifyModelFallback: vi.fn(),
+  showModelFallbackNote: vi.fn(),
   handleResearchEvent: vi.fn(),
   addLiveArtifact: vi.fn(),
   acknowledgeServerStop: vi.fn(),
@@ -28,7 +28,9 @@ const extras = vi.hoisted(() => ({
 vi.mock('@/components/messages', () => ui);
 vi.mock('@/sync/SyncManager', () => ({ getSyncManager: () => sync }));
 vi.mock('@/components/messages/grounding', () => ({ showGroundingChecking: extras.showGroundingChecking }));
-vi.mock('@/core/model-fallback', () => ({ notifyModelFallback: extras.notifyModelFallback }));
+vi.mock('@/components/messages/model-fallback-note', () => ({
+  showModelFallbackNote: extras.showModelFallbackNote,
+}));
 vi.mock('@/core/research-stream', () => ({ handleResearchEvent: extras.handleResearchEvent }));
 vi.mock('@/components/messages/artifacts', () => ({ addLiveArtifact: extras.addLiveArtifact }));
 vi.mock('@/core/inflight-streams', () => ({ persistInflightStream: vi.fn() }));
@@ -134,7 +136,7 @@ describe('processStreamEvent', () => {
     processStreamEvent({ type: 'model_fallback', to: 'lite' }, state, 'c1', 'temp-1');
     processStreamEvent({ type: 'grounding_started' }, state, 'c1', 'temp-1');
     processStreamEvent({ type: 'retry', attempt: 2, max_retries: 3 }, state, 'c1', 'temp-1');
-    expect(extras.notifyModelFallback).toHaveBeenCalledWith('lite');
+    expect(extras.showModelFallbackNote).toHaveBeenCalledWith(state.messageEl, 'lite');
     expect(extras.showGroundingChecking).toHaveBeenCalledWith(state.messageEl);
     expect(ui.updateStreamingRetryStatus).toHaveBeenCalledWith(2, 3);
 
@@ -142,7 +144,7 @@ describe('processStreamEvent', () => {
     processStreamEvent({ type: 'model_fallback', to: 'lite' }, state, 'other', 'temp-1');
     processStreamEvent({ type: 'grounding_started' }, state, 'other', 'temp-1');
     processStreamEvent({ type: 'retry', attempt: 2 }, state, 'other', 'temp-1');
-    expect(extras.notifyModelFallback).not.toHaveBeenCalled();
+    expect(extras.showModelFallbackNote).not.toHaveBeenCalled();
     expect(extras.showGroundingChecking).not.toHaveBeenCalled();
     expect(ui.updateStreamingRetryStatus).not.toHaveBeenCalled();
   });

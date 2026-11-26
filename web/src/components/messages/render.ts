@@ -20,6 +20,7 @@ import { AI_AVATAR, CHAIN_ICON, CLOCK_ICON, PLAY_ICON, createIconElement, setIco
 import { createLogger } from '../../utils/logger';
 import { createMessageActions } from './actions';
 import { appendStoppedEarlyNote } from './stopped-early';
+import { appendModelFallbackNote } from './model-fallback-note';
 import { renderMessageFiles } from './attachments';
 import { applySendState } from './send-state';
 import { applyCompactionMarkers } from '../CompactionIndicator';
@@ -269,6 +270,9 @@ export function addMessageToUI(
   // Create message actions with all buttons and handlers
   if (message.role === 'assistant' && (message.stop_reason === 'user' || message.stopped_early)) {
     appendStoppedEarlyNote(contentWrapper, message.id, message.stop_reason === 'user' ? 'user' : 'budget');
+  }
+  if (message.role === 'assistant' && message.model_fallback) {
+    appendModelFallbackNote(contentWrapper, message.model_fallback);
   }
 
   const actions = createMessageActions(

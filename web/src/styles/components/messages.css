@@ -85,6 +85,65 @@
     border-color: var(--accent);
 }
 
+/* ----------------------------------------
+   Model fallback note (messages/model-fallback-note.ts): the chat's model
+   was down, the backup model wrote this reply. Meant to be unmissable, so
+   a tinted callout rather than a quiet line. Retry only on the latest
+   finished reply, as Continue above.
+   ---------------------------------------- */
+
+.message-model-fallback {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--warning-text);
+    background: var(--warning-a10);
+    border: 1px solid var(--warning-a15);
+    border-left: 3px solid var(--warning);
+    border-radius: var(--radius-md);
+}
+
+.message-model-fallback-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+}
+
+.message-model-fallback-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.message-model-fallback-text {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+.message-model-fallback-retry {
+    display: none;
+    font: inherit;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    padding: 2px var(--space-3);
+    cursor: pointer;
+}
+
+.message.assistant.message--latest-assistant:not(.streaming) .message-model-fallback-retry {
+    display: inline-flex;
+}
+
+.message-model-fallback-retry:hover {
+    border-color: var(--accent);
+}
+
 /* "Memory updated: ..." under a reply the background memory review learned
    from (messages/memory-note.ts) - quiet, a link to Memories */
 .message-memory-note {

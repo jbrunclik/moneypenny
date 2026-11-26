@@ -26,7 +26,7 @@ import { persistInflightStream } from './inflight-streams';
 import { acknowledgeServerStop, type StreamingState } from './stream-session';
 import { deepCopyThinkingState, updateLocalThinkingState } from './thinking-state';
 import { showGroundingChecking } from '../components/messages/grounding';
-import { notifyModelFallback } from './model-fallback';
+import { showModelFallbackNote } from '../components/messages/model-fallback-note';
 import { handleResearchEvent } from './research-stream';
 import { addLiveArtifact } from '../components/messages/artifacts';
 
@@ -188,7 +188,9 @@ function handleNoticeEvent(
 ): boolean {
   switch (event.type) {
     case 'model_fallback':
-      if (isCurrentConversation && typeof event.to === 'string') notifyModelFallback(event.to);
+      if (isCurrentConversation && typeof event.to === 'string') {
+        showModelFallbackNote(state.messageEl, event.to);
+      }
       return true;
 
     case 'grounding_started':

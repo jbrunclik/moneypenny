@@ -12863,6 +12863,12 @@ export interface components {
              */
             memory_note: string | null;
             /**
+             * Model Fallback
+             * @description The model that wrote the reply when the conversation's own model was down
+             * @default null
+             */
+            model_fallback: string | null;
+            /**
              * Proposals
              * @description The proposal cards this reply shows
              * @default null
@@ -13686,6 +13692,12 @@ export interface components {
              */
             memory_note: string | null;
             /**
+             * Model Fallback
+             * @description The model that wrote the reply when the conversation's own model was down
+             * @default null
+             */
+            model_fallback: string | null;
+            /**
              * Proposals
              * @description The proposal cards this reply shows
              * @default null
@@ -14063,6 +14075,12 @@ export interface components {
              * @default null
              */
             memory_note: string | null;
+            /**
+             * Model Fallback
+             * @description The model that wrote the reply when the conversation's own model was down
+             * @default null
+             */
+            model_fallback: string | null;
             /**
              * Proposals
              * @description The proposal cards this reply shows
@@ -15596,6 +15614,12 @@ export interface components {
              * @default null
              */
             memory_note: string | null;
+            /**
+             * Model Fallback
+             * @description The model that wrote the reply when the conversation's own model was down
+             * @default null
+             */
+            model_fallback: string | null;
             /**
              * Proposals
              * @description The proposal cards this reply shows

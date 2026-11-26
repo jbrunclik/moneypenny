@@ -127,6 +127,52 @@ def is_model_unavailable(error: BaseException) -> bool:
     return False
 
 
+_TIMEOUT_EXCEPTIONS = (TimeoutError, httpx.TimeoutException, httpx2.TimeoutException)
+
+
+def _is_unresponsive_link(error: BaseException) -> bool:
+    """Whether this one exception says the model gave no answer in time."""
+    if isinstance(error, _TIMEOUT_EXCEPTIONS):
+        return True
+    if isinstance(error, GenaiAPIError) and error.code == 504:
+        return True
+    head = str(error)[:_PATTERN_SCAN_CHARS].upper()
+    return ("504" in head and "DEADLINE_EXCEEDED" in head) or "READ OPERATION TIMED OUT" in head
+
+
+def is_model_unresponsive(error: BaseException) -> bool:
+    """Whether the model is down or not answering: a 503, a 504 or a timeout.
+
+    Nov 26 2026: Carbon answered every call for 20+ minutes with
+    504 DEADLINE_EXCEEDED or nothing within the request timeout; three
+    retries per call ran each turn into its stream limit with no reply.
+    A turn with another tier to fall back to stops retrying on these.
+    Not after streamed text: the fallback's reply would follow it.
+    """
+    if is_model_unavailable(error):
+        return True
+    if isinstance(error, PartialStreamError):
+        return False
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, PartialStreamError):
+            return False
+        if _is_unresponsive_link(current):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+def fallback_reason(error: BaseException) -> str:
+    """Why a turn fell back, for the log: unavailable (503), deadline (504) or timeout."""
+    if is_model_unavailable(error):
+        return "unavailable"
+    head = str(error)[:_PATTERN_SCAN_CHARS].upper()
+    return "deadline" if "504" in head or "DEADLINE" in head else "timeout"
+
+
 def calculate_delay(attempt: int) -> float:
     """Calculate the delay before the next retry attempt.
 
@@ -155,6 +201,7 @@ def with_retry[T](
     func: Callable[..., T],
     max_retries: int | None = None,
     on_retry: Callable[[Exception, int], None] | None = None,
+    give_up: Callable[[Exception], bool] = is_model_unavailable,
 ) -> Callable[..., T]:
     """Decorator to add retry logic with exponential backoff.
 
@@ -162,6 +209,8 @@ def with_retry[T](
         func: The function to wrap
         max_retries: Maximum number of retries (defaults to Config.AGENT_MAX_RETRIES)
         on_retry: Optional callback called before each retry with (error, attempt)
+        give_up: Errors not worth retrying on this model (the caller falls
+            back instead); a model that is down (503) by default
 
     Returns:
         Wrapped function with retry logic
@@ -179,8 +228,8 @@ def with_retry[T](
             except Exception as e:
                 last_error = e
 
-                # Don't retry if not transient, the model is down, or last attempt
-                if not is_transient_error(e) or is_model_unavailable(e) or attempt >= max_retries:
+                # Don't retry if not transient, the caller gives up on it, or last attempt
+                if not is_transient_error(e) or give_up(e) or attempt >= max_retries:
                     raise
 
                 # Calculate delay and sleep

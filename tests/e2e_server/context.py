@@ -63,6 +63,9 @@ DEFAULT_CONFIG = {
     "thinking_released": False,
     # Emit a transient-error "retry" status first and hold it this long (ms)
     "emit_retry_hold_ms": 0,
+    # The next streamed turn "falls back" to this model (one-shot): the
+    # model_fallback event before its text, the model in its usage
+    "fallback_model": None,
     # The next streamed turn fails before any text (one-shot) - the real
     # route's error path: an error event, the empty reply removed
     "fail_next_stream": False,

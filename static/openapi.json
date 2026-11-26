@@ -15276,6 +15276,19 @@
             "description": "What the background memory review saved after this reply",
             "title": "Memory Note"
           },
+          "model_fallback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The model that wrote the reply when the conversation's own model was down",
+            "title": "Model Fallback"
+          },
           "proposals": {
             "anyOf": [
               {
@@ -15315,6 +15328,7 @@
           "action",
           "delivery",
           "memory_note",
+          "model_fallback",
           "proposals",
           "created_at"
         ],
@@ -16941,6 +16955,19 @@
             "description": "What the background memory review saved after this reply",
             "title": "Memory Note"
           },
+          "model_fallback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The model that wrote the reply when the conversation's own model was down",
+            "title": "Model Fallback"
+          },
           "proposals": {
             "anyOf": [
               {
@@ -16980,6 +17007,7 @@
           "action",
           "delivery",
           "memory_note",
+          "model_fallback",
           "proposals",
           "created_at"
         ],
@@ -17726,6 +17754,19 @@
             "description": "What the background memory review saved after this reply",
             "title": "Memory Note"
           },
+          "model_fallback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The model that wrote the reply when the conversation's own model was down",
+            "title": "Model Fallback"
+          },
           "proposals": {
             "anyOf": [
               {
@@ -17765,6 +17806,7 @@
           "action",
           "delivery",
           "memory_note",
+          "model_fallback",
           "proposals",
           "created_at"
         ],
@@ -20768,6 +20810,19 @@
             "description": "What the background memory review saved after this reply",
             "title": "Memory Note"
           },
+          "model_fallback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The model that wrote the reply when the conversation's own model was down",
+            "title": "Model Fallback"
+          },
           "proposals": {
             "anyOf": [
               {
@@ -20807,6 +20862,7 @@
           "action",
           "delivery",
           "memory_note",
+          "model_fallback",
           "proposals",
           "created_at"
         ],

@@ -14,6 +14,17 @@ describe('batch reply mapping', () => {
     expect(toAssistantMessage(response).artifacts).toEqual([{ id: 'a', version: 1, title: 'Tips' }]);
   });
 
+  it('keeps the fallback model, so the reply shows its note', () => {
+    const response = {
+      id: 'm1',
+      role: 'assistant',
+      content: 'Hi',
+      created_at: '2026-11-26T12:00:00',
+      model_fallback: 'gemini-4-hydrogen',
+    } as ChatResponse;
+    expect(toAssistantMessage(response).model_fallback).toBe('gemini-4-hydrogen');
+  });
+
   it('keeps why the reply stopped, so a re-render shows the same note', () => {
     const response = {
       id: 'm1',

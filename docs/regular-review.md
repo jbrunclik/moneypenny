@@ -55,6 +55,11 @@ The review itself changes nothing in production and edits nothing but
   "Transient error, retrying" by error head (500/504/timeouts now retry) and "Model call
   failed after streaming text, not retried" - the latter are turns the user saw fail
   mid-reply; many of them argue for resuming the stream instead.
+- Model fallbacks (from Nov 26 2026; [agent-graph.md](architecture/agent-graph.md#chat-node-and-transient-error-retries)):
+  "Model unavailable, falling back" per day by `model` and `reason`, and replies with
+  `messages.model_fallback` set. A model falling back on most days, or turns that still
+  hit "Chat stream timed out", is a finding; so is a Retry right after a fallback note
+  that falls back again (the model was still down).
 
 ## 2. Agents and integrations
 

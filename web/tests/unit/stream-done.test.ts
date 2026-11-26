@@ -52,6 +52,14 @@ describe('assistantMessageFromDone', () => {
     );
     expect(msg.stop_reason).toBe('user');
   });
+
+  it('carries the fallback model into the store message', () => {
+    const msg = assistantMessageFromDone(
+      { id: 'm1', created_at: '2026-11-26T12:00:00Z', content: 'Hi', model_fallback: 'gemini-4-hydrogen' },
+      'Hi'
+    );
+    expect(msg.model_fallback).toBe('gemini-4-hydrogen');
+  });
 });
 
 describe('assistantMessageFromDone grounding', () => {

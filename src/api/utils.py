@@ -129,6 +129,12 @@ def add_memory_note(data: dict[str, object], msg: Message) -> None:
         data["memory_note"] = msg.memory_note
 
 
+def add_model_fallback(data: dict[str, object], msg: Message) -> None:
+    """The model that wrote the reply when the turn's own model was down."""
+    if msg.model_fallback:
+        data["model_fallback"] = msg.model_fallback
+
+
 def add_research(data: dict[str, Any], msg: Any) -> None:
     """Deep-research offer or run data, when the message has it."""
     research = getattr(msg, "research", None)
@@ -357,6 +363,7 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
         add_action(msg_data, m)
         add_delivery(msg_data, m)
         add_memory_note(msg_data, m)
+        add_model_fallback(msg_data, m)
         add_proposals(msg_data, m, proposals)
 
         optimized_messages.append(msg_data)
@@ -417,6 +424,7 @@ def build_stream_done_event(
     add_research(done_data, assistant_msg)
     add_artifacts(done_data, assistant_msg)
     add_proposals(done_data, assistant_msg)
+    add_model_fallback(done_data, assistant_msg)
     done_data["message_count"] = conversation_message_count(assistant_msg)
 
     return done_data

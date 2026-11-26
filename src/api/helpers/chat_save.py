@@ -61,6 +61,7 @@ class _ReplyFields(TypedDict):
     grounding: GroundingSummary | None
     research: dict[str, Any] | None
     artifacts: list[ArtifactShown] | None
+    model_fallback: str | None
 
 
 class SaveResult:
@@ -155,6 +156,7 @@ def _persist_assistant_message(
     grounding: GroundingResult | None = None,
     research: dict[str, Any] | None = None,
     artifacts: list[ArtifactShown] | None = None,
+    model_fallback: str | None = None,
 ) -> Message:
     """UPDATE the stream-start placeholder, or INSERT when it is gone/absent.
 
@@ -176,6 +178,7 @@ def _persist_assistant_message(
         "grounding": grounding["summary"] if grounding else None,
         "research": research,
         "artifacts": artifacts or None,
+        "model_fallback": model_fallback,
     }
     if assistant_message_id:
         assistant_msg = db.update_message_content(assistant_message_id, content, **kwargs)
@@ -356,6 +359,7 @@ def save_message_to_db(
             usage.get("grounding"),
             research,
             artifacts,
+            usage.get("model_fallback"),
         )
         # The versions follow this reply (cleanup on delete/regenerate)
         db.link_artifact_versions(assistant_msg.id, [(a["id"], a["version"]) for a in artifacts])

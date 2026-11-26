@@ -250,6 +250,7 @@ class MessageMixin:
         action: MessageAction | None = None,
         artifacts: list[ArtifactShown] | None = None,
         delivery: MessageDelivery | None = None,
+        model_fallback: str | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -273,6 +274,7 @@ class MessageMixin:
             action: What a user message sent on the user's behalf was
             artifacts: Artifact versions shown under the reply ([{id, version, title}])
             delivery: The scheduled item that delivered this turn ({kind, label})
+            model_fallback: The model that wrote the reply when it was the fallback
 
         Returns:
             The created Message
@@ -303,8 +305,8 @@ class MessageMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding, research, action, artifacts, delivery)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding, research, action, artifacts, delivery, model_fallback)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     msg_id,
                     conversation_id,
@@ -323,6 +325,7 @@ class MessageMixin:
                     _json_or_none(action),
                     _json_or_none(artifacts),
                     _json_or_none(delivery),
+                    model_fallback,
                 ),
             )
             # Update conversation's updated_at
@@ -354,6 +357,7 @@ class MessageMixin:
             action=action,
             artifacts=artifacts,
             delivery=delivery,
+            model_fallback=model_fallback,
         )
 
     def get_streaming_placeholder_id(
@@ -485,6 +489,7 @@ class MessageMixin:
         grounding: GroundingSummary | None = None,
         research: dict[str, Any] | None = None,
         artifacts: list[ArtifactShown] | None = None,
+        model_fallback: str | None = None,
     ) -> Message | None:
         """Update an existing message's content fields.
 
@@ -504,6 +509,7 @@ class MessageMixin:
             grounding: Optional grounding summary for the footer
             research: Optional deep-research offer or run data
             artifacts: Artifact versions shown under the reply ([{id, version, title}])
+            model_fallback: The model that wrote the reply when it was the fallback
 
         Returns:
             The updated Message, or None if the message no longer exists
@@ -521,7 +527,7 @@ class MessageMixin:
                 """UPDATE messages
                    SET content = ?, files = ?, sources = ?, generated_images = ?, language = ?,
                        tool_outputs = ?, stop_reason = ?, annotations = ?, grounding = ?,
-                       research = ?, artifacts = ?
+                       research = ?, artifacts = ?, model_fallback = ?
                    WHERE id = ?""",
                 (
                     content,
@@ -535,6 +541,7 @@ class MessageMixin:
                     _json_or_none(grounding),
                     _json_or_none(research),
                     _json_or_none(artifacts),
+                    model_fallback,
                     message_id,
                 ),
             )

@@ -18,6 +18,7 @@ from src.api.helpers.turn_owner import sweep_turn_owners, turn_owner_gone
 from src.api.utils import (
     add_artifacts,
     add_grounding,
+    add_model_fallback,
     add_proposals,
     add_research,
     conversation_message_count,
@@ -134,6 +135,7 @@ def _done_event_from_message(msg: Any) -> dict[str, Any]:
     add_research(done, msg)
     add_artifacts(done, msg)
     add_proposals(done, msg)
+    add_model_fallback(done, msg)
     done["message_count"] = conversation_message_count(msg)
     return done
 

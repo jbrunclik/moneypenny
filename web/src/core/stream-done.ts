@@ -18,6 +18,7 @@ import { toast } from '../components/Toast';
 import type { Message, StreamDoneEvent } from '../types/api';
 import { decorateArtifacts } from '../components/messages/artifacts';
 import { decorateGrounding } from '../components/messages/grounding';
+import { showModelFallbackNote } from '../components/messages/model-fallback-note';
 import { finishResearchMessage } from '../components/messages/research-progress';
 import { decorateProposals, showAnsweredProposals } from '../components/messages/proposal-card';
 import { updateConversationTitle } from './conversation-actions';
@@ -28,6 +29,16 @@ import { handleImageScrollAfterMessage, settleAnchoredReply } from './response-s
 import { isTurnAnchored, settleTurnSpace } from '../components/messages/turn-anchor';
 
 const log = createLogger('messaging');
+
+/** The done event's notes on how the reply ended: stopped early, stopped by
+ *  the user, or written by the backup model. */
+function replyNotes(event: StreamDoneEvent): Pick<Message, 'stopped_early' | 'stop_reason' | 'model_fallback'> {
+  return {
+    ...(event.stopped_early !== undefined && { stopped_early: event.stopped_early }),
+    ...(event.stop_reason !== undefined && { stop_reason: event.stop_reason }),
+    ...(event.model_fallback !== undefined && { model_fallback: event.model_fallback }),
+  };
+}
 
 /**
  * The store Message for a completed streamed reply - the same data the
@@ -44,8 +55,7 @@ export function assistantMessageFromDone(event: StreamDoneEvent, streamedContent
     ...(event.generated_images !== undefined && { generated_images: event.generated_images }),
     ...(event.files !== undefined && { files: event.files }),
     ...(event.language !== undefined && { language: event.language }),
-    ...(event.stopped_early !== undefined && { stopped_early: event.stopped_early }),
-    ...(event.stop_reason !== undefined && { stop_reason: event.stop_reason }),
+    ...replyNotes(event),
     ...(event.annotations !== undefined && { annotations: event.annotations }),
     ...(event.grounding !== undefined && { grounding: event.grounding }),
     ...(event.research !== undefined && { research: event.research }),
@@ -132,6 +142,8 @@ function finalizeDoneBubble(
   finishResearchMessage(messageEl, reply, { live: true });
   // Cards for what the reply proposes (a reminder, a new agent, a change)
   decorateProposals(messageEl, reply, { live: true });
+  // Shown live when the fallback happened; a resumed or followed stream learns it here
+  if (event.model_fallback) showModelFallbackNote(messageEl, event.model_fallback);
   const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'budget' : null;
   if (reason) {
     const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');
