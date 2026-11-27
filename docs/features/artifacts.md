@@ -291,7 +291,24 @@ cases passed twice (32/32), the five prose guards included.
 `test_description_names_the_fits_the_nov_2026_audit_found_in_prose` guards
 the wording. The description grew by 838 characters (roughly 200 tokens) on every call that
 binds the tool. Evals are single clean asks; whether it holds in real
-threads with memories and long history is the re-measure in TODO.md.
+threads with memories and long history was the re-measure below.
+
+**Re-measured Nov 27 2026: it holds in real threads.** 12 new artifacts in
+432 chat turns (Nov 21-27) against 2 in 654 the week before; the two
+busiest accounts got 7 and 3, a third account 2. They are the intended
+fits: a dictation worksheet, a math cheat sheet, two theatre-voucher and an
+escape-room comparison, a trip plan, a vaccination plan, a bike chain-wax
+conversion, a car-coding runbook and its next-day steps, a study guide with
+cards and a test. Two checklists hold saved state. None is a case where
+prose was right. Of 107 long chat replies (over 1,500 characters) without
+an artifact most were rightly prose (opinions, therapy talk, post edits,
+Garmin session reviews); a handful were fits that stayed prose: a "full
+summary of changes" for a bike build, a travel-pouch comparison, a
+clothes buy list with a table, and a car-coding recap the user asked for as
+a PDF (it went to `create_file`). Artifact turns took 2-10 tool rounds
+(median 5), part of it the `artifact-design` skill load (one round per
+artifact) - acceptable at this volume. No trigger: no "make this an
+artifact" action, no tightening of the prose list.
 
 ## Sizing across devices
 

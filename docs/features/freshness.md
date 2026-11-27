@@ -246,7 +246,33 @@ lookup list.
   products.
 - Evals: `fresh_product_followup` and `fresh_gate_precision_product_thanks`
   assert the gate's own decision (`expect.gate_lookup`); all `fresh_*` cases
-  passed twice bar one live-web failure. Re-measure in TODO.md.
+  passed twice bar one live-web failure.
+
+**Re-measured Nov 27 2026** (`message_costs` chat turns, Nov 15-19 against
+Nov 21-27). A gate lookup is stored as a `research` call in `tools_used`, so
+the chat model's own web turns are web-tool turns minus lookup turns.
+
+| | Nov 15-19 | Nov 21-27 |
+|---|---|---|
+| Chat turns | 462 | 430 |
+| Gate lookups | 69 (14.9%) | 60 (14.0%) |
+| Chat model searched itself | 93 (20.1%) | 58 (13.5%) |
+| `high` thinking | 70 (15.2%) | 42 (9.8%) |
+| Average cost, `high` / other | $0.189 / $0.058 | $0.233 / $0.057 |
+| `gate_ms` median / p90 | 809 / 1,065 | 726 / 900 |
+| "Freshness gate timed out" | 5 (all Nov 19) | 1 (Nov 24) |
+
+- The replay's predicted rise in lookups (74 -> 105) did not show; the rate
+  held at 14%. The chat model searched on its own a third less, so the
+  turns the gate misses shrank, but the traffic changed with the week too
+  (the noise note above applies).
+- `high` turns fell by a third and cost more each; total `high` spend went
+  down ($13.20 -> $9.77).
+- Idle lookups (looked up, then nothing used) cannot be read from
+  `tools_used`, since the lookup itself is the `research` entry; it would
+  need the reply's sources. Not pursued: lookups did not grow.
+- No trigger in either direction: the follow-up clause stays, and the gate
+  keeps the first 1,200 characters of the previous reply.
 
 ## Dated search results
 
