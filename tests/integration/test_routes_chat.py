@@ -1727,6 +1727,37 @@ class TestTruncateAndRerun:
         assert [m.role for m in messages] == ["user", "assistant"]
         assert messages[-1].content == "Regenerated answer"
 
+    def test_regenerate_sends_the_user_messages_attachments(
+        self, client, auth_headers, test_conversation, test_database, test_blob_store
+    ) -> None:
+        """Nov 27 2026: a Retry on a failed reply to a PDF re-ran the turn
+        without the PDF - the model said no file was attached."""
+        report = test_database.add_message(
+            test_conversation.id,
+            "user",
+            "Here is my fit report",
+            files=[{"name": "fit.pdf", "type": "application/pdf", "size": 5, "data": "aGVsbG8="}],
+        )
+
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = ("Read it", [], {"input_tokens": 1}, [])
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"rerun_mode": "regenerate"},
+            )
+
+        assert response.status_code == 200
+        [sent] = mock_agent.chat_batch.call_args.kwargs["files"]
+        assert (sent["name"], sent["type"], sent["data"]) == (
+            "fit.pdf",
+            "application/pdf",
+            "aGVsbG8=",
+        )
+        assert sent["history_file_id"] == f"{report.id}:0"
+
     def test_rerun_requires_empty_message(
         self, client, auth_headers, test_conversation, test_database
     ) -> None:
@@ -2299,3 +2330,121 @@ class TestStreamModelErrorLeavesNoPlaceholder:
         assert '"type": "error"' in body
         messages = test_database.get_messages(test_conversation.id)
         assert [m.role for m in messages] == ["user"]
+
+
+class TestLostTurnCost:
+    """Nov 27 2026: a turn ran 13 tools, then its last model call failed with
+    a 504 - the completed calls were billed but no cost was recorded, since
+    only the final event carries a turn's usage."""
+
+    @staticmethod
+    def _billed_call() -> None:
+        from langchain_core.messages import AIMessage
+
+        from src.agent.turn_usage import record_model_usage
+
+        record_model_usage(
+            AIMessage(
+                content="",
+                usage_metadata={"input_tokens": 1000, "output_tokens": 50, "total_tokens": 1050},
+            )
+        )
+
+    @staticmethod
+    def _lost_rows(database: Database) -> list[dict[str, Any]]:
+        with database._pool.get_connection() as conn:
+            return [
+                dict(r)
+                for r in conn.execute(
+                    "SELECT feature, model, input_tokens, output_tokens, cost_usd FROM side_costs"
+                ).fetchall()
+            ]
+
+    def test_a_crashed_stream_records_its_completed_calls(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def failing_stream(*args: Any, **kwargs: Any) -> Any:
+                self._billed_call()
+                yield {"type": "thinking", "text": "hmm"}
+                raise RuntimeError("504 DEADLINE_EXCEEDED")
+
+            mock_agent.stream_chat_events = failing_stream
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Hello"},
+            )
+            body = response.data.decode()
+
+        assert '"type": "error"' in body
+        [row] = self._lost_rows(test_database)
+        assert (row["feature"], row["model"], row["input_tokens"], row["output_tokens"]) == (
+            "lost_turn",
+            test_conversation.model,
+            1000,
+            50,
+        )
+        assert row["cost_usd"] > 0
+
+    def test_a_crashed_batch_turn_records_its_completed_calls(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def failing_batch(*args: Any, **kwargs: Any) -> Any:
+                self._billed_call()
+                raise RuntimeError("504 DEADLINE_EXCEEDED")
+
+            mock_agent.chat_batch.side_effect = failing_batch
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Hello"},
+            )
+
+        assert response.status_code >= 500
+        [row] = self._lost_rows(test_database)
+        assert (row["feature"], row["input_tokens"], row["output_tokens"]) == (
+            "lost_turn",
+            1000,
+            50,
+        )
+
+    def test_a_finished_turn_records_nothing_extra(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def finished_batch(*args: Any, **kwargs: Any) -> Any:
+                self._billed_call()
+                return ("Done", [], {"input_tokens": 1000, "output_tokens": 50}, [])
+
+            mock_agent.chat_batch.side_effect = finished_batch
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Hello"},
+            )
+
+        assert response.status_code == 200
+        assert self._lost_rows(test_database) == []

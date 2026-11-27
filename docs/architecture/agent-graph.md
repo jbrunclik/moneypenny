@@ -55,7 +55,12 @@ were never retried.
 streamed`); a call that fails after text reached the stream raises `PartialStreamError`, which
 is neither retried nor sent to the fallback model: the retry streamed the reply again while
 the failed attempt's text stayed on screen and in the saved reply, so it appeared twice. The
-turn fails with its error and the partial text, and Retry answers it again.
+turn fails with its error and the partial text, and Retry answers it again. Only reply text
+counts (`_has_text`): with streaming on, langchain-core hands the callback the chunk's content
+blocks, so until Nov 27 2026 a thought-only chunk counted too - a 504 after five minutes of
+thinking was neither retried nor sent to the backup model, and the reply came back empty. A
+retry resends the turn's messages, so the tool results so far are reused; only the failed
+call's own thoughts are lost.
 
 **A model that is down falls back to the other tier.** A `503 UNAVAILABLE` ("high demand",
 `is_model_unavailable()`) is not retried: on Aug 27 2026 Flash returned it for minutes

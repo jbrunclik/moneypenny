@@ -15,6 +15,9 @@ them.
 
 from __future__ import annotations
 
+import base64
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
@@ -45,6 +48,7 @@ from src.agent.tools import (
     set_location_context,
     set_standing_namespace,
 )
+from src.agent.turn_usage import TokenTotals, collecting_model_usage
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
 from src.api.helpers.conversation_facts import load_turn_facts
 from src.api.helpers.lost_actions import pop_lost_actions_note
@@ -54,7 +58,16 @@ from src.api.schemas.chat import VerifyClaimAction as VerifyClaimRequest
 from src.api.utils import is_empty_placeholder
 from src.auth.google_calendar import get_valid_calendar_access_token
 from src.config import Config
-from src.db.models import Conversation, ConversationFact, Message, Proposal, User, db
+from src.db.blob_store import get_blob_store
+from src.db.models import (
+    Conversation,
+    ConversationFact,
+    Message,
+    Proposal,
+    User,
+    db,
+    make_blob_key,
+)
 from src.db.models.dataclasses import MessageAction
 from src.enums import MessageRole
 from src.services.background_thumbnails import (
@@ -62,6 +75,7 @@ from src.services.background_thumbnails import (
     queue_pending_thumbnails,
 )
 from src.services.planner.dashboard import build_planner_dashboard
+from src.services.side_costs import record_side_tokens
 from src.utils.files import UploadedFile, validate_files
 from src.utils.logging import get_logger, log_payload_snippet
 from src.utils.model_access import model_for
@@ -147,6 +161,8 @@ def prepare_turn(
         if data.replaces_message_id:
             _replace_last_reply(conv_id, user.id, data.replaces_message_id)
         message_text, history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
+        if data.rerun_mode == "regenerate":
+            files = _stored_turn_files(user_msg)
     else:
         user_msg = _save_user_message(
             conv_id, message_text, files, data.client_message_id, _action(data, plan)
@@ -385,6 +401,65 @@ def _resolve_rerun(conv_id: str, rerun_mode: str) -> tuple[str, list[Message], M
             "Nothing to continue - the last message is not an assistant response"
         )
     return _CONTINUE_INSTRUCTION, existing, last
+
+
+def _stored_turn_files(message: Message) -> list[UploadedFile]:
+    """A saved user message's attachments as a turn carries them, for a
+    regenerate that answers it again (Nov 27 2026: a Retry sent no files, so
+    the model said nothing was attached). A file whose bytes are gone (the
+    retention sweep) is left out; the history still names it."""
+    blob_store = get_blob_store()
+    files: list[UploadedFile] = []
+    for index, stored in enumerate(message.files):
+        blob = blob_store.get(make_blob_key(message.id, index))
+        data = base64.b64encode(blob[0]).decode("ascii") if blob else stored.get("data")
+        if not data:
+            logger.warning(
+                "Regenerate: attachment bytes missing",
+                extra={"message_id": message.id, "file_index": index},
+            )
+            continue
+        file: UploadedFile = {
+            "name": stored["name"],
+            "type": stored["type"],
+            "data": data,
+            # Its stored index, as annotate_history_file_ids names a fresh upload
+            "history_file_id": f"{message.id}:{index}",
+        }
+        if uri := stored.get("gemini_file_uri"):
+            file["gemini_file_uri"] = uri
+        files.append(file)
+    return files
+
+
+@contextmanager
+def recording_lost_usage(model: str, user_id: str, delivered: Callable[[], bool]) -> Iterator[None]:
+    """Count the turn's completed model calls; when the turn ends without
+    delivering its usage (a crash or a timeout), record them as a `lost_turn`
+    side cost. Nov 27 2026: a 504 on the last call of a 13-tool turn left
+    every billed call unrecorded. Calls a fallback model made are priced at
+    the turn's model."""
+    totals = TokenTotals()
+    try:
+        with collecting_model_usage(totals):
+            yield
+    finally:
+        if totals.any and not delivered():
+            logger.warning(
+                "Turn lost its usage; recorded as a side cost",
+                extra={
+                    "user_id": user_id,
+                    "model": model,
+                    "input_tokens": totals.input_tokens,
+                    "output_tokens": totals.output_tokens,
+                },
+            )
+            record_side_tokens(
+                "lost_turn",
+                model,
+                (totals.input_tokens, totals.cached_tokens, totals.output_tokens),
+                user_id,
+            )
 
 
 @dataclass

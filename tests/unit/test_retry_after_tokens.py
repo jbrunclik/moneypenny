@@ -18,7 +18,7 @@ from src.agent.retry import PartialStreamError, with_retry
 class _Model:
     """Streams `tokens` through the call's callbacks, then fails or answers."""
 
-    def __init__(self, tokens: list[str], fail: bool) -> None:
+    def __init__(self, tokens: list[Any], fail: bool) -> None:
         self.tokens, self.fail, self.calls = tokens, fail, 0
 
     def invoke(self, messages: list[Any], config: dict[str, Any]) -> AIMessage:
@@ -55,3 +55,22 @@ def test_an_empty_token_does_not_count_as_streamed_text() -> None:
     with pytest.raises(GoogleAPIError):
         with_retry(chat_node._invoke_model, max_retries=1)(model, [], None)
     assert model.calls == 2
+
+
+def test_thought_chunks_do_not_count_as_streamed_text() -> None:
+    """Nov 27 2026: with streaming on, langchain-core hands the callback the
+    chunk's content blocks, so a call that had only thought before a 504
+    counted as streamed - neither retried nor sent to the backup model, and
+    the reply came back empty."""
+    thought = [{"type": "thinking", "thinking": "Analyzing the upload", "index": 0}]
+    model = _Model([thought, thought], fail=True)
+    with pytest.raises(GoogleAPIError):
+        with_retry(chat_node._invoke_model, max_retries=1)(model, [], None)
+    assert model.calls == 2
+
+
+def test_a_text_block_counts_as_streamed_text() -> None:
+    model = _Model([[{"type": "text", "text": "Hello", "index": 0}]], fail=True)
+    with pytest.raises(PartialStreamError):
+        with_retry(chat_node._invoke_model)(model, [], None)
+    assert model.calls == 1

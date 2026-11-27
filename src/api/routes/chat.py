@@ -33,6 +33,7 @@ from src.api.helpers.chat_turn import (
     PreparedTurn,
     build_turn_context,
     prepare_turn,
+    recording_lost_usage,
     refuse_if_read_only,
 )
 from src.api.helpers.stream_resume import stream_resume_events
@@ -122,9 +123,12 @@ def _run_batch_turn(user: User, conv_id: str, turn: PreparedTurn) -> _BatchTurn:
     placeholder_id = mark_turn_in_flight(conv_id)
     saved = None
     try:
-        raw_response, tool_results, usage_info, result_messages = ctx.create_agent().chat_batch(
-            **ctx.agent_call_kwargs()
-        )
+        returned = False
+        with recording_lost_usage(ctx.model, user.id, delivered=lambda: returned):
+            raw_response, tool_results, usage_info, result_messages = ctx.create_agent().chat_batch(
+                **ctx.agent_call_kwargs()
+            )
+            returned = True
         logger.debug(
             "Chat agent completed",
             extra={

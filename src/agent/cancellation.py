@@ -12,7 +12,7 @@ appears. Checkpoints only read the token - no DB access on the hot path.
 import json
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any
 from uuid import UUID
@@ -153,9 +153,23 @@ class CancelOnToken(BaseCallbackHandler):
         now = _clock()
         self._longest_gap = max(self._longest_gap, now - (self._last_chunk or self._started))
         self._last_chunk = now
-        if token:
+        if _has_text(token):
             self.streamed = True
         raise_if_cancelled()
+
+
+def _has_text(token: str | Sequence[object]) -> bool:
+    """Whether a chunk carries reply text. langchain-core passes a streamed
+    call's content blocks (Nov 27 2026: thought-only chunks counted, so a 504
+    before any text was never retried); thoughts and tool calls are not text."""
+    if isinstance(token, str):
+        return bool(token)
+    return any(
+        bool(block)
+        if isinstance(block, str)
+        else isinstance(block, dict) and block.get("type") == "text" and bool(block.get("text"))
+        for block in token
+    )
 
 
 @contextmanager

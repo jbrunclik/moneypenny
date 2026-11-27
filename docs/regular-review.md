@@ -143,6 +143,10 @@ The review itself changes nothing in production and edits nothing but
   price rises). `ai_assist` cost per call should sit well under its pre-Nov 16
   2026 level (low thinking since then); the two reviews run at high on purpose
   (cost-tracking.md, "Thinking level").
+- Lost turns (from Nov 27 2026; [cost-tracking.md](features/cost-tracking.md#side-calls-side_costs-from-nov-15-2026)):
+  `side_costs` `lost_turn` rows per week (count, `cost_usd`) and the "Turn lost
+  its usage" lines - billed calls of turns that crashed or timed out. More than a
+  few a week means failures are costing real money; find which error ends them.
 - Web reading (from Nov 15 2026; [agent-tools.md](features/agent-tools.md#tool-security)):
   the share of research page fetches that fail ("research completed"
   `fetch_failures` against `fetched_ok`; baseline 27%, 937 of 3,475 in the 30 days to

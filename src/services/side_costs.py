@@ -56,3 +56,15 @@ def record_side_cost(feature: str, model: str, usage: object, user_id: str | Non
         db.add_side_cost(feature, model, tokens, cost, user_id=user_id, service_tier=tier)
     except Exception:  # telemetry must not break the call it measures
         logger.exception("Side cost not recorded", extra={"feature": feature})
+
+
+def record_side_tokens(
+    feature: str, model: str, tokens: tuple[int, int, int], user_id: str | None = None
+) -> None:
+    """Record already-counted tokens (input, cached input, output) at standard
+    rates; logged, never raised, on failure."""
+    try:
+        cost = calculate_token_cost(model, tokens[0], tokens[2], tokens[1])
+        db.add_side_cost(feature, model, tokens, cost, user_id=user_id)
+    except Exception:  # telemetry must not break the turn it measures
+        logger.exception("Side cost not recorded", extra={"feature": feature})

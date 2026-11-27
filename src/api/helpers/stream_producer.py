@@ -27,6 +27,7 @@ from src.agent.cancellation import (
 from src.agent.deep_research.briefs import recent_turns_text
 from src.agent.deep_research.pipeline import run_deep_research
 from src.agent.interjection import clear_interjection, pop_interjection
+from src.api.helpers.chat_turn import recording_lost_usage
 from src.api.helpers.stream_resume import JOURNALED_EVENT_TYPES, StreamJournal
 from src.api.helpers.turn_steering import defer_unanswered_steering
 from src.config import Config
@@ -236,9 +237,12 @@ def stream_events(
         logger.debug(
             "Stream thread started", extra={"user_id": user_id, "conversation_id": conv_id}
         )
-        event_count, timed_out = _pump_events(
-            agent, turn, stop_key, event_queue, final_results, journal
-        )
+        with recording_lost_usage(
+            turn.model, user_id, delivered=lambda: "usage_info" in final_results
+        ):
+            event_count, timed_out = _pump_events(
+                agent, turn, stop_key, event_queue, final_results, journal
+            )
 
         if timed_out:
             timeout_event: dict[str, Any] = {"type": "timeout"}

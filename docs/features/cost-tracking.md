@@ -88,6 +88,16 @@ expect a few cents a month. The admin page adds
 them to the family totals and lists them per feature (Nov 16 2026,
 [admin.md](admin.md)).
 
+**Lost turns** (`lost_turn`, Nov 27 2026): a turn's usage arrives only with its
+final event (stream) or return value (batch), so a turn that crashed or timed
+out after completed model calls recorded nothing although Google billed them
+(a 13-tool turn whose last call hit a 504). `recording_lost_usage` in
+[chat_turn.py](../../src/api/helpers/chat_turn.py) counts every completed call
+(`collecting_model_usage`) and, when no usage was delivered, writes them as one
+`lost_turn` row at the turn model's standard rates (a fallback model's calls
+included), with a "Turn lost its usage; recorded as a side cost" warning. The
+failed call itself is not billed (Google: 4xx/5xx errors cost no tokens).
+
 ### Flex tier (Nov 17 2026)
 
 Gemini's Flex tier bills `FLEX_PRICE_RATIO` (0.5) of the standard price for
